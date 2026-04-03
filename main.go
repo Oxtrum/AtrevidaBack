@@ -2,6 +2,7 @@ package main
 
 import (
 	"atrevida-agenda-api/config"
+	"atrevida-agenda-api/handlers"
 	"atrevida-agenda-api/services"
 	"net/http"
 
@@ -34,6 +35,8 @@ func main() {
 
 		c.JSON(http.StatusOK, data)
 	})
+
+	r.GET("/reservas", handlers.GetReservas)
 
 	r.Run(":8080")
 }
