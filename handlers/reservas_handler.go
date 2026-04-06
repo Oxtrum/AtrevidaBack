@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"atrevida-agenda-api/services"
+	"atrevida-agenda-api/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,22 +17,12 @@ var tiposValidos = map[string]bool{
 }
 
 // GET /reservas
-//
-// Query params (todos opcionales):
-//   local      → nombre exacto del local / sheet (case-insensitive)
-//   semana     → substring del título de semana  (case-insensitive)
-//   dia        → nombre exacto del día           (case-insensitive)
-//   tipo       → "mesa" | "bicicleta" | "feriado"
-//   cliente    → substring del nombre de cliente (case-insensitive)
-//   reservados → "true" devuelve solo items con cliente asignado
 func GetReservas(c *gin.Context) {
 	paramTipo := strings.ToLower(strings.TrimSpace(c.Query("tipo")))
 
 	if paramTipo != "" && !tiposValidos[paramTipo] {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":  "tipo inválido",
-			"validos": []string{"mesa", "bicicleta", "feriado"},
-		})
+		utils.RespondError(c, http.StatusBadRequest,
+			"tipo inválido, valores permitidos: mesa, bicicleta, feriado")
 		return
 	}
 
@@ -46,11 +37,11 @@ func GetReservas(c *gin.Context) {
 
 	resultado, err := services.GetReservasFiltradas(filtro)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.Respond(c, http.StatusOK, gin.H{
 		"total_locales": len(resultado),
 		"filtros": gin.H{
 			"local":      filtro.Local,
@@ -60,6 +51,6 @@ func GetReservas(c *gin.Context) {
 			"cliente":    filtro.Cliente,
 			"reservados": filtro.Reservados,
 		},
-		"data": resultado,
+		"reservas": resultado,
 	})
 }
