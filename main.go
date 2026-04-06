@@ -7,6 +7,7 @@ import (
 	"atrevida-agenda-api/utils"
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,6 +17,8 @@ func main() {
 	apiName := "Atrevida Fit - Agenda API" + "(" + versionString + ")"
 
 	r := gin.Default()
+
+	r.Use(cors.Default())
 
 	println(apiName + "\n" + "Running")
 
