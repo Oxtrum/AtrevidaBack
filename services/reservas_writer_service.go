@@ -106,7 +106,7 @@ func escribirEnSlot(local, semana, dia, hora, tipo, cliente, servicio string) er
 	return WriteCelda(local, a1, ReconstruirCelda(items))
 }
 
-// UPDATE: modificar reserva existente 
+// UPDATE: modificar reserva existente
 
 func ActualizarReserva(input ActualizarReservaInput) (ResultadoReserva, error) {
 	resultado := ResultadoReserva{}
@@ -232,18 +232,34 @@ func resolverRangoHoras(local, semana, dia, horaDesde, horaHasta string) ([]stri
 		return nil, fmt.Errorf("hora '%s' no encontrada en la semana '%s'", horaDesde, semana)
 	}
 
-	// con horaHasta: retornar todos los slots desde horaDesde hasta (sin incluir) horaHasta
+	// con horaHasta: retornar todos los slots desde horaDesde hasta  horaHasta (sin incluir la ultima)
 	inicio := -1
 	fin := -1
+	hastaNorm := strings.TrimSpace(horaHasta)
 
 	for i, h := range todasHoras {
-		horaInicio := strings.TrimSpace(strings.SplitN(h, " a ", 2)[0])
+		partes := strings.SplitN(h, " a ", 2)
+		horaInicio := strings.TrimSpace(partes[0])
+		horaFin := ""
+		if len(partes) == 2 {
+			horaFin = strings.TrimSpace(partes[1])
+		}
+
 		if inicio == -1 && strings.EqualFold(horaInicio, buscar) {
 			inicio = i
 		}
-		if strings.EqualFold(horaInicio, strings.TrimSpace(horaHasta)) {
-			fin = i
-			break
+
+		if inicio != -1 {
+			// caso normal: horaHasta es inicio de un slot → excluir ese slot
+			if strings.EqualFold(horaInicio, hastaNorm) {
+				fin = i
+				break
+			}
+			// caso borde: horaHasta es el fin del slot actual (ej: "20:30" en "20:00 a 20:30")
+			if strings.EqualFold(horaFin, hastaNorm) {
+				fin = i + 1
+				break
+			}
 		}
 	}
 
@@ -251,7 +267,7 @@ func resolverRangoHoras(local, semana, dia, horaDesde, horaHasta string) ([]stri
 		return nil, fmt.Errorf("hora de inicio '%s' no encontrada", horaDesde)
 	}
 	if fin == -1 {
-		return nil, fmt.Errorf("hora de fin '%s' no encontrada", horaHasta)
+		return nil, fmt.Errorf("hora de fin '%s' no corresponde al inicio ni fin de ningún bloque", horaHasta)
 	}
 	if fin <= inicio {
 		return nil, fmt.Errorf("hora_hasta debe ser posterior a hora_desde")
