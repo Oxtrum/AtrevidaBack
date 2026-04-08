@@ -16,14 +16,13 @@ type crearReservaRequest struct {
 	Semana    string `json:"semana"     binding:"required"`
 	Dia       string `json:"dia"        binding:"required"`
 	HoraDesde string `json:"hora_desde" binding:"required"`
-	HoraHasta string `json:"hora_hasta"` // opcional
+	HoraHasta string `json:"hora_hasta"`
 	Tipo      string `json:"tipo"       binding:"required"`
 	Cliente   string `json:"cliente"    binding:"required"`
-	Servicio  string `json:"servicio"` // opcional
-	// Agregar el filtrado de libres
+	Servicio  string `json:"servicio"`
 }
 
-func PostReserva(c *gin.Context) {
+func (h *Container) PostReserva(c *gin.Context) {
 	var req crearReservaRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
@@ -36,7 +35,7 @@ func PostReserva(c *gin.Context) {
 		return
 	}
 
-	resultado, err := services.CrearReserva(services.CrearReservaInput{
+	resultado, err := h.Writer.CrearReserva(services.CrearReservaInput{
 		Local:     strings.TrimSpace(req.Local),
 		Semana:    strings.TrimSpace(req.Semana),
 		Dia:       strings.TrimSpace(req.Dia),
@@ -61,8 +60,7 @@ func PostReserva(c *gin.Context) {
 		utils.RespondError(c, http.StatusConflict,
 			"no se pudo reservar ningún slot: "+strings.Join(resultado.Errores, "; "))
 	case len(resultado.Errores) > 0:
-		utils.RespondMultiStatus(c, data,
-			"algunos slots no pudieron reservarse")
+		utils.RespondMultiStatus(c, data, "algunos slots no pudieron reservarse")
 	default:
 		utils.Respond(c, http.StatusOK, data)
 	}
@@ -84,7 +82,7 @@ type actualizarReservaRequest struct {
 	NuevoServicio  string `json:"nuevo_servicio"`
 }
 
-func PatchReserva(c *gin.Context) {
+func (h *Container) PatchReserva(c *gin.Context) {
 	var req actualizarReservaRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
@@ -109,7 +107,7 @@ func PatchReserva(c *gin.Context) {
 		return
 	}
 
-	resultado, err := services.ActualizarReserva(services.ActualizarReservaInput{
+	resultado, err := h.Writer.ActualizarReserva(services.ActualizarReservaInput{
 		Local:          strings.TrimSpace(req.Local),
 		Semana:         strings.TrimSpace(req.Semana),
 		Dia:            strings.TrimSpace(req.Dia),

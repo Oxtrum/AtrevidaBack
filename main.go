@@ -1,61 +1,63 @@
 package main
 
 import (
+	"net/http"
+
 	"atrevida-agenda-api/config"
 	"atrevida-agenda-api/handlers"
+	sheetsrepo "atrevida-agenda-api/repositories/sheets"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	config.Load()
+
 	versionString := "v0.1"
 	apiName := "Atrevida Fit - Agenda API" + "(" + versionString + ")"
 
+	// Dependencias
+	repo := sheetsrepo.NewReservasRepo(config.App)
+	reservasService := services.NewReservasService(repo)
+	writerService := services.NewReservasWriterService(repo)
+	serviciosService := services.NewServiciosService(repo)
+	h := handlers.NewContainer(reservasService, writerService, serviciosService)
+
+	// Router
 	r := gin.Default()
 
 	println(apiName + "\n" + "Running")
 
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": apiName,
-		})
+		c.JSON(http.StatusOK, gin.H{"message": apiName})
 	})
 
+	// Debug
 	r.GET("/reservas/unfiltered", func(c *gin.Context) {
-		reservas := services.GetAllReservas()
-
-		c.JSON(http.StatusOK, reservas)
+		c.JSON(http.StatusOK, repo.GetAllReservas())
 	})
-
 	r.GET("/reservas/raw", func(c *gin.Context) {
-		data := services.GetSheetData("SAN MARTIN")
-
-		c.JSON(http.StatusOK, data)
+		c.JSON(http.StatusOK, repo.GetSheetData("SAN MARTIN"))
 	})
-
 	r.GET("/reservas/celda-raw", func(c *gin.Context) {
 		local := c.Query("local")
 		semana := c.Query("semana")
 		dia := c.Query("dia")
 		hora := c.Query("hora")
 
-		a1, err := services.ResolverCoordenada(local, semana, dia, hora)
+		a1, err := repo.ResolverCoordenada(local, semana, dia, hora)
 		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-
-		raw, err := services.GetCeldaRaw(local, a1)
+		raw, err := repo.GetCeldaRaw(local, a1)
 		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-
-		c.JSON(200, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"a1":     a1,
 			"raw":    raw,
 			"len":    len(raw),
@@ -64,9 +66,13 @@ func main() {
 		})
 	})
 
-	r.GET("/reservas", handlers.GetReservas)
-	r.POST("/reservas", handlers.PostReserva)
-	r.PATCH("/reservas", handlers.PatchReserva)
+	// Reservas
+	r.GET("/reservas", h.GetReservas)
+	r.POST("/reservas", h.PostReserva)
+	r.PATCH("/reservas", h.PatchReserva)
+
+	// Catálogo de servicios
+	r.GET("/servicios", h.GetServicios)
 
 	r.Run(":8080")
 }

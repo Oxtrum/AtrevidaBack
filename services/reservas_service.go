@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"atrevida-agenda-api/models"
+	repository "atrevida-agenda-api/repositories"
 )
 
 type FiltroReservas struct {
@@ -15,8 +16,16 @@ type FiltroReservas struct {
 	Reservados bool
 }
 
-func GetReservasFiltradas(f FiltroReservas) ([]models.LocalReservas, error) {
-	todos := GetAllReservas()
+type ReservasService struct {
+	repo repository.ReservasRepository
+}
+
+func NewReservasService(repo repository.ReservasRepository) *ReservasService {
+	return &ReservasService{repo: repo}
+}
+
+func (s *ReservasService) GetReservasFiltradas(f FiltroReservas) ([]models.LocalReservas, error) {
+	todos := s.repo.GetAllReservas()
 
 	locales := filterLocales(todos, f.Local)
 	if len(locales) == 0 && f.Local != "" {

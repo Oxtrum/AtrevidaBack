@@ -17,7 +17,7 @@ var tiposValidos = map[string]bool{
 }
 
 // GET /reservas
-func GetReservas(c *gin.Context) {
+func (h *Container) GetReservas(c *gin.Context) {
 	paramTipo := strings.ToLower(strings.TrimSpace(c.Query("tipo")))
 
 	if paramTipo != "" && !tiposValidos[paramTipo] {
@@ -35,7 +35,7 @@ func GetReservas(c *gin.Context) {
 		Reservados: strings.ToLower(c.Query("reservados")) == "true",
 	}
 
-	resultado, err := services.GetReservasFiltradas(filtro)
+	resultado, err := h.Reservas.GetReservasFiltradas(filtro)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return

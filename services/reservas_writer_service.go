@@ -1,11 +1,12 @@
 package services
 
 import (
+	repository "atrevida-agenda-api/repositories"
 	"fmt"
 	"strings"
 )
 
-// Structs de entrada
+// ── Structs de entrada ────────────────────────────────────────────────────────
 
 type CrearReservaInput struct {
 	Local     string
@@ -40,18 +41,28 @@ type ResultadoReserva struct {
 	Errores  []string
 }
 
-// POST: crear reserva
+// ── Writer service ────────────────────────────────────────────────────────────
 
-func CrearReserva(input CrearReservaInput) (ResultadoReserva, error) {
+type ReservasWriterService struct {
+	repo repository.ReservasRepository
+}
+
+func NewReservasWriterService(repo repository.ReservasRepository) *ReservasWriterService {
+	return &ReservasWriterService{repo: repo}
+}
+
+// ── POST: crear reserva ───────────────────────────────────────────────────────
+
+func (s *ReservasWriterService) CrearReserva(input CrearReservaInput) (ResultadoReserva, error) {
 	resultado := ResultadoReserva{}
 
-	slots, err := resolverRangoHoras(input.Local, input.Semana, input.Dia, input.HoraDesde, input.HoraHasta)
+	slots, err := s.resolverRangoHoras(input.Local, input.Semana, input.Dia, input.HoraDesde, input.HoraHasta)
 	if err != nil {
 		return resultado, err
 	}
 
 	for _, hora := range slots {
-		if err := escribirEnSlot(input.Local, input.Semana, input.Dia, hora, input.Tipo, input.Cliente, input.Servicio); err != nil {
+		if err := s.escribirEnSlot(input.Local, input.Semana, input.Dia, hora, input.Tipo, input.Cliente, input.Servicio); err != nil {
 			resultado.Errores = append(resultado.Errores, fmt.Sprintf("%s: %s", hora, err.Error()))
 		} else {
 			resultado.Exitosos = append(resultado.Exitosos, hora)
@@ -62,22 +73,20 @@ func CrearReserva(input CrearReservaInput) (ResultadoReserva, error) {
 }
 
 // escribirEnSlot lee la celda, valida tipo disponible, ocupa el primer espacio libre y escribe.
-func escribirEnSlot(local, semana, dia, hora, tipo, cliente, servicio string) error {
-	a1, err := ResolverCoordenada(local, semana, dia, hora)
+func (s *ReservasWriterService) escribirEnSlot(local, semana, dia, hora, tipo, cliente, servicio string) error {
+	a1, err := s.repo.ResolverCoordenada(local, semana, dia, hora)
 	if err != nil {
 		return err
 	}
 
-	raw, err := GetCeldaRaw(local, a1)
+	raw, err := s.repo.GetCeldaRaw(local, a1)
 	if err != nil {
 		return err
 	}
 
-	// usar el parser existente
-	items := ParseSlotCelda(raw)
+	items := parseSlotCelda(raw)
 
-	// validar que el tipo existe en este slot
-	existentes := TiposExistentes(items)
+	existentes := tiposExistentes(items)
 	if !existentes[strings.ToUpper(tipo)] {
 		keys := make([]string, 0, len(existentes))
 		for k := range existentes {
@@ -87,7 +96,6 @@ func escribirEnSlot(local, semana, dia, hora, tipo, cliente, servicio string) er
 			tipo, strings.Join(keys, ", "))
 	}
 
-	// ocupar el primer espacio libre del tipo pedido
 	tipoNombre := letraToTipoNombre(tipo)
 	encontrado := false
 	for i, item := range items {
@@ -103,15 +111,15 @@ func escribirEnSlot(local, semana, dia, hora, tipo, cliente, servicio string) er
 		return fmt.Errorf("no hay espacios libres de tipo '%s' en este slot", tipo)
 	}
 
-	return WriteCelda(local, a1, ReconstruirCelda(items))
+	return s.repo.WriteCelda(local, a1, reconstruirCelda(items))
 }
 
-// UPDATE: modificar reserva existente
+// ── UPDATE: modificar reserva existente ──────────────────────────────────────
 
-func ActualizarReserva(input ActualizarReservaInput) (ResultadoReserva, error) {
+func (s *ReservasWriterService) ActualizarReserva(input ActualizarReservaInput) (ResultadoReserva, error) {
 	resultado := ResultadoReserva{}
 
-	horasOriginales, err := resolverRangoHoras(input.Local, input.Semana, input.Dia, input.Hora, "")
+	horasOriginales, err := s.resolverRangoHoras(input.Local, input.Semana, input.Dia, input.Hora, "")
 	if err != nil {
 		return resultado, err
 	}
@@ -123,7 +131,7 @@ func ActualizarReserva(input ActualizarReservaInput) (ResultadoReserva, error) {
 
 	horasDestino := horasOriginales
 	if input.NuevaHoraDesde != "" {
-		horasDestino, err = resolverRangoHoras(input.Local, input.Semana, diaDest, input.NuevaHoraDesde, input.NuevaHoraHasta)
+		horasDestino, err = s.resolverRangoHoras(input.Local, input.Semana, diaDest, input.NuevaHoraDesde, input.NuevaHoraHasta)
 		if err != nil {
 			return resultado, err
 		}
@@ -135,13 +143,13 @@ func ActualizarReserva(input ActualizarReservaInput) (ResultadoReserva, error) {
 	}
 
 	for _, hora := range horasOriginales {
-		if err := borrarDeSlot(input.Local, input.Semana, input.Dia, hora, input.Tipo, input.Cliente); err != nil {
+		if err := s.borrarDeSlot(input.Local, input.Semana, input.Dia, hora, input.Tipo, input.Cliente); err != nil {
 			resultado.Errores = append(resultado.Errores, fmt.Sprintf("borrar %s: %s", hora, err.Error()))
 		}
 	}
 
 	for _, hora := range horasDestino {
-		if err := escribirEnSlot(input.Local, input.Semana, diaDest, hora, tipoFinal, input.Cliente, input.NuevoServicio); err != nil {
+		if err := s.escribirEnSlot(input.Local, input.Semana, diaDest, hora, tipoFinal, input.Cliente, input.NuevoServicio); err != nil {
 			resultado.Errores = append(resultado.Errores, fmt.Sprintf("escribir %s: %s", hora, err.Error()))
 		} else {
 			resultado.Exitosos = append(resultado.Exitosos, hora)
@@ -152,18 +160,18 @@ func ActualizarReserva(input ActualizarReservaInput) (ResultadoReserva, error) {
 }
 
 // borrarDeSlot deja vacía la línea del cliente en el slot.
-func borrarDeSlot(local, semana, dia, hora, tipo, cliente string) error {
-	a1, err := ResolverCoordenada(local, semana, dia, hora)
+func (s *ReservasWriterService) borrarDeSlot(local, semana, dia, hora, tipo, cliente string) error {
+	a1, err := s.repo.ResolverCoordenada(local, semana, dia, hora)
 	if err != nil {
 		return err
 	}
 
-	raw, err := GetCeldaRaw(local, a1)
+	raw, err := s.repo.GetCeldaRaw(local, a1)
 	if err != nil {
 		return err
 	}
 
-	items := ParseSlotCelda(raw)
+	items := parseSlotCelda(raw)
 	tipoNombre := letraToTipoNombre(tipo)
 
 	encontrado := false
@@ -181,13 +189,13 @@ func borrarDeSlot(local, semana, dia, hora, tipo, cliente string) error {
 		return fmt.Errorf("no se encontró '%s' de tipo '%s' en el slot %s", cliente, tipo, hora)
 	}
 
-	return WriteCelda(local, a1, ReconstruirCelda(items))
+	return s.repo.WriteCelda(local, a1, reconstruirCelda(items))
 }
 
-// Resolución de rangos de hora
+// ── Resolución de rangos de hora ──────────────────────────────────────────────
 
-func resolverRangoHoras(local, semana, dia, horaDesde, horaHasta string) ([]string, error) {
-	data := GetSheetData(local)
+func (s *ReservasWriterService) resolverRangoHoras(local, semana, dia, horaDesde, horaHasta string) ([]string, error) {
+	data := s.repo.GetSheetData(local)
 
 	todasHoras := []string{}
 	enSemana := false
@@ -218,7 +226,6 @@ func resolverRangoHoras(local, semana, dia, horaDesde, horaHasta string) ([]stri
 
 	buscar := strings.TrimSpace(horaDesde)
 
-	// sin horaHasta: retornar el slot que empiece con horaDesde
 	if horaHasta == "" {
 		for _, h := range todasHoras {
 			if strings.EqualFold(strings.TrimSpace(h), buscar) {
@@ -232,7 +239,6 @@ func resolverRangoHoras(local, semana, dia, horaDesde, horaHasta string) ([]stri
 		return nil, fmt.Errorf("hora '%s' no encontrada en la semana '%s'", horaDesde, semana)
 	}
 
-	// con horaHasta: retornar todos los slots desde horaDesde hasta  horaHasta (sin incluir la ultima)
 	inicio := -1
 	fin := -1
 	hastaNorm := strings.TrimSpace(horaHasta)
@@ -250,12 +256,10 @@ func resolverRangoHoras(local, semana, dia, horaDesde, horaHasta string) ([]stri
 		}
 
 		if inicio != -1 {
-			// caso normal: horaHasta es inicio de un slot → excluir ese slot
 			if strings.EqualFold(horaInicio, hastaNorm) {
 				fin = i
 				break
 			}
-			// caso borde: horaHasta es el fin del slot actual (ej: "20:30" en "20:00 a 20:30")
 			if strings.EqualFold(horaFin, hastaNorm) {
 				fin = i + 1
 				break
@@ -274,18 +278,4 @@ func resolverRangoHoras(local, semana, dia, horaDesde, horaHasta string) ([]stri
 	}
 
 	return todasHoras[inicio:fin], nil
-}
-
-// Utilidades
-
-// letraToTipoNombre convierte "M" → "mesa", "B" → "bicicleta"
-// para comparar contra los valores que devuelve ParseCelda.
-func letraToTipoNombre(letra string) string {
-	switch strings.ToUpper(letra) {
-	case "M":
-		return "mesa"
-	case "B":
-		return "bicicleta"
-	}
-	return ""
 }
