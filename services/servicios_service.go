@@ -35,8 +35,7 @@ func (s *ServiciosService) GetServiciosFiltrados(f FiltroServicios) []models.Ser
 			!strings.Contains(strings.ToLower(item.Categoria), strings.ToLower(f.Categoria)) {
 			continue
 		}
-		if f.Local != "" &&
-			!strings.EqualFold(item.Local, f.Local) {
+		if f.Local != "" && !strings.Contains(strings.ToLower(item.Local), strings.ToLower(f.Local)) {
 			continue
 		}
 		if f.Sesiones > 0 && item.Sesiones != f.Sesiones {
