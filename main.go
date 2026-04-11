@@ -24,7 +24,8 @@ func main() {
 	reservasService := services.NewReservasService(repo)
 	writerService := services.NewReservasWriterService(repo)
 	serviciosService := services.NewServiciosService(repo)
-	h := handlers.NewContainer(reservasService, writerService, serviciosService)
+	combosService := services.NewCombosService(repo)
+	h := handlers.NewContainer(reservasService, writerService, serviciosService, combosService)
 
 	// Router
 	r := gin.Default()
@@ -74,8 +75,9 @@ func main() {
 	r.POST("/reservas", h.PostReserva)
 	r.PATCH("/reservas", h.PatchReserva)
 
-	// Catálogo de servicios
+	// Catálogo
 	r.GET("/servicios", h.GetServicios)
+	r.GET("/combos", h.GetCombos)
 
 	r.Run(":8080")
 }
