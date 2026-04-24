@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// ── Structs de entrada ────────────────────────────────────────────────────────
+// Structs de entrada
 
 type CrearReservaInput struct {
 	Local     string
@@ -41,7 +41,7 @@ type ResultadoReserva struct {
 	Errores  []string
 }
 
-// ── Writer service ────────────────────────────────────────────────────────────
+// Writer service
 
 type ReservasWriterService struct {
 	repo repository.ReservasRepository
@@ -51,7 +51,7 @@ func NewReservasWriterService(repo repository.ReservasRepository) *ReservasWrite
 	return &ReservasWriterService{repo: repo}
 }
 
-// ── POST: crear reserva ───────────────────────────────────────────────────────
+// POST: crear reserva
 
 func (s *ReservasWriterService) CrearReserva(input CrearReservaInput) (ResultadoReserva, error) {
 	resultado := ResultadoReserva{}
@@ -114,7 +114,7 @@ func (s *ReservasWriterService) escribirEnSlot(local, semana, dia, hora, tipo, c
 	return s.repo.WriteCelda(local, a1, reconstruirCelda(items))
 }
 
-// ── UPDATE: modificar reserva existente ──────────────────────────────────────
+// UPDATE: modificar reserva existente
 
 func (s *ReservasWriterService) ActualizarReserva(input ActualizarReservaInput) (ResultadoReserva, error) {
 	resultado := ResultadoReserva{}
@@ -192,7 +192,7 @@ func (s *ReservasWriterService) borrarDeSlot(local, semana, dia, hora, tipo, cli
 	return s.repo.WriteCelda(local, a1, reconstruirCelda(items))
 }
 
-// ── Resolución de rangos de hora ──────────────────────────────────────────────
+// Manejo rangos de hora
 
 func (s *ReservasWriterService) resolverRangoHoras(local, semana, dia, horaDesde, horaHasta string) ([]string, error) {
 	data := s.repo.GetSheetData(local)

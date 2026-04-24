@@ -63,7 +63,7 @@ func (s *ReservasService) GetReservasFiltradas(f FiltroReservas) ([]models.Local
 	return clearVacios(locales), nil
 }
 
-// ── Filtros internos ──────────────────────────────────────────────────────────
+// Filtros
 
 func filterLocales(todos []models.LocalReservas, param string) []models.LocalReservas {
 	if param == "" {

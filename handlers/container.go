@@ -1,13 +1,20 @@
 package handlers
 
-import "atrevida-agenda-api/services"
+import (
+	"atrevida-agenda-api/importacion"
+	"atrevida-agenda-api/services"
+)
 
-// Container agrupa los servicios que necesitan los handlers.
 type Container struct {
 	Reservas  *services.ReservasService
 	Writer    *services.ReservasWriterService
 	Servicios *services.ServiciosService
 	Combos    *services.CombosService
+
+	ServiciosPG *services.ServiciosService
+	CombosPG    *services.CombosService
+
+	Import *importacion.ImportService
 }
 
 func NewContainer(
@@ -15,11 +22,17 @@ func NewContainer(
 	writer *services.ReservasWriterService,
 	servicios *services.ServiciosService,
 	combos *services.CombosService,
+	serviciosPG *services.ServiciosService,
+	combosPG *services.CombosService,
+	imp *importacion.ImportService,
 ) *Container {
 	return &Container{
-		Reservas:  reservas,
-		Writer:    writer,
-		Servicios: servicios,
-		Combos:    combos,
+		Reservas:    reservas,
+		Writer:      writer,
+		Servicios:   servicios,
+		Combos:      combos,
+		ServiciosPG: serviciosPG,
+		CombosPG:    combosPG,
+		Import:      imp,
 	}
 }

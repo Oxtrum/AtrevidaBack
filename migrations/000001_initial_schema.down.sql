@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS detalle_reservas;
+DROP TABLE IF EXISTS reservas;
+DROP TABLE IF EXISTS planes;
+DROP TABLE IF EXISTS combo_servicios;
+DROP TABLE IF EXISTS combo_local;
+DROP TABLE IF EXISTS combos;
+DROP TABLE IF EXISTS servicio_local;
+DROP TABLE IF EXISTS servicios;
+DROP TABLE IF EXISTS tipos_espacio_locales;
+DROP TABLE IF EXISTS categorias;
+DROP TABLE IF EXISTS locales;

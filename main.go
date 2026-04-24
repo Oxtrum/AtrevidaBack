@@ -1,16 +1,14 @@
 package main
 
 import (
-	"net/http"
-
 	"atrevida-agenda-api/config"
+	"atrevida-agenda-api/db"
 	"atrevida-agenda-api/handlers"
+	"atrevida-agenda-api/importacion"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 	sheetsrepo "atrevida-agenda-api/repositories/sheets"
+	"atrevida-agenda-api/router"
 	"atrevida-agenda-api/services"
-	"atrevida-agenda-api/utils"
-
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -19,65 +17,43 @@ func main() {
 	versionString := "v0.1"
 	apiName := "Atrevida Fit - Agenda API" + "(" + versionString + ")"
 
-	// Dependencias
+	pgDB, err := db.Connect(config.App)
+	if err != nil {
+		panic(err)
+	}
+	if err := db.RunMigrations(pgDB, "file://migrations"); err != nil {
+		panic(err)
+	}
+
+	// Repos
 	repo := sheetsrepo.NewReservasRepo(config.App)
+
+	serviciosPGRepo := pgsqlrepo.NewServiciosRepo(pgDB)
+	combosPGRepo := pgsqlrepo.NewCombosRepo(pgDB)
+
+	// Services
 	reservasService := services.NewReservasService(repo)
 	writerService := services.NewReservasWriterService(repo)
 	serviciosService := services.NewServiciosService(repo)
 	combosService := services.NewCombosService(repo)
-	h := handlers.NewContainer(reservasService, writerService, serviciosService, combosService)
 
-	// Router
-	r := gin.Default()
+	serviciosPGService := services.NewServiciosService(serviciosPGRepo)
+	combosPGService := services.NewCombosService(combosPGRepo)
 
-	r.Use(cors.Default())
+	importService := importacion.NewImportService(pgDB, repo)
+
+	h := handlers.NewContainer(
+		reservasService,
+		writerService,
+		serviciosService,
+		combosService,
+		serviciosPGService,
+		combosPGService,
+		importService,
+	)
 
 	println(apiName + "\n" + "Running")
 
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": apiName})
-	})
-
-	// Debug
-	r.GET("/reservas/unfiltered", func(c *gin.Context) {
-		c.JSON(http.StatusOK, repo.GetAllReservas())
-	})
-	r.GET("/reservas/raw", func(c *gin.Context) {
-		c.JSON(http.StatusOK, repo.GetSheetData("SAN MARTIN"))
-	})
-	r.GET("/reservas/celda-raw", func(c *gin.Context) {
-		local := c.Query("local")
-		semana := c.Query("semana")
-		dia := c.Query("dia")
-		hora := c.Query("hora")
-
-		a1, err := repo.ResolverCoordenada(local, semana, dia, hora)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		raw, err := repo.GetCeldaRaw(local, a1)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"a1":     a1,
-			"raw":    raw,
-			"len":    len(raw),
-			"bytes":  []byte(raw),
-			"parsed": utils.ParseCelda(raw),
-		})
-	})
-
-	// Reservas
-	r.GET("/reservas", h.GetReservas)
-	r.POST("/reservas", h.PostReserva)
-	r.PATCH("/reservas", h.PatchReserva)
-
-	// Catálogo
-	r.GET("/servicios", h.GetServicios)
-	r.GET("/combos", h.GetCombos)
-
-	r.Run(":8080")
+	routerAtrevida := router.Setup(h, repo)
+	routerAtrevida.Run(":8080")
 }
