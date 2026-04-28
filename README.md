@@ -31,11 +31,58 @@ Descripción breve: API REST desarrollada en Go con Gin para consultar datos de 
 
 ## 🌐 Endpoints
 
-| Método | Ruta                  | Descripción                                      | Auth |
-|--------|-----------------------|--------------------------------------------------|------|
-| GET    | `/`                   | Estado de la API                                 | No   |
-| GET    | `/reservas/unfiltered`| Lista completa de reservas (formateadas)         | No   |
-| GET    | `/reservas/raw`       | Datos crudos desde Google Sheets (sin formatear) | No   |
+| Método | Ruta | Descripción | Auth |
+|--------|------|------------|------|
+| GET | `/` | Estado de la API | No |
+
+### 🧪 Debug - Sheets
+
+| Método | Ruta | Descripción | Auth |
+|--------|------|------------|------|
+| GET | `/reservas/unfiltered` | Lista completa de reservas (formateadas) | No |
+| GET | `/reservas/raw` | Datos crudos desde Google Sheets | No |
+| GET | `/reservas/celda-raw` | Obtiene el contenido crudo de una celda específica y su parseo | No |
+
+> Query params para `/reservas/celda-raw`: `local`, `semana`, `dia`, `hora`
+
+---
+
+### 📊 Reservas - Sheets
+
+| Método | Ruta | Descripción | Auth |
+|--------|------|------------|------|
+| GET | `/reservas` | Obtiene reservas formateadas con filtros | No |
+| POST | `/reservas` | Crea una nueva reserva en Google Sheets | No |
+| PATCH | `/reservas` | Actualiza una reserva en Google Sheets | No |
+
+---
+
+### 🧾 Catálogo - Sheets
+
+| Método | Ruta | Descripción | Auth |
+|--------|------|------------|------|
+| GET | `/servicios` | Lista de servicios disponibles | No |
+| GET | `/combos` | Lista de combos disponibles | No |
+
+---
+
+### 🗄️ Base de Datos (PostgreSQL)
+
+| Método | Ruta | Descripción | Auth |
+|--------|------|------------|------|
+| GET | `/bd/servicios` | Lista de servicios desde BD | No |
+| GET | `/bd/combos` | Lista de combos desde BD | No |
+| GET | `/bd/reservas/calendario` | Calendario de reservas (bloques de 30 min, libres y reservados) | No |
+| POST | `/bd/reservas` | Crea una nueva reserva en BD | No |
+| PATCH | `/bd/reservas` | Actualiza una reserva en BD | No |
+
+---
+
+### ⚙️ Administración
+
+| Método | Ruta | Descripción | Auth |
+|--------|------|------------|------|
+| POST | `/admin/importar` | Importa catálogo (servicios/combos) a la BD | No |
 
 > La tabla se irá actualizando a medida que se agreguen nuevos endpoints.
 
