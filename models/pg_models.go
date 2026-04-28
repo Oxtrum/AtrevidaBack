@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// ── Locales ───────────────────────────────────────────────────────────────────
+// Locales
 
 type LocalPG struct {
 	ID     int    `db:"id"`
@@ -12,14 +12,14 @@ type LocalPG struct {
 	Activo bool   `db:"activo"`
 }
 
-// ── Categorías ────────────────────────────────────────────────────────────────
+// Categorías
 
 type CategoriaPG struct {
 	ID     int    `db:"id"`
 	Nombre string `db:"nombre"`
 }
 
-// ── Servicios ─────────────────────────────────────────────────────────────────
+// Servicios
 
 type ServicioPG struct {
 	ID          int      `db:"id"`
@@ -31,14 +31,14 @@ type ServicioPG struct {
 	Activo      bool     `db:"activo"`
 }
 
-// ServicioPGConLocal es el resultado de joins para devolver al handler
+// ServicioPGConLocal
 type ServicioPGConLocal struct {
 	ServicioPG
 	Categoria string `db:"categoria_nombre"`
 	Locales   string `db:"locales"` // nombres separados por coma, agregados con STRING_AGG
 }
 
-// ── Combos ────────────────────────────────────────────────────────────────────
+// Combos
 
 type ComboPG struct {
 	ID              int      `db:"id"`
@@ -50,18 +50,17 @@ type ComboPG struct {
 }
 
 type ComboServicioPG struct {
-	ID         int      `db:"id"`
-	ComboID    int      `db:"combo_id"`
-	ServicioID int      `db:"servicio_id"`
-	Tiempo     *string  `db:"tiempo"`
-	Costo      *float64 `db:"costo"`
-	Sesiones   int      `db:"sesiones"`
-	Orden      int      `db:"orden"`
-	// campos del join con servicios
-	ServicioNombre string `db:"servicio_nombre"`
+	ID             int      `db:"id"`
+	ComboID        int      `db:"combo_id"`
+	ServicioID     int      `db:"servicio_id"`
+	Tiempo         *string  `db:"tiempo"`
+	Costo          *float64 `db:"costo"`
+	Sesiones       int      `db:"sesiones"`
+	Orden          int      `db:"orden"`
+	ServicioNombre string   `db:"servicio_nombre"`
 }
 
-// ── Planes ────────────────────────────────────────────────────────────────────
+// Planes
 
 type PlanPG struct {
 	ID              int       `db:"id"`
@@ -77,7 +76,7 @@ type PlanPG struct {
 	CreadoEn        time.Time `db:"creado_en"`
 }
 
-// ── Reservas ──────────────────────────────────────────────────────────────────
+// Reservas
 
 type ReservaPG struct {
 	ID             int       `db:"id"`
