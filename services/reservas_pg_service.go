@@ -397,6 +397,99 @@ func getRangoTiempoDisp(desdeStr, hastaStr string) (time.Time, time.Time) {
 	return desde, hasta
 }
 
+// ReservaSimple es la representación plana de una reserva para GET /bd/reservas.
+type ReservaSimple struct {
+	ID        int      `json:"id"`
+	Local     string   `json:"local"`
+	Tipo      string   `json:"tipo"`
+	Fecha     string   `json:"fecha"`
+	HoraDesde string   `json:"hora_desde"`
+	HoraHasta string   `json:"hora_hasta"`
+	Cliente   string   `json:"cliente"`
+	Servicio  *string  `json:"servicio,omitempty"`
+	Precio    *float64 `json:"precio,omitempty"`
+	Notas     *string  `json:"notas,omitempty"`
+}
+
+type FiltroReservasSimple struct {
+	Local      string
+	Fecha      string
+	FechaDesde string
+	FechaHasta string
+	Cliente    string
+	Tipo       string
+}
+
+func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]ReservaSimple, error) {
+	filtro := repository.FiltroReservasPG{
+		LocalNombre: f.Local,
+		Cliente:     f.Cliente,
+		SoloActivas: true,
+	}
+	if f.Tipo != "" {
+		filtro.TipoEspacio = tipoNombreALetra(f.Tipo)
+	}
+	if f.Fecha != "" {
+		t, err := time.Parse("2006-01-02", f.Fecha)
+		if err != nil {
+			return nil, fmt.Errorf("formato de fecha inválido, use YYYY-MM-DD")
+		}
+		filtro.Fecha = &t
+	}
+	if f.FechaDesde != "" {
+		t, err := time.Parse("2006-01-02", f.FechaDesde)
+		if err != nil {
+			return nil, fmt.Errorf("formato de fecha_desde inválido, use YYYY-MM-DD")
+		}
+		filtro.FechaDesde = &t
+	}
+	if f.FechaHasta != "" {
+		t, err := time.Parse("2006-01-02", f.FechaHasta)
+		if err != nil {
+			return nil, fmt.Errorf("formato de fecha_hasta inválido, use YYYY-MM-DD")
+		}
+		filtro.FechaHasta = &t
+	}
+	reservas, err := s.repo.GetReservas(filtro)
+	if err != nil {
+		return nil, err
+	}
+	resultado := make([]ReservaSimple, 0, len(reservas))
+	for _, rv := range reservas {
+		resultado = append(resultado, ReservaSimple{
+			ID:        rv.ID,
+			Local:     rv.LocalNombre,
+			Tipo:      tipoLetraANombreService(rv.TipoEspacio),
+			Fecha:     rv.Fecha.Format("2006-01-02"),
+			HoraDesde: formatHoraService(rv.HoraDesde),
+			HoraHasta: formatHoraService(rv.HoraHasta),
+			Cliente:   rv.Cliente,
+			Servicio:  rv.ServicioNombre,
+			Precio:    rv.Precio,
+			Notas:     rv.Notas,
+		})
+	}
+	return resultado, nil
+}
+
+func tipoLetraANombreService(letra string) string {
+	switch strings.ToUpper(letra) {
+	case "M":
+		return "mesa"
+	case "B":
+		return "bicicleta"
+	}
+	return strings.ToLower(letra)
+}
+
+func formatHoraService(h string) string {
+	if len(h) > 5 {
+		h = h[:5]
+	}
+	h = strings.TrimPrefix(h, "0")
+	return h
+}
+
 // POST
 type CrearReservaPGInput struct {
 	Local     string
