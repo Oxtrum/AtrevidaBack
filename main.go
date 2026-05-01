@@ -31,6 +31,7 @@ func main() {
 	serviciosPGRepo := pgsqlrepo.NewServiciosRepo(pgDB)
 	combosPGRepo := pgsqlrepo.NewCombosRepo(pgDB)
 	reservasPGRepo := pgsqlrepo.NewReservasRepo(pgDB)
+	localesPGRepo := pgsqlrepo.NewLocalesRepo(pgDB)
 
 	// Services
 	reservasService := services.NewReservasService(repo)
@@ -41,6 +42,7 @@ func main() {
 	serviciosPGService := services.NewServiciosService(serviciosPGRepo)
 	combosPGService := services.NewCombosService(combosPGRepo)
 	reservasPGService := services.NewReservasPGService(reservasPGRepo)
+	localesPGService := services.NewLocalesService(localesPGRepo)
 
 	importService := importacion.NewImportService(pgDB, repo)
 
@@ -52,6 +54,7 @@ func main() {
 		serviciosPGService,
 		combosPGService,
 		reservasPGService,
+		localesPGService,
 		importService,
 	)
 
