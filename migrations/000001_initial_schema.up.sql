@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS planes (
     cliente          VARCHAR(200) NOT NULL,
     local_id         INT REFERENCES locales(id),
     combo_id         INT REFERENCES combos(id) ON DELETE SET NULL,
-    combo_nombre     VARCHAR(200),             al contratar
+    combo_nombre     VARCHAR(200),             --al contratar
     sesiones_totales INT NOT NULL DEFAULT 1,
     sesiones_usadas  INT NOT NULL DEFAULT 0,
     costo_total      NUMERIC(10,2),
