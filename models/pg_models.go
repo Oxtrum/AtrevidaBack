@@ -11,6 +11,17 @@ type LocalPG struct {
 	Nombre string `db:"nombre"`
 	Activo bool   `db:"activo"`
 }
+type TipoEspacioLocal struct {
+	TipoEspacio      string `db:"tipo_espacio"       json:"tipo_espacio"`
+	CantidadEspacios int    `db:"cantidad_espacios"  json:"cantidad_espacios"`
+}
+
+type LocalConEspacios struct {
+	ID       int                `db:"id"     json:"id"`
+	Nombre   string             `db:"nombre" json:"nombre"`
+	Activo   bool               `db:"activo" json:"activo"`
+	Espacios []TipoEspacioLocal `db:"-"     json:"espacios"`
+}
 
 // Categorías
 

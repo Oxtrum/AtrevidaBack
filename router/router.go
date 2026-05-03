@@ -66,7 +66,11 @@ func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 	{
 		bd.GET("/servicios", h.GetServiciosPG)
 		bd.GET("/combos", h.GetCombosPG)
+
 		bd.GET("/locales", h.GetLocales)
+		bd.GET("/locales/:id", h.GetLocalById)
+		bd.POST("/admin/locales", h.PostLocal)
+		bd.PATCH("/admin/locales/:id", h.PatchLocal)
 
 		bd.GET("/reservas", h.GetReservasSimplePG)
 		bd.GET("/reservas/calendario", h.GetReservasPG)
