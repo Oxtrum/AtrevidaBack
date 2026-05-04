@@ -6,12 +6,12 @@ import (
 )
 
 type Container struct {
-	Reservas  *services.ReservasService
-	Writer    *services.ReservasWriterService
-	Servicios *services.ServiciosService
-	Combos    *services.CombosService
+	Reservas *services.ReservasService
+	Writer   *services.ReservasWriterService
+	//Servicios *services.ServiciosService
+	Combos *services.CombosService
 
-	ServiciosPG *services.ServiciosService
+	ServiciosPG *services.ServiciosPGService
 	CombosPG    *services.CombosService
 	ReservasPG  *services.ReservasPGService
 	LocalesPG   *services.LocalesService
@@ -22,18 +22,18 @@ type Container struct {
 func NewContainer(
 	reservas *services.ReservasService,
 	writer *services.ReservasWriterService,
-	servicios *services.ServiciosService,
+	//servicios *services.ServiciosService,
 	combos *services.CombosService,
-	serviciosPG *services.ServiciosService,
+	serviciosPG *services.ServiciosPGService,
 	combosPG *services.CombosService,
 	reservasPG *services.ReservasPGService,
 	localesPG *services.LocalesService,
 	imp *importacion.ImportService,
 ) *Container {
 	return &Container{
-		Reservas:    reservas,
-		Writer:      writer,
-		Servicios:   servicios,
+		Reservas: reservas,
+		Writer:   writer,
+		//Servicios:   servicios,
 		Combos:      combos,
 		ServiciosPG: serviciosPG,
 		CombosPG:    combosPG,

@@ -65,12 +65,18 @@ func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 	bd := r.Group("/bd")
 	{
 		bd.GET("/servicios", h.GetServiciosPG)
+		bd.GET("/servicios/:id", h.GetServicioPGByID)
+		bd.POST("/servicios", h.CreateServicio)
+		bd.PATCH("/servicios/id", h.UpdateServicio)
+		bd.POST("/servicios/local/:id", h.ActivarServicioEnLocal)
+
 		bd.GET("/combos", h.GetCombosPG)
+		//bd.GET("/combos/:id", h.GetComboById)
 
 		bd.GET("/locales", h.GetLocales)
 		bd.GET("/locales/:id", h.GetLocalById)
-		bd.POST("/admin/locales", h.PostLocal)
-		bd.PATCH("/admin/locales/:id", h.PatchLocal)
+		bd.POST("/locales", h.PostLocal)
+		bd.PATCH("/locales/:id", h.PatchLocal)
 
 		bd.GET("/reservas", h.GetReservasSimplePG)
 		bd.GET("/reservas/calendario", h.GetReservasPG)

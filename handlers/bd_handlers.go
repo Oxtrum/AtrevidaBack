@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+/*
 // GET /bd/servicios
 func (h *Container) GetServiciosPG(c *gin.Context) {
 	sesiones := 0
@@ -55,6 +56,7 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 		"servicios": resultado,
 	})
 }
+*/
 
 // GET /bd/combos
 func (h *Container) GetCombosPG(c *gin.Context) {

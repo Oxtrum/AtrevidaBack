@@ -36,10 +36,10 @@ func main() {
 	// Services
 	reservasService := services.NewReservasService(repo)
 	writerService := services.NewReservasWriterService(repo)
-	serviciosService := services.NewServiciosService(repo)
+	//serviciosService := services.NewServiciosService(repo)
 	combosService := services.NewCombosService(repo)
 
-	serviciosPGService := services.NewServiciosService(serviciosPGRepo)
+	serviciosPGService := services.NewServiciosPGService(serviciosPGRepo)
 	combosPGService := services.NewCombosService(combosPGRepo)
 	reservasPGService := services.NewReservasPGService(reservasPGRepo)
 	localesPGService := services.NewLocalesService(localesPGRepo)
@@ -49,7 +49,7 @@ func main() {
 	h := handlers.NewContainer(
 		reservasService,
 		writerService,
-		serviciosService,
+		//serviciosService,
 		combosService,
 		serviciosPGService,
 		combosPGService,

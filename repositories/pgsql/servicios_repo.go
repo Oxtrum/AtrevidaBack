@@ -2,11 +2,13 @@ package pgsql
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
+	repository "atrevida-agenda-api/repositories"
 )
 
 type ServiciosRepo struct {
@@ -27,7 +29,8 @@ func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
 			COALESCE(s.tiempo, '')      AS tiempo,
 			COALESCE(s.costo::text, '') AS costo,
 			s.sesiones,
-			COALESCE(l.nombre, '')      AS local
+			COALESCE(l.nombre, '')      AS local,
+			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios 
 		FROM servicios s
 		LEFT JOIN categorias c      ON c.id = s.categoria_id
 		LEFT JOIN servicio_local sl ON sl.servicio_id = s.id
@@ -35,7 +38,6 @@ func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
 		WHERE s.activo = TRUE
 		ORDER BY c.nombre, s.nombre, l.nombre
 	`
-
 	rows, err := r.db.Queryx(query)
 	if err != nil {
 		return nil
@@ -53,63 +55,108 @@ func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
 			&item.Costo,
 			&item.Sesiones,
 			&item.Local,
+			&item.TipoEspacio,
 		); err != nil {
+			log.Println("SCAN ERROR:", err)
 			continue
 		}
 		resultado = append(resultado, item)
+		//log.Println("Obtenidas:", len(resultado))
 	}
-
 	return resultado
 }
 
-// Escritura
+func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
+	query := `
+		SELECT
+			s.id,
+			s.nombre,
+			COALESCE(c.nombre, '')      AS categoria,
+			COALESCE(s.tiempo, '')      AS tiempo,
+			COALESCE(s.costo::text, '') AS costo,
+			s.sesiones,
+			COALESCE(l.nombre, '')      AS local,
+			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios
+		FROM servicios s
+		LEFT JOIN categorias c      ON c.id = s.categoria_id
+		LEFT JOIN servicio_local sl ON sl.servicio_id = s.id
+		LEFT JOIN locales l         ON l.id = sl.local_id
+		WHERE s.id = $1 AND s.activo = TRUE
+		LIMIT 1
+	`
+
+	var item models.ServicioItem
+
+	err := r.db.QueryRowx(query, id).Scan(
+		new(int),
+		&item.Nombre,
+		&item.Categoria,
+		&item.Tiempo,
+		&item.Costo,
+		&item.Sesiones,
+		&item.Local,
+		&item.TipoEspacio,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("servicio con id %d no encontrado: %v", id, err)
+	}
+
+	return &item, nil
+}
 
 type CreateServicioInput struct {
 	Nombre      string
-	Categoria   string // find-create
-	LocalNombre string // find-create
+	Categoria   string // find
+	LocalNombre string // find
 	Tiempo      string
 	Costo       float64
 	Sesiones    int
 }
 
-func (r *ServiciosRepo) CreateServicio(input CreateServicioInput) (int, error) {
+func (r *ServiciosRepo) CreateServicio(input repository.CrearServicioInput) (int, error) {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback()
 
-	// find-create
-	catID, err := findOrCreateCategoria(tx, input.Categoria)
+	var catID int
+	err = tx.QueryRowx(
+		`SELECT id FROM categorias WHERE UPPER(nombre) = UPPER($1)`,
+		strings.TrimSpace(input.CategoriaNombre),
+	).Scan(&catID)
 	if err != nil {
-		return 0, fmt.Errorf("error al resolver categoría: %w", err)
+		return 0, fmt.Errorf("categoría '%s' no encontrada", input.CategoriaNombre)
 	}
 
-	// insert servicio
+	// NOTA: Temporal hasta que existan mas espacios
+	if input.TipoEspacioRequerido != nil {
+		t := strings.ToUpper(*input.TipoEspacioRequerido)
+		if t != "M" && t != "B" {
+			return 0, fmt.Errorf("tipo_espacio_requerido inválido, valores permitidos: M, B")
+		}
+	}
+
 	var servicioID int
 	err = tx.QueryRowx(`
-		INSERT INTO servicios (nombre, categoria_id, tiempo, costo, sesiones)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO servicios (nombre, categoria_id, tiempo, costo, sesiones, tipo_espacio_requerido)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
-	`, input.Nombre, catID, nullStr(input.Tiempo), nullFloat(input.Costo), input.Sesiones).
-		Scan(&servicioID)
+	`,
+		strings.TrimSpace(input.Nombre),
+		catID,
+		nullStr(input.Tiempo),
+		input.Costo,
+		input.Sesiones,
+		input.TipoEspacioRequerido,
+	).Scan(&servicioID)
 	if err != nil {
-		return 0, fmt.Errorf("error al insertar servicio: %w", err)
+		return 0, fmt.Errorf("error al crear servicio: %w", err)
 	}
 
-	// relate local
-	if input.LocalNombre != "" {
-		localID, err := findLocal(tx, input.LocalNombre)
-		if err != nil {
-			return 0, fmt.Errorf("local '%s' no encontrado: %w", input.LocalNombre, err)
-		}
-		_, err = tx.Exec(`
-			INSERT INTO servicio_local (servicio_id, local_id)
-			VALUES ($1, $2)
-			ON CONFLICT DO NOTHING
-		`, servicioID, localID)
-		if err != nil {
+	if strings.TrimSpace(input.LocalNombre) != "" {
+		if err := activarEnLocal(tx, servicioID, input.LocalNombre, input.TipoEspacioRequerido); err != nil {
 			return 0, err
 		}
 	}
@@ -117,8 +164,112 @@ func (r *ServiciosRepo) CreateServicio(input CreateServicioInput) (int, error) {
 	return servicioID, tx.Commit()
 }
 
+func (r *ServiciosRepo) UpdateServicio(input repository.ActualizarServicioInput) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	sets := []string{}
+	args := []interface{}{}
+	idx := 1
+
+	if input.Nombre != nil {
+		sets = append(sets, fmt.Sprintf("nombre = $%d", idx))
+		args = append(args, strings.TrimSpace(*input.Nombre))
+		idx++
+	}
+	if input.CategoriaNombre != nil {
+		var catID int
+		err := tx.QueryRowx(
+			`SELECT id FROM categorias WHERE UPPER(nombre) = UPPER($1)`,
+			strings.TrimSpace(*input.CategoriaNombre),
+		).Scan(&catID)
+		if err != nil {
+			return fmt.Errorf("categoría '%s' no encontrada", *input.CategoriaNombre)
+		}
+		sets = append(sets, fmt.Sprintf("categoria_id = $%d", idx))
+		args = append(args, catID)
+		idx++
+	}
+	if input.Tiempo != nil {
+		sets = append(sets, fmt.Sprintf("tiempo = $%d", idx))
+		args = append(args, *input.Tiempo)
+		idx++
+	}
+	if input.Costo != nil {
+		sets = append(sets, fmt.Sprintf("costo = $%d", idx))
+		args = append(args, *input.Costo)
+		idx++
+	}
+	if input.Sesiones != nil {
+		sets = append(sets, fmt.Sprintf("sesiones = $%d", idx))
+		args = append(args, *input.Sesiones)
+		idx++
+	}
+	if input.TipoEspacioRequerido != nil {
+		t := strings.ToUpper(*input.TipoEspacioRequerido)
+		if t != "M" && t != "B" {
+			return fmt.Errorf("tipo_espacio_requerido inválido, valores permitidos: M, B")
+		}
+		sets = append(sets, fmt.Sprintf("tipo_espacio_requerido = $%d", idx))
+		args = append(args, t)
+		idx++
+	}
+	if input.Activo != nil {
+		sets = append(sets, fmt.Sprintf("activo = $%d", idx))
+		args = append(args, *input.Activo)
+		idx++
+	}
+
+	if len(sets) == 0 {
+		return fmt.Errorf("debe especificarse al menos un campo a modificar")
+	}
+
+	args = append(args, input.ID)
+	query := fmt.Sprintf(
+		"UPDATE servicios SET %s WHERE id = $%d",
+		strings.Join(sets, ", "), idx,
+	)
+
+	res, err := tx.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("error al actualizar servicio: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("servicio con id %d no encontrado", input.ID)
+	}
+
+	return tx.Commit()
+}
+
+func (r *ServiciosRepo) AddServicioInLocal(servicioID int, localNombre string) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var tipoEspacio *string
+	err = tx.QueryRowx(
+		`SELECT tipo_espacio_requerido FROM servicios WHERE id = $1 AND activo = TRUE`,
+		servicioID,
+	).Scan(&tipoEspacio)
+	if err != nil {
+		return fmt.Errorf("servicio con id %d no encontrado o inactivo", servicioID)
+	}
+
+	if err := activarEnLocal(tx, servicioID, localNombre, tipoEspacio); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // ── Helpers compartidos ───────────────────────────────────────────────────────
 
+// NOTA: Evaluar si se queda
 func findOrCreateCategoria(tx *sqlx.Tx, nombre string) (int, error) {
 	if strings.TrimSpace(nombre) == "" {
 		return 0, fmt.Errorf("nombre de categoría vacío")
@@ -139,6 +290,47 @@ func findLocal(tx *sqlx.Tx, nombre string) (int, error) {
 		`SELECT id FROM locales WHERE UPPER(nombre) = UPPER($1)`, nombre,
 	).Scan(&id)
 	return id, err
+}
+
+func activarEnLocal(tx *sqlx.Tx, servicioID int, localNombre string, tipoEspacioRequerido *string) error {
+	// resolver local
+	var localID int
+	err := tx.QueryRowx(
+		`SELECT id FROM locales WHERE UPPER(nombre) = UPPER($1) AND activo = TRUE`,
+		strings.TrimSpace(localNombre),
+	).Scan(&localID)
+	if err != nil {
+		return fmt.Errorf("local '%s' no encontrado o inactivo", localNombre)
+	}
+
+	// validar que el local tenga el tipo de espacio requerido
+	if tipoEspacioRequerido != nil {
+		var existe bool
+		err = tx.QueryRowx(`
+			SELECT EXISTS(
+				SELECT 1 FROM tipos_espacio_locales
+				WHERE local_id = $1 AND tipo_espacio = $2
+			)
+		`, localID, strings.ToUpper(*tipoEspacioRequerido)).Scan(&existe)
+		if err != nil || !existe {
+			return fmt.Errorf(
+				"el local '%s' no tiene espacios de tipo '%s' requeridos por este servicio",
+				localNombre, *tipoEspacioRequerido,
+			)
+		}
+	}
+
+	// crear relación
+	_, err = tx.Exec(`
+		INSERT INTO servicio_local (servicio_id, local_id)
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING
+	`, servicioID, localID)
+	if err != nil {
+		return fmt.Errorf("error al activar servicio en local: %w", err)
+	}
+
+	return nil
 }
 
 func nullStr(s string) interface{} {

@@ -49,7 +49,7 @@ func (h *Container) GetServicios(c *gin.Context) {
 		Sesiones:  sesiones,
 	}
 
-	resultado := h.Servicios.GetServiciosFiltrados(filtro)
+	resultado := h.ServiciosPG.GetServiciosFiltrados(filtro)
 	if resultado == nil {
 		resultado = []models.ServicioItem{}
 	}
