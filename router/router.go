@@ -64,6 +64,9 @@ func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 	// BD
 	bd := r.Group("/bd")
 	{
+		bd.GET("/categorias", h.GetCategorias)
+		bd.POST("/categorias", h.CreateCategoria)
+
 		bd.GET("/servicios", h.GetServiciosPG)
 		bd.GET("/servicios/:id", h.GetServicioPGByID)
 		bd.POST("/servicios", h.CreateServicio)
