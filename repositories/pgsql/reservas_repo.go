@@ -177,44 +177,29 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 	var reservaID int
 	var horaHastaActual string
 	var localID int
+
 	err = tx.QueryRowx(`
 		SELECT r.id, r.hora_hasta::text, r.local_id
 		FROM reservas r
-		WHERE UPPER(r.local_nombre) = UPPER($1)
-		  AND r.fecha = $2
-		  AND r.hora_desde = $3::time
-		  AND r.tipo_espacio = $4
-		  AND LOWER(r.cliente) = LOWER($5)
-		  AND r.activo = TRUE
+		WHERE r.id = $1
+		AND UPPER(r.local_nombre) = UPPER($2)
+		AND r.activo = TRUE
 		LIMIT 1
-	`, input.LocalNombre, input.Fecha, input.HoraDesde,
-		strings.ToUpper(input.TipoEspacio), input.Cliente,
-	).Scan(&reservaID, &horaHastaActual, &localID)
+	`, input.Id, input.LocalNombre).
+		Scan(&reservaID, &horaHastaActual, &localID)
+
 	if err != nil {
 		return fmt.Errorf("reserva no encontrada para los datos proporcionados")
 	}
 
-	tipoFinal := input.TipoEspacio
-	if input.NuevoTipo != nil {
-		tipoFinal = *input.NuevoTipo
-	}
-	fechaFinal := input.Fecha
-	if input.NuevaFecha != nil {
-		fechaFinal = *input.NuevaFecha
-	}
-	horaDesdefinal := input.HoraDesde
-	if input.NuevaHoraDesde != nil {
-		horaDesdefinal = *input.NuevaHoraDesde
-	}
-	horaHastaFinal := horaHastaActual
-	if input.NuevaHoraHasta != nil {
-		horaHastaFinal = *input.NuevaHoraHasta
-	}
+	if input.NuevaFecha != nil && input.NuevaFecha.Before(time.Now()) {
 
-	if input.NuevoTipo != nil || input.NuevaFecha != nil || input.NuevaHoraDesde != nil {
-		if err := r.validarCapacidad(tx, localID, tipoFinal, fechaFinal, horaDesdefinal, horaHastaFinal, reservaID); err != nil {
-			return err
-		}
+		return fmt.Errorf(
+			"no se puede modificar una reserva para una fecha pasada | fecha recibida: %s | fecha actual: %s",
+			input.NuevaFecha.Format(time.RFC3339),
+			time.Now().Format(time.RFC3339),
+		)
+
 	}
 
 	sets := []string{"actualizado_en = NOW()"}

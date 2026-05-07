@@ -115,11 +115,8 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 
 // PATCH /bd/reservas
 type actualizarReservaPGRequest struct {
-	Local     string `json:"local"      binding:"required"`
-	Fecha     string `json:"fecha"      binding:"required"`
-	HoraDesde string `json:"hora"       binding:"required"`
-	Tipo      string `json:"tipo"       binding:"required"`
-	Cliente   string `json:"cliente"    binding:"required"`
+	Id    int    `json:"id"         binding:"required"`
+	Local string `json:"local"      binding:"required"`
 
 	NuevaFecha     string   `json:"nueva_fecha"`
 	NuevaHoraDesde string   `json:"nueva_hora_desde"`
@@ -131,15 +128,21 @@ type actualizarReservaPGRequest struct {
 }
 
 func (h *Container) PatchReservaPG(c *gin.Context) {
+
 	var req actualizarReservaPGRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tipoNorm := strings.ToUpper(strings.TrimSpace(req.Tipo))
-	if tipoNorm != "M" && tipoNorm != "B" {
-		utils.RespondError(c, http.StatusBadRequest, "tipo inválido, valores permitidos: M, B")
+	id := req.Id
+	if id <= 0 {
+		utils.RespondError(c, http.StatusBadRequest, "id no valido")
+		return
+	}
+
+	if req.Local == "" {
+		utils.RespondError(c, http.StatusBadRequest, "local es requerido")
 		return
 	}
 
@@ -157,11 +160,8 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 	}
 
 	err := h.ReservasPG.ActualizarReserva(services.ActualizarReservaPGInput{
+		Id:             id,
 		Local:          strings.TrimSpace(req.Local),
-		Fecha:          strings.TrimSpace(req.Fecha),
-		HoraDesde:      strings.TrimSpace(req.HoraDesde),
-		Tipo:           tipoNorm,
-		Cliente:        strings.TrimSpace(req.Cliente),
 		NuevaFecha:     strings.TrimSpace(req.NuevaFecha),
 		NuevaHoraDesde: strings.TrimSpace(req.NuevaHoraDesde),
 		NuevaHoraHasta: strings.TrimSpace(req.NuevaHoraHasta),
@@ -170,6 +170,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		NuevoPrecio:    req.NuevoPrecio,
 		NuevasNotas:    strings.TrimSpace(req.NuevasNotas),
 	})
+
 	if err != nil {
 		status := http.StatusInternalServerError
 		if strings.Contains(err.Error(), "no hay espacios") ||

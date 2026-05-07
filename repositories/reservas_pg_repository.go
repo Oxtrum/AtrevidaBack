@@ -40,11 +40,8 @@ type CrearDetalleInput struct {
 }
 
 type UpdateReservaInput struct {
+	Id          int
 	LocalNombre string
-	Fecha       time.Time
-	HoraDesde   string
-	TipoEspacio string
-	Cliente     string
 
 	NuevaFecha     *time.Time
 	NuevaHoraDesde *string

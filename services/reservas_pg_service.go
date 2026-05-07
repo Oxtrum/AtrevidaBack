@@ -532,6 +532,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) error {
 
 // PATCH
 type ActualizarReservaPGInput struct {
+	Id        int
 	Local     string
 	Fecha     string
 	HoraDesde string
@@ -548,17 +549,10 @@ type ActualizarReservaPGInput struct {
 }
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
-	fecha, err := time.Parse("2006-01-02", input.Fecha)
-	if err != nil {
-		return fmt.Errorf("formato de fecha inválido, use YYYY-MM-DD")
-	}
 
 	upd := repository.UpdateReservaInput{
+		Id:          input.Id,
 		LocalNombre: input.Local,
-		Fecha:       fecha,
-		HoraDesde:   input.HoraDesde,
-		TipoEspacio: strings.ToUpper(input.Tipo),
-		Cliente:     input.Cliente,
 	}
 
 	if input.NuevaFecha != "" {
