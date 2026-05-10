@@ -48,7 +48,7 @@ func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
 	for rows.Next() {
 		var item models.ServicioItem
 		if err := rows.Scan(
-			new(int),
+			&item.Id,
 			&item.Nombre,
 			&item.Categoria,
 			&item.Tiempo,

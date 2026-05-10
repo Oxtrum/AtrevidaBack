@@ -1,6 +1,7 @@
 package models
 
 type ServicioItem struct {
+	Id          int    `json:"id"`
 	Nombre      string `json:"nombre"`
 	Categoria   string `json:"categoria"`
 	Local       string `json:"local"`
