@@ -533,6 +533,12 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		horaHasta = sumar60Min(input.HoraDesde)
 	}
 
+	// 1. Validar disponibilidad
+	if err := s.validarDisponibilidad(input.Local, &fecha, input.HoraDesde, horaHasta, input.Tipo, nil); err != nil {
+		return 0, err
+	}
+
+	// 2. Crear en BD
 	id, err := s.repo.CreateReserva(repository.CreateReservaInput{
 		LocalNombre:    input.Local,
 		TipoEspacio:    strings.ToUpper(input.Tipo),
@@ -567,16 +573,12 @@ type ActualizarReservaPGInput struct {
 }
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
-
-	upd := repository.UpdateReservaInput{
-		Id:          input.Id,
-		LocalNombre: input.Local,
-	}
+	upd := repository.UpdateReservaInput{ID: input.Id}
 
 	if input.NuevaFecha != "" {
 		t, err := time.Parse("2006-01-02", input.NuevaFecha)
 		if err != nil {
-			return fmt.Errorf("formato de nueva_fecha inválido")
+			return fmt.Errorf("formato de fecha inválido")
 		}
 		upd.NuevaFecha = &t
 	}
@@ -604,7 +606,109 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 		upd.NuevasNotas = &input.NuevasNotas
 	}
 
+	// 1. Obtener datos actuales para completar campos faltantes en la validación
+	current, err := s.repo.GetReservaByID(input.Id)
+	if err != nil {
+		return fmt.Errorf("no se pudo recuperar la reserva actual: %v", err)
+	}
+
+	// Campos para validación (prioridad al nuevo valor, fallback al actual)
+	valLocal := input.Local
+	if valLocal == "" { valLocal = current.LocalNombre }
+
+	valFecha := upd.NuevaFecha
+	if valFecha == nil { valFecha = &current.Fecha }
+
+	valHoraDesde := input.NuevaHoraDesde
+	if valHoraDesde == "" { valHoraDesde = current.HoraDesde }
+
+	valHoraHasta := input.NuevaHoraHasta
+	if valHoraHasta == "" { valHoraHasta = current.HoraHasta }
+
+	valTipo := input.NuevoTipo
+	if valTipo == "" { valTipo = current.TipoEspacio }
+
+	// 2. Validar disponibilidad (excluyendo la propia reserva por ID)
+	if err := s.validarDisponibilidad(valLocal, valFecha, valHoraDesde, valHoraHasta, valTipo, &input.Id); err != nil {
+		return err
+	}
+
+	// 3. Ejecutar actualización en BD
 	return s.repo.UpdateReserva(upd)
+}
+
+func (s *ReservasPGService) validarDisponibilidad(local string, fecha *time.Time, horaDesde, horaHasta, tipo string, excludeID *int) error {
+	if local == "" || fecha == nil || horaDesde == "" || horaHasta == "" || tipo == "" {
+		return nil // No hay suficiente info para validar, asumo ok o se validará en repo
+	}
+
+	// Obtener capacidades del local
+	caps, err := s.repo.GetCapacidades(local)
+	if err != nil {
+		return err
+	}
+	var capacidad int
+	tipoL := tipoNombreALetra(tipo)
+	for _, c := range caps {
+		if strings.EqualFold(c.TipoEspacio, tipoL) {
+			capacidad = c.Capacidad
+			break
+		}
+	}
+	if capacidad == 0 {
+		capacidad = 3 // fallback
+	}
+
+	// Obtener reservas existentes para ese día
+	f := repository.FiltroReservasPG{
+		LocalNombre: local,
+		FechaDesde:  fecha,
+		FechaHasta:  fecha,
+		TipoEspacio: tipoL,
+		SoloActivas: true,
+	}
+	reservas, err := s.repo.GetReservas(f)
+	if err != nil {
+		return err
+	}
+
+	// Contar ocupación en el rango solicitado
+	// Convertir horas a minutos para comparar rangos
+	toMin := func(h string) int {
+		var hh, mm int
+		fmt.Sscanf(h, "%d:%d", &hh, &mm)
+		return hh*60 + mm
+	}
+	reqInicio := toMin(horaDesde)
+	reqFin := toMin(horaHasta)
+
+	// Mapa de minutos para contar solapamientos
+	// Como son bloques de 60 min, podemos simplificar o usar un contador por slot
+	maxOcupados := 0
+	// Revisamos cada bloque de 1 minuto en el rango solicitado (o simplemente slots de 60 si son fijos)
+	// Pero para ser robustos ante cualquier solapamiento:
+	for m := reqInicio; m < reqFin; m++ {
+		ocupadosEnMinuto := 0
+		for _, r := range reservas {
+			if excludeID != nil && r.ID == *excludeID {
+				continue
+			}
+			rInicio := toMin(r.HoraDesde)
+			rFin := toMin(r.HoraHasta)
+			if m >= rInicio && m < rFin {
+				ocupadosEnMinuto++
+			}
+		}
+		if ocupadosEnMinuto > maxOcupados {
+			maxOcupados = ocupadosEnMinuto
+		}
+	}
+
+	if maxOcupados >= capacidad {
+		return fmt.Errorf("no hay espacios disponibles de tipo '%s' en ese horario (%d/%d ocupados)", tipoL, maxOcupados, capacidad)
+	}
+
+	return nil
 }
 
 // Helpers
