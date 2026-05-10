@@ -311,12 +311,10 @@ func (r *ReservasRepo) validarCapacidad(
 	}
 
 	if ocupados >= capacidad {
-		return fmt.Errorf(
-			"no hay espacios disponibles de tipo '%s' en ese horario (%d/%d ocupados)",
-			tipo, ocupados, capacidad,
-		)
+		return fmt.Errorf("No hay ambientes disponibles para este servicio en esa fecha y horario")
 	}
 	return nil
+
 }
 
 // BuildJerarquia (Derivado de la que se tenia )
