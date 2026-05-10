@@ -537,6 +537,8 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		horaHasta = sumar60Min(input.HoraDesde)
 	}
 
+	/* COMENTADO HASTA QUE FRONTEND RECUPERE SERVICIOS DE LA BD
+
 	// 1. Validar servicio
 	if strings.TrimSpace(input.Servicio) != "" {
 
@@ -567,6 +569,10 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 			input.Precio = &precio
 		}
 	}
+	*/
+
+	// Mantener comportamiento manual temporal
+	input.Tipo = strings.ToUpper(strings.TrimSpace(input.Tipo))
 
 	/*if err := s.validarDisponibilidad(input.Local, &fecha, input.HoraDesde, horaHasta, input.Tipo, nil); err != nil {
 		return 0, err
@@ -629,6 +635,21 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 		upd.NuevaHoraHasta = &input.NuevaHoraHasta
 	}
 
+	if input.NuevoServicio != "" {
+		upd.NuevoServicio = &input.NuevoServicio
+	}
+
+	if input.NuevoTipo != "" {
+
+		t := strings.ToUpper(strings.TrimSpace(input.NuevoTipo))
+		upd.NuevoTipo = &t
+	}
+
+	if input.NuevoPrecio != nil {
+		upd.NuevoPrecio = input.NuevoPrecio
+	}
+
+	/* COMENTADO HASTA QUE FRONTEND RECUPERE SERVICIOS DE LA BD
 	if strings.TrimSpace(input.NuevoServicio) != "" {
 
 		servicio, err := s.serviciosRepo.GetServicioByNombre(input.NuevoServicio)
@@ -677,6 +698,7 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 			upd.NuevoPrecio = input.NuevoPrecio
 		}
 	}
+	*/
 
 	if input.NuevasNotas != "" {
 		upd.NuevasNotas = &input.NuevasNotas
