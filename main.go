@@ -43,7 +43,7 @@ func main() {
 	categoriasPGService := services.NewCategoriasService(categoriasPGRepo)
 	serviciosPGService := services.NewServiciosPGService(serviciosPGRepo)
 	combosPGService := services.NewCombosService(combosPGRepo)
-	reservasPGService := services.NewReservasPGService(reservasPGRepo)
+	reservasPGService := services.NewReservasPGService(reservasPGRepo, serviciosPGRepo)
 	localesPGService := services.NewLocalesService(localesPGRepo)
 
 	importService := importacion.NewImportService(pgDB, repo)

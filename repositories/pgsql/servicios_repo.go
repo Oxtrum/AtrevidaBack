@@ -105,6 +105,37 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 	return &item, nil
 }
 
+func (r *ServiciosRepo) GetServicioByNombre(nombre string) (*models.ServicioItem, error) {
+
+	query := `
+		SELECT
+			s.nombre,
+			COALESCE(s.costo::text, '') AS costo,
+			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacio
+		FROM servicios s
+		WHERE UPPER(s.nombre) = UPPER($1)
+		AND s.activo = TRUE
+		LIMIT 1
+	`
+
+	var item models.ServicioItem
+
+	err := r.db.QueryRowx(query, strings.TrimSpace(nombre)).Scan(
+		&item.Nombre,
+		&item.Costo,
+		&item.TipoEspacio,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf(
+			"servicio '%s' no encontrado o inactivo",
+			nombre,
+		)
+	}
+
+	return &item, nil
+}
+
 type CreateServicioInput struct {
 	Nombre      string
 	Categoria   string // find

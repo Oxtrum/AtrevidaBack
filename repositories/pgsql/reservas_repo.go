@@ -195,31 +195,83 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 	defer tx.Rollback()
 
 	var reservaID int
-	var horaHastaActual string
 	var localID int
 
+	var fechaActual time.Time
+	var horaDesdeActual string
+	var horaHastaActual string
+	var tipoActual string
+
 	err = tx.QueryRowx(`
-		SELECT r.id, r.hora_hasta::text, r.local_id
+		SELECT
+			r.id,
+			r.local_id,
+			r.fecha,
+			r.hora_desde::text,
+			r.hora_hasta::text,
+			r.tipo_espacio
 		FROM reservas r
 		WHERE r.id = $1
-		AND UPPER(r.local_nombre) = UPPER($2)
 		AND r.activo = TRUE
 		LIMIT 1
-	`, input.Id, input.LocalNombre).
-		Scan(&reservaID, &horaHastaActual, &localID)
+	`, input.Id).Scan(
+		&reservaID,
+		&localID,
+		&fechaActual,
+		&horaDesdeActual,
+		&horaHastaActual,
+		&tipoActual,
+	)
 
 	if err != nil {
-		return fmt.Errorf("reserva no encontrada para los datos proporcionados")
+		return fmt.Errorf("Reserva no encontrada")
 	}
 
-	if input.NuevaFecha != nil && input.NuevaFecha.Before(time.Now()) {
+	if input.NuevaFecha != nil {
 
-		return fmt.Errorf(
-			"no se puede modificar una reserva para una fecha pasada | fecha recibida: %s | fecha actual: %s",
-			input.NuevaFecha.Format(time.RFC3339),
-			time.Now().Format(time.RFC3339),
-		)
+		today := time.Now().Truncate(24 * time.Hour)
 
+		if input.NuevaFecha.Before(today) {
+			return fmt.Errorf(
+				"No se puede modificar una reserva para una fecha pasada | fecha recibida: %s | fecha actual: %s",
+				input.NuevaFecha.Format(time.RFC3339),
+				time.Now().Format(time.RFC3339),
+			)
+		}
+	}
+
+	fechaFinal := fechaActual
+	if input.NuevaFecha != nil {
+		fechaFinal = *input.NuevaFecha
+	}
+
+	horaDesdeFinal := horaDesdeActual
+	if input.NuevaHoraDesde != nil {
+		horaDesdeFinal = *input.NuevaHoraDesde
+	}
+
+	horaHastaFinal := horaHastaActual
+	if input.NuevaHoraHasta != nil {
+		horaHastaFinal = *input.NuevaHoraHasta
+	}
+
+	tipoFinal := tipoActual
+	if input.NuevoTipo != nil {
+		tipoFinal = strings.ToUpper(*input.NuevoTipo)
+	}
+
+	err = r.validarCapacidad(
+		tx,
+		localID,
+		tipoFinal,
+		fechaFinal,
+		horaDesdeFinal,
+		horaHastaFinal,
+		reservaID,
+	)
+
+	if err != nil {
+		return err
 	}
 
 	sets := []string{"actualizado_en = NOW()"}

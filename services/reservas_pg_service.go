@@ -11,11 +11,15 @@ import (
 )
 
 type ReservasPGService struct {
-	repo repository.ReservasPGRepository
+	repo          repository.ReservasPGRepository
+	serviciosRepo repository.ServiciosRepository
 }
 
-func NewReservasPGService(repo repository.ReservasPGRepository) *ReservasPGService {
-	return &ReservasPGService{repo: repo}
+func NewReservasPGService(repo repository.ReservasPGRepository, serviciosRepo *pgsqlrepo.ServiciosRepo) *ReservasPGService {
+	return &ReservasPGService{
+		repo:          repo,
+		serviciosRepo: serviciosRepo,
+	}
 }
 
 // GET
@@ -330,7 +334,7 @@ func horarioLocal(fecha time.Time) [][2]string {
 	if fecha.Weekday() == time.Sunday {
 		return nil
 	}
-	if (fecha.Weekday() == time.Saturday) {
+	if fecha.Weekday() == time.Saturday {
 		return generarSlots60("08:00", "15:00")
 	}
 	return generarSlots60("08:00", "20:00")
@@ -533,12 +537,43 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		horaHasta = sumar60Min(input.HoraDesde)
 	}
 
-	// 1. Validar disponibilidad
-	if err := s.validarDisponibilidad(input.Local, &fecha, input.HoraDesde, horaHasta, input.Tipo, nil); err != nil {
-		return 0, err
+	// 1. Validar servicio
+	if strings.TrimSpace(input.Servicio) != "" {
+
+		servicio, err := s.serviciosRepo.GetServicioByNombre(input.Servicio)
+		if err != nil {
+			return 0, err
+		}
+
+		if strings.TrimSpace(servicio.TipoEspacio) != "" {
+			input.Tipo = strings.ToUpper(servicio.TipoEspacio)
+
+		} else if strings.TrimSpace(input.Tipo) != "" {
+			input.Tipo = strings.ToUpper(input.Tipo)
+		}
+
+		if input.Precio == nil {
+
+			var precio float64
+
+			_, err := fmt.Sscanf(servicio.Costo, "%f", &precio)
+			if err != nil {
+				return 0, fmt.Errorf(
+					"Error al convertir precio del servicio '%s'",
+					servicio.Nombre,
+				)
+			}
+
+			input.Precio = &precio
+		}
 	}
 
-	// 2. Crear en BD
+	/*if err := s.validarDisponibilidad(input.Local, &fecha, input.HoraDesde, horaHasta, input.Tipo, nil); err != nil {
+		return 0, err
+	}*/
+
+	// When no sabes
+
 	id, err := s.repo.CreateReserva(repository.CreateReservaInput{
 		LocalNombre:    input.Local,
 		TipoEspacio:    strings.ToUpper(input.Tipo),
@@ -582,6 +617,7 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 		}
 		upd.NuevaFecha = &t
 	}
+
 	if input.NuevaHoraDesde != "" {
 		upd.NuevaHoraDesde = &input.NuevaHoraDesde
 		if input.NuevaHoraHasta == "" {
@@ -592,16 +628,56 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 	if input.NuevaHoraHasta != "" {
 		upd.NuevaHoraHasta = &input.NuevaHoraHasta
 	}
-	if input.NuevoTipo != "" {
-		t := strings.ToUpper(input.NuevoTipo)
-		upd.NuevoTipo = &t
-	}
-	if input.NuevoServicio != "" {
+
+	if strings.TrimSpace(input.NuevoServicio) != "" {
+
+		servicio, err := s.serviciosRepo.GetServicioByNombre(input.NuevoServicio)
+		if err != nil {
+			return err
+		}
+
 		upd.NuevoServicio = &input.NuevoServicio
+
+		tipoFinal := strings.TrimSpace(servicio.TipoEspacio)
+
+		if tipoFinal == "" {
+			tipoFinal = strings.TrimSpace(input.NuevoTipo)
+		}
+
+		if tipoFinal != "" {
+			tipoFinal = strings.ToUpper(tipoFinal)
+			upd.NuevoTipo = &tipoFinal
+		}
+
+		if input.NuevoPrecio == nil {
+
+			var precio float64
+
+			_, err := fmt.Sscanf(servicio.Costo, "%f", &precio)
+			if err != nil {
+				return fmt.Errorf("Error al convertir precio del servicio")
+			}
+
+			upd.NuevoPrecio = &precio
+
+		} else {
+
+			upd.NuevoPrecio = input.NuevoPrecio
+		}
+
+	} else {
+
+		if input.NuevoTipo != "" {
+
+			t := strings.ToUpper(input.NuevoTipo)
+			upd.NuevoTipo = &t
+		}
+
+		if input.NuevoPrecio != nil {
+			upd.NuevoPrecio = input.NuevoPrecio
+		}
 	}
-	if input.NuevoPrecio != nil {
-		upd.NuevoPrecio = input.NuevoPrecio
-	}
+
 	if input.NuevasNotas != "" {
 		upd.NuevasNotas = &input.NuevasNotas
 	}
@@ -609,31 +685,75 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 	// 1. Obtener datos actuales para completar campos faltantes en la validación
 	current, err := s.repo.GetReservaByID(input.Id)
 	if err != nil {
-		return fmt.Errorf("no se pudo recuperar la reserva actual: %v", err)
+		return fmt.Errorf("No se pudo recuperar la reserva actual: %v", err)
+	}
+
+	// 1.1 coherencia de horas
+	horaDesdeFinal := current.HoraDesde
+	if upd.NuevaHoraDesde != nil {
+		horaDesdeFinal = *upd.NuevaHoraDesde
+	}
+
+	horaHastaFinal := current.HoraHasta
+	if upd.NuevaHoraHasta != nil {
+		horaHastaFinal = *upd.NuevaHoraHasta
+	}
+
+	parseHora := func(h string) (time.Time, error) {
+
+		if len(h) > 5 {
+			h = h[:5]
+		}
+
+		t, err := time.Parse("15:04", h)
+		if err != nil {
+			t, err = time.Parse("15:4", h)
+		}
+
+		return t, err
+	}
+
+	hDesde, err := parseHora(horaDesdeFinal)
+	if err != nil {
+		return fmt.Errorf("Hora de inicio inválida")
+	}
+
+	hHasta, err := parseHora(horaHastaFinal)
+	if err != nil {
+		return fmt.Errorf("Hora de finalización inválida:")
+	}
+
+	if !hDesde.Before(hHasta) {
+		return fmt.Errorf("La hora de inicio no puede ser igual o posterior a la hora de finalización")
 	}
 
 	// Campos para validación (prioridad al nuevo valor, fallback al actual)
 	valLocal := input.Local
-	if valLocal == "" { valLocal = current.LocalNombre }
-
-	valFecha := upd.NuevaFecha
-	if valFecha == nil { valFecha = &current.Fecha }
-
-	valHoraDesde := input.NuevaHoraDesde
-	if valHoraDesde == "" { valHoraDesde = current.HoraDesde }
-
-	valHoraHasta := input.NuevaHoraHasta
-	if valHoraHasta == "" { valHoraHasta = current.HoraHasta }
-
-	valTipo := input.NuevoTipo
-	if valTipo == "" { valTipo = current.TipoEspacio }
-
-	// 2. Validar disponibilidad (excluyendo la propia reserva por ID)
-	if err := s.validarDisponibilidad(valLocal, valFecha, valHoraDesde, valHoraHasta, valTipo, &input.Id); err != nil {
-		return err
+	if valLocal == "" {
+		valLocal = current.LocalNombre
 	}
 
-	// 3. Ejecutar actualización en BD
+	valFecha := upd.NuevaFecha
+	if valFecha == nil {
+		valFecha = &current.Fecha
+	}
+
+	valHoraDesde := input.NuevaHoraDesde
+	if valHoraDesde == "" {
+		valHoraDesde = current.HoraDesde
+	}
+
+	valHoraHasta := input.NuevaHoraHasta
+	if valHoraHasta == "" {
+		valHoraHasta = current.HoraHasta
+	}
+
+	valTipo := input.NuevoTipo
+	if valTipo == "" {
+		valTipo = current.TipoEspacio
+	}
+
+	// 2. Ejecutar actualización en BD
 	return s.repo.UpdateReserva(upd)
 }
 

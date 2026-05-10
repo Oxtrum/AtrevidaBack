@@ -26,6 +26,7 @@ type ActualizarServicioInput struct {
 type ServiciosRepository interface {
 	GetAllServicios() []models.ServicioItem
 	GetServicioByID(id int) (*models.ServicioItem, error)
+	GetServicioByNombre(nombre string) (*models.ServicioItem, error)
 	CreateServicio(input CrearServicioInput) (int, error)
 	UpdateServicio(input ActualizarServicioInput) error
 	AddServicioInLocal(servicioID int, localNombre string) error

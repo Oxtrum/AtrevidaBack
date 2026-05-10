@@ -68,7 +68,7 @@ type crearReservaPGRequest struct {
 	Fecha     string   `json:"fecha"      binding:"required"` // "2025-04-04"
 	HoraDesde string   `json:"hora_desde" binding:"required"`
 	HoraHasta string   `json:"hora_hasta"` // opcional
-	Tipo      string   `json:"tipo"       binding:"required"`
+	Tipo      string   `json:"tipo"`
 	Cliente   string   `json:"cliente"    binding:"required"`
 	Servicio  string   `json:"servicio"`
 	Precio    *float64 `json:"precio"`
@@ -84,10 +84,12 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 	}
 
 	tipoNorm := strings.ToUpper(strings.TrimSpace(req.Tipo))
-	if tipoNorm != "M" && tipoNorm != "B" {
-		utils.RespondError(c, http.StatusBadRequest, "tipo inválido, valores permitidos: M, B")
-		return
-	}
+	/*
+		if tipoNorm != "M" && tipoNorm != "B" {
+			utils.RespondError(c, http.StatusBadRequest, "tipo inválido, valores permitidos: M, B")
+			return
+		}
+	*/
 
 	id, err := h.ReservasPG.CrearReserva(services.CrearReservaPGInput{
 		Local:     strings.TrimSpace(req.Local),
