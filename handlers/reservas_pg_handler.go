@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"atrevida-agenda-api/models"
@@ -87,8 +88,7 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, "tipo inválido, valores permitidos: M, B")
 		return
 	}
-
-	err := h.ReservasPG.CrearReserva(services.CrearReservaPGInput{
+	id, err := h.ReservasPG.CrearReserva(services.CrearReservaPGInput{
 		Local:     strings.TrimSpace(req.Local),
 		Fecha:     strings.TrimSpace(req.Fecha),
 		HoraDesde: strings.TrimSpace(req.HoraDesde),
@@ -110,7 +110,10 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "reserva creada correctamente"})
+	utils.Respond(c, http.StatusOK, gin.H{
+		"mensaje": "reserva creada correctamente",
+		"id":      id,
+	})
 }
 
 // PATCH /bd/reservas
@@ -211,5 +214,29 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, gin.H{
 		"total":    len(resultado),
 		"reservas": resultado,
+	})
+}
+
+// GET /bd/reservas/:id
+func (h *Container) GetReservaPGByID(c *gin.Context) {
+	idRaw := c.Param("id")
+	id, err := strconv.Atoi(idRaw)
+	if err != nil || id <= 0 {
+		utils.RespondError(c, http.StatusBadRequest, "id inválido")
+		return
+	}
+
+	reserva, err := h.ReservasPG.GetReservaByID(id)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows") {
+			utils.RespondError(c, http.StatusNotFound, "reserva no encontrada")
+			return
+		}
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, gin.H{
+		"reserva": reserva,
 	})
 }

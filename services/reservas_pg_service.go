@@ -472,6 +472,26 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 	return resultado, nil
 }
 
+func (s *ReservasPGService) GetReservaByID(id int) (*ReservaSimple, error) {
+	rv, err := s.repo.GetReservaByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ReservaSimple{
+		ID:        rv.ID,
+		Local:     rv.LocalNombre,
+		Tipo:      tipoLetraANombreService(rv.TipoEspacio),
+		Fecha:     rv.Fecha.Format("2006-01-02"),
+		HoraDesde: formatHoraService(rv.HoraDesde),
+		HoraHasta: formatHoraService(rv.HoraHasta),
+		Cliente:   rv.Cliente,
+		Servicio:  rv.ServicioNombre,
+		Precio:    rv.Precio,
+		Notas:     rv.Notas,
+	}, nil
+}
+
 func tipoLetraANombreService(letra string) string {
 	switch strings.ToUpper(letra) {
 	case "M":
@@ -504,10 +524,10 @@ type CrearReservaPGInput struct {
 	PlanID    *int
 }
 
-func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) error {
+func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error) {
 	fecha, err := time.Parse("2006-01-02", input.Fecha)
 	if err != nil {
-		return fmt.Errorf("formato de fecha inválido, use YYYY-MM-DD")
+		return 0, fmt.Errorf("formato de fecha inválido, use YYYY-MM-DD")
 	}
 
 	horaHasta := input.HoraHasta
@@ -515,7 +535,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) error {
 		horaHasta = sumar30Min(input.HoraDesde)
 	}
 
-	_, err = s.repo.CreateReserva(repository.CreateReservaInput{
+	id, err := s.repo.CreateReserva(repository.CreateReservaInput{
 		LocalNombre:    input.Local,
 		TipoEspacio:    strings.ToUpper(input.Tipo),
 		Fecha:          fecha,
@@ -527,7 +547,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) error {
 		Notas:          input.Notas,
 		PlanID:         input.PlanID,
 	})
-	return err
+	return id, err
 }
 
 // PATCH

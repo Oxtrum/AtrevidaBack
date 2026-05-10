@@ -60,6 +60,7 @@ type CapacidadLocal struct {
 
 type ReservasPGRepository interface {
 	GetReservas(f FiltroReservasPG) ([]models.ReservaPGCompleta, error)
+	GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 	GetCapacidades(localNombre string) ([]CapacidadLocal, error)
 	CreateReserva(input CreateReservaInput) (int, error)
 	UpdateReserva(input UpdateReservaInput) error

@@ -97,6 +97,26 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 	return reservas, nil
 }
 
+func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error) {
+	query := `
+		SELECT
+			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
+			r.fecha, r.hora_desde::text, r.hora_hasta::text,
+			r.cliente, r.plan_id, r.servicio_nombre, r.servicio_tiempo,
+			r.precio, r.notas, r.activo, r.creado_en, r.actualizado_en
+		FROM reservas r
+		WHERE r.id = $1
+	`
+	var rv models.ReservaPGCompleta
+	err := r.db.Get(&rv, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener reserva por id: %w", err)
+	}
+
+	rv.Detalle, _ = r.getDetalleReserva(rv.ID)
+	return &rv, nil
+}
+
 func (r *ReservasRepo) getDetalleReserva(reservaID int) ([]models.DetalleReservaPG, error) {
 	var detalle []models.DetalleReservaPG
 	err := r.db.Select(&detalle, `
