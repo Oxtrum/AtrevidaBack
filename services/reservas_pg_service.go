@@ -573,7 +573,7 @@ type ActualizarReservaPGInput struct {
 }
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
-	upd := repository.UpdateReservaInput{ID: input.Id}
+	upd := repository.UpdateReservaInput{Id: input.Id}
 
 	if input.NuevaFecha != "" {
 		t, err := time.Parse("2006-01-02", input.NuevaFecha)
