@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -37,8 +38,12 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 		Reservados: reservados,
 	}
 
+	fmt.Printf("[DEBUG] GET /bd/reservas/calendario: Local=%s, FechaDesde=%s, FechaHasta=%s\n", 
+		filtro.Local, filtro.FechaDesde, filtro.FechaHasta)
+
 	resultado, err := h.ReservasPG.GetReservasFiltradas(filtro)
 	if err != nil {
+		fmt.Printf("[DEBUG] ERROR en /calendario: %v\n", err)
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -46,6 +51,8 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 	if resultado == nil {
 		resultado = []models.LocalReservas{}
 	}
+
+	fmt.Printf("[DEBUG] /calendario exitoso: %d locales devueltos\n", len(resultado))
 
 	utils.Respond(c, http.StatusOK, gin.H{
 		"total_locales": len(resultado),
@@ -83,11 +90,15 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		return
 	}
 
+	fmt.Printf("[DEBUG] Recibiendo POST /bd/reservas: Local=%s, Fecha=%s, Hora=%s, Cliente=%s\n",
+		req.Local, req.Fecha, req.HoraDesde, req.Cliente)
+
 	tipoNorm := strings.ToUpper(strings.TrimSpace(req.Tipo))
 	if tipoNorm != "M" && tipoNorm != "B" {
 		utils.RespondError(c, http.StatusBadRequest, "tipo inválido, valores permitidos: M, B")
 		return
 	}
+
 	id, err := h.ReservasPG.CrearReserva(services.CrearReservaPGInput{
 		Local:     strings.TrimSpace(req.Local),
 		Fecha:     strings.TrimSpace(req.Fecha),
@@ -100,7 +111,9 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		Notas:     strings.TrimSpace(req.Notas),
 		PlanID:    req.PlanID,
 	})
+
 	if err != nil {
+		fmt.Printf("[DEBUG] ERROR al crear reserva: %v\n", err)
 		status := http.StatusInternalServerError
 		if strings.Contains(err.Error(), "no hay espacios") ||
 			strings.Contains(err.Error(), "no está disponible") {
@@ -110,13 +123,73 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"mensaje": "reserva creada correctamente",
+	fmt.Printf("[DEBUG] Reserva creada exitosamente con ID: %d\n", id)
+
+	utils.Respond(c, http.StatusCreated, gin.H{
 		"id":      id,
+		"mensaje": "Reserva creada correctamente",
 	})
 }
 
-// PATCH /bd/reservas
+func (h *Container) GetReservasSimplePG(c *gin.Context) {
+	paramTipo := strings.ToLower(strings.TrimSpace(c.Query("tipo")))
+	if paramTipo != "" && paramTipo != "mesa" && paramTipo != "bicicleta" {
+		utils.RespondError(c, http.StatusBadRequest,
+			"tipo inválido, valores permitidos: mesa, bicicleta")
+		return
+	}
+
+	filtro := services.FiltroReservasSimple{
+		Local:      strings.TrimSpace(c.Query("local")),
+		Fecha:      strings.TrimSpace(c.Query("fecha")),
+		FechaDesde: strings.TrimSpace(c.Query("fecha_desde")),
+		FechaHasta: strings.TrimSpace(c.Query("fecha_hasta")),
+		Cliente:    strings.TrimSpace(c.Query("cliente")),
+		Tipo:       paramTipo,
+	}
+
+	fmt.Printf("[DEBUG] GET /bd/reservas: Local=%s, FechaDesde=%s, FechaHasta=%s, Tipo=%s\n", 
+		filtro.Local, filtro.FechaDesde, filtro.FechaHasta, filtro.Tipo)
+
+	resultado, err := h.ReservasPG.GetReservasSimple(filtro)
+	if err != nil {
+		fmt.Printf("[DEBUG] ERROR en GET /bd/reservas: %v\n", err)
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	fmt.Printf("[DEBUG] GET /bd/reservas exitoso: %d reservas encontradas\n", len(resultado))
+
+	utils.Respond(c, http.StatusOK, gin.H{
+		"total":    len(resultado),
+		"reservas": resultado,
+	})
+}
+
+// GET /bd/reservas/:id
+func (h *Container) GetReservaPGByID(c *gin.Context) {
+	idRaw := c.Param("id")
+	id, err := strconv.Atoi(idRaw)
+	if err != nil || id <= 0 {
+		utils.RespondError(c, http.StatusBadRequest, "id inválido")
+		return
+	}
+
+	reserva, err := h.ReservasPG.GetReservaByID(id)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows") {
+			utils.RespondError(c, http.StatusNotFound, "reserva no encontrada")
+			return
+		}
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, gin.H{
+		"reserva": reserva,
+	})
+}
+
 type actualizarReservaPGRequest struct {
 	Id    int    `json:"id"         binding:"required"`
 	Local string `json:"local"      binding:"required"`
@@ -157,86 +230,28 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 
 	if req.NuevaFecha == "" && req.NuevaHoraDesde == "" && nuevoTipoNorm == "" &&
 		req.NuevoServicio == "" && req.NuevoPrecio == nil && req.NuevasNotas == "" {
-		utils.RespondError(c, http.StatusBadRequest,
-			"debe especificarse al menos un campo a modificar")
+		utils.RespondError(c, http.StatusBadRequest, "no hay cambios para actualizar")
 		return
 	}
 
 	err := h.ReservasPG.ActualizarReserva(services.ActualizarReservaPGInput{
 		Id:             id,
-		Local:          strings.TrimSpace(req.Local),
-		NuevaFecha:     strings.TrimSpace(req.NuevaFecha),
-		NuevaHoraDesde: strings.TrimSpace(req.NuevaHoraDesde),
-		NuevaHoraHasta: strings.TrimSpace(req.NuevaHoraHasta),
+		Local:          req.Local,
+		NuevaFecha:     req.NuevaFecha,
+		NuevaHoraDesde: req.NuevaHoraDesde,
+		NuevaHoraHasta: req.NuevaHoraHasta,
 		NuevoTipo:      nuevoTipoNorm,
-		NuevoServicio:  strings.TrimSpace(req.NuevoServicio),
+		NuevoServicio:  req.NuevoServicio,
 		NuevoPrecio:    req.NuevoPrecio,
-		NuevasNotas:    strings.TrimSpace(req.NuevasNotas),
+		NuevasNotas:    req.NuevasNotas,
 	})
 
-	if err != nil {
-		status := http.StatusInternalServerError
-		if strings.Contains(err.Error(), "no hay espacios") ||
-			strings.Contains(err.Error(), "no encontrada") {
-			status = http.StatusConflict
-		}
-		utils.RespondError(c, status, err.Error())
-		return
-	}
-
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "reserva actualizada correctamente"})
-}
-
-// GET /bd/reservas
-func (h *Container) GetReservasSimplePG(c *gin.Context) {
-	paramTipo := strings.ToLower(strings.TrimSpace(c.Query("tipo")))
-	if paramTipo != "" && paramTipo != "mesa" && paramTipo != "bicicleta" {
-		utils.RespondError(c, http.StatusBadRequest,
-			"tipo inválido, valores permitidos: mesa, bicicleta")
-		return
-	}
-
-	filtro := services.FiltroReservasSimple{
-		Local:      strings.TrimSpace(c.Query("local")),
-		Fecha:      strings.TrimSpace(c.Query("fecha")),
-		FechaDesde: strings.TrimSpace(c.Query("fecha_desde")),
-		FechaHasta: strings.TrimSpace(c.Query("fecha_hasta")),
-		Cliente:    strings.TrimSpace(c.Query("cliente")),
-		Tipo:       paramTipo,
-	}
-
-	resultado, err := h.ReservasPG.GetReservasSimple(filtro)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	utils.Respond(c, http.StatusOK, gin.H{
-		"total":    len(resultado),
-		"reservas": resultado,
-	})
-}
-
-// GET /bd/reservas/:id
-func (h *Container) GetReservaPGByID(c *gin.Context) {
-	idRaw := c.Param("id")
-	id, err := strconv.Atoi(idRaw)
-	if err != nil || id <= 0 {
-		utils.RespondError(c, http.StatusBadRequest, "id inválido")
-		return
-	}
-
-	reserva, err := h.ReservasPG.GetReservaByID(id)
-	if err != nil {
-		if strings.Contains(err.Error(), "no rows") {
-			utils.RespondError(c, http.StatusNotFound, "reserva no encontrada")
-			return
-		}
-		utils.RespondError(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	utils.Respond(c, http.StatusOK, gin.H{
-		"reserva": reserva,
+		"mensaje": "Reserva actualizada correctamente",
 	})
 }

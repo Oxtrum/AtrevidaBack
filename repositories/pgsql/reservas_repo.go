@@ -449,7 +449,7 @@ func tipoLetraANombre(letra string) string {
 
 func formatHora(h string) string {
 	h = strings.TrimSuffix(h, ":00")
-	h = strings.TrimPrefix(h, "0")
+	// h = strings.TrimPrefix(h, "0") // NO TRIM ZERO
 	return h
 }
 

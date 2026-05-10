@@ -182,7 +182,7 @@ func transformReservasEnSlots(reservas []models.ReservaPGCompleta) []models.Rese
 	var resultado []models.ReservaPGCompleta
 
 	for _, rv := range reservas {
-		slots := partirEnSlots30(rv.HoraDesde, rv.HoraHasta)
+		slots := partirEnSlots60(rv.HoraDesde, rv.HoraHasta)
 		if len(slots) == 0 {
 			// Si no se puede partir (horario inválido), lo dejamos tal cual
 			resultado = append(resultado, rv)
@@ -199,8 +199,8 @@ func transformReservasEnSlots(reservas []models.ReservaPGCompleta) []models.Rese
 	return resultado
 }
 
-// partirEnSlots30 divide un rango [desde, hasta] en bloques de 30 minutos.
-func partirEnSlots30(desde, hasta string) [][2]string {
+// partirEnSlots60 divide un rango [desde, hasta] en bloques de 60 minutos.
+func partirEnSlots60(desde, hasta string) [][2]string {
 	parseHora := func(h string) (time.Time, error) {
 		if len(h) > 5 {
 			h = h[:5]
@@ -221,13 +221,13 @@ func partirEnSlots30(desde, hasta string) [][2]string {
 	var slots [][2]string
 	cur := tDesde
 	for cur.Before(tHasta) {
-		siguiente := cur.Add(30 * time.Minute)
+		siguiente := cur.Add(60 * time.Minute)
 		if siguiente.After(tHasta) {
 			siguiente = tHasta
 		}
 		slots = append(slots, [2]string{
-			fmt.Sprintf("%d:%02d", cur.Hour(), cur.Minute()),
-			fmt.Sprintf("%d:%02d", siguiente.Hour(), siguiente.Minute()),
+			fmt.Sprintf("%02d:%02d", cur.Hour(), cur.Minute()),
+			fmt.Sprintf("%02d:%02d", siguiente.Hour(), siguiente.Minute()),
 		})
 		cur = siguiente
 	}
@@ -325,31 +325,31 @@ func (s *ReservasPGService) getEspaciosLibresRaw(f FiltroReservasPG, desde, hast
 	return resultado, nil
 }
 
-// horarioLocal retorna los slots de 30 min disponibles para un día dado.
+// horarioLocal retorna los slots de 60 min disponibles para un día dado.
 func horarioLocal(fecha time.Time) [][2]string {
 	switch fecha.Weekday() {
 	case time.Sunday:
 		return nil
 	case time.Saturday:
-		return generarSlots("08:00", "15:30")
+		return generarSlots60("08:00", "15:00")
 	default:
-		return generarSlots("08:00", "20:00")
+		return generarSlots60("08:00", "20:00")
 	}
 }
 
-// generarSlots produce pares [desde, hasta] de 30 min entre apertura y cierre.
-func generarSlots(apertura, cierre string) [][2]string {
+// generarSlots60 produce pares [desde, hasta] de 60 min entre apertura y cierre.
+func generarSlots60(apertura, cierre string) [][2]string {
 	t, _ := time.Parse("15:04", apertura)
 	fin, _ := time.Parse("15:04", cierre)
 	var slots [][2]string
 	for t.Before(fin) {
-		siguiente := t.Add(30 * time.Minute)
+		siguiente := t.Add(60 * time.Minute)
 		if siguiente.After(fin) {
 			break
 		}
 		slots = append(slots, [2]string{
-			fmt.Sprintf("%d:%02d", t.Hour(), t.Minute()),
-			fmt.Sprintf("%d:%02d", siguiente.Hour(), siguiente.Minute()),
+			fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute()),
+			fmt.Sprintf("%02d:%02d", siguiente.Hour(), siguiente.Minute()),
 		})
 		t = siguiente
 	}
@@ -506,7 +506,6 @@ func formatHoraService(h string) string {
 	if len(h) > 5 {
 		h = h[:5]
 	}
-	h = strings.TrimPrefix(h, "0")
 	return h
 }
 
@@ -532,7 +531,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 
 	horaHasta := input.HoraHasta
 	if horaHasta == "" {
-		horaHasta = sumar30Min(input.HoraDesde)
+		horaHasta = sumar60Min(input.HoraDesde)
 	}
 
 	id, err := s.repo.CreateReserva(repository.CreateReservaInput{
@@ -617,11 +616,11 @@ func tipoNombreALetra(nombre string) string {
 	return strings.ToUpper(nombre)
 }
 
-func sumar30Min(hora string) string {
+func sumar60Min(hora string) string {
 	t, err := time.Parse("15:04", hora)
 	if err != nil {
 		t, _ = time.Parse("15:4", hora)
 	}
-	t = t.Add(30 * time.Minute)
-	return fmt.Sprintf("%d:%02d", t.Hour(), t.Minute())
+	t = t.Add(60 * time.Minute)
+	return fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())
 }
