@@ -327,14 +327,13 @@ func (s *ReservasPGService) getEspaciosLibresRaw(f FiltroReservasPG, desde, hast
 
 // horarioLocal retorna los slots de 60 min disponibles para un día dado.
 func horarioLocal(fecha time.Time) [][2]string {
-	switch fecha.Weekday() {
-	case time.Sunday:
+	if fecha.Weekday() == time.Sunday {
 		return nil
-	case time.Saturday:
-		return generarSlots60("08:00", "15:00")
-	default:
-		return generarSlots60("08:00", "20:00")
 	}
+	if (fecha.Weekday() == time.Saturday) {
+		return generarSlots60("08:00", "15:00")
+	}
+	return generarSlots60("08:00", "20:00")
 }
 
 // generarSlots60 produce pares [desde, hasta] de 60 min entre apertura y cierre.
@@ -583,6 +582,10 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 	}
 	if input.NuevaHoraDesde != "" {
 		upd.NuevaHoraDesde = &input.NuevaHoraDesde
+		if input.NuevaHoraHasta == "" {
+			hHasta := sumar60Min(input.NuevaHoraDesde)
+			upd.NuevaHoraHasta = &hHasta
+		}
 	}
 	if input.NuevaHoraHasta != "" {
 		upd.NuevaHoraHasta = &input.NuevaHoraHasta

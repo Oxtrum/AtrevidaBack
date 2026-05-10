@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -38,12 +37,8 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 		Reservados: reservados,
 	}
 
-	fmt.Printf("[DEBUG] GET /bd/reservas/calendario: Local=%s, FechaDesde=%s, FechaHasta=%s\n", 
-		filtro.Local, filtro.FechaDesde, filtro.FechaHasta)
-
 	resultado, err := h.ReservasPG.GetReservasFiltradas(filtro)
 	if err != nil {
-		fmt.Printf("[DEBUG] ERROR en /calendario: %v\n", err)
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -51,8 +46,6 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 	if resultado == nil {
 		resultado = []models.LocalReservas{}
 	}
-
-	fmt.Printf("[DEBUG] /calendario exitoso: %d locales devueltos\n", len(resultado))
 
 	utils.Respond(c, http.StatusOK, gin.H{
 		"total_locales": len(resultado),
@@ -90,9 +83,6 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[DEBUG] Recibiendo POST /bd/reservas: Local=%s, Fecha=%s, Hora=%s, Cliente=%s\n",
-		req.Local, req.Fecha, req.HoraDesde, req.Cliente)
-
 	tipoNorm := strings.ToUpper(strings.TrimSpace(req.Tipo))
 	if tipoNorm != "M" && tipoNorm != "B" {
 		utils.RespondError(c, http.StatusBadRequest, "tipo inválido, valores permitidos: M, B")
@@ -113,7 +103,6 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 	})
 
 	if err != nil {
-		fmt.Printf("[DEBUG] ERROR al crear reserva: %v\n", err)
 		status := http.StatusInternalServerError
 		if strings.Contains(err.Error(), "no hay espacios") ||
 			strings.Contains(err.Error(), "no está disponible") {
@@ -122,8 +111,6 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		utils.RespondError(c, status, err.Error())
 		return
 	}
-
-	fmt.Printf("[DEBUG] Reserva creada exitosamente con ID: %d\n", id)
 
 	utils.Respond(c, http.StatusCreated, gin.H{
 		"id":      id,
@@ -148,17 +135,11 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		Tipo:       paramTipo,
 	}
 
-	fmt.Printf("[DEBUG] GET /bd/reservas: Local=%s, FechaDesde=%s, FechaHasta=%s, Tipo=%s\n", 
-		filtro.Local, filtro.FechaDesde, filtro.FechaHasta, filtro.Tipo)
-
 	resultado, err := h.ReservasPG.GetReservasSimple(filtro)
 	if err != nil {
-		fmt.Printf("[DEBUG] ERROR en GET /bd/reservas: %v\n", err)
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	fmt.Printf("[DEBUG] GET /bd/reservas exitoso: %d reservas encontradas\n", len(resultado))
 
 	utils.Respond(c, http.StatusOK, gin.H{
 		"total":    len(resultado),
