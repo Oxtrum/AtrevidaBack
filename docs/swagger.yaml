@@ -1,0 +1,485 @@
+basePath: /
+definitions:
+  handlers.actualizarReservaPGRequest:
+    properties:
+      id:
+        type: integer
+      local:
+        type: string
+      nueva_fecha:
+        type: string
+      nueva_hora_desde:
+        type: string
+      nueva_hora_hasta:
+        type: string
+      nuevas_notas:
+        type: string
+      nuevo_precio:
+        type: number
+      nuevo_servicio:
+        type: string
+      nuevo_tipo:
+        type: string
+    required:
+    - id
+    - local
+    type: object
+  handlers.actualizarReservaRequest:
+    properties:
+      cliente:
+        type: string
+      dia:
+        type: string
+      hora:
+        type: string
+      local:
+        type: string
+      nueva_hora_desde:
+        type: string
+      nueva_hora_hasta:
+        type: string
+      nuevo_dia:
+        type: string
+      nuevo_servicio:
+        type: string
+      nuevo_tipo:
+        type: string
+      semana:
+        type: string
+      tipo:
+        type: string
+    required:
+    - cliente
+    - dia
+    - hora
+    - local
+    - semana
+    - tipo
+    type: object
+  handlers.crearReservaPGRequest:
+    properties:
+      cliente:
+        type: string
+      fecha:
+        description: '"2025-04-04"'
+        type: string
+      hora_desde:
+        type: string
+      hora_hasta:
+        description: opcional
+        type: string
+      local:
+        type: string
+      notas:
+        type: string
+      plan_id:
+        type: integer
+      precio:
+        type: number
+      servicio:
+        type: string
+      tipo:
+        type: string
+    required:
+    - cliente
+    - fecha
+    - hora_desde
+    - local
+    type: object
+  handlers.crearReservaRequest:
+    properties:
+      cliente:
+        type: string
+      dia:
+        type: string
+      hora_desde:
+        type: string
+      hora_hasta:
+        type: string
+      local:
+        type: string
+      semana:
+        type: string
+      servicio:
+        type: string
+      tipo:
+        type: string
+    required:
+    - cliente
+    - dia
+    - hora_desde
+    - local
+    - semana
+    - tipo
+    type: object
+  utils.APIResponse:
+    properties:
+      code:
+        type: integer
+      data: {}
+      error:
+        type: boolean
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: API REST para reservas, servicios, combos y administracion de Atrevida
+    Fit.
+  title: Atrevida Fit - Agenda API
+  version: v0.1
+paths:
+  /bd/reservas:
+    patch:
+      consumes:
+      - application/json
+      description: Actualiza una reserva existente en PostgreSQL.
+      parameters:
+      - description: Datos para actualizar la reserva
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarReservaPGRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Actualizar reserva en base de datos
+      tags:
+      - Reservas BD
+    post:
+      consumes:
+      - application/json
+      description: Crea una reserva persistida en PostgreSQL.
+      parameters:
+      - description: Datos de la reserva
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearReservaPGRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Crear reserva en base de datos
+      tags:
+      - Reservas BD
+  /bd/reservas/{id}:
+    get:
+      description: Devuelve una reserva de PostgreSQL por su identificador.
+      parameters:
+      - description: ID de la reserva
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Obtener reserva por ID
+      tags:
+      - Reservas BD
+  /bd/reservas/calendario:
+    get:
+      description: Devuelve reservas agrupadas por local con filtros opcionales.
+      parameters:
+      - description: Nombre del local
+        in: query
+        name: local
+        type: string
+      - description: Fecha exacta
+        in: query
+        name: fecha
+        type: string
+      - description: Fecha desde
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Fecha hasta
+        in: query
+        name: fecha_hasta
+        type: string
+      - description: Nombre del cliente
+        in: query
+        name: cliente
+        type: string
+      - description: Tipo de reserva
+        enum:
+        - mesa
+        - bicicleta
+        in: query
+        name: tipo
+        type: string
+      - description: Filtrar por estado reservado
+        in: query
+        name: reservados
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar reservas desde base de datos
+      tags:
+      - Reservas BD
+  /combos:
+    get:
+      description: Devuelve combos filtrados por nombre, categoria, local y sesiones.
+      parameters:
+      - description: Busqueda parcial por nombre
+        in: query
+        name: nombre
+        type: string
+      - description: Busqueda parcial por categoria
+        in: query
+        name: categoria
+        type: string
+      - description: Local
+        enum:
+        - ARANJUEZ
+        - CENTRO
+        - SAN MARTIN
+        in: query
+        name: local
+        type: string
+      - description: Numero exacto de sesiones
+        in: query
+        name: sesiones
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar combos
+      tags:
+      - Catalogo
+  /reservas:
+    get:
+      description: Devuelve reservas filtradas por local, semana, dia, tipo, cliente
+        y si estan reservadas.
+      parameters:
+      - description: Nombre del local
+        in: query
+        name: local
+        type: string
+      - description: Semana a consultar
+        in: query
+        name: semana
+        type: string
+      - description: Dia a consultar
+        in: query
+        name: dia
+        type: string
+      - description: Tipo de reserva
+        enum:
+        - mesa
+        - bicicleta
+        - feriado
+        in: query
+        name: tipo
+        type: string
+      - description: Nombre del cliente
+        in: query
+        name: cliente
+        type: string
+      - description: Filtrar solo reservados
+        in: query
+        name: reservados
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar reservas desde Google Sheets
+      tags:
+      - Reservas Sheets
+    patch:
+      consumes:
+      - application/json
+      description: Modifica una reserva existente en Google Sheets.
+      parameters:
+      - description: Datos para actualizar la reserva
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarReservaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "207":
+          description: Multi-Status
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Actualizar reserva en Google Sheets
+      tags:
+      - Reservas Sheets
+    post:
+      consumes:
+      - application/json
+      description: Crea una reserva en uno o varios slots dentro de Google Sheets.
+      parameters:
+      - description: Datos de la reserva
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearReservaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "207":
+          description: Multi-Status
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Crear reserva en Google Sheets
+      tags:
+      - Reservas Sheets
+  /servicios:
+    get:
+      description: Devuelve servicios filtrados por nombre, categoria, local y sesiones.
+      parameters:
+      - description: Busqueda parcial por nombre
+        in: query
+        name: nombre
+        type: string
+      - description: Busqueda parcial por categoria
+        in: query
+        name: categoria
+        type: string
+      - description: Local
+        enum:
+        - ARANJUEZ
+        - CENTRO
+        - SAN MARTIN
+        in: query
+        name: local
+        type: string
+      - description: Numero exacto de sesiones
+        in: query
+        name: sesiones
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar servicios
+      tags:
+      - Catalogo
+schemes:
+- http
+- https
+swagger: "2.0"

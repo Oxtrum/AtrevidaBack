@@ -12,7 +12,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET /bd/reservas
+// GetReservasPG godoc
+// @Summary Listar reservas desde base de datos
+// @Description Devuelve reservas agrupadas por local con filtros opcionales.
+// @Tags Reservas BD
+// @Produce json
+// @Param local query string false "Nombre del local"
+// @Param fecha query string false "Fecha exacta"
+// @Param fecha_desde query string false "Fecha desde"
+// @Param fecha_hasta query string false "Fecha hasta"
+// @Param cliente query string false "Nombre del cliente"
+// @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta)
+// @Param reservados query bool false "Filtrar por estado reservado"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/reservas/calendario [get]
 func (h *Container) GetReservasPG(c *gin.Context) {
 	paramTipo := strings.ToLower(strings.TrimSpace(c.Query("tipo")))
 	if paramTipo != "" && paramTipo != "mesa" && paramTipo != "bicicleta" {
@@ -76,6 +91,18 @@ type crearReservaPGRequest struct {
 	PlanID    *int     `json:"plan_id"`
 }
 
+// PostReservaPG godoc
+// @Summary Crear reserva en base de datos
+// @Description Crea una reserva persistida en PostgreSQL.
+// @Tags Reservas BD
+// @Accept json
+// @Produce json
+// @Param payload body crearReservaPGRequest true "Datos de la reserva"
+// @Success 201 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 409 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/reservas [post]
 func (h *Container) PostReservaPG(c *gin.Context) {
 	var req crearReservaPGRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -149,7 +176,17 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 	})
 }
 
-// GET /bd/reservas/:id
+// GetReservaPGByID godoc
+// @Summary Obtener reserva por ID
+// @Description Devuelve una reserva de PostgreSQL por su identificador.
+// @Tags Reservas BD
+// @Produce json
+// @Param id path int true "ID de la reserva"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/reservas/{id} [get]
 func (h *Container) GetReservaPGByID(c *gin.Context) {
 	idRaw := c.Param("id")
 	id, err := strconv.Atoi(idRaw)
@@ -186,6 +223,17 @@ type actualizarReservaPGRequest struct {
 	NuevasNotas    string   `json:"nuevas_notas"`
 }
 
+// PatchReservaPG godoc
+// @Summary Actualizar reserva en base de datos
+// @Description Actualiza una reserva existente en PostgreSQL.
+// @Tags Reservas BD
+// @Accept json
+// @Produce json
+// @Param payload body actualizarReservaPGRequest true "Datos para actualizar la reserva"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/reservas [patch]
 func (h *Container) PatchReservaPG(c *gin.Context) {
 
 	var req actualizarReservaPGRequest

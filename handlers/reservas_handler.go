@@ -16,7 +16,21 @@ var tiposValidos = map[string]bool{
 	"feriado":   true,
 }
 
-// GET /reservas
+// GetReservas godoc
+// @Summary Listar reservas desde Google Sheets
+// @Description Devuelve reservas filtradas por local, semana, dia, tipo, cliente y si estan reservadas.
+// @Tags Reservas Sheets
+// @Produce json
+// @Param local query string false "Nombre del local"
+// @Param semana query string false "Semana a consultar"
+// @Param dia query string false "Dia a consultar"
+// @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta,feriado)
+// @Param cliente query string false "Nombre del cliente"
+// @Param reservados query bool false "Filtrar solo reservados"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /reservas [get]
 func (h *Container) GetReservas(c *gin.Context) {
 	paramTipo := strings.ToLower(strings.TrimSpace(c.Query("tipo")))
 

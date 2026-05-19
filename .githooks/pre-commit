@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+
+echo "Regenerando Swagger docs antes del commit..."
+go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g main.go -o docs
+
+git add docs

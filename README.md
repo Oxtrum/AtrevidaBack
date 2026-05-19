@@ -1,124 +1,130 @@
-# 📋 Atrevida Fit API
+# Atrevida Fit API
 
-Descripción breve: API REST desarrollada en Go con Gin para consultar datos de reservas desde Google Sheets.
+API REST desarrollada en Go con Gin para gestionar reservas, catalogo y datos operativos de Atrevida Fit.
 
----
+## Stack
 
-## 🚀 Tecnologías
+- Go
+- Gin
+- PostgreSQL
+- Google Sheets API
+- Swagger (`swaggo`)
 
-- [Go](https://golang.org/)
-- [Gin](https://github.com/gin-gonic/gin) — HTTP framework
-- [Google Sheets API](https://developers.google.com/sheets/api)
-- [godotenv](https://github.com/joho/godotenv) — manejo de variables de entorno
+## Puesta en marcha
 
----
+1. Instala dependencias:
 
-## ⚙️ Configuración
-
-1. Instalar dependencias
-   ```bash
-   go mod tidy
-   ```
-
-2. Configurar el archivo `.env` a partir del ejemplo
-
-3. Correr la API
-   ```bash
-   go run main.go
-   ```
-
----
-
-## 🌐 Endpoints
-
-| Método | Ruta | Descripción | Auth |
-|--------|------|------------|------|
-| GET | `/` | Estado de la API | No |
-
-### 🧪 Debug - Sheets
-
-| Método | Ruta | Descripción | Auth |
-|--------|------|------------|------|
-| GET | `/reservas/unfiltered` | Lista completa de reservas (formateadas) | No |
-| GET | `/reservas/raw` | Datos crudos desde Google Sheets | No |
-| GET | `/reservas/celda-raw` | Obtiene el contenido crudo de una celda específica y su parseo | No |
-
-> Query params para `/reservas/celda-raw`: `local`, `semana`, `dia`, `hora`
-
----
-
-### 📊 Reservas - Sheets
-
-| Método | Ruta | Descripción | Auth |
-|--------|------|------------|------|
-| GET | `/reservas` | Obtiene reservas formateadas con filtros | No |
-| POST | `/reservas` | Crea una nueva reserva en Google Sheets | No |
-| PATCH | `/reservas` | Actualiza una reserva en Google Sheets | No |
-
----
-
-### 🧾 Catálogo - Sheets
-
-| Método | Ruta | Descripción | Auth |
-|--------|------|------------|------|
-| GET | `/servicios` | Lista de servicios disponibles | No |
-| GET | `/combos` | Lista de combos disponibles | No |
-
----
-
-### 🗄️ Base de Datos (PostgreSQL)
-
-| Método | Ruta | Descripción | Auth |
-|--------|------|------------|------|
-| GET | `/bd/servicios` | Lista de servicios desde BD | No |
-| GET | `/bd/combos` | Lista de combos desde BD | No |
-| GET | `/bd/reservas/calendario` | Calendario de reservas (bloques de 30 min, libres y reservados) | No |
-| POST | `/bd/reservas` | Crea una nueva reserva en BD | No |
-| PATCH | `/bd/reservas` | Actualiza una reserva en BD | No |
-
----
-
-### ⚙️ Administración
-
-| Método | Ruta | Descripción | Auth |
-|--------|------|------------|------|
-| POST | `/admin/importar` | Importa catálogo (servicios/combos) a la BD | No |
-
-> La tabla se irá actualizando a medida que se agreguen nuevos endpoints.
-
----
-
-## 📁 Estructura del proyecto
-```
-.
-├── config/
-│   └── config.go        # Carga de variables de entorno
-├── models/
-│   └── reserva.go       # Definición de structs
-├── services/
-│   └── sheets_service.go  # Lógica de negocio y conexión a Sheets
-├── utils/
-│   └── parser.go        # Utilidades de parseo
-├── .env.example         # Plantilla de variables de entorno
-├── .gitignore
-├── credentials.json     # ⚠️ No se sube al repo (.gitignore)
-├── go.mod
-├── go.sum
-└── main.go
+```bash
+go mod tidy
 ```
 
----
+2. Crea tu `.env` a partir de `.env.example`.
 
-## 🔐 Variables de entorno
+3. Levanta la API:
 
-| Variable            | Descripción                              | Ejemplo                  |
-|---------------------|------------------------------------------|--------------------------|
-| `SPREADSHEET_ID`    | ID del Google Spreadsheet a consultar    | `1BxiMVs0XRA...`|
-| `SHEETS_DISPONIBLES`| Nombres de hojas separados por coma      | `local 1,local 2`        |
+```bash
+go run main.go
+```
 
----
+La API queda en `http://localhost:8080`.
 
-## 📌 Notas
+## Documentacion Swagger
 
-- El rango de lectura por defecto es `!A1:G200`. Es un valor provisional a ajustarse a posteriori.
-- Las credenciales de Google Sheets deben configurarse aparte (acceso interno).
+- UI Swagger: `http://localhost:8080/swagger/index.html`
+- Archivos generados: [`docs/`](/c:/Projects/Atrevida/AtrevidaBack/docs)
+- Generacion manual:
+
+```bash
+go generate ./...
+```
+
+Tambien puedes regenerar solo Swagger con:
+
+```powershell
+./scripts/update-swagger.ps1
+```
+
+## Actualizacion automatica en commit y push
+
+El repo incluye hooks versionados en `.githooks/`:
+
+- `pre-commit`: regenera `docs/` y la agrega al commit.
+- `pre-push`: regenera `docs/` y bloquea el push si hay cambios sin commitear en `docs/`.
+
+Para activarlos en tu clon:
+
+```powershell
+./scripts/install-git-hooks.ps1
+```
+
+Eso configura:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+## Reglas para IAs y agentes
+
+El repo incluye instrucciones para asistentes de codigo:
+
+- [`AGENTS.md`](/c:/Projects/Atrevida/AtrevidaBack/AGENTS.md): reglas generales del proyecto para agentes que leen instrucciones del repo.
+- [`.github/copilot-instructions.md`](/c:/Projects/Atrevida/AtrevidaBack/.github/copilot-instructions.md): instrucciones especificas para GitHub Copilot.
+
+La regla importante es simple: si una IA cambia la API, tambien debe actualizar Swagger y regenerar `docs/`.
+
+## Endpoints principales
+
+### Base
+
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| GET | `/` | Estado de la API |
+| GET | `/swagger/*any` | UI y spec de Swagger |
+
+### Reservas Sheets
+
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| GET | `/reservas` | Lista reservas con filtros |
+| POST | `/reservas` | Crea una reserva en Google Sheets |
+| PATCH | `/reservas` | Actualiza una reserva en Google Sheets |
+
+### Catalogo
+
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| GET | `/servicios` | Lista servicios |
+| GET | `/combos` | Lista combos |
+
+### Base de datos
+
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| GET | `/bd/servicios` | Lista servicios desde BD |
+| GET | `/bd/servicios/:id` | Obtiene un servicio por ID |
+| GET | `/bd/combos` | Lista combos desde BD |
+| GET | `/bd/locales` | Lista locales |
+| GET | `/bd/locales/:id` | Obtiene un local por ID |
+| GET | `/bd/reservas` | Lista simple de reservas |
+| GET | `/bd/reservas/:id` | Obtiene una reserva por ID |
+| GET | `/bd/reservas/calendario` | Calendario de reservas |
+| POST | `/bd/reservas` | Crea una reserva en BD |
+| PATCH | `/bd/reservas` | Actualiza una reserva en BD |
+
+### Administracion
+
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| POST | `/admin/importar` | Importa catalogo a la BD |
+
+## Variables de entorno
+
+| Variable | Descripcion |
+|---|---|
+| `SPREADSHEET_ID` | ID del spreadsheet de Google Sheets |
+| `SHEETS_DISPONIBLES` | Nombres de hojas separados por coma |
+
+## Notas
+
+- `docs/` es codigo generado y debe mantenerse versionado.
+- Si agregas o cambias anotaciones `@...`, regenera Swagger antes de revisar el resultado en `/swagger/index.html`.
