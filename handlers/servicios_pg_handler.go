@@ -12,7 +12,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET /bd/servicios
+// GetServiciosPG godoc
+// @Summary Listar servicios desde base de datos
+// @Description Devuelve servicios persistidos en PostgreSQL con filtros opcionales.
+// @Tags Servicios BD
+// @Produce json
+// @Param nombre query string false "Busqueda parcial por nombre"
+// @Param categoria query string false "Busqueda parcial por categoria"
+// @Param local query string false "Local" Enums(SAN MARTIN,PASEO ARANJUEZ)
+// @Param sesiones query int false "Numero exacto de sesiones"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Router /bd/servicios [get]
 func (h *Container) GetServiciosPG(c *gin.Context) {
 	sesiones := 0
 	if raw := strings.TrimSpace(c.Query("sesiones")); raw != "" {
@@ -56,7 +67,16 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 	})
 }
 
-// GET /bd/servicios/:id
+// GetServicioPGByID godoc
+// @Summary Obtener servicio por ID
+// @Description Devuelve un servicio de PostgreSQL por su identificador.
+// @Tags Servicios BD
+// @Produce json
+// @Param id path int true "ID del servicio"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
+// @Router /bd/servicios/{id} [get]
 func (h *Container) GetServicioPGByID(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -84,6 +104,17 @@ type crearServicioRequest struct {
 	LocalNombre          string   `json:"local"`                  // opcional
 }
 
+// CreateServicio godoc
+// @Summary Crear servicio
+// @Description Crea un nuevo servicio en PostgreSQL y opcionalmente lo asocia a un local.
+// @Tags Servicios BD
+// @Accept json
+// @Produce json
+// @Param payload body crearServicioRequest true "Datos del servicio"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/servicios [post]
 func (h *Container) CreateServicio(c *gin.Context) {
 	var req crearServicioRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -138,6 +169,19 @@ type actualizarServicioRequest struct {
 	Activo               *bool    `json:"activo"`
 }
 
+// UpdateServicio godoc
+// @Summary Actualizar servicio
+// @Description Actualiza un servicio existente en PostgreSQL.
+// @Tags Servicios BD
+// @Accept json
+// @Produce json
+// @Param id path int true "ID del servicio"
+// @Param payload body actualizarServicioRequest true "Campos a actualizar"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/servicios/{id} [patch]
 func (h *Container) UpdateServicio(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -195,6 +239,18 @@ type activarServicioRequest struct {
 	Local string `json:"local" binding:"required"`
 }
 
+// ActivarServicioEnLocal godoc
+// @Summary Activar servicio en local
+// @Description Asocia un servicio existente a un local determinado.
+// @Tags Servicios BD
+// @Accept json
+// @Produce json
+// @Param id path int true "ID del servicio"
+// @Param payload body activarServicioRequest true "Local donde activar el servicio"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/servicios/local/{id} [post]
 func (h *Container) ActivarServicioEnLocal(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

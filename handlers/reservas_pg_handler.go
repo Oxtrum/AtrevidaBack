@@ -147,6 +147,21 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 	})
 }
 
+// GetReservasSimplePG godoc
+// @Summary Listar reservas simples
+// @Description Devuelve reservas desde PostgreSQL en formato simple y sin agrupacion por local.
+// @Tags Reservas BD
+// @Produce json
+// @Param local query string false "Nombre del local"
+// @Param fecha query string false "Fecha exacta"
+// @Param fecha_desde query string false "Fecha desde"
+// @Param fecha_hasta query string false "Fecha hasta"
+// @Param cliente query string false "Nombre del cliente"
+// @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta)
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/reservas [get]
 func (h *Container) GetReservasSimplePG(c *gin.Context) {
 	paramTipo := strings.ToLower(strings.TrimSpace(c.Query("tipo")))
 	if paramTipo != "" && paramTipo != "mesa" && paramTipo != "bicicleta" {

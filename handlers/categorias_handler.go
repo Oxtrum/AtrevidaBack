@@ -9,7 +9,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET /bd/categorias
+// GetCategorias godoc
+// @Summary Listar categorias
+// @Description Devuelve todas las categorias registradas en la base de datos.
+// @Tags Categorias
+// @Produce json
+// @Success 200 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/categorias [get]
 func (h *Container) GetCategorias(c *gin.Context) {
 	resultado, err := h.CategoriasPG.GetCategorias()
 	if err != nil {
@@ -27,6 +34,17 @@ type crearCategoriaRequest struct {
 	Nombre string `json:"nombre"   binding:"required"`
 }
 
+// CreateCategoria godoc
+// @Summary Crear categoria
+// @Description Crea una nueva categoria en la base de datos.
+// @Tags Categorias
+// @Accept json
+// @Produce json
+// @Param payload body crearCategoriaRequest true "Datos de la categoria"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/categorias [post]
 func (h *Container) CreateCategoria(c *gin.Context) {
 	var req crearCategoriaRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
