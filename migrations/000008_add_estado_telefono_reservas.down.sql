@@ -1,0 +1,3 @@
+ALTER TABLE reservas
+DROP COLUMN IF EXISTS numero_telefono,
+DROP COLUMN IF EXISTS estado;

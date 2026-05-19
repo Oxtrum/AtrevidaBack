@@ -1,0 +1,7 @@
+ALTER TABLE reservas
+ADD COLUMN IF NOT EXISTS estado VARCHAR(50),
+ADD COLUMN IF NOT EXISTS numero_telefono VARCHAR(13);
+
+UPDATE reservas
+SET estado = 'PENDIENTE'
+WHERE estado IS NULL;
