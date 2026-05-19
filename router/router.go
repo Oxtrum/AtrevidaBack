@@ -86,6 +86,7 @@ func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 		bd.GET("/reservas/calendario", h.GetReservasPG)
 		bd.POST("/reservas", h.PostReservaPG)
 		bd.PATCH("/reservas", h.PatchReservaPG)
+		bd.PATCH("/reservas/estado", h.PatchReservaEstadoPG)
 
 	}
 

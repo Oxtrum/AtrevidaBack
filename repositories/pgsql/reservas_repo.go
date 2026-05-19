@@ -53,6 +53,20 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 		args = append(args, "%"+f.Cliente+"%")
 		idx++
 	}
+	if f.NumeroTelefono != "" {
+		digitos := soloDigitosTelefono(f.NumeroTelefono)
+		last8 := digitos
+		if len(last8) > 8 {
+			last8 = last8[len(last8)-8:]
+		}
+		conditions = append(conditions, fmt.Sprintf(`(
+			BTRIM(COALESCE(r.numero_telefono, '')) = BTRIM($%d)
+			OR regexp_replace(COALESCE(r.numero_telefono, ''), '\D', '', 'g') = $%d
+			OR RIGHT(regexp_replace(COALESCE(r.numero_telefono, ''), '\D', '', 'g'), 8) = $%d
+		)`, idx, idx+1, idx+2))
+		args = append(args, f.NumeroTelefono, digitos, last8)
+		idx += 3
+	}
 	if f.TipoEspacio != "" {
 		conditions = append(conditions, fmt.Sprintf("r.tipo_espacio = $%d", idx))
 		args = append(args, strings.ToUpper(f.TipoEspacio))
@@ -71,7 +85,7 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 		SELECT
 			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.plan_id, r.servicio_nombre, r.servicio_tiempo,
+			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre, r.servicio_tiempo,
 			r.precio, r.notas, r.activo, r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
@@ -102,7 +116,7 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 		SELECT
 			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.plan_id, r.servicio_nombre, r.servicio_tiempo,
+			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre, r.servicio_tiempo,
 			r.precio, r.notas, r.activo, r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE r.id = $1
@@ -151,13 +165,13 @@ func (r *ReservasRepo) CreateReserva(input repository.CreateReservaInput) (int, 
 		INSERT INTO reservas (
 			local_id, local_nombre, tipo_espacio,
 			fecha, hora_desde, hora_hasta,
-			cliente, plan_id, servicio_nombre, precio, notas
-		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11)
+			cliente, estado, numero_telefono, plan_id, servicio_nombre, precio, notas
+		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13)
 		RETURNING id
 	`,
 		localID, input.LocalNombre, strings.ToUpper(input.TipoEspacio),
 		input.Fecha, input.HoraDesde, input.HoraHasta,
-		input.Cliente, input.PlanID,
+		input.Cliente, input.Estado, nullStr(input.NumeroTelefono), input.PlanID,
 		nullStr(input.ServicioNombre), input.Precio, nullStr(input.Notas),
 	).Scan(&reservaID)
 	if err != nil {
@@ -303,6 +317,11 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 		args = append(args, *input.NuevoServicio)
 		idx++
 	}
+	if input.NuevoNumeroTelefono != nil {
+		sets = append(sets, fmt.Sprintf("numero_telefono = $%d", idx))
+		args = append(args, *input.NuevoNumeroTelefono)
+		idx++
+	}
 	if input.NuevoPrecio != nil {
 		sets = append(sets, fmt.Sprintf("precio = $%d", idx))
 		args = append(args, *input.NuevoPrecio)
@@ -331,6 +350,26 @@ func (r *ReservasRepo) AnularReserva(id int) error {
 		`UPDATE reservas SET activo = FALSE, actualizado_en = NOW() WHERE id = $1`, id,
 	)
 	return err
+}
+
+func (r *ReservasRepo) UpdateReservaEstado(id int, estado string) error {
+	result, err := r.db.Exec(
+		`UPDATE reservas SET estado = $1, actualizado_en = NOW() WHERE id = $2 AND activo = TRUE`,
+		estado, id,
+	)
+	if err != nil {
+		return fmt.Errorf("error al actualizar estado de reserva: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error al verificar actualizacion de estado: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("reserva no encontrada")
+	}
+
+	return nil
 }
 
 // Validación de espacios y cantidades (no ocupado para esos ambientes en ese momento)
@@ -394,6 +433,12 @@ func BuildJerarquia(reservas []models.ReservaPGCompleta) []models.LocalReservas 
 		}
 		if rv.ServicioNombre != nil {
 			item.Servicio = *rv.ServicioNombre
+		}
+		if rv.Estado != nil {
+			item.Estado = *rv.Estado
+		}
+		if rv.NumeroTelefono != nil {
+			item.NumeroTelefono = *rv.NumeroTelefono
 		}
 
 		if localesMap[local] == nil {
@@ -501,6 +546,16 @@ func formatHora(h string) string {
 	h = strings.TrimSuffix(h, ":00")
 	// h = strings.TrimPrefix(h, "0") // NO TRIM ZERO
 	return h
+}
+
+func soloDigitosTelefono(raw string) string {
+	var b strings.Builder
+	for _, r := range raw {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // GetCapacidades retorna tipos de espacio y su cantidad per local

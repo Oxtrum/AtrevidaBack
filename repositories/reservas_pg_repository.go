@@ -7,14 +7,15 @@ import (
 )
 
 type FiltroReservasPG struct {
-	LocalNombre string
-	Fecha       *time.Time
-	FechaDesde  *time.Time
-	FechaHasta  *time.Time
-	Cliente     string
-	TipoEspacio string
-	PlanID      *int
-	SoloActivas bool
+	LocalNombre    string
+	Fecha          *time.Time
+	FechaDesde     *time.Time
+	FechaHasta     *time.Time
+	Cliente        string
+	NumeroTelefono string
+	TipoEspacio    string
+	PlanID         *int
+	SoloActivas    bool
 }
 
 type CreateReservaInput struct {
@@ -24,6 +25,8 @@ type CreateReservaInput struct {
 	HoraDesde      string
 	HoraHasta      string
 	Cliente        string
+	Estado         string
+	NumeroTelefono string
 	PlanID         *int
 	ServicioNombre string
 	Precio         *float64
@@ -43,13 +46,14 @@ type UpdateReservaInput struct {
 	Id          int
 	LocalNombre string
 
-	NuevaFecha     *time.Time
-	NuevaHoraDesde *string
-	NuevaHoraHasta *string
-	NuevoTipo      *string
-	NuevoServicio  *string
-	NuevoPrecio    *float64
-	NuevasNotas    *string
+	NuevaFecha          *time.Time
+	NuevaHoraDesde      *string
+	NuevaHoraHasta      *string
+	NuevoTipo           *string
+	NuevoNumeroTelefono *string
+	NuevoServicio       *string
+	NuevoPrecio         *float64
+	NuevasNotas         *string
 }
 
 type CapacidadLocal struct {
@@ -64,5 +68,6 @@ type ReservasPGRepository interface {
 	GetCapacidades(localNombre string) ([]CapacidadLocal, error)
 	CreateReserva(input CreateReservaInput) (int, error)
 	UpdateReserva(input UpdateReservaInput) error
+	UpdateReservaEstado(id int, estado string) error
 	AnularReserva(id int) error
 }

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -25,18 +26,24 @@ func NewReservasPGService(repo repository.ReservasPGRepository, serviciosRepo *p
 // GET
 
 type FiltroReservasPG struct {
-	Local      string
-	Fecha      string
-	FechaDesde string
-	FechaHasta string
-	Cliente    string
-	Tipo       string
-	Reservados *bool
+	Local          string
+	Fecha          string
+	FechaDesde     string
+	FechaHasta     string
+	Cliente        string
+	NumeroTelefono string
+	Estado         string
+	Tipo           string
+	Reservados     *bool
 }
 
 func (s *ReservasPGService) GetReservasFiltradas(f FiltroReservasPG) ([]models.LocalReservas, error) {
 
 	if f.Cliente != "" {
+		soloOcupados := true
+		f.Reservados = &soloOcupados
+	}
+	if f.NumeroTelefono != "" {
 		soloOcupados := true
 		f.Reservados = &soloOcupados
 	}
@@ -47,9 +54,10 @@ func (s *ReservasPGService) GetReservasFiltradas(f FiltroReservasPG) ([]models.L
 	}
 
 	filtro := repository.FiltroReservasPG{
-		LocalNombre: f.Local,
-		Cliente:     f.Cliente,
-		SoloActivas: true,
+		LocalNombre:    f.Local,
+		Cliente:        f.Cliente,
+		NumeroTelefono: f.NumeroTelefono,
+		SoloActivas:    true,
 	}
 
 	if f.Tipo != "" {
@@ -83,12 +91,7 @@ func (s *ReservasPGService) GetReservasFiltradas(f FiltroReservasPG) ([]models.L
 	}
 
 	if f.Reservados != nil && *f.Reservados {
-		var filtradas []models.ReservaPGCompleta
-		for _, rv := range reservas {
-			if strings.TrimSpace(rv.Cliente) != "" {
-				filtradas = append(filtradas, rv)
-			}
-		}
+		filtradas := filterReservasOcupadasPorEstado(reservas, f.Estado)
 		expandidas := transformReservasEnSlots(filtradas)
 		return pgsqlrepo.BuildJerarquia(expandidas), nil
 	}
@@ -116,6 +119,7 @@ func (s *ReservasPGService) getCalendarioCompleto(
 	}
 
 	reservasExpandidas := transformReservasEnSlots(reservasDB)
+	reservasExpandidasFiltradas := transformReservasEnSlots(filterReservasPorEstado(reservasDB, f.Estado))
 
 	// Indexar ocupados
 	type slotIdx struct {
@@ -133,6 +137,16 @@ func (s *ReservasPGService) getCalendarioCompleto(
 			hora:  rv.HoraDesde,
 		}
 		ocupadosIdx[key] = append(ocupadosIdx[key], rv)
+	}
+	ocupadosFiltradosIdx := map[slotIdx][]models.ReservaPGCompleta{}
+	for _, rv := range reservasExpandidasFiltradas {
+		key := slotIdx{
+			local: rv.LocalNombre,
+			fecha: rv.Fecha.Format("2006-01-02"),
+			tipo:  strings.ToUpper(rv.TipoEspacio),
+			hora:  rv.HoraDesde,
+		}
+		ocupadosFiltradosIdx[key] = append(ocupadosFiltradosIdx[key], rv)
 	}
 
 	// Construir calendario completo
@@ -157,9 +171,10 @@ func (s *ReservasPGService) getCalendarioCompleto(
 				}
 
 				ocupadosEnSlot := ocupadosIdx[key]
+				ocupadosVisiblesEnSlot := ocupadosFiltradosIdx[key]
 				cantOcupados := len(ocupadosEnSlot)
 
-				resultado = append(resultado, ocupadosEnSlot...)
+				resultado = append(resultado, ocupadosVisiblesEnSlot...)
 
 				libres := cap.Capacidad - cantOcupados
 				for i := 0; i < libres; i++ {
@@ -402,32 +417,37 @@ func getRangoTiempoDisp(desdeStr, hastaStr string) (time.Time, time.Time) {
 
 // ReservaSimple es la representación plana de una reserva para GET /bd/reservas.
 type ReservaSimple struct {
-	ID        int      `json:"id"`
-	Local     string   `json:"local"`
-	Tipo      string   `json:"tipo"`
-	Fecha     string   `json:"fecha"`
-	HoraDesde string   `json:"hora_desde"`
-	HoraHasta string   `json:"hora_hasta"`
-	Cliente   string   `json:"cliente"`
-	Servicio  *string  `json:"servicio,omitempty"`
-	Precio    *float64 `json:"precio,omitempty"`
-	Notas     *string  `json:"notas,omitempty"`
+	ID             int      `json:"id"`
+	Local          string   `json:"local"`
+	Tipo           string   `json:"tipo"`
+	Fecha          string   `json:"fecha"`
+	HoraDesde      string   `json:"hora_desde"`
+	HoraHasta      string   `json:"hora_hasta"`
+	Cliente        string   `json:"cliente"`
+	Estado         *string  `json:"estado,omitempty"`
+	NumeroTelefono *string  `json:"numero_telefono,omitempty"`
+	Servicio       *string  `json:"servicio,omitempty"`
+	Precio         *float64 `json:"precio,omitempty"`
+	Notas          *string  `json:"notas,omitempty"`
 }
 
 type FiltroReservasSimple struct {
-	Local      string
-	Fecha      string
-	FechaDesde string
-	FechaHasta string
-	Cliente    string
-	Tipo       string
+	Local          string
+	Fecha          string
+	FechaDesde     string
+	FechaHasta     string
+	Cliente        string
+	NumeroTelefono string
+	Estado         string
+	Tipo           string
 }
 
 func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]ReservaSimple, error) {
 	filtro := repository.FiltroReservasPG{
-		LocalNombre: f.Local,
-		Cliente:     f.Cliente,
-		SoloActivas: true,
+		LocalNombre:    f.Local,
+		Cliente:        f.Cliente,
+		NumeroTelefono: f.NumeroTelefono,
+		SoloActivas:    true,
 	}
 	if f.Tipo != "" {
 		filtro.TipoEspacio = tipoNombreALetra(f.Tipo)
@@ -457,19 +477,22 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 	if err != nil {
 		return nil, err
 	}
+	reservas = filterReservasPorEstado(reservas, f.Estado)
 	resultado := make([]ReservaSimple, 0, len(reservas))
 	for _, rv := range reservas {
 		resultado = append(resultado, ReservaSimple{
-			ID:        rv.ID,
-			Local:     rv.LocalNombre,
-			Tipo:      tipoLetraANombreService(rv.TipoEspacio),
-			Fecha:     rv.Fecha.Format("2006-01-02"),
-			HoraDesde: formatHoraService(rv.HoraDesde),
-			HoraHasta: formatHoraService(rv.HoraHasta),
-			Cliente:   rv.Cliente,
-			Servicio:  rv.ServicioNombre,
-			Precio:    rv.Precio,
-			Notas:     rv.Notas,
+			ID:             rv.ID,
+			Local:          rv.LocalNombre,
+			Tipo:           tipoLetraANombreService(rv.TipoEspacio),
+			Fecha:          rv.Fecha.Format("2006-01-02"),
+			HoraDesde:      formatHoraService(rv.HoraDesde),
+			HoraHasta:      formatHoraService(rv.HoraHasta),
+			Cliente:        rv.Cliente,
+			Estado:         rv.Estado,
+			NumeroTelefono: rv.NumeroTelefono,
+			Servicio:       rv.ServicioNombre,
+			Precio:         rv.Precio,
+			Notas:          rv.Notas,
 		})
 	}
 	return resultado, nil
@@ -482,16 +505,18 @@ func (s *ReservasPGService) GetReservaByID(id int) (*ReservaSimple, error) {
 	}
 
 	return &ReservaSimple{
-		ID:        rv.ID,
-		Local:     rv.LocalNombre,
-		Tipo:      tipoLetraANombreService(rv.TipoEspacio),
-		Fecha:     rv.Fecha.Format("2006-01-02"),
-		HoraDesde: formatHoraService(rv.HoraDesde),
-		HoraHasta: formatHoraService(rv.HoraHasta),
-		Cliente:   rv.Cliente,
-		Servicio:  rv.ServicioNombre,
-		Precio:    rv.Precio,
-		Notas:     rv.Notas,
+		ID:             rv.ID,
+		Local:          rv.LocalNombre,
+		Tipo:           tipoLetraANombreService(rv.TipoEspacio),
+		Fecha:          rv.Fecha.Format("2006-01-02"),
+		HoraDesde:      formatHoraService(rv.HoraDesde),
+		HoraHasta:      formatHoraService(rv.HoraHasta),
+		Cliente:        rv.Cliente,
+		Estado:         rv.Estado,
+		NumeroTelefono: rv.NumeroTelefono,
+		Servicio:       rv.ServicioNombre,
+		Precio:         rv.Precio,
+		Notas:          rv.Notas,
 	}, nil
 }
 
@@ -520,6 +545,8 @@ type CrearReservaPGInput struct {
 	HoraHasta string
 	Tipo      string
 	Cliente   string
+	Telefono  string
+	Estado    string
 	Servicio  string
 	Precio    *float64
 	Notas     string
@@ -573,6 +600,16 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 
 	// Mantener comportamiento manual temporal
 	input.Tipo = strings.ToUpper(strings.TrimSpace(input.Tipo))
+	estadoFinal := "PENDIENTE"
+	if strings.TrimSpace(input.Estado) != "" {
+		estadoRecibido, err := NormalizarEstadoReserva(input.Estado)
+		if err != nil {
+			return 0, err
+		}
+		if estadoRecibido != "PENDIENTE" {
+			return 0, errors.New("una reserva nueva siempre inicia en estado PENDIENTE")
+		}
+	}
 
 	/*if err := s.validarDisponibilidad(input.Local, &fecha, input.HoraDesde, horaHasta, input.Tipo, nil); err != nil {
 		return 0, err
@@ -587,12 +624,47 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		HoraDesde:      input.HoraDesde,
 		HoraHasta:      horaHasta,
 		Cliente:        input.Cliente,
+		Estado:         estadoFinal,
+		NumeroTelefono: input.Telefono,
 		ServicioNombre: input.Servicio,
 		Precio:         input.Precio,
 		Notas:          input.Notas,
 		PlanID:         input.PlanID,
 	})
 	return id, err
+}
+
+type ActualizarEstadoReservaInput struct {
+	Id     int
+	Estado string
+	Causa  string
+}
+
+func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReservaInput) error {
+	current, err := s.repo.GetReservaByID(input.Id)
+	if err != nil {
+		return fmt.Errorf("No se pudo recuperar la reserva actual: %v", err)
+	}
+
+	estadoActual, err := estadoReservaActual(current)
+	if err != nil {
+		return err
+	}
+
+	estado, err := NormalizarEstadoReserva(input.Estado)
+	if err != nil {
+		return err
+	}
+
+	if !canTransitionReservaEstado(estadoActual, estado) {
+		return fmt.Errorf("transicion de estado invalida: %s -> %s", estadoActual, estado)
+	}
+
+	if estado == "RECHAZADO" && strings.TrimSpace(input.Causa) == "" {
+		return errors.New("causa es requerida cuando el estado es RECHAZADO")
+	}
+
+	return s.repo.UpdateReservaEstado(input.Id, estado)
 }
 
 // PATCH
@@ -604,13 +676,14 @@ type ActualizarReservaPGInput struct {
 	Tipo      string
 	Cliente   string
 
-	NuevaFecha     string
-	NuevaHoraDesde string
-	NuevaHoraHasta string
-	NuevoTipo      string
-	NuevoServicio  string
-	NuevoPrecio    *float64
-	NuevasNotas    string
+	NuevaFecha          string
+	NuevaHoraDesde      string
+	NuevaHoraHasta      string
+	NuevoTipo           string
+	NuevoNumeroTelefono string
+	NuevoServicio       string
+	NuevoPrecio         *float64
+	NuevasNotas         string
 }
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
@@ -637,6 +710,10 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 
 	if input.NuevoServicio != "" {
 		upd.NuevoServicio = &input.NuevoServicio
+	}
+
+	if input.NuevoNumeroTelefono != "" {
+		upd.NuevoNumeroTelefono = &input.NuevoNumeroTelefono
 	}
 
 	if input.NuevoTipo != "" {
@@ -708,6 +785,13 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 	current, err := s.repo.GetReservaByID(input.Id)
 	if err != nil {
 		return fmt.Errorf("No se pudo recuperar la reserva actual: %v", err)
+	}
+	estadoActual, err := estadoReservaActual(current)
+	if err != nil {
+		return err
+	}
+	if estadoActual == "AGENDADO" {
+		return errors.New("no se puede editar una reserva con estado AGENDADO")
 	}
 
 	// 1.1 coherencia de horas
@@ -872,4 +956,66 @@ func sumar60Min(hora string) string {
 	}
 	t = t.Add(60 * time.Minute)
 	return fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())
+}
+
+func NormalizarEstadoReserva(raw string) (string, error) {
+	estado := strings.ToUpper(strings.TrimSpace(raw))
+	if estado == "" {
+		return "PENDIENTE", nil
+	}
+
+	switch estado {
+	case "PENDIENTE", "RECHAZADO", "AGENDADO":
+		return estado, nil
+	default:
+		return "", fmt.Errorf("estado invalido, valores permitidos: PENDIENTE, RECHAZADO, AGENDADO")
+	}
+}
+
+func filterReservasPorEstado(reservas []models.ReservaPGCompleta, estado string) []models.ReservaPGCompleta {
+	if strings.TrimSpace(estado) == "" {
+		return reservas
+	}
+
+	resultado := make([]models.ReservaPGCompleta, 0, len(reservas))
+	for _, rv := range reservas {
+		if rv.Estado != nil && strings.EqualFold(strings.TrimSpace(*rv.Estado), estado) {
+			resultado = append(resultado, rv)
+		}
+	}
+	return resultado
+}
+
+func filterReservasOcupadasPorEstado(reservas []models.ReservaPGCompleta, estado string) []models.ReservaPGCompleta {
+	resultado := make([]models.ReservaPGCompleta, 0, len(reservas))
+	for _, rv := range filterReservasPorEstado(reservas, estado) {
+		if strings.TrimSpace(rv.Cliente) != "" {
+			resultado = append(resultado, rv)
+		}
+	}
+	return resultado
+}
+
+func estadoReservaActual(rv *models.ReservaPGCompleta) (string, error) {
+	if rv == nil || rv.Estado == nil {
+		return "PENDIENTE", nil
+	}
+	return NormalizarEstadoReserva(*rv.Estado)
+}
+
+func canTransitionReservaEstado(actual, siguiente string) bool {
+	if actual == siguiente {
+		return true
+	}
+
+	switch actual {
+	case "PENDIENTE":
+		return siguiente == "RECHAZADO" || siguiente == "AGENDADO"
+	case "RECHAZADO":
+		return siguiente == "PENDIENTE"
+	case "AGENDADO":
+		return false
+	default:
+		return false
+	}
 }

@@ -98,6 +98,8 @@ type ReservaPG struct {
 	HoraDesde      string    `db:"hora_desde"` // TIME → string "09:00:00"
 	HoraHasta      string    `db:"hora_hasta"`
 	Cliente        string    `db:"cliente"`
+	Estado         *string   `db:"estado"`
+	NumeroTelefono *string   `db:"numero_telefono"`
 	PlanID         *int      `db:"plan_id"`
 	ServicioNombre *string   `db:"servicio_nombre"`
 	ServicioTiempo *string   `db:"servicio_tiempo"`

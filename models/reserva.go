@@ -1,9 +1,11 @@
 package models
 
 type ReservaItem struct {
-	Tipo     string `json:"tipo"`
-	Cliente  string `json:"cliente,omitempty"`
-	Servicio string `json:"servicio,omitempty"`
+	Tipo           string `json:"tipo"`
+	Cliente        string `json:"cliente,omitempty"`
+	Servicio       string `json:"servicio,omitempty"`
+	Estado         string `json:"estado,omitempty"`
+	NumeroTelefono string `json:"numero_telefono,omitempty"`
 }
 
 type ReservaSlot struct {
