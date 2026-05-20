@@ -397,6 +397,23 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Numero de telefono",
+                        "name": "numero_telefono",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "PENDIENTE",
+                            "RECHAZADO",
+                            "AGENDADO"
+                        ],
+                        "type": "string",
+                        "description": "Estado de la reserva",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "mesa",
                             "bicicleta"
@@ -565,6 +582,23 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Numero de telefono",
+                        "name": "numero_telefono",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "PENDIENTE",
+                            "RECHAZADO",
+                            "AGENDADO"
+                        ],
+                        "type": "string",
+                        "description": "Estado de la reserva",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "mesa",
                             "bicicleta"
@@ -579,6 +613,52 @@ const docTemplate = `{
                         "description": "Filtrar por estado reservado",
                         "name": "reservados",
                         "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/reservas/estado": {
+            "patch": {
+                "description": "Cambia el estado de una reserva segun las reglas de negocio.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservas BD"
+                ],
+                "summary": "Actualizar estado de reserva",
+                "parameters": [
+                    {
+                        "description": "Nuevo estado de la reserva",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarEstadoReservaPGRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -1333,6 +1413,24 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarEstadoReservaPGRequest": {
+            "type": "object",
+            "required": [
+                "estado",
+                "id"
+            ],
+            "properties": {
+                "causa": {
+                    "type": "string"
+                },
+                "estado": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.actualizarLocalRequest": {
             "type": "object",
             "properties": {
@@ -1367,6 +1465,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "nuevas_notas": {
+                    "type": "string"
+                },
+                "nuevo_numero_telefono": {
                     "type": "string"
                 },
                 "nuevo_precio": {
@@ -1487,27 +1588,32 @@ const docTemplate = `{
                 "cliente",
                 "fecha",
                 "hora_desde",
-                "local"
+                "local",
+                "numero_telefono"
             ],
             "properties": {
                 "cliente": {
                     "type": "string"
                 },
+                "estado": {
+                    "type": "string"
+                },
                 "fecha": {
-                    "description": "\"2025-04-04\"",
                     "type": "string"
                 },
                 "hora_desde": {
                     "type": "string"
                 },
                 "hora_hasta": {
-                    "description": "opcional",
                     "type": "string"
                 },
                 "local": {
                     "type": "string"
                 },
                 "notas": {
+                    "type": "string"
+                },
+                "numero_telefono": {
                     "type": "string"
                 },
                 "plan_id": {
