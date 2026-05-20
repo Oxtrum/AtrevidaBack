@@ -19,6 +19,19 @@ import (
 //	categoria — búsqueda parcial en la categoría
 //	local     — "ARANJUEZ", "CENTRO" o "ARANJUEZ + CENTRO"
 //	sesiones  — sesiones del combo
+//
+// GetCombos godoc
+// @Summary Listar combos
+// @Description Devuelve combos filtrados por nombre, categoria, local y sesiones.
+// @Tags Catalogo
+// @Produce json
+// @Param nombre query string false "Busqueda parcial por nombre"
+// @Param categoria query string false "Busqueda parcial por categoria"
+// @Param local query string false "Local" Enums(ARANJUEZ,CENTRO,SAN MARTIN)
+// @Param sesiones query int false "Numero exacto de sesiones"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Router /combos [get]
 func (h *Container) GetCombos(c *gin.Context) {
 	sesiones := 0
 	if raw := strings.TrimSpace(c.Query("sesiones")); raw != "" {

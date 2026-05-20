@@ -58,7 +58,18 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 }
 */
 
-// GET /bd/combos
+// GetCombosPG godoc
+// @Summary Listar combos desde base de datos
+// @Description Devuelve combos persistidos en PostgreSQL con filtros opcionales.
+// @Tags Combos BD
+// @Produce json
+// @Param nombre query string false "Busqueda parcial por nombre"
+// @Param categoria query string false "Busqueda parcial por categoria"
+// @Param local query string false "Local" Enums(SAN MARTIN,PASEO ARANJUEZ)
+// @Param sesiones query int false "Numero exacto de sesiones"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Router /bd/combos [get]
 func (h *Container) GetCombosPG(c *gin.Context) {
 	sesiones := 0
 	if raw := strings.TrimSpace(c.Query("sesiones")); raw != "" {

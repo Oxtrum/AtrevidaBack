@@ -19,6 +19,19 @@ import (
 //	categoria — búsqueda parcial en la categoría (ej: "manual", "combos")
 //	local     — "ARANJUEZ" o "CENTRO"
 //	sesiones  — número exacto de sesiones (ej: 3, 5, 10)
+//
+// GetServicios godoc
+// @Summary Listar servicios
+// @Description Devuelve servicios filtrados por nombre, categoria, local y sesiones.
+// @Tags Catalogo
+// @Produce json
+// @Param nombre query string false "Busqueda parcial por nombre"
+// @Param categoria query string false "Busqueda parcial por categoria"
+// @Param local query string false "Local" Enums(ARANJUEZ,CENTRO,SAN MARTIN)
+// @Param sesiones query int false "Numero exacto de sesiones"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Router /servicios [get]
 func (h *Container) GetServicios(c *gin.Context) {
 	sesiones := 0
 	if raw := strings.TrimSpace(c.Query("sesiones")); raw != "" {

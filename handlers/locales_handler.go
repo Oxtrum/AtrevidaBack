@@ -11,7 +11,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET /bd/locales
+// GetLocales godoc
+// @Summary Listar locales
+// @Description Devuelve todos los locales registrados en la base de datos.
+// @Tags Locales
+// @Produce json
+// @Success 200 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/locales [get]
 func (h *Container) GetLocales(c *gin.Context) {
 	resultado, err := h.LocalesPG.GetLocales()
 	if err != nil {
@@ -25,7 +32,16 @@ func (h *Container) GetLocales(c *gin.Context) {
 	})
 }
 
-// GET /bd/locales/:id
+// GetLocalById godoc
+// @Summary Obtener local por ID
+// @Description Devuelve un local de PostgreSQL por su identificador.
+// @Tags Locales
+// @Produce json
+// @Param id path int true "ID del local"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/locales/{id} [get]
 func (h *Container) GetLocalById(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -55,6 +71,17 @@ type espacioRequest struct {
 	CantidadEspacios int    `json:"cantidad_espacios"  binding:"required,min=1"`
 }
 
+// PostLocal godoc
+// @Summary Crear local
+// @Description Crea un local y opcionalmente sus espacios asociados.
+// @Tags Locales
+// @Accept json
+// @Produce json
+// @Param payload body crearLocalRequest true "Datos del local"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/locales [post]
 func (h *Container) PostLocal(c *gin.Context) {
 	var req crearLocalRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -97,6 +124,19 @@ type actualizarLocalRequest struct {
 	Activo *bool   `json:"activo"`
 }
 
+// PatchLocal godoc
+// @Summary Actualizar local
+// @Description Actualiza nombre o estado activo de un local existente.
+// @Tags Locales
+// @Accept json
+// @Produce json
+// @Param id path int true "ID del local"
+// @Param payload body actualizarLocalRequest true "Campos a actualizar"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/locales/{id} [patch]
 func (h *Container) PatchLocal(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

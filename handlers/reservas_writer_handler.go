@@ -22,6 +22,19 @@ type crearReservaRequest struct {
 	Servicio  string `json:"servicio"`
 }
 
+// PostReserva godoc
+// @Summary Crear reserva en Google Sheets
+// @Description Crea una reserva en uno o varios slots dentro de Google Sheets.
+// @Tags Reservas Sheets
+// @Accept json
+// @Produce json
+// @Param payload body crearReservaRequest true "Datos de la reserva"
+// @Success 200 {object} utils.APIResponse
+// @Success 207 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 409 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /reservas [post]
 func (h *Container) PostReserva(c *gin.Context) {
 	var req crearReservaRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -82,6 +95,19 @@ type actualizarReservaRequest struct {
 	NuevoServicio  string `json:"nuevo_servicio"`
 }
 
+// PatchReserva godoc
+// @Summary Actualizar reserva en Google Sheets
+// @Description Modifica una reserva existente en Google Sheets.
+// @Tags Reservas Sheets
+// @Accept json
+// @Produce json
+// @Param payload body actualizarReservaRequest true "Datos para actualizar la reserva"
+// @Success 200 {object} utils.APIResponse
+// @Success 207 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 409 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /reservas [patch]
 func (h *Container) PatchReserva(c *gin.Context) {
 	var req actualizarReservaRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

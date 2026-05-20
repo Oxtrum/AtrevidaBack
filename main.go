@@ -3,6 +3,7 @@ package main
 import (
 	"atrevida-agenda-api/config"
 	"atrevida-agenda-api/db"
+	"atrevida-agenda-api/docs"
 	"atrevida-agenda-api/handlers"
 	"atrevida-agenda-api/importacion"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
@@ -11,11 +12,23 @@ import (
 	"atrevida-agenda-api/services"
 )
 
+//go:generate go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g main.go -o docs
+
+// @title Atrevida Fit - Agenda API
+// @version v0.1
+// @description API REST para reservas, servicios, combos y administracion de Atrevida Fit.
+// @BasePath /
+// @schemes http https
 func main() {
 	config.Load()
 
 	versionString := "v0.1"
 	apiName := "Atrevida Fit - Agenda API" + "(" + versionString + ")"
+	docs.SwaggerInfo.Title = "Atrevida Fit - Agenda API"
+	docs.SwaggerInfo.Version = versionString
+	docs.SwaggerInfo.Description = "API REST para reservas, servicios, combos y administracion de Atrevida Fit."
+	docs.SwaggerInfo.BasePath = "/"
+	docs.SwaggerInfo.Schemes = []string{"http", "https"}
 
 	pgDB, err := db.Connect(config.App)
 	if err != nil {

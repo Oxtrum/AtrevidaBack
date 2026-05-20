@@ -10,6 +10,14 @@ import (
 
 // POST /admin/importar
 // Triggerea pipelinede importación desde Google Sheets a PostgreSQL.
+// ImportarCatalogo godoc
+// @Summary Importar catalogo desde Google Sheets
+// @Description Ejecuta la importacion de categorias, servicios y combos desde Google Sheets hacia PostgreSQL.
+// @Tags Admin
+// @Produce json
+// @Success 200 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /admin/importar [post]
 func (h *Container) ImportarCatalogo(c *gin.Context) {
 	resultado, err := h.Import.Ejecutar()
 	if err != nil {

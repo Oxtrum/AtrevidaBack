@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+echo "Validando Swagger docs antes del push..."
+go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g main.go -o docs
+
+if ! git diff --quiet -- docs; then
+  echo "Los docs de Swagger cambiaron. Hace commit de la carpeta docs antes de hacer push."
+  git --no-pager diff -- docs
+  exit 1
+fi
