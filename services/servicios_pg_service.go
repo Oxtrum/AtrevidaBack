@@ -34,6 +34,9 @@ func (s *ServiciosPGService) GetServiciosFiltrados(f FiltroServicios) []models.S
 		if f.Sesiones > 0 && item.Sesiones != f.Sesiones {
 			continue
 		}
+		if f.RequiereEvaluacion != nil && item.RequiereEvaluacion != *f.RequiereEvaluacion {
+			continue
+		}
 		resultado = append(resultado, item)
 	}
 	return resultado

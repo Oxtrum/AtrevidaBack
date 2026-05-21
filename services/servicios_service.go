@@ -8,10 +8,11 @@ import (
 )
 
 type FiltroServicios struct {
-	Nombre    string // búsqueda parcial, case-insensitive
-	Categoria string // búsqueda parcial, case-insensitive
-	Local     string // "ARANJUEZ", "CENTRO" — exacto, case-insensitive
-	Sesiones  int    // 0 = sin filtro; >0 = exacto
+	Nombre             string // búsqueda parcial, case-insensitive
+	Categoria          string // búsqueda parcial, case-insensitive
+	Local              string // "ARANJUEZ", "CENTRO" — exacto, case-insensitive
+	Sesiones           int    // 0 = sin filtro; >0 = exacto
+	RequiereEvaluacion *bool  // nil = sin filtro
 }
 
 type ServiciosService struct {
@@ -39,6 +40,9 @@ func (s *ServiciosService) GetServiciosFiltrados(f FiltroServicios) []models.Ser
 			continue
 		}
 		if f.Sesiones > 0 && item.Sesiones != f.Sesiones {
+			continue
+		}
+		if f.RequiereEvaluacion != nil && item.RequiereEvaluacion != *f.RequiereEvaluacion {
 			continue
 		}
 		resultado = append(resultado, item)

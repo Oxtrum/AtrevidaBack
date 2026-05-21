@@ -768,6 +768,12 @@ const docTemplate = `{
                         "description": "Numero exacto de sesiones",
                         "name": "sesiones",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filtrar por servicios que requieren evaluacion",
+                        "name": "requiere_evaluacion",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1361,6 +1367,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Numero exacto de sesiones",
                         "name": "sesiones",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filtrar por servicios que requieren evaluacion",
+                        "name": "requiere_evaluacion",
                         "in": "query"
                     }
                 ],

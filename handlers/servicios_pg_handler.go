@@ -21,6 +21,7 @@ import (
 // @Param categoria query string false "Busqueda parcial por categoria"
 // @Param local query string false "Local" Enums(SAN MARTIN,PASEO ARANJUEZ)
 // @Param sesiones query int false "Numero exacto de sesiones"
+// @Param requiere_evaluacion query bool false "Filtrar por servicios que requieren evaluacion"
 // @Success 200 {object} utils.APIResponse
 // @Failure 400 {object} utils.APIResponse
 // @Router /bd/servicios [get]
@@ -36,6 +37,17 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 		sesiones = n
 	}
 
+	var requiereEvaluacion *bool
+	if raw := strings.TrimSpace(c.Query("requiere_evaluacion")); raw != "" {
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest,
+				"requiere_evaluacion debe ser true o false")
+			return
+		}
+		requiereEvaluacion = &v
+	}
+
 	local := strings.ToUpper(strings.TrimSpace(c.Query("local")))
 	if local != "" && local != "SAN MARTIN" && local != "PASEO ARANJUEZ" {
 		utils.RespondError(c, http.StatusBadRequest,
@@ -44,10 +56,11 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 	}
 
 	filtro := services.FiltroServicios{
-		Nombre:    strings.TrimSpace(c.Query("nombre")),
-		Categoria: strings.TrimSpace(c.Query("categoria")),
-		Local:     local,
-		Sesiones:  sesiones,
+		Nombre:             strings.TrimSpace(c.Query("nombre")),
+		Categoria:          strings.TrimSpace(c.Query("categoria")),
+		Local:              local,
+		Sesiones:           sesiones,
+		RequiereEvaluacion: requiereEvaluacion,
 	}
 
 	resultado := h.ServiciosPG.GetServiciosFiltrados(filtro)
@@ -58,10 +71,11 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, gin.H{
 		"total": len(resultado),
 		"filtros": gin.H{
-			"nombre":    filtro.Nombre,
-			"categoria": filtro.Categoria,
-			"local":     filtro.Local,
-			"sesiones":  filtro.Sesiones,
+			"nombre":              filtro.Nombre,
+			"categoria":           filtro.Categoria,
+			"local":               filtro.Local,
+			"sesiones":            filtro.Sesiones,
+			"requiere_evaluacion": filtro.RequiereEvaluacion,
 		},
 		"servicios": resultado,
 	})

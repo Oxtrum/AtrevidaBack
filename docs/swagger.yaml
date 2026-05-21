@@ -747,6 +747,10 @@ paths:
         in: query
         name: sesiones
         type: integer
+      - description: Filtrar por servicios que requieren evaluacion
+        in: query
+        name: requiere_evaluacion
+        type: boolean
       produces:
       - application/json
       responses:
@@ -1147,6 +1151,10 @@ paths:
         in: query
         name: sesiones
         type: integer
+      - description: Filtrar por servicios que requieren evaluacion
+        in: query
+        name: requiere_evaluacion
+        type: boolean
       produces:
       - application/json
       responses:
