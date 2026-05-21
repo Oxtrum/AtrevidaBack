@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"atrevida-agenda-api/models"
 	"atrevida-agenda-api/services"
@@ -197,6 +198,22 @@ type actualizarEstadoReservaPGRequest struct {
 	Tipo               string   `json:"tipo"`
 }
 
+type reservaResumenSemanaResponse struct {
+	TotalReservas int  `json:"total_reservas"`
+	Lunes         *int `json:"lunes,omitempty"`
+	Martes        *int `json:"martes,omitempty"`
+	Miercoles     *int `json:"miercoles,omitempty"`
+	Jueves        *int `json:"jueves,omitempty"`
+	Viernes       *int `json:"viernes,omitempty"`
+	Sabado        *int `json:"sabado,omitempty"`
+}
+
+type reservaResumenResponse struct {
+	ReservasAgendadasDia    int                          `json:"reservas_agendadas_dia"`
+	ServiciosCompletadosDia int                          `json:"servicios_completados_dia"`
+	Semana                  reservaResumenSemanaResponse `json:"semana"`
+}
+
 func normalizarTelefono(raw string) (string, error) {
 	telefono := strings.TrimSpace(raw)
 	telefono = strings.ReplaceAll(telefono, " ", "")
@@ -221,6 +238,84 @@ func normalizarTelefono(raw string) (string, error) {
 	}
 
 	return telefono, nil
+}
+
+// GetReservasResumenPG godoc
+// @Summary Obtener resumen numerico de reservas
+// @Description Devuelve el resumen numerico de reservas agendadas del dia, servicios completados del dia y acumulado semanal desde el lunes hasta la fecha indicada.
+// @Tags Reservas BD
+// @Produce json
+// @Param fecha query string true "Fecha a consultar en formato YYYY-MM-DD"
+// @Success 200 {object} utils.APIResponse{data=reservaResumenResponse}
+// @Failure 400 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/reservas/resumen [get]
+func (h *Container) GetReservasResumenPG(c *gin.Context) {
+	fechaRaw := strings.TrimSpace(c.Query("fecha"))
+	if fechaRaw == "" {
+		utils.RespondError(c, http.StatusBadRequest, "fecha es requerida")
+		return
+	}
+
+	fecha, err := time.Parse("2006-01-02", fechaRaw)
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "formato de fecha invalido, use YYYY-MM-DD")
+		return
+	}
+
+	resumen, err := h.ReservasPG.GetResumenReservas(fecha)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "domingo") {
+			utils.RespondError(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, reservaResumenResponse{
+		ReservasAgendadasDia:    resumen.ReservasAgendadasDia,
+		ServiciosCompletadosDia: resumen.ServiciosCompletadosDia,
+		Semana:                  buildReservaResumenSemanaResponse(fecha, resumen.Semana),
+	})
+}
+
+func buildReservaResumenSemanaResponse(fecha time.Time, semana services.ResumenReservasSemana) reservaResumenSemanaResponse {
+	resp := reservaResumenSemanaResponse{
+		TotalReservas: semana.TotalReservas,
+		Lunes:         intPtr(semana.Lunes),
+	}
+
+	switch fecha.Weekday() {
+	case time.Monday:
+		return resp
+	case time.Tuesday:
+		resp.Martes = intPtr(semana.Martes)
+	case time.Wednesday:
+		resp.Martes = intPtr(semana.Martes)
+		resp.Miercoles = intPtr(semana.Miercoles)
+	case time.Thursday:
+		resp.Martes = intPtr(semana.Martes)
+		resp.Miercoles = intPtr(semana.Miercoles)
+		resp.Jueves = intPtr(semana.Jueves)
+	case time.Friday:
+		resp.Martes = intPtr(semana.Martes)
+		resp.Miercoles = intPtr(semana.Miercoles)
+		resp.Jueves = intPtr(semana.Jueves)
+		resp.Viernes = intPtr(semana.Viernes)
+	case time.Saturday:
+		resp.Martes = intPtr(semana.Martes)
+		resp.Miercoles = intPtr(semana.Miercoles)
+		resp.Jueves = intPtr(semana.Jueves)
+		resp.Viernes = intPtr(semana.Viernes)
+		resp.Sabado = intPtr(semana.Sabado)
+	}
+
+	return resp
+}
+
+func intPtr(v int) *int {
+	return &v
 }
 
 // GetReservasSimplePG godoc

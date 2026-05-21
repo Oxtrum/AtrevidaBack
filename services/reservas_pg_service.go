@@ -445,6 +445,22 @@ type ReservaSimple struct {
 	Notas              *string  `json:"notas,omitempty"`
 }
 
+type ResumenReservasSemana struct {
+	TotalReservas int
+	Lunes         int
+	Martes        int
+	Miercoles     int
+	Jueves        int
+	Viernes       int
+	Sabado        int
+}
+
+type ResumenReservas struct {
+	ReservasAgendadasDia    int
+	ServiciosCompletadosDia int
+	Semana                  ResumenReservasSemana
+}
+
 type FiltroReservasSimple struct {
 	Local              string
 	Fecha              string
@@ -540,6 +556,67 @@ func (s *ReservasPGService) GetReservaByID(id int) (*ReservaSimple, error) {
 		Precio:             rv.Precio,
 		Notas:              rv.Notas,
 	}, nil
+}
+
+func (s *ReservasPGService) GetResumenReservas(fecha time.Time) (*ResumenReservas, error) {
+	fecha = fecha.Truncate(24 * time.Hour)
+	if fecha.Weekday() == time.Sunday {
+		return nil, fmt.Errorf("no se admiten domingos para el resumen")
+	}
+
+	reservasDia, err := s.repo.GetReservas(repository.FiltroReservasPG{
+		Fecha:       &fecha,
+		SoloActivas: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	lunes := inicioSemana(fecha)
+	reservasSemana, err := s.repo.GetReservas(repository.FiltroReservasPG{
+		FechaDesde:  &lunes,
+		FechaHasta:  &fecha,
+		SoloActivas: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resumen := &ResumenReservas{}
+	for _, rv := range reservasDia {
+		estado := strings.TrimSpace(stringValue(rv.Estado))
+		switch {
+		case strings.EqualFold(estado, "AGENDADO"):
+			resumen.ReservasAgendadasDia++
+		case strings.EqualFold(estado, "COMPLETADO"):
+			resumen.ServiciosCompletadosDia++
+		}
+	}
+
+	for _, rv := range reservasSemana {
+		estado := strings.TrimSpace(stringValue(rv.Estado))
+		if !strings.EqualFold(estado, "AGENDADO") {
+			continue
+		}
+
+		resumen.Semana.TotalReservas++
+		switch rv.Fecha.Weekday() {
+		case time.Monday:
+			resumen.Semana.Lunes++
+		case time.Tuesday:
+			resumen.Semana.Martes++
+		case time.Wednesday:
+			resumen.Semana.Miercoles++
+		case time.Thursday:
+			resumen.Semana.Jueves++
+		case time.Friday:
+			resumen.Semana.Viernes++
+		case time.Saturday:
+			resumen.Semana.Sabado++
+		}
+	}
+
+	return resumen, nil
 }
 
 func tipoLetraANombreService(letra string) string {
@@ -1101,4 +1178,19 @@ func esReservaNoEncontrada(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "reserva no encontrada") ||
 		strings.Contains(msg, "no rows in result set")
+}
+
+func inicioSemana(fecha time.Time) time.Time {
+	weekday := int(fecha.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	return fecha.AddDate(0, 0, -(weekday - 1))
+}
+
+func stringValue(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
 }

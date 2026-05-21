@@ -230,6 +230,32 @@ definitions:
     - cantidad_espacios
     - tipo_espacio
     type: object
+  handlers.reservaResumenResponse:
+    properties:
+      reservas_agendadas_dia:
+        type: integer
+      semana:
+        $ref: '#/definitions/handlers.reservaResumenSemanaResponse'
+      servicios_completados_dia:
+        type: integer
+    type: object
+  handlers.reservaResumenSemanaResponse:
+    properties:
+      jueves:
+        type: integer
+      lunes:
+        type: integer
+      martes:
+        type: integer
+      miercoles:
+        type: integer
+      sabado:
+        type: integer
+      total_reservas:
+        type: integer
+      viernes:
+        type: integer
+    type: object
   utils.APIResponse:
     properties:
       code:
@@ -738,6 +764,39 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Actualizar estado de reserva
+      tags:
+      - Reservas BD
+  /bd/reservas/resumen:
+    get:
+      description: Devuelve el resumen numerico de reservas agendadas del dia, servicios
+        completados del dia y acumulado semanal desde el lunes hasta la fecha indicada.
+      parameters:
+      - description: Fecha a consultar en formato YYYY-MM-DD
+        in: query
+        name: fecha
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reservaResumenResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Obtener resumen numerico de reservas
       tags:
       - Reservas BD
   /bd/servicios:

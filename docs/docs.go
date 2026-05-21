@@ -707,6 +707,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/reservas/resumen": {
+            "get": {
+                "description": "Devuelve el resumen numerico de reservas agendadas del dia, servicios completados del dia y acumulado semanal desde el lunes hasta la fecha indicada.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservas BD"
+                ],
+                "summary": "Obtener resumen numerico de reservas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Fecha a consultar en formato YYYY-MM-DD",
+                        "name": "fecha",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reservaResumenResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/reservas/{id}": {
             "get": {
                 "description": "Devuelve una reserva de PostgreSQL por su identificador.",
@@ -1775,6 +1828,46 @@ const docTemplate = `{
                 },
                 "tipo_espacio": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.reservaResumenResponse": {
+            "type": "object",
+            "properties": {
+                "reservas_agendadas_dia": {
+                    "type": "integer"
+                },
+                "semana": {
+                    "$ref": "#/definitions/handlers.reservaResumenSemanaResponse"
+                },
+                "servicios_completados_dia": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.reservaResumenSemanaResponse": {
+            "type": "object",
+            "properties": {
+                "jueves": {
+                    "type": "integer"
+                },
+                "lunes": {
+                    "type": "integer"
+                },
+                "martes": {
+                    "type": "integer"
+                },
+                "miercoles": {
+                    "type": "integer"
+                },
+                "sabado": {
+                    "type": "integer"
+                },
+                "total_reservas": {
+                    "type": "integer"
+                },
+                "viernes": {
+                    "type": "integer"
                 }
             }
         },
