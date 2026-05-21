@@ -62,7 +62,7 @@ func (m *migracion) Ejecutar() (statsImport, error) {
 	// Migrar servicios
 	// costo ya viene como NUMERIC desde servicios_temp
 	res, err = tx.Exec(`
-		INSERT INTO servicios (nombre, categoria_id, tiempo, costo, sesiones, tipo_espacio_requerido)
+		INSERT INTO servicios (nombre, categoria_id, tiempo, costo, sesiones, tipo_espacio_requerido, requiere_evaluacion)
 		SELECT
 			st.nombre,
 			c.id,
@@ -74,9 +74,24 @@ func (m *migracion) Ejecutar() (statsImport, error) {
 					OR LOWER(st.nombre) LIKE '%bici%'
 				THEN 'B'
 				ELSE 'M'
-			END AS tipo_espacio_requerido
+			END AS tipo_espacio_requerido,
+			NOT (
+				LOWER(st.nombre) IN (LOWER('Evaluacion gratuita'), LOWER('Evaluación gratuita'))
+				OR LOWER(st.nombre) IN (
+					LOWER('Limpieza Facial'),
+					LOWER('Limpieza Facial Premium')
+				)
+				OR (
+					st.sesiones = 1
+					AND (
+						LOWER(st.nombre) LIKE '%bike%'
+						OR LOWER(st.nombre) LIKE '%bici%'
+					)
+				)
+			) AS requiere_evaluacion
 		FROM servicios_temp st
 		LEFT JOIN categorias c ON UPPER(c.nombre) = UPPER(st.categoria_nombre)
+		WHERE UPPER(st.categoria_nombre) NOT LIKE '%COMBO%'
 	`)
 	if err != nil {
 		return stats, fmt.Errorf("error al migrar servicios: %w", err)

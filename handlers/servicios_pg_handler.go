@@ -101,7 +101,8 @@ type crearServicioRequest struct {
 	Costo                *float64 `json:"costo"`
 	Sesiones             int      `json:"sesiones"`
 	TipoEspacioRequerido *string  `json:"tipo_espacio_requerido"` // "M" | "B" | nil
-	LocalNombre          string   `json:"local"`                  // opcional
+	RequiereEvaluacion   *bool    `json:"requiere_evaluacion"`
+	LocalNombre          string   `json:"local"` // opcional
 }
 
 // CreateServicio godoc
@@ -135,6 +136,10 @@ func (h *Container) CreateServicio(c *gin.Context) {
 	if sesiones < 1 {
 		sesiones = 1
 	}
+	requiereEvaluacion := true
+	if req.RequiereEvaluacion != nil {
+		requiereEvaluacion = *req.RequiereEvaluacion
+	}
 
 	id, err := h.ServiciosPG.CreateServicio(services.CrearServicioPGInput{
 		Nombre:               req.Nombre,
@@ -143,6 +148,7 @@ func (h *Container) CreateServicio(c *gin.Context) {
 		Costo:                req.Costo,
 		Sesiones:             sesiones,
 		TipoEspacioRequerido: req.TipoEspacioRequerido,
+		RequiereEvaluacion:   requiereEvaluacion,
 		LocalNombre:          req.LocalNombre,
 	})
 	if err != nil {
@@ -166,6 +172,7 @@ type actualizarServicioRequest struct {
 	Costo                *float64 `json:"costo"`
 	Sesiones             *int     `json:"sesiones"`
 	TipoEspacioRequerido *string  `json:"tipo_espacio_requerido"`
+	RequiereEvaluacion   *bool    `json:"requiere_evaluacion"`
 	Activo               *bool    `json:"activo"`
 }
 
@@ -197,7 +204,7 @@ func (h *Container) UpdateServicio(c *gin.Context) {
 
 	if req.Nombre == nil && req.CategoriaNombre == nil && req.Tiempo == nil &&
 		req.Costo == nil && req.Sesiones == nil &&
-		req.TipoEspacioRequerido == nil && req.Activo == nil {
+		req.TipoEspacioRequerido == nil && req.RequiereEvaluacion == nil && req.Activo == nil {
 		utils.RespondError(c, http.StatusBadRequest,
 			"debe especificarse al menos un campo a modificar")
 		return
@@ -220,6 +227,7 @@ func (h *Container) UpdateServicio(c *gin.Context) {
 		Costo:                req.Costo,
 		Sesiones:             req.Sesiones,
 		TipoEspacioRequerido: req.TipoEspacioRequerido,
+		RequiereEvaluacion:   req.RequiereEvaluacion,
 		Activo:               req.Activo,
 	})
 	if err != nil {

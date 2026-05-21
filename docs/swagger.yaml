@@ -15,6 +15,12 @@ definitions:
         type: string
       id:
         type: integer
+      precio:
+        type: number
+      servicio_confirmado:
+        type: string
+      tipo:
+        type: string
     required:
     - estado
     - id
@@ -45,6 +51,10 @@ definitions:
       nuevo_precio:
         type: number
       nuevo_servicio:
+        type: string
+      nuevo_servicio_confirmado:
+        type: string
+      nuevo_servicio_solicitado:
         type: string
       nuevo_tipo:
         type: string
@@ -94,6 +104,8 @@ definitions:
         type: number
       nombre:
         type: string
+      requiere_evaluacion:
+        type: boolean
       sesiones:
         type: integer
       tiempo:
@@ -144,6 +156,10 @@ definitions:
         type: number
       servicio:
         type: string
+      servicio_confirmado:
+        type: string
+      servicio_solicitado:
+        type: string
       tipo:
         type: string
     required:
@@ -190,6 +206,8 @@ definitions:
         type: string
       nombre:
         type: string
+      requiere_evaluacion:
+        type: boolean
       sesiones:
         type: integer
       tiempo:

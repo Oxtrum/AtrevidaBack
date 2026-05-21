@@ -1428,6 +1428,15 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "precio": {
+                    "type": "number"
+                },
+                "servicio_confirmado": {
+                    "type": "string"
+                },
+                "tipo": {
+                    "type": "string"
                 }
             }
         },
@@ -1474,6 +1483,12 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "nuevo_servicio": {
+                    "type": "string"
+                },
+                "nuevo_servicio_confirmado": {
+                    "type": "string"
+                },
+                "nuevo_servicio_solicitado": {
                     "type": "string"
                 },
                 "nuevo_tipo": {
@@ -1541,6 +1556,9 @@ const docTemplate = `{
                 },
                 "nombre": {
                     "type": "string"
+                },
+                "requiere_evaluacion": {
+                    "type": "boolean"
                 },
                 "sesiones": {
                     "type": "integer"
@@ -1625,6 +1643,12 @@ const docTemplate = `{
                 "servicio": {
                     "type": "string"
                 },
+                "servicio_confirmado": {
+                    "type": "string"
+                },
+                "servicio_solicitado": {
+                    "type": "string"
+                },
                 "tipo": {
                     "type": "string"
                 }
@@ -1686,6 +1710,9 @@ const docTemplate = `{
                 },
                 "nombre": {
                     "type": "string"
+                },
+                "requiere_evaluacion": {
+                    "type": "boolean"
                 },
                 "sesiones": {
                     "type": "integer"

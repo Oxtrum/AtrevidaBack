@@ -9,6 +9,7 @@ type CrearServicioInput struct {
 	Costo                *float64
 	Sesiones             int
 	TipoEspacioRequerido *string // "M" | "B" | nil
+	RequiereEvaluacion   bool
 	LocalNombre          string
 }
 
@@ -20,6 +21,7 @@ type ActualizarServicioInput struct {
 	Costo                *float64
 	Sesiones             *int
 	TipoEspacioRequerido *string
+	RequiereEvaluacion   *bool
 	Activo               *bool
 }
 

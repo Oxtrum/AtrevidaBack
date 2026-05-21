@@ -50,6 +50,7 @@ type CrearServicioPGInput struct {
 	Costo                *float64
 	Sesiones             int
 	TipoEspacioRequerido *string
+	RequiereEvaluacion   bool
 	LocalNombre          string
 }
 
@@ -67,6 +68,7 @@ func (s *ServiciosPGService) CreateServicio(input CrearServicioPGInput) (int, er
 		Costo:                input.Costo,
 		Sesiones:             input.Sesiones,
 		TipoEspacioRequerido: tipoEspacio,
+		RequiereEvaluacion:   input.RequiereEvaluacion,
 		LocalNombre:          strings.TrimSpace(input.LocalNombre),
 	})
 }
@@ -79,6 +81,7 @@ type ActualizarServicioPGInput struct {
 	Costo                *float64
 	Sesiones             *int
 	TipoEspacioRequerido *string
+	RequiereEvaluacion   *bool
 	Activo               *bool
 }
 
@@ -97,6 +100,7 @@ func (s *ServiciosPGService) UpdateServicio(input ActualizarServicioPGInput) err
 		Costo:                input.Costo,
 		Sesiones:             input.Sesiones,
 		TipoEspacioRequerido: tipoEspacio,
+		RequiereEvaluacion:   input.RequiereEvaluacion,
 		Activo:               input.Activo,
 	})
 }

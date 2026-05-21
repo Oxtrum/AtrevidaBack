@@ -19,19 +19,21 @@ type FiltroReservasPG struct {
 }
 
 type CreateReservaInput struct {
-	LocalNombre    string
-	TipoEspacio    string
-	Fecha          time.Time
-	HoraDesde      string
-	HoraHasta      string
-	Cliente        string
-	Estado         string
-	NumeroTelefono string
-	PlanID         *int
-	ServicioNombre string
-	Precio         *float64
-	Notas          string
-	Detalle        []CrearDetalleInput
+	LocalNombre        string
+	TipoEspacio        string
+	Fecha              time.Time
+	HoraDesde          string
+	HoraHasta          string
+	Cliente            string
+	Estado             string
+	NumeroTelefono     string
+	PlanID             *int
+	ServicioNombre     string
+	ServicioSolicitado string
+	ServicioConfirmado *string
+	Precio             *float64
+	Notas              string
+	Detalle            []CrearDetalleInput
 }
 
 type CrearDetalleInput struct {
@@ -46,14 +48,24 @@ type UpdateReservaInput struct {
 	Id          int
 	LocalNombre string
 
-	NuevaFecha          *time.Time
-	NuevaHoraDesde      *string
-	NuevaHoraHasta      *string
-	NuevoTipo           *string
-	NuevoNumeroTelefono *string
-	NuevoServicio       *string
-	NuevoPrecio         *float64
-	NuevasNotas         *string
+	NuevaFecha              *time.Time
+	NuevaHoraDesde          *string
+	NuevaHoraHasta          *string
+	NuevoTipo               *string
+	NuevoNumeroTelefono     *string
+	NuevoServicio           *string
+	NuevoServicioSolicitado *string
+	NuevoServicioConfirmado *string
+	NuevoPrecio             *float64
+	NuevasNotas             *string
+}
+
+type UpdateReservaEstadoInput struct {
+	ID                 int
+	Estado             string
+	ServicioConfirmado *string
+	Precio             *float64
+	TipoEspacio        *string
 }
 
 type CapacidadLocal struct {
@@ -68,6 +80,6 @@ type ReservasPGRepository interface {
 	GetCapacidades(localNombre string) ([]CapacidadLocal, error)
 	CreateReserva(input CreateReservaInput) (int, error)
 	UpdateReserva(input UpdateReservaInput) error
-	UpdateReservaEstado(id int, estado string) error
+	UpdateReservaEstado(input UpdateReservaEstadoInput) error
 	AnularReserva(id int) error
 }

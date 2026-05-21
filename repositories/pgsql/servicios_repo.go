@@ -30,7 +30,8 @@ func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
 			COALESCE(s.costo::text, '') AS costo,
 			s.sesiones,
 			COALESCE(l.nombre, '')      AS local,
-			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios 
+			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios,
+			s.requiere_evaluacion
 		FROM servicios s
 		LEFT JOIN categorias c      ON c.id = s.categoria_id
 		LEFT JOIN servicio_local sl ON sl.servicio_id = s.id
@@ -56,6 +57,7 @@ func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
 			&item.Sesiones,
 			&item.Local,
 			&item.TipoEspacio,
+			&item.RequiereEvaluacion,
 		); err != nil {
 			log.Println("SCAN ERROR:", err)
 			continue
@@ -76,7 +78,8 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 			COALESCE(s.costo::text, '') AS costo,
 			s.sesiones,
 			COALESCE(l.nombre, '')      AS local,
-			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios
+			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios,
+			s.requiere_evaluacion
 		FROM servicios s
 		LEFT JOIN categorias c      ON c.id = s.categoria_id
 		LEFT JOIN servicio_local sl ON sl.servicio_id = s.id
@@ -88,7 +91,7 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 	var item models.ServicioItem
 
 	err := r.db.QueryRowx(query, id).Scan(
-		new(int),
+		&item.Id,
 		&item.Nombre,
 		&item.Categoria,
 		&item.Tiempo,
@@ -96,6 +99,7 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 		&item.Sesiones,
 		&item.Local,
 		&item.TipoEspacio,
+		&item.RequiereEvaluacion,
 	)
 
 	if err != nil {
@@ -111,7 +115,8 @@ func (r *ServiciosRepo) GetServicioByNombre(nombre string) (*models.ServicioItem
 		SELECT
 			s.nombre,
 			COALESCE(s.costo::text, '') AS costo,
-			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacio
+			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacio,
+			s.requiere_evaluacion
 		FROM servicios s
 		WHERE UPPER(s.nombre) = UPPER($1)
 		AND s.activo = TRUE
@@ -124,6 +129,7 @@ func (r *ServiciosRepo) GetServicioByNombre(nombre string) (*models.ServicioItem
 		&item.Nombre,
 		&item.Costo,
 		&item.TipoEspacio,
+		&item.RequiereEvaluacion,
 	)
 
 	if err != nil {
@@ -171,8 +177,8 @@ func (r *ServiciosRepo) CreateServicio(input repository.CrearServicioInput) (int
 
 	var servicioID int
 	err = tx.QueryRowx(`
-		INSERT INTO servicios (nombre, categoria_id, tiempo, costo, sesiones, tipo_espacio_requerido)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO servicios (nombre, categoria_id, tiempo, costo, sesiones, tipo_espacio_requerido, requiere_evaluacion)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id
 	`,
 		strings.TrimSpace(input.Nombre),
@@ -181,6 +187,7 @@ func (r *ServiciosRepo) CreateServicio(input repository.CrearServicioInput) (int
 		input.Costo,
 		input.Sesiones,
 		input.TipoEspacioRequerido,
+		input.RequiereEvaluacion,
 	).Scan(&servicioID)
 	if err != nil {
 		return 0, fmt.Errorf("error al crear servicio: %w", err)
@@ -246,6 +253,11 @@ func (r *ServiciosRepo) UpdateServicio(input repository.ActualizarServicioInput)
 		}
 		sets = append(sets, fmt.Sprintf("tipo_espacio_requerido = $%d", idx))
 		args = append(args, t)
+		idx++
+	}
+	if input.RequiereEvaluacion != nil {
+		sets = append(sets, fmt.Sprintf("requiere_evaluacion = $%d", idx))
+		args = append(args, *input.RequiereEvaluacion)
 		idx++
 	}
 	if input.Activo != nil {

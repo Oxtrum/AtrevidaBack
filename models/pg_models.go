@@ -33,13 +33,14 @@ type CategoriaPG struct {
 // Servicios
 
 type ServicioPG struct {
-	ID          int      `db:"id"`
-	Nombre      string   `db:"nombre"`
-	CategoriaID *int     `db:"categoria_id"`
-	Tiempo      *string  `db:"tiempo"`
-	Costo       *float64 `db:"costo"`
-	Sesiones    int      `db:"sesiones"`
-	Activo      bool     `db:"activo"`
+	ID                 int      `db:"id"`
+	Nombre             string   `db:"nombre"`
+	CategoriaID        *int     `db:"categoria_id"`
+	Tiempo             *string  `db:"tiempo"`
+	Costo              *float64 `db:"costo"`
+	Sesiones           int      `db:"sesiones"`
+	Activo             bool     `db:"activo"`
+	RequiereEvaluacion bool     `db:"requiere_evaluacion"`
 }
 
 // ServicioPGConLocal
@@ -90,24 +91,26 @@ type PlanPG struct {
 // Reservas
 
 type ReservaPG struct {
-	ID             int       `db:"id"`
-	LocalID        *int      `db:"local_id"`
-	LocalNombre    string    `db:"local_nombre"`
-	TipoEspacio    string    `db:"tipo_espacio"`
-	Fecha          time.Time `db:"fecha"`
-	HoraDesde      string    `db:"hora_desde"` // TIME → string "09:00:00"
-	HoraHasta      string    `db:"hora_hasta"`
-	Cliente        string    `db:"cliente"`
-	Estado         *string   `db:"estado"`
-	NumeroTelefono *string   `db:"numero_telefono"`
-	PlanID         *int      `db:"plan_id"`
-	ServicioNombre *string   `db:"servicio_nombre"`
-	ServicioTiempo *string   `db:"servicio_tiempo"`
-	Precio         *float64  `db:"precio"`
-	Notas          *string   `db:"notas"`
-	Activo         bool      `db:"activo"`
-	CreadoEn       time.Time `db:"creado_en"`
-	ActualizadoEn  time.Time `db:"actualizado_en"`
+	ID                 int       `db:"id"`
+	LocalID            *int      `db:"local_id"`
+	LocalNombre        string    `db:"local_nombre"`
+	TipoEspacio        string    `db:"tipo_espacio"`
+	Fecha              time.Time `db:"fecha"`
+	HoraDesde          string    `db:"hora_desde"` // TIME → string "09:00:00"
+	HoraHasta          string    `db:"hora_hasta"`
+	Cliente            string    `db:"cliente"`
+	Estado             *string   `db:"estado"`
+	NumeroTelefono     *string   `db:"numero_telefono"`
+	PlanID             *int      `db:"plan_id"`
+	ServicioNombre     *string   `db:"servicio_nombre"`
+	ServicioSolicitado *string   `db:"servicio_solicitado"`
+	ServicioConfirmado *string   `db:"servicio_confirmado"`
+	ServicioTiempo     *string   `db:"servicio_tiempo"`
+	Precio             *float64  `db:"precio"`
+	Notas              *string   `db:"notas"`
+	Activo             bool      `db:"activo"`
+	CreadoEn           time.Time `db:"creado_en"`
+	ActualizadoEn      time.Time `db:"actualizado_en"`
 }
 
 type DetalleReservaPG struct {

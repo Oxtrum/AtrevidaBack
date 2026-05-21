@@ -85,7 +85,8 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 		SELECT
 			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre, r.servicio_tiempo,
+			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre,
+			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.notas, r.activo, r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
@@ -116,7 +117,8 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 		SELECT
 			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre, r.servicio_tiempo,
+			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre,
+			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.notas, r.activo, r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE r.id = $1
@@ -165,14 +167,16 @@ func (r *ReservasRepo) CreateReserva(input repository.CreateReservaInput) (int, 
 		INSERT INTO reservas (
 			local_id, local_nombre, tipo_espacio,
 			fecha, hora_desde, hora_hasta,
-			cliente, estado, numero_telefono, plan_id, servicio_nombre, precio, notas
-		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13)
+			cliente, estado, numero_telefono, plan_id, servicio_nombre,
+			servicio_solicitado, servicio_confirmado, precio, notas
+		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 		RETURNING id
 	`,
 		localID, input.LocalNombre, strings.ToUpper(input.TipoEspacio),
 		input.Fecha, input.HoraDesde, input.HoraHasta,
 		input.Cliente, input.Estado, nullStr(input.NumeroTelefono), input.PlanID,
-		nullStr(input.ServicioNombre), input.Precio, nullStr(input.Notas),
+		nullStr(input.ServicioNombre), nullStr(input.ServicioSolicitado),
+		input.ServicioConfirmado, input.Precio, nullStr(input.Notas),
 	).Scan(&reservaID)
 	if err != nil {
 		return 0, fmt.Errorf("error al insertar reserva: %w", err)
@@ -317,6 +321,16 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 		args = append(args, *input.NuevoServicio)
 		idx++
 	}
+	if input.NuevoServicioSolicitado != nil {
+		sets = append(sets, fmt.Sprintf("servicio_solicitado = $%d", idx))
+		args = append(args, *input.NuevoServicioSolicitado)
+		idx++
+	}
+	if input.NuevoServicioConfirmado != nil {
+		sets = append(sets, fmt.Sprintf("servicio_confirmado = $%d", idx))
+		args = append(args, *input.NuevoServicioConfirmado)
+		idx++
+	}
 	if input.NuevoNumeroTelefono != nil {
 		sets = append(sets, fmt.Sprintf("numero_telefono = $%d", idx))
 		args = append(args, *input.NuevoNumeroTelefono)
@@ -352,10 +366,57 @@ func (r *ReservasRepo) AnularReserva(id int) error {
 	return err
 }
 
-func (r *ReservasRepo) UpdateReservaEstado(id int, estado string) error {
-	result, err := r.db.Exec(
-		`UPDATE reservas SET estado = $1, actualizado_en = NOW() WHERE id = $2 AND activo = TRUE`,
-		estado, id,
+func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoInput) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if input.TipoEspacio != nil {
+		var localID int
+		var fecha time.Time
+		var horaDesde string
+		var horaHasta string
+
+		err = tx.QueryRowx(`
+			SELECT local_id, fecha, hora_desde::text, hora_hasta::text
+			FROM reservas
+			WHERE id = $1 AND activo = TRUE
+		`, input.ID).Scan(&localID, &fecha, &horaDesde, &horaHasta)
+		if err != nil {
+			return fmt.Errorf("reserva no encontrada")
+		}
+
+		if err := r.validarCapacidad(tx, localID, *input.TipoEspacio, fecha, horaDesde, horaHasta, input.ID); err != nil {
+			return err
+		}
+	}
+
+	sets := []string{"estado = $1", "actualizado_en = NOW()"}
+	args := []interface{}{input.Estado}
+	idx := 2
+
+	if input.ServicioConfirmado != nil {
+		sets = append(sets, fmt.Sprintf("servicio_confirmado = $%d", idx))
+		args = append(args, *input.ServicioConfirmado)
+		idx++
+	}
+	if input.Precio != nil {
+		sets = append(sets, fmt.Sprintf("precio = $%d", idx))
+		args = append(args, *input.Precio)
+		idx++
+	}
+	if input.TipoEspacio != nil {
+		sets = append(sets, fmt.Sprintf("tipo_espacio = $%d", idx))
+		args = append(args, strings.ToUpper(*input.TipoEspacio))
+		idx++
+	}
+
+	args = append(args, input.ID)
+	result, err := tx.Exec(
+		fmt.Sprintf(`UPDATE reservas SET %s WHERE id = $%d AND activo = TRUE`, strings.Join(sets, ", "), idx),
+		args...,
 	)
 	if err != nil {
 		return fmt.Errorf("error al actualizar estado de reserva: %w", err)
@@ -369,7 +430,7 @@ func (r *ReservasRepo) UpdateReservaEstado(id int, estado string) error {
 		return fmt.Errorf("reserva no encontrada")
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 // Validación de espacios y cantidades (no ocupado para esos ambientes en ese momento)
@@ -433,6 +494,12 @@ func BuildJerarquia(reservas []models.ReservaPGCompleta) []models.LocalReservas 
 		}
 		if rv.ServicioNombre != nil {
 			item.Servicio = *rv.ServicioNombre
+		}
+		if rv.ServicioSolicitado != nil {
+			item.ServicioSolicitado = *rv.ServicioSolicitado
+		}
+		if rv.ServicioConfirmado != nil {
+			item.ServicioConfirmado = *rv.ServicioConfirmado
 		}
 		if rv.Estado != nil {
 			item.Estado = *rv.Estado

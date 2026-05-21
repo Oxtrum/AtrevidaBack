@@ -417,18 +417,20 @@ func getRangoTiempoDisp(desdeStr, hastaStr string) (time.Time, time.Time) {
 
 // ReservaSimple es la representación plana de una reserva para GET /bd/reservas.
 type ReservaSimple struct {
-	ID             int      `json:"id"`
-	Local          string   `json:"local"`
-	Tipo           string   `json:"tipo"`
-	Fecha          string   `json:"fecha"`
-	HoraDesde      string   `json:"hora_desde"`
-	HoraHasta      string   `json:"hora_hasta"`
-	Cliente        string   `json:"cliente"`
-	Estado         *string  `json:"estado,omitempty"`
-	NumeroTelefono *string  `json:"numero_telefono,omitempty"`
-	Servicio       *string  `json:"servicio,omitempty"`
-	Precio         *float64 `json:"precio,omitempty"`
-	Notas          *string  `json:"notas,omitempty"`
+	ID                 int      `json:"id"`
+	Local              string   `json:"local"`
+	Tipo               string   `json:"tipo"`
+	Fecha              string   `json:"fecha"`
+	HoraDesde          string   `json:"hora_desde"`
+	HoraHasta          string   `json:"hora_hasta"`
+	Cliente            string   `json:"cliente"`
+	Estado             *string  `json:"estado,omitempty"`
+	NumeroTelefono     *string  `json:"numero_telefono,omitempty"`
+	Servicio           *string  `json:"servicio,omitempty"`
+	ServicioSolicitado *string  `json:"servicio_solicitado,omitempty"`
+	ServicioConfirmado *string  `json:"servicio_confirmado,omitempty"`
+	Precio             *float64 `json:"precio,omitempty"`
+	Notas              *string  `json:"notas,omitempty"`
 }
 
 type FiltroReservasSimple struct {
@@ -481,18 +483,20 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 	resultado := make([]ReservaSimple, 0, len(reservas))
 	for _, rv := range reservas {
 		resultado = append(resultado, ReservaSimple{
-			ID:             rv.ID,
-			Local:          rv.LocalNombre,
-			Tipo:           tipoLetraANombreService(rv.TipoEspacio),
-			Fecha:          rv.Fecha.Format("2006-01-02"),
-			HoraDesde:      formatHoraService(rv.HoraDesde),
-			HoraHasta:      formatHoraService(rv.HoraHasta),
-			Cliente:        rv.Cliente,
-			Estado:         rv.Estado,
-			NumeroTelefono: rv.NumeroTelefono,
-			Servicio:       rv.ServicioNombre,
-			Precio:         rv.Precio,
-			Notas:          rv.Notas,
+			ID:                 rv.ID,
+			Local:              rv.LocalNombre,
+			Tipo:               tipoLetraANombreService(rv.TipoEspacio),
+			Fecha:              rv.Fecha.Format("2006-01-02"),
+			HoraDesde:          formatHoraService(rv.HoraDesde),
+			HoraHasta:          formatHoraService(rv.HoraHasta),
+			Cliente:            rv.Cliente,
+			Estado:             rv.Estado,
+			NumeroTelefono:     rv.NumeroTelefono,
+			Servicio:           rv.ServicioNombre,
+			ServicioSolicitado: rv.ServicioSolicitado,
+			ServicioConfirmado: rv.ServicioConfirmado,
+			Precio:             rv.Precio,
+			Notas:              rv.Notas,
 		})
 	}
 	return resultado, nil
@@ -505,18 +509,20 @@ func (s *ReservasPGService) GetReservaByID(id int) (*ReservaSimple, error) {
 	}
 
 	return &ReservaSimple{
-		ID:             rv.ID,
-		Local:          rv.LocalNombre,
-		Tipo:           tipoLetraANombreService(rv.TipoEspacio),
-		Fecha:          rv.Fecha.Format("2006-01-02"),
-		HoraDesde:      formatHoraService(rv.HoraDesde),
-		HoraHasta:      formatHoraService(rv.HoraHasta),
-		Cliente:        rv.Cliente,
-		Estado:         rv.Estado,
-		NumeroTelefono: rv.NumeroTelefono,
-		Servicio:       rv.ServicioNombre,
-		Precio:         rv.Precio,
-		Notas:          rv.Notas,
+		ID:                 rv.ID,
+		Local:              rv.LocalNombre,
+		Tipo:               tipoLetraANombreService(rv.TipoEspacio),
+		Fecha:              rv.Fecha.Format("2006-01-02"),
+		HoraDesde:          formatHoraService(rv.HoraDesde),
+		HoraHasta:          formatHoraService(rv.HoraHasta),
+		Cliente:            rv.Cliente,
+		Estado:             rv.Estado,
+		NumeroTelefono:     rv.NumeroTelefono,
+		Servicio:           rv.ServicioNombre,
+		ServicioSolicitado: rv.ServicioSolicitado,
+		ServicioConfirmado: rv.ServicioConfirmado,
+		Precio:             rv.Precio,
+		Notas:              rv.Notas,
 	}, nil
 }
 
@@ -539,18 +545,20 @@ func formatHoraService(h string) string {
 
 // POST
 type CrearReservaPGInput struct {
-	Local     string
-	Fecha     string
-	HoraDesde string
-	HoraHasta string
-	Tipo      string
-	Cliente   string
-	Telefono  string
-	Estado    string
-	Servicio  string
-	Precio    *float64
-	Notas     string
-	PlanID    *int
+	Local              string
+	Fecha              string
+	HoraDesde          string
+	HoraHasta          string
+	Tipo               string
+	Cliente            string
+	Telefono           string
+	Estado             string
+	Servicio           string
+	ServicioSolicitado string
+	ServicioConfirmado *string
+	Precio             *float64
+	Notas              string
+	PlanID             *int
 }
 
 func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error) {
@@ -600,6 +608,15 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 
 	// Mantener comportamiento manual temporal
 	input.Tipo = strings.ToUpper(strings.TrimSpace(input.Tipo))
+	input.Servicio = strings.TrimSpace(input.Servicio)
+	input.ServicioSolicitado = strings.TrimSpace(input.ServicioSolicitado)
+	if input.ServicioSolicitado == "" {
+		input.ServicioSolicitado = input.Servicio
+	}
+	if input.ServicioConfirmado != nil {
+		servicio := strings.TrimSpace(*input.ServicioConfirmado)
+		input.ServicioConfirmado = &servicio
+	}
 	estadoFinal := "PENDIENTE"
 	if strings.TrimSpace(input.Estado) != "" {
 		estadoRecibido, err := NormalizarEstadoReserva(input.Estado)
@@ -618,26 +635,31 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 	// When no sabes
 
 	id, err := s.repo.CreateReserva(repository.CreateReservaInput{
-		LocalNombre:    input.Local,
-		TipoEspacio:    strings.ToUpper(input.Tipo),
-		Fecha:          fecha,
-		HoraDesde:      input.HoraDesde,
-		HoraHasta:      horaHasta,
-		Cliente:        input.Cliente,
-		Estado:         estadoFinal,
-		NumeroTelefono: input.Telefono,
-		ServicioNombre: input.Servicio,
-		Precio:         input.Precio,
-		Notas:          input.Notas,
-		PlanID:         input.PlanID,
+		LocalNombre:        input.Local,
+		TipoEspacio:        strings.ToUpper(input.Tipo),
+		Fecha:              fecha,
+		HoraDesde:          input.HoraDesde,
+		HoraHasta:          horaHasta,
+		Cliente:            input.Cliente,
+		Estado:             estadoFinal,
+		NumeroTelefono:     input.Telefono,
+		ServicioNombre:     input.Servicio,
+		ServicioSolicitado: input.ServicioSolicitado,
+		ServicioConfirmado: input.ServicioConfirmado,
+		Precio:             input.Precio,
+		Notas:              input.Notas,
+		PlanID:             input.PlanID,
 	})
 	return id, err
 }
 
 type ActualizarEstadoReservaInput struct {
-	Id     int
-	Estado string
-	Causa  string
+	Id                 int
+	Estado             string
+	Causa              string
+	ServicioConfirmado *string
+	Precio             *float64
+	Tipo               string
 }
 
 func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReservaInput) error {
@@ -664,7 +686,28 @@ func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReserv
 		return errors.New("causa es requerida cuando el estado es RECHAZADO")
 	}
 
-	return s.repo.UpdateReservaEstado(input.Id, estado)
+	var tipoEspacio *string
+	if strings.TrimSpace(input.Tipo) != "" {
+		tipo := strings.ToUpper(strings.TrimSpace(input.Tipo))
+		if tipo != "M" && tipo != "B" {
+			return errors.New("tipo inválido, valores permitidos: M, B")
+		}
+		tipoEspacio = &tipo
+	}
+
+	var servicioConfirmado *string
+	if input.ServicioConfirmado != nil {
+		servicio := strings.TrimSpace(*input.ServicioConfirmado)
+		servicioConfirmado = &servicio
+	}
+
+	return s.repo.UpdateReservaEstado(repository.UpdateReservaEstadoInput{
+		ID:                 input.Id,
+		Estado:             estado,
+		ServicioConfirmado: servicioConfirmado,
+		Precio:             input.Precio,
+		TipoEspacio:        tipoEspacio,
+	})
 }
 
 // PATCH
@@ -676,14 +719,16 @@ type ActualizarReservaPGInput struct {
 	Tipo      string
 	Cliente   string
 
-	NuevaFecha          string
-	NuevaHoraDesde      string
-	NuevaHoraHasta      string
-	NuevoTipo           string
-	NuevoNumeroTelefono string
-	NuevoServicio       string
-	NuevoPrecio         *float64
-	NuevasNotas         string
+	NuevaFecha              string
+	NuevaHoraDesde          string
+	NuevaHoraHasta          string
+	NuevoTipo               string
+	NuevoNumeroTelefono     string
+	NuevoServicio           string
+	NuevoServicioSolicitado string
+	NuevoServicioConfirmado string
+	NuevoPrecio             *float64
+	NuevasNotas             string
 }
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
@@ -710,6 +755,12 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 
 	if input.NuevoServicio != "" {
 		upd.NuevoServicio = &input.NuevoServicio
+	}
+	if input.NuevoServicioSolicitado != "" {
+		upd.NuevoServicioSolicitado = &input.NuevoServicioSolicitado
+	}
+	if input.NuevoServicioConfirmado != "" {
+		upd.NuevoServicioConfirmado = &input.NuevoServicioConfirmado
 	}
 
 	if input.NuevoNumeroTelefono != "" {

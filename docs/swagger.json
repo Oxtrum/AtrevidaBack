@@ -1425,6 +1425,15 @@
                 },
                 "id": {
                     "type": "integer"
+                },
+                "precio": {
+                    "type": "number"
+                },
+                "servicio_confirmado": {
+                    "type": "string"
+                },
+                "tipo": {
+                    "type": "string"
                 }
             }
         },
@@ -1471,6 +1480,12 @@
                     "type": "number"
                 },
                 "nuevo_servicio": {
+                    "type": "string"
+                },
+                "nuevo_servicio_confirmado": {
+                    "type": "string"
+                },
+                "nuevo_servicio_solicitado": {
                     "type": "string"
                 },
                 "nuevo_tipo": {
@@ -1538,6 +1553,9 @@
                 },
                 "nombre": {
                     "type": "string"
+                },
+                "requiere_evaluacion": {
+                    "type": "boolean"
                 },
                 "sesiones": {
                     "type": "integer"
@@ -1622,6 +1640,12 @@
                 "servicio": {
                     "type": "string"
                 },
+                "servicio_confirmado": {
+                    "type": "string"
+                },
+                "servicio_solicitado": {
+                    "type": "string"
+                },
                 "tipo": {
                     "type": "string"
                 }
@@ -1683,6 +1707,9 @@
                 },
                 "nombre": {
                     "type": "string"
+                },
+                "requiere_evaluacion": {
+                    "type": "boolean"
                 },
                 "sesiones": {
                     "type": "integer"

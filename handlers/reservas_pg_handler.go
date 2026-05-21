@@ -99,18 +99,20 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 
 // POST /bd/reservas
 type crearReservaPGRequest struct {
-	Local          string   `json:"local" binding:"required"`
-	Fecha          string   `json:"fecha" binding:"required"`
-	HoraDesde      string   `json:"hora_desde" binding:"required"`
-	HoraHasta      string   `json:"hora_hasta"`
-	Tipo           string   `json:"tipo"`
-	Cliente        string   `json:"cliente" binding:"required"`
-	NumeroTelefono string   `json:"numero_telefono" binding:"required"`
-	Estado         string   `json:"estado"`
-	Servicio       string   `json:"servicio"`
-	Precio         *float64 `json:"precio"`
-	Notas          string   `json:"notas"`
-	PlanID         *int     `json:"plan_id"`
+	Local              string   `json:"local" binding:"required"`
+	Fecha              string   `json:"fecha" binding:"required"`
+	HoraDesde          string   `json:"hora_desde" binding:"required"`
+	HoraHasta          string   `json:"hora_hasta"`
+	Tipo               string   `json:"tipo"`
+	Cliente            string   `json:"cliente" binding:"required"`
+	NumeroTelefono     string   `json:"numero_telefono" binding:"required"`
+	Estado             string   `json:"estado"`
+	Servicio           string   `json:"servicio"`
+	ServicioSolicitado string   `json:"servicio_solicitado"`
+	ServicioConfirmado *string  `json:"servicio_confirmado"`
+	Precio             *float64 `json:"precio"`
+	Notas              string   `json:"notas"`
+	PlanID             *int     `json:"plan_id"`
 }
 
 // PostReservaPG godoc
@@ -148,18 +150,20 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 	}
 
 	id, err := h.ReservasPG.CrearReserva(services.CrearReservaPGInput{
-		Local:     strings.TrimSpace(req.Local),
-		Fecha:     strings.TrimSpace(req.Fecha),
-		HoraDesde: strings.TrimSpace(req.HoraDesde),
-		HoraHasta: strings.TrimSpace(req.HoraHasta),
-		Tipo:      tipoNorm,
-		Cliente:   strings.TrimSpace(req.Cliente),
-		Telefono:  telefono,
-		Estado:    estadoFinal,
-		Servicio:  strings.TrimSpace(req.Servicio),
-		Precio:    req.Precio,
-		Notas:     strings.TrimSpace(req.Notas),
-		PlanID:    req.PlanID,
+		Local:              strings.TrimSpace(req.Local),
+		Fecha:              strings.TrimSpace(req.Fecha),
+		HoraDesde:          strings.TrimSpace(req.HoraDesde),
+		HoraHasta:          strings.TrimSpace(req.HoraHasta),
+		Tipo:               tipoNorm,
+		Cliente:            strings.TrimSpace(req.Cliente),
+		Telefono:           telefono,
+		Estado:             estadoFinal,
+		Servicio:           strings.TrimSpace(req.Servicio),
+		ServicioSolicitado: strings.TrimSpace(req.ServicioSolicitado),
+		ServicioConfirmado: req.ServicioConfirmado,
+		Precio:             req.Precio,
+		Notas:              strings.TrimSpace(req.Notas),
+		PlanID:             req.PlanID,
 	})
 
 	if err != nil {
@@ -179,9 +183,12 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 }
 
 type actualizarEstadoReservaPGRequest struct {
-	Id     int    `json:"id" binding:"required"`
-	Estado string `json:"estado" binding:"required"`
-	Causa  string `json:"causa"`
+	Id                 int      `json:"id" binding:"required"`
+	Estado             string   `json:"estado" binding:"required"`
+	Causa              string   `json:"causa"`
+	ServicioConfirmado *string  `json:"servicio_confirmado"`
+	Precio             *float64 `json:"precio"`
+	Tipo               string   `json:"tipo"`
 }
 
 func normalizarTelefono(raw string) (string, error) {
@@ -301,16 +308,18 @@ func (h *Container) GetReservaPGByID(c *gin.Context) {
 }
 
 type actualizarReservaPGRequest struct {
-	Id                  int      `json:"id" binding:"required"`
-	Local               string   `json:"local" binding:"required"`
-	NuevaFecha          string   `json:"nueva_fecha"`
-	NuevaHoraDesde      string   `json:"nueva_hora_desde"`
-	NuevaHoraHasta      string   `json:"nueva_hora_hasta"`
-	NuevoTipo           string   `json:"nuevo_tipo"`
-	NuevoNumeroTelefono string   `json:"nuevo_numero_telefono"`
-	NuevoServicio       string   `json:"nuevo_servicio"`
-	NuevoPrecio         *float64 `json:"nuevo_precio"`
-	NuevasNotas         string   `json:"nuevas_notas"`
+	Id                      int      `json:"id" binding:"required"`
+	Local                   string   `json:"local" binding:"required"`
+	NuevaFecha              string   `json:"nueva_fecha"`
+	NuevaHoraDesde          string   `json:"nueva_hora_desde"`
+	NuevaHoraHasta          string   `json:"nueva_hora_hasta"`
+	NuevoTipo               string   `json:"nuevo_tipo"`
+	NuevoNumeroTelefono     string   `json:"nuevo_numero_telefono"`
+	NuevoServicio           string   `json:"nuevo_servicio"`
+	NuevoServicioSolicitado string   `json:"nuevo_servicio_solicitado"`
+	NuevoServicioConfirmado string   `json:"nuevo_servicio_confirmado"`
+	NuevoPrecio             *float64 `json:"nuevo_precio"`
+	NuevasNotas             string   `json:"nuevas_notas"`
 }
 
 // PatchReservaPG godoc
@@ -359,22 +368,25 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 	}
 
 	if req.NuevaFecha == "" && req.NuevaHoraDesde == "" && nuevoTipoNorm == "" &&
-		nuevoTelefono == "" && req.NuevoServicio == "" && req.NuevoPrecio == nil && req.NuevasNotas == "" {
+		nuevoTelefono == "" && req.NuevoServicio == "" && req.NuevoServicioSolicitado == "" &&
+		req.NuevoServicioConfirmado == "" && req.NuevoPrecio == nil && req.NuevasNotas == "" {
 		utils.RespondError(c, http.StatusBadRequest, "no hay cambios para actualizar")
 		return
 	}
 
 	err := h.ReservasPG.ActualizarReserva(services.ActualizarReservaPGInput{
-		Id:                  id,
-		Local:               req.Local,
-		NuevaFecha:          req.NuevaFecha,
-		NuevaHoraDesde:      req.NuevaHoraDesde,
-		NuevaHoraHasta:      req.NuevaHoraHasta,
-		NuevoTipo:           nuevoTipoNorm,
-		NuevoNumeroTelefono: nuevoTelefono,
-		NuevoServicio:       req.NuevoServicio,
-		NuevoPrecio:         req.NuevoPrecio,
-		NuevasNotas:         req.NuevasNotas,
+		Id:                      id,
+		Local:                   req.Local,
+		NuevaFecha:              req.NuevaFecha,
+		NuevaHoraDesde:          req.NuevaHoraDesde,
+		NuevaHoraHasta:          req.NuevaHoraHasta,
+		NuevoTipo:               nuevoTipoNorm,
+		NuevoNumeroTelefono:     nuevoTelefono,
+		NuevoServicio:           req.NuevoServicio,
+		NuevoServicioSolicitado: req.NuevoServicioSolicitado,
+		NuevoServicioConfirmado: req.NuevoServicioConfirmado,
+		NuevoPrecio:             req.NuevoPrecio,
+		NuevasNotas:             req.NuevasNotas,
 	})
 
 	if err != nil {
@@ -411,9 +423,12 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 	}
 
 	err := h.ReservasPG.ActualizarEstadoReserva(services.ActualizarEstadoReservaInput{
-		Id:     req.Id,
-		Estado: req.Estado,
-		Causa:  req.Causa,
+		Id:                 req.Id,
+		Estado:             req.Estado,
+		Causa:              req.Causa,
+		ServicioConfirmado: req.ServicioConfirmado,
+		Precio:             req.Precio,
+		Tipo:               req.Tipo,
 	})
 	if err != nil {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
