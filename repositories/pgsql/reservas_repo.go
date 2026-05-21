@@ -1,6 +1,7 @@
 package pgsql
 
 import (
+	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -126,6 +127,9 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 	var rv models.ReservaPGCompleta
 	err := r.db.Get(&rv, query, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("reserva no encontrada")
+		}
 		return nil, fmt.Errorf("error al obtener reserva por id: %w", err)
 	}
 

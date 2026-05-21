@@ -390,6 +390,10 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 	})
 
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "no se pudo encontrar la reserva") {
+			utils.RespondError(c, http.StatusNotFound, "No se pudo encontrar la reserva")
+			return
+		}
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -431,6 +435,10 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 		Tipo:               req.Tipo,
 	})
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "no se pudo encontrar la reserva") {
+			utils.RespondError(c, http.StatusNotFound, "No se pudo encontrar la reserva")
+			return
+		}
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
 		return
 	}

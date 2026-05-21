@@ -665,7 +665,10 @@ type ActualizarEstadoReservaInput struct {
 func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReservaInput) error {
 	current, err := s.repo.GetReservaByID(input.Id)
 	if err != nil {
-		return fmt.Errorf("No se pudo recuperar la reserva actual: %v", err)
+		if esReservaNoEncontrada(err) {
+			return errors.New("No se pudo encontrar la reserva")
+		}
+		return errors.New("No se pudo recuperar la reserva")
 	}
 
 	estadoActual, err := estadoReservaActual(current)
@@ -835,7 +838,10 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 	// 1. Obtener datos actuales para completar campos faltantes en la validación
 	current, err := s.repo.GetReservaByID(input.Id)
 	if err != nil {
-		return fmt.Errorf("No se pudo recuperar la reserva actual: %v", err)
+		if esReservaNoEncontrada(err) {
+			return errors.New("No se pudo encontrar la reserva")
+		}
+		return errors.New("No se pudo recuperar la reserva")
 	}
 	estadoActual, err := estadoReservaActual(current)
 	if err != nil {
@@ -1069,4 +1075,14 @@ func canTransitionReservaEstado(actual, siguiente string) bool {
 	default:
 		return false
 	}
+}
+
+func esReservaNoEncontrada(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "reserva no encontrada") ||
+		strings.Contains(msg, "no rows in result set")
 }
