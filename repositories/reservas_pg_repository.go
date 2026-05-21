@@ -7,15 +7,17 @@ import (
 )
 
 type FiltroReservasPG struct {
-	LocalNombre    string
-	Fecha          *time.Time
-	FechaDesde     *time.Time
-	FechaHasta     *time.Time
-	Cliente        string
-	NumeroTelefono string
-	TipoEspacio    string
-	PlanID         *int
-	SoloActivas    bool
+	LocalNombre        string
+	Fecha              *time.Time
+	FechaDesde         *time.Time
+	FechaHasta         *time.Time
+	Cliente            string
+	NumeroTelefono     string
+	ServicioSolicitado string
+	ServicioConfirmado string
+	TipoEspacio        string
+	PlanID             *int
+	SoloActivas        bool
 }
 
 type CreateReservaInput struct {

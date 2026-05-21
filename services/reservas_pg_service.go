@@ -26,15 +26,17 @@ func NewReservasPGService(repo repository.ReservasPGRepository, serviciosRepo *p
 // GET
 
 type FiltroReservasPG struct {
-	Local          string
-	Fecha          string
-	FechaDesde     string
-	FechaHasta     string
-	Cliente        string
-	NumeroTelefono string
-	Estado         string
-	Tipo           string
-	Reservados     *bool
+	Local              string
+	Fecha              string
+	FechaDesde         string
+	FechaHasta         string
+	Cliente            string
+	NumeroTelefono     string
+	ServicioSolicitado string
+	ServicioConfirmado string
+	Estado             string
+	Tipo               string
+	Reservados         *bool
 }
 
 func (s *ReservasPGService) GetReservasFiltradas(f FiltroReservasPG) ([]models.LocalReservas, error) {
@@ -47,6 +49,14 @@ func (s *ReservasPGService) GetReservasFiltradas(f FiltroReservasPG) ([]models.L
 		soloOcupados := true
 		f.Reservados = &soloOcupados
 	}
+	if f.ServicioSolicitado != "" {
+		soloOcupados := true
+		f.Reservados = &soloOcupados
+	}
+	if f.ServicioConfirmado != "" {
+		soloOcupados := true
+		f.Reservados = &soloOcupados
+	}
 
 	if f.Reservados != nil && !*f.Reservados {
 		desde, hasta := getRangoTiempoDisp(f.FechaDesde, f.FechaHasta)
@@ -54,10 +64,12 @@ func (s *ReservasPGService) GetReservasFiltradas(f FiltroReservasPG) ([]models.L
 	}
 
 	filtro := repository.FiltroReservasPG{
-		LocalNombre:    f.Local,
-		Cliente:        f.Cliente,
-		NumeroTelefono: f.NumeroTelefono,
-		SoloActivas:    true,
+		LocalNombre:        f.Local,
+		Cliente:            f.Cliente,
+		NumeroTelefono:     f.NumeroTelefono,
+		ServicioSolicitado: f.ServicioSolicitado,
+		ServicioConfirmado: f.ServicioConfirmado,
+		SoloActivas:        true,
 	}
 
 	if f.Tipo != "" {
@@ -434,22 +446,26 @@ type ReservaSimple struct {
 }
 
 type FiltroReservasSimple struct {
-	Local          string
-	Fecha          string
-	FechaDesde     string
-	FechaHasta     string
-	Cliente        string
-	NumeroTelefono string
-	Estado         string
-	Tipo           string
+	Local              string
+	Fecha              string
+	FechaDesde         string
+	FechaHasta         string
+	Cliente            string
+	NumeroTelefono     string
+	ServicioSolicitado string
+	ServicioConfirmado string
+	Estado             string
+	Tipo               string
 }
 
 func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]ReservaSimple, error) {
 	filtro := repository.FiltroReservasPG{
-		LocalNombre:    f.Local,
-		Cliente:        f.Cliente,
-		NumeroTelefono: f.NumeroTelefono,
-		SoloActivas:    true,
+		LocalNombre:        f.Local,
+		Cliente:            f.Cliente,
+		NumeroTelefono:     f.NumeroTelefono,
+		ServicioSolicitado: f.ServicioSolicitado,
+		ServicioConfirmado: f.ServicioConfirmado,
+		SoloActivas:        true,
 	}
 	if f.Tipo != "" {
 		filtro.TipoEspacio = tipoNombreALetra(f.Tipo)

@@ -503,6 +503,14 @@ paths:
         in: query
         name: numero_telefono
         type: string
+      - description: Busqueda parcial por servicio solicitado
+        in: query
+        name: servicio_solicitado
+        type: string
+      - description: Busqueda parcial por servicio confirmado
+        in: query
+        name: servicio_confirmado
+        type: string
       - description: Estado de la reserva
         enum:
         - PENDIENTE
@@ -656,6 +664,14 @@ paths:
       - description: Numero de telefono
         in: query
         name: numero_telefono
+        type: string
+      - description: Busqueda parcial por servicio solicitado
+        in: query
+        name: servicio_solicitado
+        type: string
+      - description: Busqueda parcial por servicio confirmado
+        in: query
+        name: servicio_confirmado
         type: string
       - description: Estado de la reserva
         enum:

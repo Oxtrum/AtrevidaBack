@@ -403,6 +403,18 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Busqueda parcial por servicio solicitado",
+                        "name": "servicio_solicitado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda parcial por servicio confirmado",
+                        "name": "servicio_confirmado",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "PENDIENTE",
                             "RECHAZADO",
@@ -585,6 +597,18 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Numero de telefono",
                         "name": "numero_telefono",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda parcial por servicio solicitado",
+                        "name": "servicio_solicitado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda parcial por servicio confirmado",
+                        "name": "servicio_confirmado",
                         "in": "query"
                     },
                     {

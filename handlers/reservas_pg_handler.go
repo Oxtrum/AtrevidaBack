@@ -29,6 +29,8 @@ const allowEstadoOverrideTemporal = true
 // @Param fecha_hasta query string false "Fecha hasta"
 // @Param cliente query string false "Nombre del cliente"
 // @Param numero_telefono query string false "Numero de telefono"
+// @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado"
+// @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado"
 // @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO)
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta)
 // @Param reservados query bool false "Filtrar por estado reservado"
@@ -51,15 +53,17 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 	}
 
 	filtro := services.FiltroReservasPG{
-		Local:          strings.TrimSpace(c.Query("local")),
-		Fecha:          strings.TrimSpace(c.Query("fecha")),
-		FechaDesde:     strings.TrimSpace(c.Query("fecha_desde")),
-		FechaHasta:     strings.TrimSpace(c.Query("fecha_hasta")),
-		Cliente:        strings.TrimSpace(c.Query("cliente")),
-		NumeroTelefono: strings.TrimSpace(c.Query("numero_telefono")),
-		Estado:         strings.TrimSpace(c.Query("estado")),
-		Tipo:           paramTipo,
-		Reservados:     reservados,
+		Local:              strings.TrimSpace(c.Query("local")),
+		Fecha:              strings.TrimSpace(c.Query("fecha")),
+		FechaDesde:         strings.TrimSpace(c.Query("fecha_desde")),
+		FechaHasta:         strings.TrimSpace(c.Query("fecha_hasta")),
+		Cliente:            strings.TrimSpace(c.Query("cliente")),
+		NumeroTelefono:     strings.TrimSpace(c.Query("numero_telefono")),
+		ServicioSolicitado: strings.TrimSpace(c.Query("servicio_solicitado")),
+		ServicioConfirmado: strings.TrimSpace(c.Query("servicio_confirmado")),
+		Estado:             strings.TrimSpace(c.Query("estado")),
+		Tipo:               paramTipo,
+		Reservados:         reservados,
 	}
 	if filtro.Estado != "" {
 		estado, err := services.NormalizarEstadoReserva(filtro.Estado)
@@ -83,15 +87,17 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, gin.H{
 		"total_locales": len(resultado),
 		"filtros": gin.H{
-			"local":           filtro.Local,
-			"fecha":           filtro.Fecha,
-			"fecha_desde":     filtro.FechaDesde,
-			"fecha_hasta":     filtro.FechaHasta,
-			"tipo":            filtro.Tipo,
-			"cliente":         filtro.Cliente,
-			"numero_telefono": filtro.NumeroTelefono,
-			"estado":          filtro.Estado,
-			"reservados":      reservados,
+			"local":               filtro.Local,
+			"fecha":               filtro.Fecha,
+			"fecha_desde":         filtro.FechaDesde,
+			"fecha_hasta":         filtro.FechaHasta,
+			"tipo":                filtro.Tipo,
+			"cliente":             filtro.Cliente,
+			"numero_telefono":     filtro.NumeroTelefono,
+			"servicio_solicitado": filtro.ServicioSolicitado,
+			"servicio_confirmado": filtro.ServicioConfirmado,
+			"estado":              filtro.Estado,
+			"reservados":          reservados,
 		},
 		"reservas": resultado,
 	})
@@ -228,6 +234,8 @@ func normalizarTelefono(raw string) (string, error) {
 // @Param fecha_hasta query string false "Fecha hasta"
 // @Param cliente query string false "Nombre del cliente"
 // @Param numero_telefono query string false "Numero de telefono"
+// @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado"
+// @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado"
 // @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO)
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta)
 // @Success 200 {object} utils.APIResponse
@@ -243,14 +251,16 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 	}
 
 	filtro := services.FiltroReservasSimple{
-		Local:          strings.TrimSpace(c.Query("local")),
-		Fecha:          strings.TrimSpace(c.Query("fecha")),
-		FechaDesde:     strings.TrimSpace(c.Query("fecha_desde")),
-		FechaHasta:     strings.TrimSpace(c.Query("fecha_hasta")),
-		Cliente:        strings.TrimSpace(c.Query("cliente")),
-		NumeroTelefono: strings.TrimSpace(c.Query("numero_telefono")),
-		Estado:         strings.TrimSpace(c.Query("estado")),
-		Tipo:           paramTipo,
+		Local:              strings.TrimSpace(c.Query("local")),
+		Fecha:              strings.TrimSpace(c.Query("fecha")),
+		FechaDesde:         strings.TrimSpace(c.Query("fecha_desde")),
+		FechaHasta:         strings.TrimSpace(c.Query("fecha_hasta")),
+		Cliente:            strings.TrimSpace(c.Query("cliente")),
+		NumeroTelefono:     strings.TrimSpace(c.Query("numero_telefono")),
+		ServicioSolicitado: strings.TrimSpace(c.Query("servicio_solicitado")),
+		ServicioConfirmado: strings.TrimSpace(c.Query("servicio_confirmado")),
+		Estado:             strings.TrimSpace(c.Query("estado")),
+		Tipo:               paramTipo,
 	}
 	if filtro.Estado != "" {
 		estado, err := services.NormalizarEstadoReserva(filtro.Estado)

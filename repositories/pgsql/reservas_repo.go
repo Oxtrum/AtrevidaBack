@@ -68,6 +68,16 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 		args = append(args, f.NumeroTelefono, digitos, last8)
 		idx += 3
 	}
+	if f.ServicioSolicitado != "" {
+		conditions = append(conditions, fmt.Sprintf("COALESCE(r.servicio_solicitado, '') ILIKE $%d", idx))
+		args = append(args, "%"+f.ServicioSolicitado+"%")
+		idx++
+	}
+	if f.ServicioConfirmado != "" {
+		conditions = append(conditions, fmt.Sprintf("COALESCE(r.servicio_confirmado, '') ILIKE $%d", idx))
+		args = append(args, "%"+f.ServicioConfirmado+"%")
+		idx++
+	}
 	if f.TipoEspacio != "" {
 		conditions = append(conditions, fmt.Sprintf("r.tipo_espacio = $%d", idx))
 		args = append(args, strings.ToUpper(f.TipoEspacio))
