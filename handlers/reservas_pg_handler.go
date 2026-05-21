@@ -32,7 +32,7 @@ const allowEstadoOverrideTemporal = true
 // @Param numero_telefono query string false "Numero de telefono"
 // @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado"
 // @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado"
-// @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO)
+// @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO)
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta)
 // @Param reservados query bool false "Filtrar por estado reservado"
 // @Success 200 {object} utils.APIResponse
@@ -331,7 +331,7 @@ func intPtr(v int) *int {
 // @Param numero_telefono query string false "Numero de telefono"
 // @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado"
 // @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado"
-// @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO)
+// @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO)
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta)
 // @Success 200 {object} utils.APIResponse
 // @Failure 400 {object} utils.APIResponse

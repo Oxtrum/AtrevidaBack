@@ -418,7 +418,8 @@ const docTemplate = `{
                         "enum": [
                             "PENDIENTE",
                             "RECHAZADO",
-                            "AGENDADO"
+                            "AGENDADO",
+                            "COMPLETADO"
                         ],
                         "type": "string",
                         "description": "Estado de la reserva",
@@ -615,7 +616,8 @@ const docTemplate = `{
                         "enum": [
                             "PENDIENTE",
                             "RECHAZADO",
-                            "AGENDADO"
+                            "AGENDADO",
+                            "COMPLETADO"
                         ],
                         "type": "string",
                         "description": "Estado de la reserva",

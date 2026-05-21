@@ -940,8 +940,8 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 	if err != nil {
 		return err
 	}
-	if estadoActual == "AGENDADO" {
-		return errors.New("no se puede editar una reserva con estado AGENDADO")
+	if estadoActual == "AGENDADO" || estadoActual == "COMPLETADO" {
+		return fmt.Errorf("no se puede editar una reserva con estado %s", estadoActual)
 	}
 
 	// 1.1 coherencia de horas
@@ -1115,10 +1115,10 @@ func NormalizarEstadoReserva(raw string) (string, error) {
 	}
 
 	switch estado {
-	case "PENDIENTE", "RECHAZADO", "AGENDADO":
+	case "PENDIENTE", "RECHAZADO", "AGENDADO", "COMPLETADO":
 		return estado, nil
 	default:
-		return "", fmt.Errorf("estado invalido, valores permitidos: PENDIENTE, RECHAZADO, AGENDADO")
+		return "", fmt.Errorf("estado invalido, valores permitidos: PENDIENTE, RECHAZADO, AGENDADO, COMPLETADO")
 	}
 }
 
@@ -1164,6 +1164,8 @@ func canTransitionReservaEstado(actual, siguiente string) bool {
 	case "RECHAZADO":
 		return siguiente == "PENDIENTE"
 	case "AGENDADO":
+		return siguiente == "COMPLETADO"
+	case "COMPLETADO":
 		return false
 	default:
 		return false

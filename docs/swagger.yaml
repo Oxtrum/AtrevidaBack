@@ -542,6 +542,7 @@ paths:
         - PENDIENTE
         - RECHAZADO
         - AGENDADO
+        - COMPLETADO
         in: query
         name: estado
         type: string
@@ -704,6 +705,7 @@ paths:
         - PENDIENTE
         - RECHAZADO
         - AGENDADO
+        - COMPLETADO
         in: query
         name: estado
         type: string
