@@ -70,6 +70,12 @@ func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 		bd.GET("/categorias", h.GetCategorias)
 		bd.POST("/categorias", h.CreateCategoria)
 
+		bd.GET("/clientes", h.GetClientes)
+		bd.GET("/clientes/:id", h.GetClienteByID)
+		bd.POST("/clientes", h.CreateCliente)
+		bd.PATCH("/clientes/:id", h.PatchCliente)
+		bd.DELETE("/clientes/:id", h.DeleteCliente)
+
 		bd.GET("/servicios", h.GetServiciosPG)
 		bd.GET("/servicios/:id", h.GetServicioPGByID)
 		bd.POST("/servicios", h.CreateServicio)

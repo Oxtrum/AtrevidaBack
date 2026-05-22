@@ -42,6 +42,7 @@ func main() {
 	repo := sheetsrepo.NewReservasRepo(config.App)
 
 	categoriasPGRepo := pgsqlrepo.NewCategoriasRepo(pgDB)
+	clientesPGRepo := pgsqlrepo.NewClientesRepo(pgDB)
 	serviciosPGRepo := pgsqlrepo.NewServiciosRepo(pgDB)
 	combosPGRepo := pgsqlrepo.NewCombosRepo(pgDB)
 	reservasPGRepo := pgsqlrepo.NewReservasRepo(pgDB)
@@ -54,6 +55,7 @@ func main() {
 	combosService := services.NewCombosService(repo)
 
 	categoriasPGService := services.NewCategoriasService(categoriasPGRepo)
+	clientesPGService := services.NewClientesService(clientesPGRepo)
 	serviciosPGService := services.NewServiciosPGService(serviciosPGRepo)
 	combosPGService := services.NewCombosService(combosPGRepo)
 	reservasPGService := services.NewReservasPGService(reservasPGRepo, serviciosPGRepo)
@@ -67,6 +69,7 @@ func main() {
 		//serviciosService,
 		combosService,
 		categoriasPGService,
+		clientesPGService,
 		serviciosPGService,
 		combosPGService,
 		reservasPGService,

@@ -7,6 +7,15 @@ definitions:
     required:
     - local
     type: object
+  handlers.actualizarClienteRequest:
+    properties:
+      apellido:
+        type: string
+      nombre:
+        type: string
+      numero_telefono:
+        type: string
+    type: object
   handlers.actualizarEstadoReservaPGRequest:
     properties:
       causa:
@@ -119,6 +128,15 @@ definitions:
         type: string
     required:
     - nombre
+    type: object
+  handlers.crearClienteRequest:
+    properties:
+      apellido:
+        type: string
+      nombre:
+        type: string
+      numero_telefono:
+        type: string
     type: object
   handlers.crearLocalRequest:
     properties:
@@ -352,6 +370,173 @@ paths:
       summary: Crear categoria
       tags:
       - Categorias
+  /bd/clientes:
+    get:
+      description: Devuelve clientes de PostgreSQL con filtros opcionales por nombre,
+        apellido y numero de telefono.
+      parameters:
+      - description: Busqueda parcial por nombre
+        in: query
+        name: nombre
+        type: string
+      - description: Busqueda parcial por apellido
+        in: query
+        name: apellido
+        type: string
+      - description: Busqueda parcial por numero de telefono
+        in: query
+        name: numero_telefono
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar clientes
+      tags:
+      - Clientes
+    post:
+      consumes:
+      - application/json
+      description: Crea un nuevo cliente en la base de datos.
+      parameters:
+      - description: Datos del cliente
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearClienteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Crear cliente
+      tags:
+      - Clientes
+  /bd/clientes/{id}:
+    delete:
+      description: Elimina un cliente de la base de datos.
+      parameters:
+      - description: ID del cliente
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Eliminar cliente
+      tags:
+      - Clientes
+    get:
+      description: Devuelve un cliente de PostgreSQL por su identificador.
+      parameters:
+      - description: ID del cliente
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Obtener cliente por ID
+      tags:
+      - Clientes
+    patch:
+      consumes:
+      - application/json
+      description: Actualiza parcialmente un cliente existente en PostgreSQL.
+      parameters:
+      - description: ID del cliente
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarClienteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Actualizar cliente
+      tags:
+      - Clientes
   /bd/combos:
     get:
       description: Devuelve combos persistidos en PostgreSQL con filtros opcionales.

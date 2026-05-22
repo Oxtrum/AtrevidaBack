@@ -12,6 +12,7 @@ type Container struct {
 	Combos *services.CombosService
 
 	CategoriasPG *services.CategoriasService
+	ClientesPG   *services.ClientesService
 	ServiciosPG  *services.ServiciosPGService
 	CombosPG     *services.CombosService
 	ReservasPG   *services.ReservasPGService
@@ -26,6 +27,7 @@ func NewContainer(
 	//servicios *services.ServiciosService,
 	combos *services.CombosService,
 	categoriasPG *services.CategoriasService,
+	clientesPG *services.ClientesService,
 	serviciosPG *services.ServiciosPGService,
 	combosPG *services.CombosService,
 	reservasPG *services.ReservasPGService,
@@ -38,6 +40,7 @@ func NewContainer(
 		//Servicios:   servicios,
 		Combos:       combos,
 		CategoriasPG: categoriasPG,
+		ClientesPG:   clientesPG,
 		ServiciosPG:  serviciosPG,
 		CombosPG:     combosPG,
 		ReservasPG:   reservasPG,
