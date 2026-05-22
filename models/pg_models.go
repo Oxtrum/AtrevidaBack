@@ -30,6 +30,15 @@ type CategoriaPG struct {
 	Nombre string `db:"nombre"`
 }
 
+// Clientes
+
+type ClientePG struct {
+	ID             int    `db:"id" json:"id"`
+	Nombre         string `db:"nombre" json:"nombre"`
+	Apellido       string `db:"apellido" json:"apellido"`
+	NumeroTelefono string `db:"numero_telefono" json:"numero_telefono"`
+}
+
 // Servicios
 
 type ServicioPG struct {
