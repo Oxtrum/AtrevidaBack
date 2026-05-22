@@ -436,6 +436,7 @@ type actualizarReservaPGRequest struct {
 // @Param payload body actualizarReservaPGRequest true "Datos para actualizar la reserva"
 // @Success 200 {object} utils.APIResponse
 // @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/reservas [patch]
 func (h *Container) PatchReservaPG(c *gin.Context) {
@@ -517,6 +518,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 // @Param payload body actualizarEstadoReservaPGRequest true "Nuevo estado de la reserva"
 // @Success 200 {object} utils.APIResponse
 // @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/reservas/estado [patch]
 func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
