@@ -558,6 +558,10 @@ func (s *ReservasPGService) GetReservaByID(id int) (*ReservaSimple, error) {
 	}, nil
 }
 
+func (s *ReservasPGService) DeleteReserva(id int) error {
+	return s.repo.AnularReserva(id)
+}
+
 func (s *ReservasPGService) GetResumenReservas(fecha time.Time) (*ResumenReservas, error) {
 	fecha = fecha.Truncate(24 * time.Hour)
 	if fecha.Weekday() == time.Sunday {

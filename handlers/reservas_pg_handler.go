@@ -552,3 +552,38 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 		"mensaje": "Estado de reserva actualizado correctamente",
 	})
 }
+
+// DeleteReservaPG godoc
+// @Summary Eliminar reserva
+// @Description Realiza el borrado logico de una reserva estableciendo activo en false.
+// @Tags Reservas BD
+// @Produce json
+// @Param id path int true "ID de la reserva"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/reservas/{id} [delete]
+func (h *Container) DeleteReservaPG(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		utils.RespondError(c, http.StatusBadRequest, "id invÃ¡lido")
+		return
+	}
+
+	err = h.ReservasPG.DeleteReserva(id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if strings.Contains(strings.ToLower(err.Error()), "no encontrada") ||
+			strings.Contains(strings.ToLower(err.Error()), "no encontrado") ||
+			strings.Contains(strings.ToLower(err.Error()), "inactiva") {
+			status = http.StatusNotFound
+		}
+		utils.RespondError(c, status, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, gin.H{
+		"mensaje": "reserva eliminada correctamente",
+	})
+}

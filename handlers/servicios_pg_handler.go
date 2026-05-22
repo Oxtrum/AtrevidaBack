@@ -299,3 +299,34 @@ func (h *Container) ActivarServicioEnLocal(c *gin.Context) {
 
 	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "servicio activado en local correctamente"})
 }
+
+// DeleteServicio godoc
+// @Summary Eliminar servicio
+// @Description Realiza el borrado logico de un servicio estableciendo activo en false.
+// @Tags Servicios BD
+// @Produce json
+// @Param id path int true "ID del servicio"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/servicios/{id} [delete]
+func (h *Container) DeleteServicio(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "id invÃ¡lido")
+		return
+	}
+
+	err = h.ServiciosPG.DeleteServicio(id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "no encontrado") || strings.Contains(err.Error(), "inactivo") {
+			status = http.StatusNotFound
+		}
+		utils.RespondError(c, status, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "servicio eliminado correctamente"})
+}

@@ -111,3 +111,7 @@ func (s *ServiciosPGService) UpdateServicio(input ActualizarServicioPGInput) err
 func (s *ServiciosPGService) ActivarServicioEnLocal(servicioID int, localNombre string) error {
 	return s.repo.AddServicioInLocal(servicioID, strings.TrimSpace(localNombre))
 }
+
+func (s *ServiciosPGService) DeleteServicio(id int) error {
+	return s.repo.DeleteServicio(id)
+}

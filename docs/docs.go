@@ -297,6 +297,51 @@ const docTemplate = `{
                     }
                 }
             },
+            "delete": {
+                "description": "Realiza el borrado logico de un local estableciendo activo en false.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Locales"
+                ],
+                "summary": "Eliminar local",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID del local",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
             "patch": {
                 "description": "Actualiza nombre o estado activo de un local existente.",
                 "consumes": [
@@ -807,6 +852,51 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "description": "Realiza el borrado logico de una reserva estableciendo activo en false.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservas BD"
+                ],
+                "summary": "Eliminar reserva",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID de la reserva",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
             }
         },
         "/bd/servicios": {
@@ -1002,6 +1092,51 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Realiza el borrado logico de un servicio estableciendo activo en false.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Servicios BD"
+                ],
+                "summary": "Eliminar servicio",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID del servicio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }

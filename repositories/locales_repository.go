@@ -12,4 +12,5 @@ type LocalesRepository interface {
 	GetLocalById(id int) (*models.LocalConEspacios, error)
 	CreateLocal(nombre string, espacios []TipoEspacioInput) (int, error)
 	UpdateLocal(id int, nombre *string, activo *bool) error
+	DeleteLocal(id int) error
 }

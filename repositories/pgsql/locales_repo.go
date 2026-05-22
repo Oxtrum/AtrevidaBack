@@ -52,7 +52,7 @@ func (r *LocalesRepo) GetLocalById(id int) (*models.LocalConEspacios, error) {
 	err := r.db.Get(&local, `
 		SELECT id, nombre, activo
 		FROM locales
-		WHERE id = $1 AND activo = TRUE
+		WHERE id = $1
 	`, id)
 	if err != nil {
 		return nil, fmt.Errorf("error al consultar local: %w", err)
@@ -146,6 +146,22 @@ func (r *LocalesRepo) UpdateLocal(id int, nombre *string, activo *bool) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return fmt.Errorf("local con id %d no encontrado", id)
 	}
+	return nil
+}
+
+func (r *LocalesRepo) DeleteLocal(id int) error {
+	res, err := r.db.Exec(
+		`UPDATE locales SET activo = FALSE WHERE id = $1 AND activo = TRUE`,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("error al eliminar local: %w", err)
+	}
+
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("local con id %d no encontrado o inactivo", id)
+	}
+
 	return nil
 }
 

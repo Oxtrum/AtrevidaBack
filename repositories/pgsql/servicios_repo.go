@@ -84,7 +84,7 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 		LEFT JOIN categorias c      ON c.id = s.categoria_id
 		LEFT JOIN servicio_local sl ON sl.servicio_id = s.id
 		LEFT JOIN locales l         ON l.id = sl.local_id
-		WHERE s.id = $1 AND s.activo = TRUE
+		WHERE s.id = $1
 		LIMIT 1
 	`
 
@@ -388,4 +388,20 @@ func nullFloat(f float64) interface{} {
 		return nil
 	}
 	return f
+}
+
+func (r *ServiciosRepo) DeleteServicio(id int) error {
+	res, err := r.db.Exec(
+		`UPDATE servicios SET activo = FALSE WHERE id = $1 AND activo = TRUE`,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("error al eliminar servicio: %w", err)
+	}
+
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("servicio con id %d no encontrado o inactivo", id)
+	}
+
+	return nil
 }

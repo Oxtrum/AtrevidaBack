@@ -374,10 +374,18 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 }
 
 func (r *ReservasRepo) AnularReserva(id int) error {
-	_, err := r.db.Exec(
-		`UPDATE reservas SET activo = FALSE, actualizado_en = NOW() WHERE id = $1`, id,
+	res, err := r.db.Exec(
+		`UPDATE reservas SET activo = FALSE, actualizado_en = NOW() WHERE id = $1 AND activo = TRUE`, id,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("error al eliminar reserva: %w", err)
+	}
+
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("reserva con id %d no encontrada o inactiva", id)
+	}
+
+	return nil
 }
 
 func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoInput) error {
@@ -645,10 +653,11 @@ func (r *ReservasRepo) GetCapacidades(localNombre string) ([]repository.Capacida
 		SELECT l.nombre AS local_nombre, t.tipo_espacio, t.cantidad_espacios AS capacidad
 		FROM tipos_espacio_locales t
 		JOIN locales l ON l.id = t.local_id
+		WHERE l.activo = TRUE
 	`
 	args := []interface{}{}
 	if localNombre != "" {
-		query += " WHERE UPPER(l.nombre) = UPPER($1)"
+		query += " AND UPPER(l.nombre) = UPPER($1)"
 		args = append(args, localNombre)
 	}
 	query += " ORDER BY l.nombre, t.tipo_espacio"

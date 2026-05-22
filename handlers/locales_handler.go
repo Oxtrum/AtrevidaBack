@@ -172,3 +172,34 @@ func (h *Container) PatchLocal(c *gin.Context) {
 
 	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "local actualizado correctamente"})
 }
+
+// DeleteLocal godoc
+// @Summary Eliminar local
+// @Description Realiza el borrado logico de un local estableciendo activo en false.
+// @Tags Locales
+// @Produce json
+// @Param id path int true "ID del local"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/locales/{id} [delete]
+func (h *Container) DeleteLocal(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "id invÃ¡lido")
+		return
+	}
+
+	err = h.LocalesPG.DeleteLocal(id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "no encontrado") || strings.Contains(err.Error(), "inactivo") {
+			status = http.StatusNotFound
+		}
+		utils.RespondError(c, status, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "local eliminado correctamente"})
+}

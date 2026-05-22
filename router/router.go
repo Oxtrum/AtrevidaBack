@@ -74,6 +74,7 @@ func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 		bd.GET("/servicios/:id", h.GetServicioPGByID)
 		bd.POST("/servicios", h.CreateServicio)
 		bd.PATCH("/servicios/:id", h.UpdateServicio)
+		bd.DELETE("/servicios/:id", h.DeleteServicio)
 		bd.POST("/servicios/local/:id", h.ActivarServicioEnLocal)
 
 		bd.GET("/combos", h.GetCombosPG)
@@ -83,10 +84,12 @@ func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 		bd.GET("/locales/:id", h.GetLocalById)
 		bd.POST("/locales", h.PostLocal)
 		bd.PATCH("/locales/:id", h.PatchLocal)
+		bd.DELETE("/locales/:id", h.DeleteLocal)
 
 		bd.GET("/reservas", h.GetReservasSimplePG)
 		bd.GET("/reservas/resumen", h.GetReservasResumenPG)
 		bd.GET("/reservas/:id", h.GetReservaPGByID)
+		bd.DELETE("/reservas/:id", h.DeleteReservaPG)
 		bd.GET("/reservas/calendario", h.GetReservasPG)
 		bd.POST("/reservas", h.PostReservaPG)
 		bd.PATCH("/reservas", h.PatchReservaPG)

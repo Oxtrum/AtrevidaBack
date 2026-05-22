@@ -53,3 +53,7 @@ type ActualizarLocalInput struct {
 func (s *LocalesService) UpdateLocal(input ActualizarLocalInput) error {
 	return s.repo.UpdateLocal(input.ID, input.Nombre, input.Activo)
 }
+
+func (s *LocalesService) DeleteLocal(id int) error {
+	return s.repo.DeleteLocal(id)
+}
