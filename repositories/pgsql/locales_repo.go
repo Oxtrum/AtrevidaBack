@@ -64,6 +64,12 @@ func (r *LocalesRepo) GetLocalById(id int) (*models.LocalConEspacios, error) {
 	}
 	local.Espacios = espacios
 
+	horarios, err := r.getHorarios(local.ID)
+	if err != nil {
+		return nil, err
+	}
+	local.Horarios = horarios
+
 	return &local, nil
 }
 
@@ -79,6 +85,26 @@ func (r *LocalesRepo) getEspacios(localID int) ([]models.TipoEspacioLocal, error
 		return nil, fmt.Errorf("error al consultar espacios del local %d: %w", localID, err)
 	}
 	return espacios, nil
+}
+
+func (r *LocalesRepo) getHorarios(localID int) ([]models.LocalHorarioPG, error) {
+	var horarios []models.LocalHorarioPG
+	err := r.db.Select(&horarios, `
+		SELECT
+			id,
+			local_id,
+			dia_semana,
+			TO_CHAR(hora_desde, 'HH24:MI') AS hora_desde,
+			TO_CHAR(hora_hasta, 'HH24:MI') AS hora_hasta,
+			activo
+		FROM locales_horarios
+		WHERE local_id = $1 AND activo = TRUE
+		ORDER BY dia_semana, hora_desde, id
+	`, localID)
+	if err != nil {
+		return nil, fmt.Errorf("error al consultar horarios del local %d: %w", localID, err)
+	}
+	return horarios, nil
 }
 
 func (r *LocalesRepo) CreateLocal(nombre string, espacios []repository.TipoEspacioInput) (int, error) {

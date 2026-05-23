@@ -11,12 +11,13 @@ type Container struct {
 	//Servicios *services.ServiciosService
 	Combos *services.CombosService
 
-	CategoriasPG *services.CategoriasService
-	ClientesPG   *services.ClientesService
-	ServiciosPG  *services.ServiciosPGService
-	CombosPG     *services.CombosService
-	ReservasPG   *services.ReservasPGService
-	LocalesPG    *services.LocalesService
+	CategoriasPG      *services.CategoriasService
+	ClientesPG        *services.ClientesService
+	LocalesHorariosPG *services.LocalesHorariosService
+	ServiciosPG       *services.ServiciosPGService
+	CombosPG          *services.CombosService
+	ReservasPG        *services.ReservasPGService
+	LocalesPG         *services.LocalesService
 
 	Import *importacion.ImportService
 }
@@ -28,6 +29,7 @@ func NewContainer(
 	combos *services.CombosService,
 	categoriasPG *services.CategoriasService,
 	clientesPG *services.ClientesService,
+	localesHorariosPG *services.LocalesHorariosService,
 	serviciosPG *services.ServiciosPGService,
 	combosPG *services.CombosService,
 	reservasPG *services.ReservasPGService,
@@ -38,13 +40,14 @@ func NewContainer(
 		Reservas: reservas,
 		Writer:   writer,
 		//Servicios:   servicios,
-		Combos:       combos,
-		CategoriasPG: categoriasPG,
-		ClientesPG:   clientesPG,
-		ServiciosPG:  serviciosPG,
-		CombosPG:     combosPG,
-		ReservasPG:   reservasPG,
-		LocalesPG:    localesPG,
-		Import:       imp,
+		Combos:            combos,
+		CategoriasPG:      categoriasPG,
+		ClientesPG:        clientesPG,
+		LocalesHorariosPG: localesHorariosPG,
+		ServiciosPG:       serviciosPG,
+		CombosPG:          combosPG,
+		ReservasPG:        reservasPG,
+		LocalesPG:         localesPG,
+		Import:            imp,
 	}
 }

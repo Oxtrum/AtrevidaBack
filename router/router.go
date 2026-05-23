@@ -17,14 +17,7 @@ import (
 func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:3000",
-			"http://127.0.0.1:3000",
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
-			"http://localhost:4173",
-			"http://127.0.0.1:4173",
-		},
+		AllowAllOrigins: true,
 		AllowMethods: []string{
 			http.MethodGet,
 			http.MethodPost,
@@ -118,6 +111,11 @@ func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 
 		bd.GET("/locales", h.GetLocales)
 		bd.GET("/locales/:id", h.GetLocalById)
+		bd.GET("/locales/horarios", h.GetHorariosByLocal)
+		bd.POST("/locales/horarios", h.CreateHorarioByLocal)
+		bd.GET("/locales/horarios/:id", h.GetHorarioByID)
+		bd.PATCH("/locales/horarios/:id", h.PatchHorario)
+		bd.DELETE("/locales/horarios/:id", h.DeleteHorario)
 		bd.POST("/locales", h.PostLocal)
 		bd.PATCH("/locales/:id", h.PatchLocal)
 		bd.DELETE("/locales/:id", h.DeleteLocal)

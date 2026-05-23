@@ -508,6 +508,270 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/locales/horarios": {
+            "get": {
+                "description": "Devuelve los horarios activos de un local y permite filtrar opcionalmente por dia_semana.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Horarios Locales"
+                ],
+                "summary": "Listar horarios de un local",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID del local",
+                        "name": "local_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Dia de la semana (1=lunes, 7=domingo)",
+                        "name": "dia_semana",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Crea un tramo de horario habitual para un local.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Horarios Locales"
+                ],
+                "summary": "Crear horario para un local",
+                "parameters": [
+                    {
+                        "description": "Datos del horario",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearLocalHorarioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/locales/horarios/{id}": {
+            "get": {
+                "description": "Devuelve un horario de atencion por su identificador.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Horarios Locales"
+                ],
+                "summary": "Obtener horario por ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID del horario",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Realiza el borrado logico de un horario estableciendo activo en false.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Horarios Locales"
+                ],
+                "summary": "Eliminar horario",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID del horario",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Actualiza parcialmente un horario habitual de un local.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Horarios Locales"
+                ],
+                "summary": "Actualizar horario",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID del horario",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarLocalHorarioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/locales/{id}": {
             "get": {
                 "description": "Devuelve un local de PostgreSQL por su identificador.",
@@ -1943,6 +2207,20 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarLocalHorarioRequest": {
+            "type": "object",
+            "properties": {
+                "dia_semana": {
+                    "type": "integer"
+                },
+                "hora_desde": {
+                    "type": "string"
+                },
+                "hora_hasta": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.actualizarLocalRequest": {
             "type": "object",
             "properties": {
@@ -2096,6 +2374,23 @@ const docTemplate = `{
                 },
                 "numero_telefono": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.crearLocalHorarioRequest": {
+            "type": "object",
+            "properties": {
+                "dia_semana": {
+                    "type": "integer"
+                },
+                "hora_desde": {
+                    "type": "string"
+                },
+                "hora_hasta": {
+                    "type": "string"
+                },
+                "local_id": {
+                    "type": "integer"
                 }
             }
         },

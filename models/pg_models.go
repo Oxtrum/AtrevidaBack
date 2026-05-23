@@ -21,6 +21,16 @@ type LocalConEspacios struct {
 	Nombre   string             `db:"nombre" json:"nombre"`
 	Activo   bool               `db:"activo" json:"activo"`
 	Espacios []TipoEspacioLocal `db:"-"     json:"espacios"`
+	Horarios []LocalHorarioPG   `db:"-"     json:"horarios"`
+}
+
+type LocalHorarioPG struct {
+	ID        int    `db:"id" json:"id"`
+	LocalID   int    `db:"local_id" json:"local_id"`
+	DiaSemana int    `db:"dia_semana" json:"dia_semana"`
+	HoraDesde string `db:"hora_desde" json:"hora_desde"`
+	HoraHasta string `db:"hora_hasta" json:"hora_hasta"`
+	Activo    bool   `db:"activo" json:"activo"`
 }
 
 // Categorías

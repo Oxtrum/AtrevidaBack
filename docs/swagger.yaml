@@ -34,6 +34,15 @@ definitions:
     - estado
     - id
     type: object
+  handlers.actualizarLocalHorarioRequest:
+    properties:
+      dia_semana:
+        type: integer
+      hora_desde:
+        type: string
+      hora_hasta:
+        type: string
+    type: object
   handlers.actualizarLocalRequest:
     properties:
       activo:
@@ -137,6 +146,17 @@ definitions:
         type: string
       numero_telefono:
         type: string
+    type: object
+  handlers.crearLocalHorarioRequest:
+    properties:
+      dia_semana:
+        type: integer
+      hora_desde:
+        type: string
+      hora_hasta:
+        type: string
+      local_id:
+        type: integer
     type: object
   handlers.crearLocalRequest:
     properties:
@@ -715,6 +735,183 @@ paths:
       summary: Actualizar local
       tags:
       - Locales
+  /bd/locales/horarios:
+    get:
+      description: Devuelve los horarios activos de un local y permite filtrar opcionalmente
+        por dia_semana.
+      parameters:
+      - description: ID del local
+        in: query
+        name: local_id
+        required: true
+        type: integer
+      - description: Dia de la semana (1=lunes, 7=domingo)
+        in: query
+        name: dia_semana
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar horarios de un local
+      tags:
+      - Horarios Locales
+    post:
+      consumes:
+      - application/json
+      description: Crea un tramo de horario habitual para un local.
+      parameters:
+      - description: Datos del horario
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearLocalHorarioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Crear horario para un local
+      tags:
+      - Horarios Locales
+  /bd/locales/horarios/{id}:
+    delete:
+      description: Realiza el borrado logico de un horario estableciendo activo en
+        false.
+      parameters:
+      - description: ID del horario
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Eliminar horario
+      tags:
+      - Horarios Locales
+    get:
+      description: Devuelve un horario de atencion por su identificador.
+      parameters:
+      - description: ID del horario
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Obtener horario por ID
+      tags:
+      - Horarios Locales
+    patch:
+      consumes:
+      - application/json
+      description: Actualiza parcialmente un horario habitual de un local.
+      parameters:
+      - description: ID del horario
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarLocalHorarioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Actualizar horario
+      tags:
+      - Horarios Locales
   /bd/reservas:
     get:
       description: Devuelve reservas desde PostgreSQL en formato simple y sin agrupacion
