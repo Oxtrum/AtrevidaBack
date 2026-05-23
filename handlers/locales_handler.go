@@ -16,7 +16,7 @@ import (
 // @Description Devuelve todos los locales registrados en la base de datos.
 // @Tags Locales
 // @Produce json
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=localListResponse}
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/locales [get]
 func (h *Container) GetLocales(c *gin.Context) {
@@ -26,9 +26,9 @@ func (h *Container) GetLocales(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total":   len(resultado),
-		"locales": resultado,
+	utils.Respond(c, http.StatusOK, localListResponse{
+		Total:   len(resultado),
+		Locales: resultado,
 	})
 }
 
@@ -37,8 +37,8 @@ func (h *Container) GetLocales(c *gin.Context) {
 // @Description Devuelve un local de PostgreSQL por su identificador.
 // @Tags Locales
 // @Produce json
-// @Param id path int true "ID del local"
-// @Success 200 {object} utils.APIResponse
+// @Param id path int true "ID del local" example(3)
+// @Success 200 {object} utils.APIResponse{data=localItemResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/locales/{id} [get]
@@ -55,20 +55,20 @@ func (h *Container) GetLocalById(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total": 1,
-		"local": res,
+	utils.Respond(c, http.StatusOK, localItemResponse{
+		Total: 1,
+		Local: res,
 	})
 }
 
 type crearLocalRequest struct {
-	Nombre   string           `json:"nombre"   binding:"required"`
+	Nombre   string           `json:"nombre"   binding:"required" example:"SAN MARTIN"`
 	Espacios []espacioRequest `json:"espacios"` // opcional
 }
 
 type espacioRequest struct {
-	TipoEspacio      string `json:"tipo_espacio"       binding:"required"`
-	CantidadEspacios int    `json:"cantidad_espacios"  binding:"required,min=1"`
+	TipoEspacio      string `json:"tipo_espacio"       binding:"required" example:"M"`
+	CantidadEspacios int    `json:"cantidad_espacios"  binding:"required,min=1" example:"6"`
 }
 
 // PostLocal godoc
@@ -78,7 +78,7 @@ type espacioRequest struct {
 // @Accept json
 // @Produce json
 // @Param payload body crearLocalRequest true "Datos del local"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=idResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/locales [post]
@@ -115,13 +115,13 @@ func (h *Container) PostLocal(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"id": id})
+	utils.Respond(c, http.StatusOK, idResponse{ID: id})
 }
 
 // PATCH /admin/locales/:id
 type actualizarLocalRequest struct {
-	Nombre *string `json:"nombre"`
-	Activo *bool   `json:"activo"`
+	Nombre *string `json:"nombre" example:"PASEO ARANJUEZ"`
+	Activo *bool   `json:"activo" example:"true"`
 }
 
 // PatchLocal godoc
@@ -130,9 +130,9 @@ type actualizarLocalRequest struct {
 // @Tags Locales
 // @Accept json
 // @Produce json
-// @Param id path int true "ID del local"
+// @Param id path int true "ID del local" example(3)
 // @Param payload body actualizarLocalRequest true "Campos a actualizar"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -170,7 +170,7 @@ func (h *Container) PatchLocal(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "local actualizado correctamente"})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "local actualizado correctamente"})
 }
 
 // DeleteLocal godoc
@@ -178,8 +178,8 @@ func (h *Container) PatchLocal(c *gin.Context) {
 // @Description Realiza el borrado logico de un local estableciendo activo en false.
 // @Tags Locales
 // @Produce json
-// @Param id path int true "ID del local"
-// @Success 200 {object} utils.APIResponse
+// @Param id path int true "ID del local" example(3)
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -201,5 +201,5 @@ func (h *Container) DeleteLocal(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "local eliminado correctamente"})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "local eliminado correctamente"})
 }

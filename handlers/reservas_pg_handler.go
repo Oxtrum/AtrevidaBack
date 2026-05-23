@@ -24,18 +24,18 @@ const allowEstadoOverrideTemporal = true
 // @Description Devuelve reservas agrupadas por local con filtros opcionales.
 // @Tags Reservas BD
 // @Produce json
-// @Param local query string false "Nombre del local"
-// @Param fecha query string false "Fecha exacta"
-// @Param fecha_desde query string false "Fecha desde"
-// @Param fecha_hasta query string false "Fecha hasta"
-// @Param cliente query string false "Nombre del cliente"
-// @Param numero_telefono query string false "Numero de telefono"
-// @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado"
-// @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado"
-// @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO)
-// @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta)
-// @Param reservados query bool false "Filtrar por estado reservado"
-// @Success 200 {object} utils.APIResponse
+// @Param local query string false "Nombre del local" example(SAN MARTIN)
+// @Param fecha query string false "Fecha exacta" example(2026-05-23)
+// @Param fecha_desde query string false "Fecha desde" example(2026-05-19)
+// @Param fecha_hasta query string false "Fecha hasta" example(2026-05-24)
+// @Param cliente query string false "Nombre del cliente" example(Maria Lopez)
+// @Param numero_telefono query string false "Numero de telefono" example(+59170011223)
+// @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado" example(depilacion)
+// @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado" example(depilacion laser piernas)
+// @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(AGENDADO)
+// @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta) example(mesa)
+// @Param reservados query bool false "Filtrar por estado reservado" example(true)
+// @Success 200 {object} utils.APIResponse{data=reservaCalendarioResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/reservas/calendario [get]
@@ -85,41 +85,41 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 		resultado = []models.LocalReservas{}
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total_locales": len(resultado),
-		"filtros": gin.H{
-			"local":               filtro.Local,
-			"fecha":               filtro.Fecha,
-			"fecha_desde":         filtro.FechaDesde,
-			"fecha_hasta":         filtro.FechaHasta,
-			"tipo":                filtro.Tipo,
-			"cliente":             filtro.Cliente,
-			"numero_telefono":     filtro.NumeroTelefono,
-			"servicio_solicitado": filtro.ServicioSolicitado,
-			"servicio_confirmado": filtro.ServicioConfirmado,
-			"estado":              filtro.Estado,
-			"reservados":          reservados,
+	utils.Respond(c, http.StatusOK, reservaCalendarioResponse{
+		TotalLocales: len(resultado),
+		Filtros: reservaPGFiltrosResponse{
+			Local:              filtro.Local,
+			Fecha:              filtro.Fecha,
+			FechaDesde:         filtro.FechaDesde,
+			FechaHasta:         filtro.FechaHasta,
+			Tipo:               filtro.Tipo,
+			Cliente:            filtro.Cliente,
+			NumeroTelefono:     filtro.NumeroTelefono,
+			ServicioSolicitado: filtro.ServicioSolicitado,
+			ServicioConfirmado: filtro.ServicioConfirmado,
+			Estado:             filtro.Estado,
+			Reservados:         reservados,
 		},
-		"reservas": resultado,
+		Reservas: resultado,
 	})
 }
 
 // POST /bd/reservas
 type crearReservaPGRequest struct {
-	Local              string   `json:"local" binding:"required"`
-	Fecha              string   `json:"fecha" binding:"required"`
-	HoraDesde          string   `json:"hora_desde" binding:"required"`
-	HoraHasta          string   `json:"hora_hasta"`
-	Tipo               string   `json:"tipo"`
-	Cliente            string   `json:"cliente" binding:"required"`
-	NumeroTelefono     string   `json:"numero_telefono" binding:"required"`
-	Estado             string   `json:"estado"`
-	Servicio           string   `json:"servicio"`
-	ServicioSolicitado string   `json:"servicio_solicitado"`
-	ServicioConfirmado *string  `json:"servicio_confirmado"`
-	Precio             *float64 `json:"precio"`
-	Notas              string   `json:"notas"`
-	PlanID             *int     `json:"plan_id"`
+	Local              string   `json:"local" binding:"required" example:"SAN MARTIN"`
+	Fecha              string   `json:"fecha" binding:"required" example:"2026-05-23"`
+	HoraDesde          string   `json:"hora_desde" binding:"required" example:"15:00"`
+	HoraHasta          string   `json:"hora_hasta" example:"16:00"`
+	Tipo               string   `json:"tipo" example:"M"`
+	Cliente            string   `json:"cliente" binding:"required" example:"Maria Lopez"`
+	NumeroTelefono     string   `json:"numero_telefono" binding:"required" example:"+59170011223"`
+	Estado             string   `json:"estado" example:"PENDIENTE"`
+	Servicio           string   `json:"servicio" example:"Depilacion laser"`
+	ServicioSolicitado string   `json:"servicio_solicitado" example:"Piernas completas"`
+	ServicioConfirmado *string  `json:"servicio_confirmado" example:"Depilacion Laser Piernas"`
+	Precio             *float64 `json:"precio" example:"350"`
+	Notas              string   `json:"notas" example:"Primera sesion del plan"`
+	PlanID             *int     `json:"plan_id" example:"21"`
 }
 
 // PostReservaPG godoc
@@ -129,7 +129,7 @@ type crearReservaPGRequest struct {
 // @Accept json
 // @Produce json
 // @Param payload body crearReservaPGRequest true "Datos de la reserva"
-// @Success 201 {object} utils.APIResponse
+// @Success 201 {object} utils.APIResponse{data=reservaCreatedResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 409 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -183,19 +183,19 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusCreated, gin.H{
-		"id":      id,
-		"mensaje": "Reserva creada correctamente",
+	utils.Respond(c, http.StatusCreated, reservaCreatedResponse{
+		ID:      id,
+		Mensaje: "Reserva creada correctamente",
 	})
 }
 
 type actualizarEstadoReservaPGRequest struct {
-	Id                 int      `json:"id" binding:"required"`
-	Estado             string   `json:"estado" binding:"required"`
-	Causa              string   `json:"causa"`
-	ServicioConfirmado *string  `json:"servicio_confirmado"`
-	Precio             *float64 `json:"precio"`
-	Tipo               string   `json:"tipo"`
+	Id                 int      `json:"id" binding:"required" example:"44"`
+	Estado             string   `json:"estado" binding:"required" example:"AGENDADO"`
+	Causa              string   `json:"causa" example:"Cliente confirmo por WhatsApp"`
+	ServicioConfirmado *string  `json:"servicio_confirmado" example:"Depilacion Laser Piernas"`
+	Precio             *float64 `json:"precio" example:"350"`
+	Tipo               string   `json:"tipo" example:"M"`
 }
 
 type reservaResumenSemanaResponse struct {
@@ -245,7 +245,7 @@ func normalizarTelefono(raw string) (string, error) {
 // @Description Devuelve el resumen numerico de reservas agendadas del dia, servicios completados del dia y acumulado semanal desde el lunes hasta la fecha indicada.
 // @Tags Reservas BD
 // @Produce json
-// @Param fecha query string true "Fecha a consultar en formato YYYY-MM-DD"
+// @Param fecha query string true "Fecha a consultar en formato YYYY-MM-DD" example(2026-05-23)
 // @Success 200 {object} utils.APIResponse{data=reservaResumenResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -323,17 +323,17 @@ func intPtr(v int) *int {
 // @Description Devuelve reservas desde PostgreSQL en formato simple y sin agrupacion por local.
 // @Tags Reservas BD
 // @Produce json
-// @Param local query string false "Nombre del local"
-// @Param fecha query string false "Fecha exacta"
-// @Param fecha_desde query string false "Fecha desde"
-// @Param fecha_hasta query string false "Fecha hasta"
-// @Param cliente query string false "Nombre del cliente"
-// @Param numero_telefono query string false "Numero de telefono"
-// @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado"
-// @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado"
-// @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO)
-// @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta)
-// @Success 200 {object} utils.APIResponse
+// @Param local query string false "Nombre del local" example(SAN MARTIN)
+// @Param fecha query string false "Fecha exacta" example(2026-05-23)
+// @Param fecha_desde query string false "Fecha desde" example(2026-05-19)
+// @Param fecha_hasta query string false "Fecha hasta" example(2026-05-24)
+// @Param cliente query string false "Nombre del cliente" example(Maria Lopez)
+// @Param numero_telefono query string false "Numero de telefono" example(+59170011223)
+// @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado" example(depilacion)
+// @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado" example(depilacion laser piernas)
+// @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(COMPLETADO)
+// @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta) example(bicicleta)
+// @Success 200 {object} utils.APIResponse{data=reservaSimpleListResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/reservas [get]
@@ -372,9 +372,9 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total":    len(resultado),
-		"reservas": resultado,
+	utils.Respond(c, http.StatusOK, reservaSimpleListResponse{
+		Total:    len(resultado),
+		Reservas: resultado,
 	})
 }
 
@@ -383,8 +383,8 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 // @Description Devuelve una reserva de PostgreSQL por su identificador.
 // @Tags Reservas BD
 // @Produce json
-// @Param id path int true "ID de la reserva"
-// @Success 200 {object} utils.APIResponse
+// @Param id path int true "ID de la reserva" example(44)
+// @Success 200 {object} utils.APIResponse{data=reservaItemResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -407,24 +407,22 @@ func (h *Container) GetReservaPGByID(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"reserva": reserva,
-	})
+	utils.Respond(c, http.StatusOK, reservaItemResponse{Reserva: reserva})
 }
 
 type actualizarReservaPGRequest struct {
-	Id                      int      `json:"id" binding:"required"`
-	Local                   string   `json:"local" binding:"required"`
-	NuevaFecha              string   `json:"nueva_fecha"`
-	NuevaHoraDesde          string   `json:"nueva_hora_desde"`
-	NuevaHoraHasta          string   `json:"nueva_hora_hasta"`
-	NuevoTipo               string   `json:"nuevo_tipo"`
-	NuevoNumeroTelefono     string   `json:"nuevo_numero_telefono"`
-	NuevoServicio           string   `json:"nuevo_servicio"`
-	NuevoServicioSolicitado string   `json:"nuevo_servicio_solicitado"`
-	NuevoServicioConfirmado string   `json:"nuevo_servicio_confirmado"`
-	NuevoPrecio             *float64 `json:"nuevo_precio"`
-	NuevasNotas             string   `json:"nuevas_notas"`
+	Id                      int      `json:"id" binding:"required" example:"44"`
+	Local                   string   `json:"local" binding:"required" example:"SAN MARTIN"`
+	NuevaFecha              string   `json:"nueva_fecha" example:"2026-05-24"`
+	NuevaHoraDesde          string   `json:"nueva_hora_desde" example:"16:00"`
+	NuevaHoraHasta          string   `json:"nueva_hora_hasta" example:"17:00"`
+	NuevoTipo               string   `json:"nuevo_tipo" example:"B"`
+	NuevoNumeroTelefono     string   `json:"nuevo_numero_telefono" example:"+59170011224"`
+	NuevoServicio           string   `json:"nuevo_servicio" example:"Evaluacion corporal"`
+	NuevoServicioSolicitado string   `json:"nuevo_servicio_solicitado" example:"Evaluacion corporal"`
+	NuevoServicioConfirmado string   `json:"nuevo_servicio_confirmado" example:"Evaluacion corporal"`
+	NuevoPrecio             *float64 `json:"nuevo_precio" example:"180"`
+	NuevasNotas             string   `json:"nuevas_notas" example:"Reagendada por solicitud del cliente"`
 }
 
 // PatchReservaPG godoc
@@ -434,7 +432,7 @@ type actualizarReservaPGRequest struct {
 // @Accept json
 // @Produce json
 // @Param payload body actualizarReservaPGRequest true "Datos para actualizar la reserva"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -504,9 +502,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"mensaje": "Reserva actualizada correctamente",
-	})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "Reserva actualizada correctamente"})
 }
 
 // PatchReservaEstadoPG godoc
@@ -516,7 +512,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param payload body actualizarEstadoReservaPGRequest true "Nuevo estado de la reserva"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -550,9 +546,7 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"mensaje": "Estado de reserva actualizado correctamente",
-	})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "Estado de reserva actualizado correctamente"})
 }
 
 // DeleteReservaPG godoc
@@ -560,8 +554,8 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 // @Description Realiza el borrado logico de una reserva estableciendo activo en false.
 // @Tags Reservas BD
 // @Produce json
-// @Param id path int true "ID de la reserva"
-// @Success 200 {object} utils.APIResponse
+// @Param id path int true "ID de la reserva" example(44)
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -585,7 +579,5 @@ func (h *Container) DeleteReservaPG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"mensaje": "reserva eliminada correctamente",
-	})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "reserva eliminada correctamente"})
 }

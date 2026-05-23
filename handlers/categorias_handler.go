@@ -14,7 +14,7 @@ import (
 // @Description Devuelve todas las categorias registradas en la base de datos.
 // @Tags Categorias
 // @Produce json
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=categoriaListResponse}
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/categorias [get]
 func (h *Container) GetCategorias(c *gin.Context) {
@@ -24,14 +24,14 @@ func (h *Container) GetCategorias(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total":      len(resultado),
-		"categorias": resultado,
+	utils.Respond(c, http.StatusOK, categoriaListResponse{
+		Total:      len(resultado),
+		Categorias: resultado,
 	})
 }
 
 type crearCategoriaRequest struct {
-	Nombre string `json:"nombre"   binding:"required"`
+	Nombre string `json:"nombre"   binding:"required" example:"Depilacion Laser"`
 }
 
 // CreateCategoria godoc
@@ -41,7 +41,7 @@ type crearCategoriaRequest struct {
 // @Accept json
 // @Produce json
 // @Param payload body crearCategoriaRequest true "Datos de la categoria"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=idResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/categorias [post]
@@ -60,5 +60,5 @@ func (h *Container) CreateCategoria(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"id": id})
+	utils.Respond(c, http.StatusOK, idResponse{ID: id})
 }

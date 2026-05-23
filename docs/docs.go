@@ -49,7 +49,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.importResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -75,7 +87,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.categoriaListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -113,7 +137,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.idResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -144,18 +180,21 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "example": "Maria",
                         "description": "Busqueda parcial por nombre",
                         "name": "nombre",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "Lopez",
                         "description": "Busqueda parcial por apellido",
                         "name": "apellido",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "+59170011223",
                         "description": "Busqueda parcial por numero de telefono",
                         "name": "numero_telefono",
                         "in": "query"
@@ -165,7 +204,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.clienteListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -203,7 +254,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.idResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -240,6 +303,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 12,
                         "description": "ID del cliente",
                         "name": "id",
                         "in": "path",
@@ -250,7 +314,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.clienteItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -285,6 +361,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 12,
                         "description": "ID del cliente",
                         "name": "id",
                         "in": "path",
@@ -295,7 +372,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -333,6 +422,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 12,
                         "description": "ID del cliente",
                         "name": "id",
                         "in": "path",
@@ -352,7 +442,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -395,12 +497,14 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "example": "relax",
                         "description": "Busqueda parcial por nombre",
                         "name": "nombre",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "Corporal",
                         "description": "Busqueda parcial por categoria",
                         "name": "categoria",
                         "in": "query"
@@ -411,12 +515,14 @@ const docTemplate = `{
                             "PASEO ARANJUEZ"
                         ],
                         "type": "string",
+                        "example": "PASEO ARANJUEZ",
                         "description": "Local",
                         "name": "local",
                         "in": "query"
                     },
                     {
                         "type": "integer",
+                        "example": 4,
                         "description": "Numero exacto de sesiones",
                         "name": "sesiones",
                         "in": "query"
@@ -426,7 +532,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.comboListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -452,7 +570,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.localListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -490,7 +620,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.idResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -521,6 +663,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 3,
                         "description": "ID del local",
                         "name": "local_id",
                         "in": "query",
@@ -528,6 +671,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "example": 1,
                         "description": "Dia de la semana (1=lunes, 7=domingo)",
                         "name": "dia_semana",
                         "in": "query"
@@ -537,7 +681,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.horarioListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -587,7 +743,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.idResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -630,6 +798,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 15,
                         "description": "ID del horario",
                         "name": "id",
                         "in": "path",
@@ -640,7 +809,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.horarioItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -675,6 +856,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 15,
                         "description": "ID del horario",
                         "name": "id",
                         "in": "path",
@@ -685,7 +867,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -723,6 +917,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 15,
                         "description": "ID del horario",
                         "name": "id",
                         "in": "path",
@@ -742,7 +937,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -785,6 +992,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 3,
                         "description": "ID del local",
                         "name": "id",
                         "in": "path",
@@ -795,7 +1003,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.localItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -824,6 +1044,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 3,
                         "description": "ID del local",
                         "name": "id",
                         "in": "path",
@@ -834,7 +1055,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -872,6 +1105,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 3,
                         "description": "ID del local",
                         "name": "id",
                         "in": "path",
@@ -891,7 +1125,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -928,48 +1174,56 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "example": "SAN MARTIN",
                         "description": "Nombre del local",
                         "name": "local",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "2026-05-23",
                         "description": "Fecha exacta",
                         "name": "fecha",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "2026-05-19",
                         "description": "Fecha desde",
                         "name": "fecha_desde",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "2026-05-24",
                         "description": "Fecha hasta",
                         "name": "fecha_hasta",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "Maria Lopez",
                         "description": "Nombre del cliente",
                         "name": "cliente",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "+59170011223",
                         "description": "Numero de telefono",
                         "name": "numero_telefono",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "depilacion",
                         "description": "Busqueda parcial por servicio solicitado",
                         "name": "servicio_solicitado",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "depilacion laser piernas",
                         "description": "Busqueda parcial por servicio confirmado",
                         "name": "servicio_confirmado",
                         "in": "query"
@@ -982,6 +1236,7 @@ const docTemplate = `{
                             "COMPLETADO"
                         ],
                         "type": "string",
+                        "example": "COMPLETADO",
                         "description": "Estado de la reserva",
                         "name": "estado",
                         "in": "query"
@@ -992,6 +1247,7 @@ const docTemplate = `{
                             "bicicleta"
                         ],
                         "type": "string",
+                        "example": "bicicleta",
                         "description": "Tipo de reserva",
                         "name": "tipo",
                         "in": "query"
@@ -1001,7 +1257,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reservaSimpleListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1045,7 +1313,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reservaCreatedResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1095,7 +1375,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1132,48 +1424,56 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "example": "SAN MARTIN",
                         "description": "Nombre del local",
                         "name": "local",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "2026-05-23",
                         "description": "Fecha exacta",
                         "name": "fecha",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "2026-05-19",
                         "description": "Fecha desde",
                         "name": "fecha_desde",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "2026-05-24",
                         "description": "Fecha hasta",
                         "name": "fecha_hasta",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "Maria Lopez",
                         "description": "Nombre del cliente",
                         "name": "cliente",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "+59170011223",
                         "description": "Numero de telefono",
                         "name": "numero_telefono",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "depilacion",
                         "description": "Busqueda parcial por servicio solicitado",
                         "name": "servicio_solicitado",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "depilacion laser piernas",
                         "description": "Busqueda parcial por servicio confirmado",
                         "name": "servicio_confirmado",
                         "in": "query"
@@ -1186,6 +1486,7 @@ const docTemplate = `{
                             "COMPLETADO"
                         ],
                         "type": "string",
+                        "example": "AGENDADO",
                         "description": "Estado de la reserva",
                         "name": "estado",
                         "in": "query"
@@ -1196,12 +1497,14 @@ const docTemplate = `{
                             "bicicleta"
                         ],
                         "type": "string",
+                        "example": "mesa",
                         "description": "Tipo de reserva",
                         "name": "tipo",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
+                        "example": true,
                         "description": "Filtrar por estado reservado",
                         "name": "reservados",
                         "in": "query"
@@ -1211,7 +1514,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reservaCalendarioResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1257,7 +1572,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1294,6 +1621,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "example": "2026-05-23",
                         "description": "Fecha a consultar en formato YYYY-MM-DD",
                         "name": "fecha",
                         "in": "query",
@@ -1347,6 +1675,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 44,
                         "description": "ID de la reserva",
                         "name": "id",
                         "in": "path",
@@ -1357,7 +1686,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reservaItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1392,6 +1733,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 44,
                         "description": "ID de la reserva",
                         "name": "id",
                         "in": "path",
@@ -1402,7 +1744,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1439,12 +1793,14 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "example": "depila",
                         "description": "Busqueda parcial por nombre",
                         "name": "nombre",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "Corporal",
                         "description": "Busqueda parcial por categoria",
                         "name": "categoria",
                         "in": "query"
@@ -1455,18 +1811,21 @@ const docTemplate = `{
                             "PASEO ARANJUEZ"
                         ],
                         "type": "string",
+                        "example": "SAN MARTIN",
                         "description": "Local",
                         "name": "local",
                         "in": "query"
                     },
                     {
                         "type": "integer",
+                        "example": 6,
                         "description": "Numero exacto de sesiones",
                         "name": "sesiones",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
+                        "example": true,
                         "description": "Filtrar por servicios que requieren evaluacion",
                         "name": "requiere_evaluacion",
                         "in": "query"
@@ -1476,7 +1835,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.servicioListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1514,7 +1885,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.idResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1548,6 +1931,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 8,
                         "description": "ID del servicio",
                         "name": "id",
                         "in": "path",
@@ -1567,7 +1951,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1598,6 +1994,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 8,
                         "description": "ID del servicio",
                         "name": "id",
                         "in": "path",
@@ -1608,7 +2005,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.servicioItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1637,6 +2046,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 8,
                         "description": "ID del servicio",
                         "name": "id",
                         "in": "path",
@@ -1647,7 +2057,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1685,6 +2107,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 8,
                         "description": "ID del servicio",
                         "name": "id",
                         "in": "path",
@@ -1704,7 +2127,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1741,12 +2176,14 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "example": "relax",
                         "description": "Busqueda parcial por nombre",
                         "name": "nombre",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "Corporal",
                         "description": "Busqueda parcial por categoria",
                         "name": "categoria",
                         "in": "query"
@@ -1758,12 +2195,14 @@ const docTemplate = `{
                             "SAN MARTIN"
                         ],
                         "type": "string",
+                        "example": "ARANJUEZ",
                         "description": "Local",
                         "name": "local",
                         "in": "query"
                     },
                     {
                         "type": "integer",
+                        "example": 4,
                         "description": "Numero exacto de sesiones",
                         "name": "sesiones",
                         "in": "query"
@@ -1773,7 +2212,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.comboListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1798,18 +2249,21 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "example": "SAN MARTIN",
                         "description": "Nombre del local",
                         "name": "local",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "2026-05-25",
                         "description": "Semana a consultar",
                         "name": "semana",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "lunes",
                         "description": "Dia a consultar",
                         "name": "dia",
                         "in": "query"
@@ -1821,18 +2275,21 @@ const docTemplate = `{
                             "feriado"
                         ],
                         "type": "string",
+                        "example": "mesa",
                         "description": "Tipo de reserva",
                         "name": "tipo",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "Maria",
                         "description": "Nombre del cliente",
                         "name": "cliente",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
+                        "example": true,
                         "description": "Filtrar solo reservados",
                         "name": "reservados",
                         "in": "query"
@@ -1842,7 +2299,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reservaListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1886,13 +2355,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.slotsResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "207": {
                         "description": "Multi-Status",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.slotsResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1942,13 +2435,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.slotsResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "207": {
                         "description": "Multi-Status",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.slotsResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -2083,12 +2600,14 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "example": "depila",
                         "description": "Busqueda parcial por nombre",
                         "name": "nombre",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "Facial",
                         "description": "Busqueda parcial por categoria",
                         "name": "categoria",
                         "in": "query"
@@ -2100,18 +2619,21 @@ const docTemplate = `{
                             "SAN MARTIN"
                         ],
                         "type": "string",
+                        "example": "CENTRO",
                         "description": "Local",
                         "name": "local",
                         "in": "query"
                     },
                     {
                         "type": "integer",
+                        "example": 10,
                         "description": "Numero exacto de sesiones",
                         "name": "sesiones",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
+                        "example": false,
                         "description": "Filtrar por servicios que requieren evaluacion",
                         "name": "requiere_evaluacion",
                         "in": "query"
@@ -2121,7 +2643,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.servicioListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -2162,7 +2696,8 @@ const docTemplate = `{
             ],
             "properties": {
                 "local": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
                 }
             }
         },
@@ -2170,13 +2705,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "apellido": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Lopez Aguilar"
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Maria Fernanda"
                 },
                 "numero_telefono": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "+59170011224"
                 }
             }
         },
@@ -2188,22 +2726,28 @@ const docTemplate = `{
             ],
             "properties": {
                 "causa": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Cliente confirmo por WhatsApp"
                 },
                 "estado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "AGENDADO"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 44
                 },
                 "precio": {
-                    "type": "number"
+                    "type": "number",
+                    "example": 350
                 },
                 "servicio_confirmado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion Laser Piernas"
                 },
                 "tipo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
@@ -2211,13 +2755,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "dia_semana": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 6
                 },
                 "hora_desde": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "10:00"
                 },
                 "hora_hasta": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "16:00"
                 }
             }
         },
@@ -2225,10 +2772,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "activo": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
                 }
             }
         },
@@ -2240,40 +2789,52 @@ const docTemplate = `{
             ],
             "properties": {
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 44
                 },
                 "local": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 },
                 "nueva_fecha": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-05-24"
                 },
                 "nueva_hora_desde": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "16:00"
                 },
                 "nueva_hora_hasta": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "17:00"
                 },
                 "nuevas_notas": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Reagendada por solicitud del cliente"
                 },
                 "nuevo_numero_telefono": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "+59170011224"
                 },
                 "nuevo_precio": {
-                    "type": "number"
+                    "type": "number",
+                    "example": 180
                 },
                 "nuevo_servicio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Evaluacion corporal"
                 },
                 "nuevo_servicio_confirmado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Evaluacion corporal"
                 },
                 "nuevo_servicio_solicitado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Evaluacion corporal"
                 },
                 "nuevo_tipo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "B"
                 }
             }
         },
@@ -2289,37 +2850,48 @@ const docTemplate = `{
             ],
             "properties": {
                 "cliente": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Maria Lopez"
                 },
                 "dia": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "lunes"
                 },
                 "hora": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "09:00"
                 },
                 "local": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 },
                 "nueva_hora_desde": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "11:00"
                 },
                 "nueva_hora_hasta": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "12:00"
                 },
                 "nuevo_dia": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "martes"
                 },
                 "nuevo_servicio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Evaluacion corporal"
                 },
                 "nuevo_tipo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "B"
                 },
                 "semana": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-05-25"
                 },
                 "tipo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
@@ -2327,43 +2899,54 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "activo": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "categoria": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Corporal"
                 },
                 "costo": {
-                    "type": "number"
+                    "type": "number",
+                    "example": 420
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion Laser Piernas Premium"
                 },
                 "requiere_evaluacion": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "sesiones": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 8
                 },
                 "tiempo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "01:15"
                 },
                 "tipo_espacio_requerido": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
-        "handlers.crearCategoriaRequest": {
+        "handlers.categoriaListResponse": {
             "type": "object",
-            "required": [
-                "nombre"
-            ],
             "properties": {
-                "nombre": {
-                    "type": "string"
+                "categorias": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CategoriaPG"
+                    }
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
-        "handlers.crearClienteRequest": {
+        "handlers.clienteFiltrosResponse": {
             "type": "object",
             "properties": {
                 "apellido": {
@@ -2377,20 +2960,112 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.clienteItemResponse": {
+            "type": "object",
+            "properties": {
+                "cliente": {
+                    "$ref": "#/definitions/models.ClientePG"
+                }
+            }
+        },
+        "handlers.clienteListResponse": {
+            "type": "object",
+            "properties": {
+                "clientes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClientePG"
+                    }
+                },
+                "filtros": {
+                    "$ref": "#/definitions/handlers.clienteFiltrosResponse"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.comboFiltrosResponse": {
+            "type": "object",
+            "properties": {
+                "categoria": {
+                    "type": "string"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "nombre": {
+                    "type": "string"
+                },
+                "sesiones": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.comboListResponse": {
+            "type": "object",
+            "properties": {
+                "combos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ComboItem"
+                    }
+                },
+                "filtros": {
+                    "$ref": "#/definitions/handlers.comboFiltrosResponse"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.crearCategoriaRequest": {
+            "type": "object",
+            "required": [
+                "nombre"
+            ],
+            "properties": {
+                "nombre": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
+        "handlers.crearClienteRequest": {
+            "type": "object",
+            "properties": {
+                "apellido": {
+                    "type": "string",
+                    "example": "Lopez"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "numero_telefono": {
+                    "type": "string",
+                    "example": "+59170011223"
+                }
+            }
+        },
         "handlers.crearLocalHorarioRequest": {
             "type": "object",
             "properties": {
                 "dia_semana": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1
                 },
                 "hora_desde": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "09:00"
                 },
                 "hora_hasta": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "18:00"
                 },
                 "local_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 3
                 }
             }
         },
@@ -2408,7 +3083,8 @@ const docTemplate = `{
                     }
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 }
             }
         },
@@ -2423,46 +3099,60 @@ const docTemplate = `{
             ],
             "properties": {
                 "cliente": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Maria Lopez"
                 },
                 "estado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "PENDIENTE"
                 },
                 "fecha": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-05-23"
                 },
                 "hora_desde": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "15:00"
                 },
                 "hora_hasta": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "16:00"
                 },
                 "local": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 },
                 "notas": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Primera sesion del plan"
                 },
                 "numero_telefono": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "+59170011223"
                 },
                 "plan_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 21
                 },
                 "precio": {
-                    "type": "number"
+                    "type": "number",
+                    "example": 350
                 },
                 "servicio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion laser"
                 },
                 "servicio_confirmado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion Laser Piernas"
                 },
                 "servicio_solicitado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Piernas completas"
                 },
                 "tipo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
@@ -2478,28 +3168,36 @@ const docTemplate = `{
             ],
             "properties": {
                 "cliente": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Maria Lopez"
                 },
                 "dia": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "lunes"
                 },
                 "hora_desde": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "09:00"
                 },
                 "hora_hasta": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "10:00"
                 },
                 "local": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 },
                 "semana": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-05-25"
                 },
                 "servicio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion piernas completas"
                 },
                 "tipo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
@@ -2511,30 +3209,38 @@ const docTemplate = `{
             ],
             "properties": {
                 "categoria": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Corporal"
                 },
                 "costo": {
-                    "type": "number"
+                    "type": "number",
+                    "example": 350
                 },
                 "local": {
                     "description": "opcional",
-                    "type": "string"
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion Laser Piernas"
                 },
                 "requiere_evaluacion": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "sesiones": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 6
                 },
                 "tiempo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "01:00"
                 },
                 "tipo_espacio_requerido": {
                     "description": "\"M\" | \"B\" | nil",
-                    "type": "string"
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
@@ -2547,9 +3253,225 @@ const docTemplate = `{
             "properties": {
                 "cantidad_espacios": {
                     "type": "integer",
-                    "minimum": 1
+                    "minimum": 1,
+                    "example": 6
                 },
                 "tipo_espacio": {
+                    "type": "string",
+                    "example": "M"
+                }
+            }
+        },
+        "handlers.horarioFiltrosResponse": {
+            "type": "object",
+            "properties": {
+                "dia_semana": {
+                    "type": "integer"
+                },
+                "local_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.horarioItemResponse": {
+            "type": "object",
+            "properties": {
+                "horario": {
+                    "$ref": "#/definitions/models.LocalHorarioPG"
+                }
+            }
+        },
+        "handlers.horarioListResponse": {
+            "type": "object",
+            "properties": {
+                "filtros": {
+                    "$ref": "#/definitions/handlers.horarioFiltrosResponse"
+                },
+                "horarios": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LocalHorarioPG"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.idResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.importResponse": {
+            "type": "object",
+            "properties": {
+                "categorias": {
+                    "type": "integer"
+                },
+                "combo_locales": {
+                    "type": "integer"
+                },
+                "combo_servicios": {
+                    "type": "integer"
+                },
+                "combos": {
+                    "type": "integer"
+                },
+                "servicio_locales": {
+                    "type": "integer"
+                },
+                "servicios": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.localItemResponse": {
+            "type": "object",
+            "properties": {
+                "local": {
+                    "$ref": "#/definitions/models.LocalConEspacios"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.localListResponse": {
+            "type": "object",
+            "properties": {
+                "locales": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LocalConEspacios"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.messageResponse": {
+            "type": "object",
+            "properties": {
+                "mensaje": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.reservaCalendarioResponse": {
+            "type": "object",
+            "properties": {
+                "filtros": {
+                    "$ref": "#/definitions/handlers.reservaPGFiltrosResponse"
+                },
+                "reservas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LocalReservas"
+                    }
+                },
+                "total_locales": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.reservaCreatedResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "mensaje": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.reservaFiltrosResponse": {
+            "type": "object",
+            "properties": {
+                "cliente": {
+                    "type": "string"
+                },
+                "dia": {
+                    "type": "string"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "reservados": {
+                    "type": "boolean"
+                },
+                "semana": {
+                    "type": "string"
+                },
+                "tipo": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.reservaItemResponse": {
+            "type": "object",
+            "properties": {
+                "reserva": {
+                    "$ref": "#/definitions/services.ReservaSimple"
+                }
+            }
+        },
+        "handlers.reservaListResponse": {
+            "type": "object",
+            "properties": {
+                "filtros": {
+                    "$ref": "#/definitions/handlers.reservaFiltrosResponse"
+                },
+                "reservas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LocalReservas"
+                    }
+                },
+                "total_locales": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.reservaPGFiltrosResponse": {
+            "type": "object",
+            "properties": {
+                "cliente": {
+                    "type": "string"
+                },
+                "estado": {
+                    "type": "string"
+                },
+                "fecha": {
+                    "type": "string"
+                },
+                "fecha_desde": {
+                    "type": "string"
+                },
+                "fecha_hasta": {
+                    "type": "string"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "numero_telefono": {
+                    "type": "string"
+                },
+                "reservados": {
+                    "type": "boolean"
+                },
+                "servicio_confirmado": {
+                    "type": "string"
+                },
+                "servicio_solicitado": {
+                    "type": "string"
+                },
+                "tipo": {
                     "type": "string"
                 }
             }
@@ -2594,21 +3516,382 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.reservaSimpleListResponse": {
+            "type": "object",
+            "properties": {
+                "reservas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.ReservaSimple"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.servicioFiltrosResponse": {
+            "type": "object",
+            "properties": {
+                "categoria": {
+                    "type": "string"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "nombre": {
+                    "type": "string"
+                },
+                "requiere_evaluacion": {
+                    "type": "boolean"
+                },
+                "sesiones": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.servicioItemResponse": {
+            "type": "object",
+            "properties": {
+                "servicio": {
+                    "$ref": "#/definitions/models.ServicioItem"
+                }
+            }
+        },
+        "handlers.servicioListResponse": {
+            "type": "object",
+            "properties": {
+                "filtros": {
+                    "$ref": "#/definitions/handlers.servicioFiltrosResponse"
+                },
+                "servicios": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServicioItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.slotsResponse": {
+            "type": "object",
+            "properties": {
+                "slots_error": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "slots_ok": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "models.CategoriaPG": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "nombre": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ClientePG": {
+            "type": "object",
+            "properties": {
+                "apellido": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "nombre": {
+                    "type": "string"
+                },
+                "numero_telefono": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ComboItem": {
+            "type": "object",
+            "properties": {
+                "categoria": {
+                    "type": "string"
+                },
+                "costo_total": {
+                    "type": "string"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "nombre": {
+                    "type": "string"
+                },
+                "servicios_incluidos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServicioIncluido"
+                    }
+                },
+                "sesiones_totales": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.LocalConEspacios": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean"
+                },
+                "espacios": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.TipoEspacioLocal"
+                    }
+                },
+                "horarios": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LocalHorarioPG"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "nombre": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LocalHorarioPG": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean"
+                },
+                "dia_semana": {
+                    "type": "integer"
+                },
+                "hora_desde": {
+                    "type": "string"
+                },
+                "hora_hasta": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "local_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.LocalReservas": {
+            "type": "object",
+            "properties": {
+                "local": {
+                    "type": "string"
+                },
+                "semanas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Semana"
+                    }
+                }
+            }
+        },
+        "models.ReservaItem": {
+            "type": "object",
+            "properties": {
+                "cliente": {
+                    "type": "string"
+                },
+                "estado": {
+                    "type": "string"
+                },
+                "numero_telefono": {
+                    "type": "string"
+                },
+                "servicio": {
+                    "type": "string"
+                },
+                "servicio_confirmado": {
+                    "type": "string"
+                },
+                "servicio_solicitado": {
+                    "type": "string"
+                },
+                "tipo": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ReservaSlot": {
+            "type": "object",
+            "properties": {
+                "dias": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/models.ReservaItem"
+                        }
+                    }
+                },
+                "hora": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Semana": {
+            "type": "object",
+            "properties": {
+                "reservas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReservaSlot"
+                    }
+                },
+                "titulo": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ServicioIncluido": {
+            "type": "object",
+            "properties": {
+                "costo": {
+                    "type": "string"
+                },
+                "nombre": {
+                    "type": "string"
+                },
+                "sesiones": {
+                    "type": "integer"
+                },
+                "tiempo": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ServicioItem": {
+            "type": "object",
+            "properties": {
+                "categoria": {
+                    "type": "string"
+                },
+                "costo": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "nombre": {
+                    "type": "string"
+                },
+                "requiere_evaluacion": {
+                    "type": "boolean"
+                },
+                "sesiones": {
+                    "type": "integer"
+                },
+                "tiempo": {
+                    "type": "string"
+                },
+                "tipoEspacio": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.TipoEspacioLocal": {
+            "type": "object",
+            "properties": {
+                "cantidad_espacios": {
+                    "type": "integer"
+                },
+                "tipo_espacio": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.ReservaSimple": {
+            "type": "object",
+            "properties": {
+                "cliente": {
+                    "type": "string"
+                },
+                "estado": {
+                    "type": "string"
+                },
+                "fecha": {
+                    "type": "string"
+                },
+                "hora_desde": {
+                    "type": "string"
+                },
+                "hora_hasta": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "notas": {
+                    "type": "string"
+                },
+                "numero_telefono": {
+                    "type": "string"
+                },
+                "precio": {
+                    "type": "number"
+                },
+                "servicio": {
+                    "type": "string"
+                },
+                "servicio_confirmado": {
+                    "type": "string"
+                },
+                "servicio_solicitado": {
+                    "type": "string"
+                },
+                "tipo": {
+                    "type": "string"
+                }
+            }
+        },
         "utils.APIResponse": {
             "type": "object",
             "properties": {
                 "code": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 200
                 },
                 "data": {},
                 "error": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": false
                 },
                 "message": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "operacion realizada correctamente"
                 },
                 "status": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "OK"
                 }
             }
         }

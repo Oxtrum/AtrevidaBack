@@ -25,11 +25,11 @@ import (
 // @Description Devuelve combos filtrados por nombre, categoria, local y sesiones.
 // @Tags Catalogo
 // @Produce json
-// @Param nombre query string false "Busqueda parcial por nombre"
-// @Param categoria query string false "Busqueda parcial por categoria"
-// @Param local query string false "Local" Enums(ARANJUEZ,CENTRO,SAN MARTIN)
-// @Param sesiones query int false "Numero exacto de sesiones"
-// @Success 200 {object} utils.APIResponse
+// @Param nombre query string false "Busqueda parcial por nombre" example(relax)
+// @Param categoria query string false "Busqueda parcial por categoria" example(Corporal)
+// @Param local query string false "Local" Enums(ARANJUEZ,CENTRO,SAN MARTIN) example(ARANJUEZ)
+// @Param sesiones query int false "Numero exacto de sesiones" example(4)
+// @Success 200 {object} utils.APIResponse{data=comboListResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Router /combos [get]
 func (h *Container) GetCombos(c *gin.Context) {
@@ -67,14 +67,14 @@ func (h *Container) GetCombos(c *gin.Context) {
 		resultado = []models.ComboItem{}
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total": len(resultado),
-		"filtros": gin.H{
-			"nombre":    filtro.Nombre,
-			"categoria": filtro.Categoria,
-			"local":     filtro.Local,
-			"sesiones":  filtro.Sesiones,
+	utils.Respond(c, http.StatusOK, comboListResponse{
+		Total: len(resultado),
+		Filtros: comboFiltrosResponse{
+			Nombre:    filtro.Nombre,
+			Categoria: filtro.Categoria,
+			Local:     filtro.Local,
+			Sesiones:  filtro.Sesiones,
 		},
-		"combos": resultado,
+		Combos: resultado,
 	})
 }

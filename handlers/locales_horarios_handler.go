@@ -13,16 +13,16 @@ import (
 )
 
 type crearLocalHorarioRequest struct {
-	LocalID   int    `json:"local_id"`
-	DiaSemana int    `json:"dia_semana"`
-	HoraDesde string `json:"hora_desde"`
-	HoraHasta string `json:"hora_hasta"`
+	LocalID   int    `json:"local_id" example:"3"`
+	DiaSemana int    `json:"dia_semana" example:"1"`
+	HoraDesde string `json:"hora_desde" example:"09:00"`
+	HoraHasta string `json:"hora_hasta" example:"18:00"`
 }
 
 type actualizarLocalHorarioRequest struct {
-	DiaSemana *int    `json:"dia_semana"`
-	HoraDesde *string `json:"hora_desde"`
-	HoraHasta *string `json:"hora_hasta"`
+	DiaSemana *int    `json:"dia_semana" example:"6"`
+	HoraDesde *string `json:"hora_desde" example:"10:00"`
+	HoraHasta *string `json:"hora_hasta" example:"16:00"`
 }
 
 // GetHorariosByLocal godoc
@@ -30,9 +30,9 @@ type actualizarLocalHorarioRequest struct {
 // @Description Devuelve los horarios activos de un local y permite filtrar opcionalmente por dia_semana.
 // @Tags Horarios Locales
 // @Produce json
-// @Param local_id query int true "ID del local"
-// @Param dia_semana query int false "Dia de la semana (1=lunes, 7=domingo)"
-// @Success 200 {object} utils.APIResponse
+// @Param local_id query int true "ID del local" example(3)
+// @Param dia_semana query int false "Dia de la semana (1=lunes, 7=domingo)" example(1)
+// @Success 200 {object} utils.APIResponse{data=horarioListResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -67,13 +67,13 @@ func (h *Container) GetHorariosByLocal(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total": len(horarios),
-		"filtros": gin.H{
-			"local_id":   localID,
-			"dia_semana": diaSemana,
+	utils.Respond(c, http.StatusOK, horarioListResponse{
+		Total: len(horarios),
+		Filtros: horarioFiltrosResponse{
+			LocalID:   localID,
+			DiaSemana: diaSemana,
 		},
-		"horarios": horarios,
+		Horarios: horarios,
 	})
 }
 
@@ -82,8 +82,8 @@ func (h *Container) GetHorariosByLocal(c *gin.Context) {
 // @Description Devuelve un horario de atencion por su identificador.
 // @Tags Horarios Locales
 // @Produce json
-// @Param id path int true "ID del horario"
-// @Success 200 {object} utils.APIResponse
+// @Param id path int true "ID del horario" example(15)
+// @Success 200 {object} utils.APIResponse{data=horarioItemResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -105,7 +105,7 @@ func (h *Container) GetHorarioByID(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"horario": horario})
+	utils.Respond(c, http.StatusOK, horarioItemResponse{Horario: horario})
 }
 
 // CreateHorarioByLocal godoc
@@ -115,7 +115,7 @@ func (h *Container) GetHorarioByID(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param payload body crearLocalHorarioRequest true "Datos del horario"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=idResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 409 {object} utils.APIResponse
@@ -157,7 +157,7 @@ func (h *Container) CreateHorarioByLocal(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"id": id})
+	utils.Respond(c, http.StatusOK, idResponse{ID: id})
 }
 
 // PatchHorario godoc
@@ -166,9 +166,9 @@ func (h *Container) CreateHorarioByLocal(c *gin.Context) {
 // @Tags Horarios Locales
 // @Accept json
 // @Produce json
-// @Param id path int true "ID del horario"
+// @Param id path int true "ID del horario" example(15)
 // @Param payload body actualizarLocalHorarioRequest true "Campos a actualizar"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 409 {object} utils.APIResponse
@@ -254,7 +254,7 @@ func (h *Container) PatchHorario(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "horario actualizado correctamente"})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "horario actualizado correctamente"})
 }
 
 // DeleteHorario godoc
@@ -262,8 +262,8 @@ func (h *Container) PatchHorario(c *gin.Context) {
 // @Description Realiza el borrado logico de un horario estableciendo activo en false.
 // @Tags Horarios Locales
 // @Produce json
-// @Param id path int true "ID del horario"
-// @Success 200 {object} utils.APIResponse
+// @Param id path int true "ID del horario" example(15)
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -286,7 +286,7 @@ func (h *Container) DeleteHorario(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "horario eliminado correctamente"})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "horario eliminado correctamente"})
 }
 
 func validarHorarioInput(c *gin.Context, diaSemana int, horaDesdeRaw, horaHastaRaw string) (string, string, bool) {

@@ -21,13 +21,13 @@ var tiposValidos = map[string]bool{
 // @Description Devuelve reservas filtradas por local, semana, dia, tipo, cliente y si estan reservadas.
 // @Tags Reservas Sheets
 // @Produce json
-// @Param local query string false "Nombre del local"
-// @Param semana query string false "Semana a consultar"
-// @Param dia query string false "Dia a consultar"
-// @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta,feriado)
-// @Param cliente query string false "Nombre del cliente"
-// @Param reservados query bool false "Filtrar solo reservados"
-// @Success 200 {object} utils.APIResponse
+// @Param local query string false "Nombre del local" example(SAN MARTIN)
+// @Param semana query string false "Semana a consultar" example(2026-05-25)
+// @Param dia query string false "Dia a consultar" example(lunes)
+// @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta,feriado) example(mesa)
+// @Param cliente query string false "Nombre del cliente" example(Maria)
+// @Param reservados query bool false "Filtrar solo reservados" example(true)
+// @Success 200 {object} utils.APIResponse{data=reservaListResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
 // @Router /reservas [get]
@@ -55,16 +55,16 @@ func (h *Container) GetReservas(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total_locales": len(resultado),
-		"filtros": gin.H{
-			"local":      filtro.Local,
-			"semana":     filtro.Semana,
-			"dia":        filtro.Dia,
-			"tipo":       filtro.Tipo,
-			"cliente":    filtro.Cliente,
-			"reservados": filtro.Reservados,
+	utils.Respond(c, http.StatusOK, reservaListResponse{
+		TotalLocales: len(resultado),
+		Filtros: reservaFiltrosResponse{
+			Local:      filtro.Local,
+			Semana:     filtro.Semana,
+			Dia:        filtro.Dia,
+			Tipo:       filtro.Tipo,
+			Cliente:    filtro.Cliente,
+			Reservados: filtro.Reservados,
 		},
-		"reservas": resultado,
+		Reservas: resultado,
 	})
 }

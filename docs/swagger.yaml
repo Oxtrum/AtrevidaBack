@@ -3,6 +3,7 @@ definitions:
   handlers.activarServicioRequest:
     properties:
       local:
+        example: PASEO ARANJUEZ
         type: string
     required:
     - local
@@ -10,25 +11,34 @@ definitions:
   handlers.actualizarClienteRequest:
     properties:
       apellido:
+        example: Lopez Aguilar
         type: string
       nombre:
+        example: Maria Fernanda
         type: string
       numero_telefono:
+        example: "+59170011224"
         type: string
     type: object
   handlers.actualizarEstadoReservaPGRequest:
     properties:
       causa:
+        example: Cliente confirmo por WhatsApp
         type: string
       estado:
+        example: AGENDADO
         type: string
       id:
+        example: 44
         type: integer
       precio:
+        example: 350
         type: number
       servicio_confirmado:
+        example: Depilacion Laser Piernas
         type: string
       tipo:
+        example: M
         type: string
     required:
     - estado
@@ -37,44 +47,61 @@ definitions:
   handlers.actualizarLocalHorarioRequest:
     properties:
       dia_semana:
+        example: 6
         type: integer
       hora_desde:
+        example: "10:00"
         type: string
       hora_hasta:
+        example: "16:00"
         type: string
     type: object
   handlers.actualizarLocalRequest:
     properties:
       activo:
+        example: true
         type: boolean
       nombre:
+        example: PASEO ARANJUEZ
         type: string
     type: object
   handlers.actualizarReservaPGRequest:
     properties:
       id:
+        example: 44
         type: integer
       local:
+        example: SAN MARTIN
         type: string
       nueva_fecha:
+        example: "2026-05-24"
         type: string
       nueva_hora_desde:
+        example: "16:00"
         type: string
       nueva_hora_hasta:
+        example: "17:00"
         type: string
       nuevas_notas:
+        example: Reagendada por solicitud del cliente
         type: string
       nuevo_numero_telefono:
+        example: "+59170011224"
         type: string
       nuevo_precio:
+        example: 180
         type: number
       nuevo_servicio:
+        example: Evaluacion corporal
         type: string
       nuevo_servicio_confirmado:
+        example: Evaluacion corporal
         type: string
       nuevo_servicio_solicitado:
+        example: Evaluacion corporal
         type: string
       nuevo_tipo:
+        example: B
         type: string
     required:
     - id
@@ -83,26 +110,37 @@ definitions:
   handlers.actualizarReservaRequest:
     properties:
       cliente:
+        example: Maria Lopez
         type: string
       dia:
+        example: lunes
         type: string
       hora:
+        example: "09:00"
         type: string
       local:
+        example: SAN MARTIN
         type: string
       nueva_hora_desde:
+        example: "11:00"
         type: string
       nueva_hora_hasta:
+        example: "12:00"
         type: string
       nuevo_dia:
+        example: martes
         type: string
       nuevo_servicio:
+        example: Evaluacion corporal
         type: string
       nuevo_tipo:
+        example: B
         type: string
       semana:
+        example: "2026-05-25"
         type: string
       tipo:
+        example: M
         type: string
     required:
     - cliente
@@ -115,30 +153,40 @@ definitions:
   handlers.actualizarServicioRequest:
     properties:
       activo:
+        example: true
         type: boolean
       categoria:
+        example: Corporal
         type: string
       costo:
+        example: 420
         type: number
       nombre:
+        example: Depilacion Laser Piernas Premium
         type: string
       requiere_evaluacion:
+        example: false
         type: boolean
       sesiones:
+        example: 8
         type: integer
       tiempo:
+        example: "01:15"
         type: string
       tipo_espacio_requerido:
+        example: M
         type: string
     type: object
-  handlers.crearCategoriaRequest:
+  handlers.categoriaListResponse:
     properties:
-      nombre:
-        type: string
-    required:
-    - nombre
+      categorias:
+        items:
+          $ref: '#/definitions/models.CategoriaPG'
+        type: array
+      total:
+        type: integer
     type: object
-  handlers.crearClienteRequest:
+  handlers.clienteFiltrosResponse:
     properties:
       apellido:
         type: string
@@ -147,15 +195,77 @@ definitions:
       numero_telefono:
         type: string
     type: object
+  handlers.clienteItemResponse:
+    properties:
+      cliente:
+        $ref: '#/definitions/models.ClientePG'
+    type: object
+  handlers.clienteListResponse:
+    properties:
+      clientes:
+        items:
+          $ref: '#/definitions/models.ClientePG'
+        type: array
+      filtros:
+        $ref: '#/definitions/handlers.clienteFiltrosResponse'
+      total:
+        type: integer
+    type: object
+  handlers.comboFiltrosResponse:
+    properties:
+      categoria:
+        type: string
+      local:
+        type: string
+      nombre:
+        type: string
+      sesiones:
+        type: integer
+    type: object
+  handlers.comboListResponse:
+    properties:
+      combos:
+        items:
+          $ref: '#/definitions/models.ComboItem'
+        type: array
+      filtros:
+        $ref: '#/definitions/handlers.comboFiltrosResponse'
+      total:
+        type: integer
+    type: object
+  handlers.crearCategoriaRequest:
+    properties:
+      nombre:
+        example: Depilacion Laser
+        type: string
+    required:
+    - nombre
+    type: object
+  handlers.crearClienteRequest:
+    properties:
+      apellido:
+        example: Lopez
+        type: string
+      nombre:
+        example: Maria
+        type: string
+      numero_telefono:
+        example: "+59170011223"
+        type: string
+    type: object
   handlers.crearLocalHorarioRequest:
     properties:
       dia_semana:
+        example: 1
         type: integer
       hora_desde:
+        example: "09:00"
         type: string
       hora_hasta:
+        example: "18:00"
         type: string
       local_id:
+        example: 3
         type: integer
     type: object
   handlers.crearLocalRequest:
@@ -166,6 +276,7 @@ definitions:
           $ref: '#/definitions/handlers.espacioRequest'
         type: array
       nombre:
+        example: SAN MARTIN
         type: string
     required:
     - nombre
@@ -173,32 +284,46 @@ definitions:
   handlers.crearReservaPGRequest:
     properties:
       cliente:
+        example: Maria Lopez
         type: string
       estado:
+        example: PENDIENTE
         type: string
       fecha:
+        example: "2026-05-23"
         type: string
       hora_desde:
+        example: "15:00"
         type: string
       hora_hasta:
+        example: "16:00"
         type: string
       local:
+        example: SAN MARTIN
         type: string
       notas:
+        example: Primera sesion del plan
         type: string
       numero_telefono:
+        example: "+59170011223"
         type: string
       plan_id:
+        example: 21
         type: integer
       precio:
+        example: 350
         type: number
       servicio:
+        example: Depilacion laser
         type: string
       servicio_confirmado:
+        example: Depilacion Laser Piernas
         type: string
       servicio_solicitado:
+        example: Piernas completas
         type: string
       tipo:
+        example: M
         type: string
     required:
     - cliente
@@ -210,20 +335,28 @@ definitions:
   handlers.crearReservaRequest:
     properties:
       cliente:
+        example: Maria Lopez
         type: string
       dia:
+        example: lunes
         type: string
       hora_desde:
+        example: "09:00"
         type: string
       hora_hasta:
+        example: "10:00"
         type: string
       local:
+        example: SAN MARTIN
         type: string
       semana:
+        example: "2026-05-25"
         type: string
       servicio:
+        example: Depilacion piernas completas
         type: string
       tipo:
+        example: M
         type: string
     required:
     - cliente
@@ -236,22 +369,30 @@ definitions:
   handlers.crearServicioRequest:
     properties:
       categoria:
+        example: Corporal
         type: string
       costo:
+        example: 350
         type: number
       local:
         description: opcional
+        example: SAN MARTIN
         type: string
       nombre:
+        example: Depilacion Laser Piernas
         type: string
       requiere_evaluacion:
+        example: true
         type: boolean
       sesiones:
+        example: 6
         type: integer
       tiempo:
+        example: "01:00"
         type: string
       tipo_espacio_requerido:
         description: '"M" | "B" | nil'
+        example: M
         type: string
     required:
     - categoria
@@ -260,13 +401,153 @@ definitions:
   handlers.espacioRequest:
     properties:
       cantidad_espacios:
+        example: 6
         minimum: 1
         type: integer
       tipo_espacio:
+        example: M
         type: string
     required:
     - cantidad_espacios
     - tipo_espacio
+    type: object
+  handlers.horarioFiltrosResponse:
+    properties:
+      dia_semana:
+        type: integer
+      local_id:
+        type: integer
+    type: object
+  handlers.horarioItemResponse:
+    properties:
+      horario:
+        $ref: '#/definitions/models.LocalHorarioPG'
+    type: object
+  handlers.horarioListResponse:
+    properties:
+      filtros:
+        $ref: '#/definitions/handlers.horarioFiltrosResponse'
+      horarios:
+        items:
+          $ref: '#/definitions/models.LocalHorarioPG'
+        type: array
+      total:
+        type: integer
+    type: object
+  handlers.idResponse:
+    properties:
+      id:
+        type: integer
+    type: object
+  handlers.importResponse:
+    properties:
+      categorias:
+        type: integer
+      combo_locales:
+        type: integer
+      combo_servicios:
+        type: integer
+      combos:
+        type: integer
+      servicio_locales:
+        type: integer
+      servicios:
+        type: integer
+    type: object
+  handlers.localItemResponse:
+    properties:
+      local:
+        $ref: '#/definitions/models.LocalConEspacios'
+      total:
+        type: integer
+    type: object
+  handlers.localListResponse:
+    properties:
+      locales:
+        items:
+          $ref: '#/definitions/models.LocalConEspacios'
+        type: array
+      total:
+        type: integer
+    type: object
+  handlers.messageResponse:
+    properties:
+      mensaje:
+        type: string
+    type: object
+  handlers.reservaCalendarioResponse:
+    properties:
+      filtros:
+        $ref: '#/definitions/handlers.reservaPGFiltrosResponse'
+      reservas:
+        items:
+          $ref: '#/definitions/models.LocalReservas'
+        type: array
+      total_locales:
+        type: integer
+    type: object
+  handlers.reservaCreatedResponse:
+    properties:
+      id:
+        type: integer
+      mensaje:
+        type: string
+    type: object
+  handlers.reservaFiltrosResponse:
+    properties:
+      cliente:
+        type: string
+      dia:
+        type: string
+      local:
+        type: string
+      reservados:
+        type: boolean
+      semana:
+        type: string
+      tipo:
+        type: string
+    type: object
+  handlers.reservaItemResponse:
+    properties:
+      reserva:
+        $ref: '#/definitions/services.ReservaSimple'
+    type: object
+  handlers.reservaListResponse:
+    properties:
+      filtros:
+        $ref: '#/definitions/handlers.reservaFiltrosResponse'
+      reservas:
+        items:
+          $ref: '#/definitions/models.LocalReservas'
+        type: array
+      total_locales:
+        type: integer
+    type: object
+  handlers.reservaPGFiltrosResponse:
+    properties:
+      cliente:
+        type: string
+      estado:
+        type: string
+      fecha:
+        type: string
+      fecha_desde:
+        type: string
+      fecha_hasta:
+        type: string
+      local:
+        type: string
+      numero_telefono:
+        type: string
+      reservados:
+        type: boolean
+      servicio_confirmado:
+        type: string
+      servicio_solicitado:
+        type: string
+      tipo:
+        type: string
     type: object
   handlers.reservaResumenResponse:
     properties:
@@ -294,16 +575,252 @@ definitions:
       viernes:
         type: integer
     type: object
+  handlers.reservaSimpleListResponse:
+    properties:
+      reservas:
+        items:
+          $ref: '#/definitions/services.ReservaSimple'
+        type: array
+      total:
+        type: integer
+    type: object
+  handlers.servicioFiltrosResponse:
+    properties:
+      categoria:
+        type: string
+      local:
+        type: string
+      nombre:
+        type: string
+      requiere_evaluacion:
+        type: boolean
+      sesiones:
+        type: integer
+    type: object
+  handlers.servicioItemResponse:
+    properties:
+      servicio:
+        $ref: '#/definitions/models.ServicioItem'
+    type: object
+  handlers.servicioListResponse:
+    properties:
+      filtros:
+        $ref: '#/definitions/handlers.servicioFiltrosResponse'
+      servicios:
+        items:
+          $ref: '#/definitions/models.ServicioItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  handlers.slotsResponse:
+    properties:
+      slots_error:
+        items:
+          type: string
+        type: array
+      slots_ok:
+        items:
+          type: string
+        type: array
+    type: object
+  models.CategoriaPG:
+    properties:
+      id:
+        type: integer
+      nombre:
+        type: string
+    type: object
+  models.ClientePG:
+    properties:
+      apellido:
+        type: string
+      id:
+        type: integer
+      nombre:
+        type: string
+      numero_telefono:
+        type: string
+    type: object
+  models.ComboItem:
+    properties:
+      categoria:
+        type: string
+      costo_total:
+        type: string
+      local:
+        type: string
+      nombre:
+        type: string
+      servicios_incluidos:
+        items:
+          $ref: '#/definitions/models.ServicioIncluido'
+        type: array
+      sesiones_totales:
+        type: integer
+    type: object
+  models.LocalConEspacios:
+    properties:
+      activo:
+        type: boolean
+      espacios:
+        items:
+          $ref: '#/definitions/models.TipoEspacioLocal'
+        type: array
+      horarios:
+        items:
+          $ref: '#/definitions/models.LocalHorarioPG'
+        type: array
+      id:
+        type: integer
+      nombre:
+        type: string
+    type: object
+  models.LocalHorarioPG:
+    properties:
+      activo:
+        type: boolean
+      dia_semana:
+        type: integer
+      hora_desde:
+        type: string
+      hora_hasta:
+        type: string
+      id:
+        type: integer
+      local_id:
+        type: integer
+    type: object
+  models.LocalReservas:
+    properties:
+      local:
+        type: string
+      semanas:
+        items:
+          $ref: '#/definitions/models.Semana'
+        type: array
+    type: object
+  models.ReservaItem:
+    properties:
+      cliente:
+        type: string
+      estado:
+        type: string
+      numero_telefono:
+        type: string
+      servicio:
+        type: string
+      servicio_confirmado:
+        type: string
+      servicio_solicitado:
+        type: string
+      tipo:
+        type: string
+    type: object
+  models.ReservaSlot:
+    properties:
+      dias:
+        additionalProperties:
+          items:
+            $ref: '#/definitions/models.ReservaItem'
+          type: array
+        type: object
+      hora:
+        type: string
+    type: object
+  models.Semana:
+    properties:
+      reservas:
+        items:
+          $ref: '#/definitions/models.ReservaSlot'
+        type: array
+      titulo:
+        type: string
+    type: object
+  models.ServicioIncluido:
+    properties:
+      costo:
+        type: string
+      nombre:
+        type: string
+      sesiones:
+        type: integer
+      tiempo:
+        type: string
+    type: object
+  models.ServicioItem:
+    properties:
+      categoria:
+        type: string
+      costo:
+        type: string
+      id:
+        type: integer
+      local:
+        type: string
+      nombre:
+        type: string
+      requiere_evaluacion:
+        type: boolean
+      sesiones:
+        type: integer
+      tiempo:
+        type: string
+      tipoEspacio:
+        type: string
+    type: object
+  models.TipoEspacioLocal:
+    properties:
+      cantidad_espacios:
+        type: integer
+      tipo_espacio:
+        type: string
+    type: object
+  services.ReservaSimple:
+    properties:
+      cliente:
+        type: string
+      estado:
+        type: string
+      fecha:
+        type: string
+      hora_desde:
+        type: string
+      hora_hasta:
+        type: string
+      id:
+        type: integer
+      local:
+        type: string
+      notas:
+        type: string
+      numero_telefono:
+        type: string
+      precio:
+        type: number
+      servicio:
+        type: string
+      servicio_confirmado:
+        type: string
+      servicio_solicitado:
+        type: string
+      tipo:
+        type: string
+    type: object
   utils.APIResponse:
     properties:
       code:
+        example: 200
         type: integer
       data: {}
       error:
+        example: false
         type: boolean
       message:
+        example: operacion realizada correctamente
         type: string
       status:
+        example: OK
         type: string
     type: object
 info:
@@ -336,7 +853,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.importResponse'
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -353,7 +875,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.categoriaListResponse'
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -378,7 +905,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -396,14 +928,17 @@ paths:
         apellido y numero de telefono.
       parameters:
       - description: Busqueda parcial por nombre
+        example: Maria
         in: query
         name: nombre
         type: string
       - description: Busqueda parcial por apellido
+        example: Lopez
         in: query
         name: apellido
         type: string
       - description: Busqueda parcial por numero de telefono
+        example: "+59170011223"
         in: query
         name: numero_telefono
         type: string
@@ -413,7 +948,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.clienteListResponse'
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -438,7 +978,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -459,6 +1004,7 @@ paths:
       description: Elimina un cliente de la base de datos.
       parameters:
       - description: ID del cliente
+        example: 12
         in: path
         name: id
         required: true
@@ -469,7 +1015,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -489,6 +1040,7 @@ paths:
       description: Devuelve un cliente de PostgreSQL por su identificador.
       parameters:
       - description: ID del cliente
+        example: 12
         in: path
         name: id
         required: true
@@ -499,7 +1051,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.clienteItemResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -521,6 +1078,7 @@ paths:
       description: Actualiza parcialmente un cliente existente en PostgreSQL.
       parameters:
       - description: ID del cliente
+        example: 12
         in: path
         name: id
         required: true
@@ -537,7 +1095,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -562,10 +1125,12 @@ paths:
       description: Devuelve combos persistidos en PostgreSQL con filtros opcionales.
       parameters:
       - description: Busqueda parcial por nombre
+        example: relax
         in: query
         name: nombre
         type: string
       - description: Busqueda parcial por categoria
+        example: Corporal
         in: query
         name: categoria
         type: string
@@ -573,10 +1138,12 @@ paths:
         enum:
         - SAN MARTIN
         - PASEO ARANJUEZ
+        example: PASEO ARANJUEZ
         in: query
         name: local
         type: string
       - description: Numero exacto de sesiones
+        example: 4
         in: query
         name: sesiones
         type: integer
@@ -586,7 +1153,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.comboListResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -603,7 +1175,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.localListResponse'
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -628,7 +1205,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -645,6 +1227,7 @@ paths:
       description: Realiza el borrado logico de un local estableciendo activo en false.
       parameters:
       - description: ID del local
+        example: 3
         in: path
         name: id
         required: true
@@ -655,7 +1238,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -675,6 +1263,7 @@ paths:
       description: Devuelve un local de PostgreSQL por su identificador.
       parameters:
       - description: ID del local
+        example: 3
         in: path
         name: id
         required: true
@@ -685,7 +1274,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.localItemResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -703,6 +1297,7 @@ paths:
       description: Actualiza nombre o estado activo de un local existente.
       parameters:
       - description: ID del local
+        example: 3
         in: path
         name: id
         required: true
@@ -719,7 +1314,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -741,11 +1341,13 @@ paths:
         por dia_semana.
       parameters:
       - description: ID del local
+        example: 3
         in: query
         name: local_id
         required: true
         type: integer
       - description: Dia de la semana (1=lunes, 7=domingo)
+        example: 1
         in: query
         name: dia_semana
         type: integer
@@ -755,7 +1357,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.horarioListResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -788,7 +1395,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -814,6 +1426,7 @@ paths:
         false.
       parameters:
       - description: ID del horario
+        example: 15
         in: path
         name: id
         required: true
@@ -824,7 +1437,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -844,6 +1462,7 @@ paths:
       description: Devuelve un horario de atencion por su identificador.
       parameters:
       - description: ID del horario
+        example: 15
         in: path
         name: id
         required: true
@@ -854,7 +1473,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.horarioItemResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -876,6 +1500,7 @@ paths:
       description: Actualiza parcialmente un horario habitual de un local.
       parameters:
       - description: ID del horario
+        example: 15
         in: path
         name: id
         required: true
@@ -892,7 +1517,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -918,34 +1548,42 @@ paths:
         por local.
       parameters:
       - description: Nombre del local
+        example: SAN MARTIN
         in: query
         name: local
         type: string
       - description: Fecha exacta
+        example: "2026-05-23"
         in: query
         name: fecha
         type: string
       - description: Fecha desde
+        example: "2026-05-19"
         in: query
         name: fecha_desde
         type: string
       - description: Fecha hasta
+        example: "2026-05-24"
         in: query
         name: fecha_hasta
         type: string
       - description: Nombre del cliente
+        example: Maria Lopez
         in: query
         name: cliente
         type: string
       - description: Numero de telefono
+        example: "+59170011223"
         in: query
         name: numero_telefono
         type: string
       - description: Busqueda parcial por servicio solicitado
+        example: depilacion
         in: query
         name: servicio_solicitado
         type: string
       - description: Busqueda parcial por servicio confirmado
+        example: depilacion laser piernas
         in: query
         name: servicio_confirmado
         type: string
@@ -955,6 +1593,7 @@ paths:
         - RECHAZADO
         - AGENDADO
         - COMPLETADO
+        example: COMPLETADO
         in: query
         name: estado
         type: string
@@ -962,6 +1601,7 @@ paths:
         enum:
         - mesa
         - bicicleta
+        example: bicicleta
         in: query
         name: tipo
         type: string
@@ -971,7 +1611,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reservaSimpleListResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1000,7 +1645,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1033,7 +1683,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reservaCreatedResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1055,6 +1710,7 @@ paths:
         false.
       parameters:
       - description: ID de la reserva
+        example: 44
         in: path
         name: id
         required: true
@@ -1065,7 +1721,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1085,6 +1746,7 @@ paths:
       description: Devuelve una reserva de PostgreSQL por su identificador.
       parameters:
       - description: ID de la reserva
+        example: 44
         in: path
         name: id
         required: true
@@ -1095,7 +1757,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reservaItemResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1116,34 +1783,42 @@ paths:
       description: Devuelve reservas agrupadas por local con filtros opcionales.
       parameters:
       - description: Nombre del local
+        example: SAN MARTIN
         in: query
         name: local
         type: string
       - description: Fecha exacta
+        example: "2026-05-23"
         in: query
         name: fecha
         type: string
       - description: Fecha desde
+        example: "2026-05-19"
         in: query
         name: fecha_desde
         type: string
       - description: Fecha hasta
+        example: "2026-05-24"
         in: query
         name: fecha_hasta
         type: string
       - description: Nombre del cliente
+        example: Maria Lopez
         in: query
         name: cliente
         type: string
       - description: Numero de telefono
+        example: "+59170011223"
         in: query
         name: numero_telefono
         type: string
       - description: Busqueda parcial por servicio solicitado
+        example: depilacion
         in: query
         name: servicio_solicitado
         type: string
       - description: Busqueda parcial por servicio confirmado
+        example: depilacion laser piernas
         in: query
         name: servicio_confirmado
         type: string
@@ -1153,6 +1828,7 @@ paths:
         - RECHAZADO
         - AGENDADO
         - COMPLETADO
+        example: AGENDADO
         in: query
         name: estado
         type: string
@@ -1160,10 +1836,12 @@ paths:
         enum:
         - mesa
         - bicicleta
+        example: mesa
         in: query
         name: tipo
         type: string
       - description: Filtrar por estado reservado
+        example: true
         in: query
         name: reservados
         type: boolean
@@ -1173,7 +1851,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reservaCalendarioResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1203,7 +1886,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1225,6 +1913,7 @@ paths:
         completados del dia y acumulado semanal desde el lunes hasta la fecha indicada.
       parameters:
       - description: Fecha a consultar en formato YYYY-MM-DD
+        example: "2026-05-23"
         in: query
         name: fecha
         required: true
@@ -1257,10 +1946,12 @@ paths:
       description: Devuelve servicios persistidos en PostgreSQL con filtros opcionales.
       parameters:
       - description: Busqueda parcial por nombre
+        example: depila
         in: query
         name: nombre
         type: string
       - description: Busqueda parcial por categoria
+        example: Corporal
         in: query
         name: categoria
         type: string
@@ -1268,14 +1959,17 @@ paths:
         enum:
         - SAN MARTIN
         - PASEO ARANJUEZ
+        example: SAN MARTIN
         in: query
         name: local
         type: string
       - description: Numero exacto de sesiones
+        example: 6
         in: query
         name: sesiones
         type: integer
       - description: Filtrar por servicios que requieren evaluacion
+        example: true
         in: query
         name: requiere_evaluacion
         type: boolean
@@ -1285,7 +1979,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.servicioListResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1311,7 +2010,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1329,6 +2033,7 @@ paths:
         false.
       parameters:
       - description: ID del servicio
+        example: 8
         in: path
         name: id
         required: true
@@ -1339,7 +2044,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1359,6 +2069,7 @@ paths:
       description: Devuelve un servicio de PostgreSQL por su identificador.
       parameters:
       - description: ID del servicio
+        example: 8
         in: path
         name: id
         required: true
@@ -1369,7 +2080,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.servicioItemResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1387,6 +2103,7 @@ paths:
       description: Actualiza un servicio existente en PostgreSQL.
       parameters:
       - description: ID del servicio
+        example: 8
         in: path
         name: id
         required: true
@@ -1403,7 +2120,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1426,6 +2148,7 @@ paths:
       description: Asocia un servicio existente a un local determinado.
       parameters:
       - description: ID del servicio
+        example: 8
         in: path
         name: id
         required: true
@@ -1442,7 +2165,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1459,10 +2187,12 @@ paths:
       description: Devuelve combos filtrados por nombre, categoria, local y sesiones.
       parameters:
       - description: Busqueda parcial por nombre
+        example: relax
         in: query
         name: nombre
         type: string
       - description: Busqueda parcial por categoria
+        example: Corporal
         in: query
         name: categoria
         type: string
@@ -1471,10 +2201,12 @@ paths:
         - ARANJUEZ
         - CENTRO
         - SAN MARTIN
+        example: ARANJUEZ
         in: query
         name: local
         type: string
       - description: Numero exacto de sesiones
+        example: 4
         in: query
         name: sesiones
         type: integer
@@ -1484,7 +2216,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.comboListResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1498,14 +2235,17 @@ paths:
         y si estan reservadas.
       parameters:
       - description: Nombre del local
+        example: SAN MARTIN
         in: query
         name: local
         type: string
       - description: Semana a consultar
+        example: "2026-05-25"
         in: query
         name: semana
         type: string
       - description: Dia a consultar
+        example: lunes
         in: query
         name: dia
         type: string
@@ -1514,14 +2254,17 @@ paths:
         - mesa
         - bicicleta
         - feriado
+        example: mesa
         in: query
         name: tipo
         type: string
       - description: Nombre del cliente
+        example: Maria
         in: query
         name: cliente
         type: string
       - description: Filtrar solo reservados
+        example: true
         in: query
         name: reservados
         type: boolean
@@ -1531,7 +2274,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reservaListResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1560,11 +2308,21 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.slotsResponse'
+              type: object
         "207":
           description: Multi-Status
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.slotsResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1597,11 +2355,21 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.slotsResponse'
+              type: object
         "207":
           description: Multi-Status
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.slotsResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1691,10 +2459,12 @@ paths:
       description: Devuelve servicios filtrados por nombre, categoria, local y sesiones.
       parameters:
       - description: Busqueda parcial por nombre
+        example: depila
         in: query
         name: nombre
         type: string
       - description: Busqueda parcial por categoria
+        example: Facial
         in: query
         name: categoria
         type: string
@@ -1703,14 +2473,17 @@ paths:
         - ARANJUEZ
         - CENTRO
         - SAN MARTIN
+        example: CENTRO
         in: query
         name: local
         type: string
       - description: Numero exacto de sesiones
+        example: 10
         in: query
         name: sesiones
         type: integer
       - description: Filtrar por servicios que requieren evaluacion
+        example: false
         in: query
         name: requiere_evaluacion
         type: boolean
@@ -1720,7 +2493,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.servicioListResponse'
+              type: object
         "400":
           description: Bad Request
           schema:

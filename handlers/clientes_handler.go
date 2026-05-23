@@ -12,15 +12,15 @@ import (
 )
 
 type crearClienteRequest struct {
-	Nombre         string `json:"nombre"`
-	Apellido       string `json:"apellido"`
-	NumeroTelefono string `json:"numero_telefono"`
+	Nombre         string `json:"nombre" example:"Maria"`
+	Apellido       string `json:"apellido" example:"Lopez"`
+	NumeroTelefono string `json:"numero_telefono" example:"+59170011223"`
 }
 
 type actualizarClienteRequest struct {
-	Nombre         *string `json:"nombre"`
-	Apellido       *string `json:"apellido"`
-	NumeroTelefono *string `json:"numero_telefono"`
+	Nombre         *string `json:"nombre" example:"Maria Fernanda"`
+	Apellido       *string `json:"apellido" example:"Lopez Aguilar"`
+	NumeroTelefono *string `json:"numero_telefono" example:"+59170011224"`
 }
 
 // GetClientes godoc
@@ -28,10 +28,10 @@ type actualizarClienteRequest struct {
 // @Description Devuelve clientes de PostgreSQL con filtros opcionales por nombre, apellido y numero de telefono.
 // @Tags Clientes
 // @Produce json
-// @Param nombre query string false "Busqueda parcial por nombre"
-// @Param apellido query string false "Busqueda parcial por apellido"
-// @Param numero_telefono query string false "Busqueda parcial por numero de telefono"
-// @Success 200 {object} utils.APIResponse
+// @Param nombre query string false "Busqueda parcial por nombre" example(Maria)
+// @Param apellido query string false "Busqueda parcial por apellido" example(Lopez)
+// @Param numero_telefono query string false "Busqueda parcial por numero de telefono" example(+59170011223)
+// @Success 200 {object} utils.APIResponse{data=clienteListResponse}
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/clientes [get]
 func (h *Container) GetClientes(c *gin.Context) {
@@ -45,14 +45,14 @@ func (h *Container) GetClientes(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total": len(clientes),
-		"filtros": gin.H{
-			"nombre":          strings.TrimSpace(c.Query("nombre")),
-			"apellido":        strings.TrimSpace(c.Query("apellido")),
-			"numero_telefono": strings.TrimSpace(c.Query("numero_telefono")),
+	utils.Respond(c, http.StatusOK, clienteListResponse{
+		Total: len(clientes),
+		Filtros: clienteFiltrosResponse{
+			Nombre:         strings.TrimSpace(c.Query("nombre")),
+			Apellido:       strings.TrimSpace(c.Query("apellido")),
+			NumeroTelefono: strings.TrimSpace(c.Query("numero_telefono")),
 		},
-		"clientes": clientes,
+		Clientes: clientes,
 	})
 }
 
@@ -61,8 +61,8 @@ func (h *Container) GetClientes(c *gin.Context) {
 // @Description Devuelve un cliente de PostgreSQL por su identificador.
 // @Tags Clientes
 // @Produce json
-// @Param id path int true "ID del cliente"
-// @Success 200 {object} utils.APIResponse
+// @Param id path int true "ID del cliente" example(12)
+// @Success 200 {object} utils.APIResponse{data=clienteItemResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -84,9 +84,7 @@ func (h *Container) GetClienteByID(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"cliente": cliente,
-	})
+	utils.Respond(c, http.StatusOK, clienteItemResponse{Cliente: cliente})
 }
 
 // CreateCliente godoc
@@ -96,7 +94,7 @@ func (h *Container) GetClienteByID(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param payload body crearClienteRequest true "Datos del cliente"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=idResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 409 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -129,7 +127,7 @@ func (h *Container) CreateCliente(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"id": id})
+	utils.Respond(c, http.StatusOK, idResponse{ID: id})
 }
 
 // PatchCliente godoc
@@ -138,9 +136,9 @@ func (h *Container) CreateCliente(c *gin.Context) {
 // @Tags Clientes
 // @Accept json
 // @Produce json
-// @Param id path int true "ID del cliente"
+// @Param id path int true "ID del cliente" example(12)
 // @Param payload body actualizarClienteRequest true "Campos a actualizar"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 409 {object} utils.APIResponse
@@ -199,7 +197,7 @@ func (h *Container) PatchCliente(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "cliente actualizado correctamente"})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "cliente actualizado correctamente"})
 }
 
 // DeleteCliente godoc
@@ -207,8 +205,8 @@ func (h *Container) PatchCliente(c *gin.Context) {
 // @Description Elimina un cliente de la base de datos.
 // @Tags Clientes
 // @Produce json
-// @Param id path int true "ID del cliente"
-// @Success 200 {object} utils.APIResponse
+// @Param id path int true "ID del cliente" example(12)
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -230,5 +228,5 @@ func (h *Container) DeleteCliente(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "cliente eliminado correctamente"})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "cliente eliminado correctamente"})
 }

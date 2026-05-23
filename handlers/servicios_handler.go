@@ -25,12 +25,12 @@ import (
 // @Description Devuelve servicios filtrados por nombre, categoria, local y sesiones.
 // @Tags Catalogo
 // @Produce json
-// @Param nombre query string false "Busqueda parcial por nombre"
-// @Param categoria query string false "Busqueda parcial por categoria"
-// @Param local query string false "Local" Enums(ARANJUEZ,CENTRO,SAN MARTIN)
-// @Param sesiones query int false "Numero exacto de sesiones"
-// @Param requiere_evaluacion query bool false "Filtrar por servicios que requieren evaluacion"
-// @Success 200 {object} utils.APIResponse
+// @Param nombre query string false "Busqueda parcial por nombre" example(depila)
+// @Param categoria query string false "Busqueda parcial por categoria" example(Facial)
+// @Param local query string false "Local" Enums(ARANJUEZ,CENTRO,SAN MARTIN) example(CENTRO)
+// @Param sesiones query int false "Numero exacto de sesiones" example(10)
+// @Param requiere_evaluacion query bool false "Filtrar por servicios que requieren evaluacion" example(false)
+// @Success 200 {object} utils.APIResponse{data=servicioListResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Router /servicios [get]
 func (h *Container) GetServicios(c *gin.Context) {
@@ -80,15 +80,15 @@ func (h *Container) GetServicios(c *gin.Context) {
 		resultado = []models.ServicioItem{}
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total": len(resultado),
-		"filtros": gin.H{
-			"nombre":              filtro.Nombre,
-			"categoria":           filtro.Categoria,
-			"local":               filtro.Local,
-			"sesiones":            filtro.Sesiones,
-			"requiere_evaluacion": filtro.RequiereEvaluacion,
+	utils.Respond(c, http.StatusOK, servicioListResponse{
+		Total: len(resultado),
+		Filtros: servicioFiltrosResponse{
+			Nombre:             filtro.Nombre,
+			Categoria:          filtro.Categoria,
+			Local:              filtro.Local,
+			Sesiones:           filtro.Sesiones,
+			RequiereEvaluacion: filtro.RequiereEvaluacion,
 		},
-		"servicios": resultado,
+		Servicios: resultado,
 	})
 }

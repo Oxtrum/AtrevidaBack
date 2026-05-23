@@ -17,12 +17,12 @@ import (
 // @Description Devuelve servicios persistidos en PostgreSQL con filtros opcionales.
 // @Tags Servicios BD
 // @Produce json
-// @Param nombre query string false "Busqueda parcial por nombre"
-// @Param categoria query string false "Busqueda parcial por categoria"
-// @Param local query string false "Local" Enums(SAN MARTIN,PASEO ARANJUEZ)
-// @Param sesiones query int false "Numero exacto de sesiones"
-// @Param requiere_evaluacion query bool false "Filtrar por servicios que requieren evaluacion"
-// @Success 200 {object} utils.APIResponse
+// @Param nombre query string false "Busqueda parcial por nombre" example(depila)
+// @Param categoria query string false "Busqueda parcial por categoria" example(Corporal)
+// @Param local query string false "Local" Enums(SAN MARTIN,PASEO ARANJUEZ) example(SAN MARTIN)
+// @Param sesiones query int false "Numero exacto de sesiones" example(6)
+// @Param requiere_evaluacion query bool false "Filtrar por servicios que requieren evaluacion" example(true)
+// @Success 200 {object} utils.APIResponse{data=servicioListResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Router /bd/servicios [get]
 func (h *Container) GetServiciosPG(c *gin.Context) {
@@ -68,16 +68,16 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 		resultado = []models.ServicioItem{}
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total": len(resultado),
-		"filtros": gin.H{
-			"nombre":              filtro.Nombre,
-			"categoria":           filtro.Categoria,
-			"local":               filtro.Local,
-			"sesiones":            filtro.Sesiones,
-			"requiere_evaluacion": filtro.RequiereEvaluacion,
+	utils.Respond(c, http.StatusOK, servicioListResponse{
+		Total: len(resultado),
+		Filtros: servicioFiltrosResponse{
+			Nombre:             filtro.Nombre,
+			Categoria:          filtro.Categoria,
+			Local:              filtro.Local,
+			Sesiones:           filtro.Sesiones,
+			RequiereEvaluacion: filtro.RequiereEvaluacion,
 		},
-		"servicios": resultado,
+		Servicios: resultado,
 	})
 }
 
@@ -86,8 +86,8 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 // @Description Devuelve un servicio de PostgreSQL por su identificador.
 // @Tags Servicios BD
 // @Produce json
-// @Param id path int true "ID del servicio"
-// @Success 200 {object} utils.APIResponse
+// @Param id path int true "ID del servicio" example(8)
+// @Success 200 {object} utils.APIResponse{data=servicioItemResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Router /bd/servicios/{id} [get]
@@ -104,19 +104,19 @@ func (h *Container) GetServicioPGByID(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"servicio": resultado})
+	utils.Respond(c, http.StatusOK, servicioItemResponse{Servicio: resultado})
 }
 
 // POST /admin/servicios
 type crearServicioRequest struct {
-	Nombre               string   `json:"nombre"                binding:"required"`
-	CategoriaNombre      string   `json:"categoria"             binding:"required"`
-	Tiempo               string   `json:"tiempo"`
-	Costo                *float64 `json:"costo"`
-	Sesiones             int      `json:"sesiones"`
-	TipoEspacioRequerido *string  `json:"tipo_espacio_requerido"` // "M" | "B" | nil
-	RequiereEvaluacion   *bool    `json:"requiere_evaluacion"`
-	LocalNombre          string   `json:"local"` // opcional
+	Nombre               string   `json:"nombre"                binding:"required" example:"Depilacion Laser Piernas"`
+	CategoriaNombre      string   `json:"categoria"             binding:"required" example:"Corporal"`
+	Tiempo               string   `json:"tiempo" example:"01:00"`
+	Costo                *float64 `json:"costo" example:"350"`
+	Sesiones             int      `json:"sesiones" example:"6"`
+	TipoEspacioRequerido *string  `json:"tipo_espacio_requerido" example:"M"` // "M" | "B" | nil
+	RequiereEvaluacion   *bool    `json:"requiere_evaluacion" example:"true"`
+	LocalNombre          string   `json:"local" example:"SAN MARTIN"` // opcional
 }
 
 // CreateServicio godoc
@@ -126,7 +126,7 @@ type crearServicioRequest struct {
 // @Accept json
 // @Produce json
 // @Param payload body crearServicioRequest true "Datos del servicio"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=idResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/servicios [post]
@@ -175,19 +175,19 @@ func (h *Container) CreateServicio(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"id": id})
+	utils.Respond(c, http.StatusOK, idResponse{ID: id})
 }
 
 // PATCH /admin/servicios/:id
 type actualizarServicioRequest struct {
-	Nombre               *string  `json:"nombre"`
-	CategoriaNombre      *string  `json:"categoria"`
-	Tiempo               *string  `json:"tiempo"`
-	Costo                *float64 `json:"costo"`
-	Sesiones             *int     `json:"sesiones"`
-	TipoEspacioRequerido *string  `json:"tipo_espacio_requerido"`
-	RequiereEvaluacion   *bool    `json:"requiere_evaluacion"`
-	Activo               *bool    `json:"activo"`
+	Nombre               *string  `json:"nombre" example:"Depilacion Laser Piernas Premium"`
+	CategoriaNombre      *string  `json:"categoria" example:"Corporal"`
+	Tiempo               *string  `json:"tiempo" example:"01:15"`
+	Costo                *float64 `json:"costo" example:"420"`
+	Sesiones             *int     `json:"sesiones" example:"8"`
+	TipoEspacioRequerido *string  `json:"tipo_espacio_requerido" example:"M"`
+	RequiereEvaluacion   *bool    `json:"requiere_evaluacion" example:"false"`
+	Activo               *bool    `json:"activo" example:"true"`
 }
 
 // UpdateServicio godoc
@@ -196,9 +196,9 @@ type actualizarServicioRequest struct {
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
-// @Param id path int true "ID del servicio"
+// @Param id path int true "ID del servicio" example(8)
 // @Param payload body actualizarServicioRequest true "Campos a actualizar"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -253,12 +253,12 @@ func (h *Container) UpdateServicio(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "servicio actualizado correctamente"})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "servicio actualizado correctamente"})
 }
 
 // POST /admin/servicios/:id/activar
 type activarServicioRequest struct {
-	Local string `json:"local" binding:"required"`
+	Local string `json:"local" binding:"required" example:"PASEO ARANJUEZ"`
 }
 
 // ActivarServicioEnLocal godoc
@@ -267,9 +267,9 @@ type activarServicioRequest struct {
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
-// @Param id path int true "ID del servicio"
+// @Param id path int true "ID del servicio" example(8)
 // @Param payload body activarServicioRequest true "Local donde activar el servicio"
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
 // @Router /bd/servicios/local/{id} [post]
@@ -297,7 +297,7 @@ func (h *Container) ActivarServicioEnLocal(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "servicio activado en local correctamente"})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "servicio activado en local correctamente"})
 }
 
 // DeleteServicio godoc
@@ -305,8 +305,8 @@ func (h *Container) ActivarServicioEnLocal(c *gin.Context) {
 // @Description Realiza el borrado logico de un servicio estableciendo activo en false.
 // @Tags Servicios BD
 // @Produce json
-// @Param id path int true "ID del servicio"
-// @Success 200 {object} utils.APIResponse
+// @Param id path int true "ID del servicio" example(8)
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -328,5 +328,5 @@ func (h *Container) DeleteServicio(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{"mensaje": "servicio eliminado correctamente"})
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "servicio eliminado correctamente"})
 }

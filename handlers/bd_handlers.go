@@ -63,11 +63,11 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 // @Description Devuelve combos persistidos en PostgreSQL con filtros opcionales.
 // @Tags Combos BD
 // @Produce json
-// @Param nombre query string false "Busqueda parcial por nombre"
-// @Param categoria query string false "Busqueda parcial por categoria"
-// @Param local query string false "Local" Enums(SAN MARTIN,PASEO ARANJUEZ)
-// @Param sesiones query int false "Numero exacto de sesiones"
-// @Success 200 {object} utils.APIResponse
+// @Param nombre query string false "Busqueda parcial por nombre" example(relax)
+// @Param categoria query string false "Busqueda parcial por categoria" example(Corporal)
+// @Param local query string false "Local" Enums(SAN MARTIN,PASEO ARANJUEZ) example(PASEO ARANJUEZ)
+// @Param sesiones query int false "Numero exacto de sesiones" example(4)
+// @Success 200 {object} utils.APIResponse{data=comboListResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Router /bd/combos [get]
 func (h *Container) GetCombosPG(c *gin.Context) {
@@ -101,14 +101,14 @@ func (h *Container) GetCombosPG(c *gin.Context) {
 		resultado = []models.ComboItem{}
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"total": len(resultado),
-		"filtros": gin.H{
-			"nombre":    filtro.Nombre,
-			"categoria": filtro.Categoria,
-			"local":     filtro.Local,
-			"sesiones":  filtro.Sesiones,
+	utils.Respond(c, http.StatusOK, comboListResponse{
+		Total: len(resultado),
+		Filtros: comboFiltrosResponse{
+			Nombre:    filtro.Nombre,
+			Categoria: filtro.Categoria,
+			Local:     filtro.Local,
+			Sesiones:  filtro.Sesiones,
 		},
-		"combos": resultado,
+		Combos: resultado,
 	})
 }

@@ -8,11 +8,11 @@ import (
 )
 
 type APIResponse struct {
-	Code    int         `json:"code"`
+	Code    int         `json:"code" example:"200"`
 	Data    interface{} `json:"data"`
-	Error   bool        `json:"error"`
-	Message *string     `json:"message"`
-	Status  string      `json:"status"`
+	Error   bool        `json:"error" example:"false"`
+	Message *string     `json:"message" example:"operacion realizada correctamente"`
+	Status  string      `json:"status" example:"OK"`
 }
 
 func Respond(c *gin.Context, httpStatus int, data interface{}, message ...string) {

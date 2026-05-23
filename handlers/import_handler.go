@@ -15,7 +15,7 @@ import (
 // @Description Ejecuta la importacion de categorias, servicios y combos desde Google Sheets hacia PostgreSQL.
 // @Tags Admin
 // @Produce json
-// @Success 200 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=importResponse}
 // @Failure 500 {object} utils.APIResponse
 // @Router /admin/importar [post]
 func (h *Container) ImportarCatalogo(c *gin.Context) {
@@ -26,12 +26,12 @@ func (h *Container) ImportarCatalogo(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, gin.H{
-		"categorias":       resultado.Categorias,
-		"servicios":        resultado.Servicios,
-		"servicio_locales": resultado.ServicioLocales,
-		"combos":           resultado.Combos,
-		"combo_locales":    resultado.ComboLocales,
-		"combo_servicios":  resultado.ComboServicios,
+	utils.Respond(c, http.StatusOK, importResponse{
+		Categorias:      resultado.Categorias,
+		Servicios:       resultado.Servicios,
+		ServicioLocales: resultado.ServicioLocales,
+		Combos:          resultado.Combos,
+		ComboLocales:    resultado.ComboLocales,
+		ComboServicios:  resultado.ComboServicios,
 	})
 }

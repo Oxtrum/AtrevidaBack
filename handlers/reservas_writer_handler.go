@@ -12,14 +12,14 @@ import (
 
 // POST /reservas
 type crearReservaRequest struct {
-	Local     string `json:"local"      binding:"required"`
-	Semana    string `json:"semana"     binding:"required"`
-	Dia       string `json:"dia"        binding:"required"`
-	HoraDesde string `json:"hora_desde" binding:"required"`
-	HoraHasta string `json:"hora_hasta"`
-	Tipo      string `json:"tipo"       binding:"required"`
-	Cliente   string `json:"cliente"    binding:"required"`
-	Servicio  string `json:"servicio"`
+	Local     string `json:"local"      binding:"required" example:"SAN MARTIN"`
+	Semana    string `json:"semana"     binding:"required" example:"2026-05-25"`
+	Dia       string `json:"dia"        binding:"required" example:"lunes"`
+	HoraDesde string `json:"hora_desde" binding:"required" example:"09:00"`
+	HoraHasta string `json:"hora_hasta" example:"10:00"`
+	Tipo      string `json:"tipo"       binding:"required" example:"M"`
+	Cliente   string `json:"cliente"    binding:"required" example:"Maria Lopez"`
+	Servicio  string `json:"servicio" example:"Depilacion piernas completas"`
 }
 
 // PostReserva godoc
@@ -29,8 +29,8 @@ type crearReservaRequest struct {
 // @Accept json
 // @Produce json
 // @Param payload body crearReservaRequest true "Datos de la reserva"
-// @Success 200 {object} utils.APIResponse
-// @Success 207 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=slotsResponse}
+// @Success 207 {object} utils.APIResponse{data=slotsResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 409 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -63,9 +63,9 @@ func (h *Container) PostReserva(c *gin.Context) {
 		return
 	}
 
-	data := gin.H{
-		"slots_ok":    resultado.Exitosos,
-		"slots_error": resultado.Errores,
+	data := slotsResponse{
+		SlotsOk:    resultado.Exitosos,
+		SlotsError: resultado.Errores,
 	}
 
 	switch {
@@ -81,18 +81,18 @@ func (h *Container) PostReserva(c *gin.Context) {
 
 // PATCH /reservas
 type actualizarReservaRequest struct {
-	Local   string `json:"local"   binding:"required"`
-	Semana  string `json:"semana"  binding:"required"`
-	Dia     string `json:"dia"     binding:"required"`
-	Hora    string `json:"hora"    binding:"required"`
-	Tipo    string `json:"tipo"    binding:"required"`
-	Cliente string `json:"cliente" binding:"required"`
+	Local   string `json:"local"   binding:"required" example:"SAN MARTIN"`
+	Semana  string `json:"semana"  binding:"required" example:"2026-05-25"`
+	Dia     string `json:"dia"     binding:"required" example:"lunes"`
+	Hora    string `json:"hora"    binding:"required" example:"09:00"`
+	Tipo    string `json:"tipo"    binding:"required" example:"M"`
+	Cliente string `json:"cliente" binding:"required" example:"Maria Lopez"`
 
-	NuevoDia       string `json:"nuevo_dia"`
-	NuevaHoraDesde string `json:"nueva_hora_desde"`
-	NuevaHoraHasta string `json:"nueva_hora_hasta"`
-	NuevoTipo      string `json:"nuevo_tipo"`
-	NuevoServicio  string `json:"nuevo_servicio"`
+	NuevoDia       string `json:"nuevo_dia" example:"martes"`
+	NuevaHoraDesde string `json:"nueva_hora_desde" example:"11:00"`
+	NuevaHoraHasta string `json:"nueva_hora_hasta" example:"12:00"`
+	NuevoTipo      string `json:"nuevo_tipo" example:"B"`
+	NuevoServicio  string `json:"nuevo_servicio" example:"Evaluacion corporal"`
 }
 
 // PatchReserva godoc
@@ -102,8 +102,8 @@ type actualizarReservaRequest struct {
 // @Accept json
 // @Produce json
 // @Param payload body actualizarReservaRequest true "Datos para actualizar la reserva"
-// @Success 200 {object} utils.APIResponse
-// @Success 207 {object} utils.APIResponse
+// @Success 200 {object} utils.APIResponse{data=slotsResponse}
+// @Success 207 {object} utils.APIResponse{data=slotsResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 409 {object} utils.APIResponse
 // @Failure 500 {object} utils.APIResponse
@@ -151,9 +151,9 @@ func (h *Container) PatchReserva(c *gin.Context) {
 		return
 	}
 
-	data := gin.H{
-		"slots_ok":    resultado.Exitosos,
-		"slots_error": resultado.Errores,
+	data := slotsResponse{
+		SlotsOk:    resultado.Exitosos,
+		SlotsError: resultado.Errores,
 	}
 
 	switch {
