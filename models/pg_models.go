@@ -7,46 +7,46 @@ import (
 // Locales
 
 type LocalPG struct {
-	ID     int    `db:"id"`
-	Nombre string `db:"nombre"`
-	Activo bool   `db:"activo"`
+	ID     int    `db:"id" json:"id" example:"3"`
+	Nombre string `db:"nombre" json:"nombre" example:"SAN MARTIN"`
+	Activo bool   `db:"activo" json:"activo" example:"true"`
 }
 type TipoEspacioLocal struct {
-	TipoEspacio      string `db:"tipo_espacio"       json:"tipo_espacio"`
-	CantidadEspacios int    `db:"cantidad_espacios"  json:"cantidad_espacios"`
+	TipoEspacio      string `db:"tipo_espacio"       json:"tipo_espacio" example:"M"`
+	CantidadEspacios int    `db:"cantidad_espacios"  json:"cantidad_espacios" example:"6"`
 }
 
 type LocalConEspacios struct {
-	ID       int                `db:"id"     json:"id"`
-	Nombre   string             `db:"nombre" json:"nombre"`
-	Activo   bool               `db:"activo" json:"activo"`
+	ID       int                `db:"id"     json:"id" example:"3"`
+	Nombre   string             `db:"nombre" json:"nombre" example:"SAN MARTIN"`
+	Activo   bool               `db:"activo" json:"activo" example:"true"`
 	Espacios []TipoEspacioLocal `db:"-"     json:"espacios"`
 	Horarios []LocalHorarioPG   `db:"-"     json:"horarios"`
 }
 
 type LocalHorarioPG struct {
-	ID        int    `db:"id" json:"id"`
-	LocalID   int    `db:"local_id" json:"local_id"`
-	DiaSemana int    `db:"dia_semana" json:"dia_semana"`
-	HoraDesde string `db:"hora_desde" json:"hora_desde"`
-	HoraHasta string `db:"hora_hasta" json:"hora_hasta"`
-	Activo    bool   `db:"activo" json:"activo"`
+	ID        int    `db:"id" json:"id" example:"15"`
+	LocalID   int    `db:"local_id" json:"local_id" example:"3"`
+	DiaSemana int    `db:"dia_semana" json:"dia_semana" example:"1"`
+	HoraDesde string `db:"hora_desde" json:"hora_desde" example:"09:00"`
+	HoraHasta string `db:"hora_hasta" json:"hora_hasta" example:"18:00"`
+	Activo    bool   `db:"activo" json:"activo" example:"true"`
 }
 
 // Categorías
 
 type CategoriaPG struct {
-	ID     int    `db:"id"`
-	Nombre string `db:"nombre"`
+	ID     int    `db:"id" json:"id" example:"4"`
+	Nombre string `db:"nombre" json:"nombre" example:"Corporal"`
 }
 
 // Clientes
 
 type ClientePG struct {
-	ID             int    `db:"id" json:"id"`
-	Nombre         string `db:"nombre" json:"nombre"`
-	Apellido       string `db:"apellido" json:"apellido"`
-	NumeroTelefono string `db:"numero_telefono" json:"numero_telefono"`
+	ID             int    `db:"id" json:"id" example:"12"`
+	Nombre         string `db:"nombre" json:"nombre" example:"Maria"`
+	Apellido       string `db:"apellido" json:"apellido" example:"Lopez"`
+	NumeroTelefono string `db:"numero_telefono" json:"numero_telefono" example:"+59170011223"`
 }
 
 // Servicios

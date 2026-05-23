@@ -429,20 +429,20 @@ func getRangoTiempoDisp(desdeStr, hastaStr string) (time.Time, time.Time) {
 
 // ReservaSimple es la representación plana de una reserva para GET /bd/reservas.
 type ReservaSimple struct {
-	ID                 int      `json:"id"`
-	Local              string   `json:"local"`
-	Tipo               string   `json:"tipo"`
-	Fecha              string   `json:"fecha"`
-	HoraDesde          string   `json:"hora_desde"`
-	HoraHasta          string   `json:"hora_hasta"`
-	Cliente            string   `json:"cliente"`
-	Estado             *string  `json:"estado,omitempty"`
-	NumeroTelefono     *string  `json:"numero_telefono,omitempty"`
-	Servicio           *string  `json:"servicio,omitempty"`
-	ServicioSolicitado *string  `json:"servicio_solicitado,omitempty"`
-	ServicioConfirmado *string  `json:"servicio_confirmado,omitempty"`
-	Precio             *float64 `json:"precio,omitempty"`
-	Notas              *string  `json:"notas,omitempty"`
+	ID                 int      `json:"id" example:"44"`
+	Local              string   `json:"local" example:"SAN MARTIN"`
+	Tipo               string   `json:"tipo" example:"M"`
+	Fecha              string   `json:"fecha" example:"2026-05-23"`
+	HoraDesde          string   `json:"hora_desde" example:"09:00"`
+	HoraHasta          string   `json:"hora_hasta" example:"10:00"`
+	Cliente            string   `json:"cliente" example:"Maria Lopez"`
+	Estado             *string  `json:"estado,omitempty" example:"AGENDADO"`
+	NumeroTelefono     *string  `json:"numero_telefono,omitempty" example:"+59170011223"`
+	Servicio           *string  `json:"servicio,omitempty" example:"Depilacion Laser"`
+	ServicioSolicitado *string  `json:"servicio_solicitado,omitempty" example:"Piernas completas"`
+	ServicioConfirmado *string  `json:"servicio_confirmado,omitempty" example:"Depilacion Laser Piernas"`
+	Precio             *float64 `json:"precio,omitempty" example:"350"`
+	Notas              *string  `json:"notas,omitempty" example:"Primera sesion del plan"`
 }
 
 type ResumenReservasSemana struct {

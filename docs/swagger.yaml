@@ -180,57 +180,86 @@ definitions:
   handlers.categoriaListResponse:
     properties:
       categorias:
+        description: Lista de categorias
         items:
           $ref: '#/definitions/models.CategoriaPG'
         type: array
       total:
+        description: Cantidad total de categorias
+        example: 5
         type: integer
     type: object
   handlers.clienteFiltrosResponse:
     properties:
       apellido:
+        description: Filtro por apellido
+        example: Lopez
         type: string
       nombre:
+        description: Filtro por nombre
+        example: Maria
         type: string
       numero_telefono:
+        description: Filtro por numero de telefono
+        example: "+59170011223"
         type: string
     type: object
   handlers.clienteItemResponse:
     properties:
       cliente:
-        $ref: '#/definitions/models.ClientePG'
+        allOf:
+        - $ref: '#/definitions/models.ClientePG'
+        description: Datos del cliente
     type: object
   handlers.clienteListResponse:
     properties:
       clientes:
+        description: Lista de clientes
         items:
           $ref: '#/definitions/models.ClientePG'
         type: array
       filtros:
-        $ref: '#/definitions/handlers.clienteFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.clienteFiltrosResponse'
+        description: Filtros aplicados
       total:
+        description: Cantidad total de clientes
+        example: 1
         type: integer
     type: object
   handlers.comboFiltrosResponse:
     properties:
       categoria:
+        description: Filtro por categoria del combo
+        example: Corporal
         type: string
       local:
+        description: Filtro por local
+        example: ARANJUEZ
         type: string
       nombre:
+        description: Filtro por nombre del combo
+        example: relax
         type: string
       sesiones:
+        description: Filtro por numero exacto de sesiones
+        example: 4
         type: integer
     type: object
   handlers.comboListResponse:
     properties:
       combos:
+        description: Lista de combos
         items:
           $ref: '#/definitions/models.ComboItem'
         type: array
       filtros:
-        $ref: '#/definitions/handlers.comboFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.comboFiltrosResponse'
+        description: Filtros aplicados
       total:
+        description: Cantidad total de combos
+        example: 3
         type: integer
     type: object
   handlers.crearCategoriaRequest:
@@ -414,139 +443,223 @@ definitions:
   handlers.horarioFiltrosResponse:
     properties:
       dia_semana:
+        description: Dia de la semana filtrado (1=lunes, 7=domingo)
+        example: 1
         type: integer
       local_id:
+        description: ID del local consultado
+        example: 3
         type: integer
     type: object
   handlers.horarioItemResponse:
     properties:
       horario:
-        $ref: '#/definitions/models.LocalHorarioPG'
+        allOf:
+        - $ref: '#/definitions/models.LocalHorarioPG'
+        description: Datos del horario
     type: object
   handlers.horarioListResponse:
     properties:
       filtros:
-        $ref: '#/definitions/handlers.horarioFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.horarioFiltrosResponse'
+        description: Filtros aplicados
       horarios:
+        description: Lista de horarios
         items:
           $ref: '#/definitions/models.LocalHorarioPG'
         type: array
       total:
+        description: Cantidad total de horarios
+        example: 5
         type: integer
     type: object
   handlers.idResponse:
     properties:
       id:
+        description: ID del recurso creado
+        example: 42
         type: integer
     type: object
   handlers.importResponse:
     properties:
       categorias:
+        description: Cantidad de categorias importadas
+        example: 8
         type: integer
       combo_locales:
+        description: Cantidad de relaciones combo-local creadas
+        example: 6
         type: integer
       combo_servicios:
+        description: Cantidad de relaciones combo-servicio creadas
+        example: 12
         type: integer
       combos:
+        description: Cantidad de combos importados
+        example: 5
         type: integer
       servicio_locales:
+        description: Cantidad de relaciones servicio-local creadas
+        example: 30
         type: integer
       servicios:
+        description: Cantidad de servicios importados
+        example: 25
         type: integer
     type: object
   handlers.localItemResponse:
     properties:
       local:
-        $ref: '#/definitions/models.LocalConEspacios'
+        allOf:
+        - $ref: '#/definitions/models.LocalConEspacios'
+        description: Datos del local con espacios y horarios
       total:
+        description: Total de resultados (siempre 1)
+        example: 1
         type: integer
     type: object
   handlers.localListResponse:
     properties:
       locales:
+        description: Lista de locales con espacios y horarios
         items:
           $ref: '#/definitions/models.LocalConEspacios'
         type: array
       total:
+        description: Cantidad total de locales
+        example: 2
         type: integer
     type: object
   handlers.messageResponse:
     properties:
       mensaje:
+        description: Mensaje descriptivo del resultado
+        example: operacion realizada correctamente
         type: string
     type: object
   handlers.reservaCalendarioResponse:
     properties:
       filtros:
-        $ref: '#/definitions/handlers.reservaPGFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.reservaPGFiltrosResponse'
+        description: Filtros aplicados
       reservas:
+        description: Reservas agrupadas por local
         items:
           $ref: '#/definitions/models.LocalReservas'
         type: array
       total_locales:
+        description: Cantidad de locales con reservas
+        example: 2
         type: integer
     type: object
   handlers.reservaCreatedResponse:
     properties:
       id:
+        description: ID de la reserva creada
+        example: 44
         type: integer
       mensaje:
+        description: Mensaje de confirmacion
+        example: Reserva creada correctamente
         type: string
     type: object
   handlers.reservaFiltrosResponse:
     properties:
       cliente:
+        description: Filtro por nombre del cliente
+        example: Maria
         type: string
       dia:
+        description: Filtro por dia
+        example: lunes
         type: string
       local:
+        description: Filtro por local
+        example: SAN MARTIN
         type: string
       reservados:
+        description: Filtro por estado reservado
+        example: true
         type: boolean
       semana:
+        description: Filtro por semana
+        example: "2026-05-25"
         type: string
       tipo:
+        description: Filtro por tipo de reserva
+        example: mesa
         type: string
     type: object
   handlers.reservaItemResponse:
     properties:
       reserva:
-        $ref: '#/definitions/services.ReservaSimple'
+        allOf:
+        - $ref: '#/definitions/services.ReservaSimple'
+        description: Datos de la reserva
     type: object
   handlers.reservaListResponse:
     properties:
       filtros:
-        $ref: '#/definitions/handlers.reservaFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.reservaFiltrosResponse'
+        description: Filtros aplicados
       reservas:
+        description: Reservas agrupadas por local y semana
         items:
           $ref: '#/definitions/models.LocalReservas'
         type: array
       total_locales:
+        description: Cantidad de locales con reservas
+        example: 2
         type: integer
     type: object
   handlers.reservaPGFiltrosResponse:
     properties:
       cliente:
+        description: Filtro por nombre del cliente
+        example: Maria Lopez
         type: string
       estado:
+        description: Filtro por estado
+        example: AGENDADO
         type: string
       fecha:
+        description: Filtro por fecha exacta
+        example: "2026-05-23"
         type: string
       fecha_desde:
+        description: Filtro por fecha desde
+        example: "2026-05-19"
         type: string
       fecha_hasta:
+        description: Filtro por fecha hasta
+        example: "2026-05-24"
         type: string
       local:
+        description: Filtro por local
+        example: SAN MARTIN
         type: string
       numero_telefono:
+        description: Filtro por numero de telefono
+        example: "+59170011223"
         type: string
       reservados:
+        description: Filtro por estado reservado
+        example: true
         type: boolean
       servicio_confirmado:
+        description: Filtro por servicio confirmado
+        example: depilacion laser piernas
         type: string
       servicio_solicitado:
+        description: Filtro por servicio solicitado
+        example: depilacion
         type: string
       tipo:
+        description: Filtro por tipo de reserva
+        example: mesa
         type: string
     type: object
   handlers.reservaResumenResponse:
@@ -578,48 +691,76 @@ definitions:
   handlers.reservaSimpleListResponse:
     properties:
       reservas:
+        description: Lista plana de reservas
         items:
           $ref: '#/definitions/services.ReservaSimple'
         type: array
       total:
+        description: Cantidad total de reservas
+        example: 15
         type: integer
     type: object
   handlers.servicioFiltrosResponse:
     properties:
       categoria:
+        description: Filtro por categoria del servicio
+        example: Corporal
         type: string
       local:
+        description: Filtro por local
+        example: ARANJUEZ
         type: string
       nombre:
+        description: Filtro por nombre del servicio
+        example: depilacion
         type: string
       requiere_evaluacion:
+        description: Filtro por evaluacion requerida
+        example: true
         type: boolean
       sesiones:
+        description: Filtro por numero exacto de sesiones
+        example: 6
         type: integer
     type: object
   handlers.servicioItemResponse:
     properties:
       servicio:
-        $ref: '#/definitions/models.ServicioItem'
+        allOf:
+        - $ref: '#/definitions/models.ServicioItem'
+        description: Datos del servicio
     type: object
   handlers.servicioListResponse:
     properties:
       filtros:
-        $ref: '#/definitions/handlers.servicioFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.servicioFiltrosResponse'
+        description: Filtros aplicados
       servicios:
+        description: Lista de servicios
         items:
           $ref: '#/definitions/models.ServicioItem'
         type: array
       total:
+        description: Cantidad total de servicios
+        example: 10
         type: integer
     type: object
   handlers.slotsResponse:
     properties:
       slots_error:
+        description: Slots que no pudieron reservarse
+        example:
+        - "11:00"
+        - "12:00"
         items:
           type: string
         type: array
       slots_ok:
+        description: Slots que se reservaron exitosamente
+        example:
+        - "09:00"
+        - "10:00"
         items:
           type: string
         type: array
@@ -627,41 +768,53 @@ definitions:
   models.CategoriaPG:
     properties:
       id:
+        example: 4
         type: integer
       nombre:
+        example: Corporal
         type: string
     type: object
   models.ClientePG:
     properties:
       apellido:
+        example: Lopez
         type: string
       id:
+        example: 12
         type: integer
       nombre:
+        example: Maria
         type: string
       numero_telefono:
+        example: "+59170011223"
         type: string
     type: object
   models.ComboItem:
     properties:
       categoria:
+        example: Corporal
         type: string
       costo_total:
+        example: "1200"
         type: string
       local:
+        example: ARANJUEZ
         type: string
       nombre:
+        example: Relax Total
         type: string
       servicios_incluidos:
         items:
           $ref: '#/definitions/models.ServicioIncluido'
         type: array
       sesiones_totales:
+        example: 4
         type: integer
     type: object
   models.LocalConEspacios:
     properties:
       activo:
+        example: true
         type: boolean
       espacios:
         items:
@@ -672,28 +825,37 @@ definitions:
           $ref: '#/definitions/models.LocalHorarioPG'
         type: array
       id:
+        example: 3
         type: integer
       nombre:
+        example: SAN MARTIN
         type: string
     type: object
   models.LocalHorarioPG:
     properties:
       activo:
+        example: true
         type: boolean
       dia_semana:
+        example: 1
         type: integer
       hora_desde:
+        example: "09:00"
         type: string
       hora_hasta:
+        example: "18:00"
         type: string
       id:
+        example: 15
         type: integer
       local_id:
+        example: 3
         type: integer
     type: object
   models.LocalReservas:
     properties:
       local:
+        example: SAN MARTIN
         type: string
       semanas:
         items:
@@ -703,18 +865,25 @@ definitions:
   models.ReservaItem:
     properties:
       cliente:
+        example: Maria Lopez
         type: string
       estado:
+        example: AGENDADO
         type: string
       numero_telefono:
+        example: "+59170011223"
         type: string
       servicio:
+        example: Depilacion Laser
         type: string
       servicio_confirmado:
+        example: Depilacion Laser Piernas
         type: string
       servicio_solicitado:
+        example: Piernas completas
         type: string
       tipo:
+        example: M
         type: string
     type: object
   models.ReservaSlot:
@@ -726,6 +895,7 @@ definitions:
           type: array
         type: object
       hora:
+        example: "09:00"
         type: string
     type: object
   models.Semana:
@@ -735,76 +905,106 @@ definitions:
           $ref: '#/definitions/models.ReservaSlot'
         type: array
       titulo:
+        example: Semana 22
         type: string
     type: object
   models.ServicioIncluido:
     properties:
       costo:
+        example: "350"
         type: string
       nombre:
+        example: Depilacion Laser Piernas
         type: string
       sesiones:
+        example: 6
         type: integer
       tiempo:
+        example: "01:00"
         type: string
     type: object
   models.ServicioItem:
     properties:
       categoria:
+        example: Corporal
         type: string
       costo:
+        example: "350"
         type: string
       id:
+        example: 8
         type: integer
       local:
+        example: ARANJUEZ
         type: string
       nombre:
+        example: Depilacion Laser Piernas
         type: string
       requiere_evaluacion:
+        example: true
         type: boolean
       sesiones:
+        example: 6
         type: integer
       tiempo:
+        example: "01:00"
         type: string
       tipoEspacio:
+        example: M
         type: string
     type: object
   models.TipoEspacioLocal:
     properties:
       cantidad_espacios:
+        example: 6
         type: integer
       tipo_espacio:
+        example: M
         type: string
     type: object
   services.ReservaSimple:
     properties:
       cliente:
+        example: Maria Lopez
         type: string
       estado:
+        example: AGENDADO
         type: string
       fecha:
+        example: "2026-05-23"
         type: string
       hora_desde:
+        example: "09:00"
         type: string
       hora_hasta:
+        example: "10:00"
         type: string
       id:
+        example: 44
         type: integer
       local:
+        example: SAN MARTIN
         type: string
       notas:
+        example: Primera sesion del plan
         type: string
       numero_telefono:
+        example: "+59170011223"
         type: string
       precio:
+        example: 350
         type: number
       servicio:
+        example: Depilacion Laser
         type: string
       servicio_confirmado:
+        example: Depilacion Laser Piernas
         type: string
       servicio_solicitado:
+        example: Piernas completas
         type: string
       tipo:
+        example: M
         type: string
     type: object
   utils.APIResponse:

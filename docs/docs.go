@@ -2936,13 +2936,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "categorias": {
+                    "description": "Lista de categorias",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.CategoriaPG"
                     }
                 },
                 "total": {
-                    "type": "integer"
+                    "description": "Cantidad total de categorias",
+                    "type": "integer",
+                    "example": 5
                 }
             }
         },
@@ -2950,13 +2953,19 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "apellido": {
-                    "type": "string"
+                    "description": "Filtro por apellido",
+                    "type": "string",
+                    "example": "Lopez"
                 },
                 "nombre": {
-                    "type": "string"
+                    "description": "Filtro por nombre",
+                    "type": "string",
+                    "example": "Maria"
                 },
                 "numero_telefono": {
-                    "type": "string"
+                    "description": "Filtro por numero de telefono",
+                    "type": "string",
+                    "example": "+59170011223"
                 }
             }
         },
@@ -2964,7 +2973,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cliente": {
-                    "$ref": "#/definitions/models.ClientePG"
+                    "description": "Datos del cliente",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ClientePG"
+                        }
+                    ]
                 }
             }
         },
@@ -2972,16 +2986,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "clientes": {
+                    "description": "Lista de clientes",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.ClientePG"
                     }
                 },
                 "filtros": {
-                    "$ref": "#/definitions/handlers.clienteFiltrosResponse"
+                    "description": "Filtros aplicados",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handlers.clienteFiltrosResponse"
+                        }
+                    ]
                 },
                 "total": {
-                    "type": "integer"
+                    "description": "Cantidad total de clientes",
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -2989,16 +3011,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "categoria": {
-                    "type": "string"
+                    "description": "Filtro por categoria del combo",
+                    "type": "string",
+                    "example": "Corporal"
                 },
                 "local": {
-                    "type": "string"
+                    "description": "Filtro por local",
+                    "type": "string",
+                    "example": "ARANJUEZ"
                 },
                 "nombre": {
-                    "type": "string"
+                    "description": "Filtro por nombre del combo",
+                    "type": "string",
+                    "example": "relax"
                 },
                 "sesiones": {
-                    "type": "integer"
+                    "description": "Filtro por numero exacto de sesiones",
+                    "type": "integer",
+                    "example": 4
                 }
             }
         },
@@ -3006,16 +3036,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "combos": {
+                    "description": "Lista de combos",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.ComboItem"
                     }
                 },
                 "filtros": {
-                    "$ref": "#/definitions/handlers.comboFiltrosResponse"
+                    "description": "Filtros aplicados",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handlers.comboFiltrosResponse"
+                        }
+                    ]
                 },
                 "total": {
-                    "type": "integer"
+                    "description": "Cantidad total de combos",
+                    "type": "integer",
+                    "example": 3
                 }
             }
         },
@@ -3266,10 +3304,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "dia_semana": {
-                    "type": "integer"
+                    "description": "Dia de la semana filtrado (1=lunes, 7=domingo)",
+                    "type": "integer",
+                    "example": 1
                 },
                 "local_id": {
-                    "type": "integer"
+                    "description": "ID del local consultado",
+                    "type": "integer",
+                    "example": 3
                 }
             }
         },
@@ -3277,7 +3319,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "horario": {
-                    "$ref": "#/definitions/models.LocalHorarioPG"
+                    "description": "Datos del horario",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.LocalHorarioPG"
+                        }
+                    ]
                 }
             }
         },
@@ -3285,16 +3332,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "filtros": {
-                    "$ref": "#/definitions/handlers.horarioFiltrosResponse"
+                    "description": "Filtros aplicados",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handlers.horarioFiltrosResponse"
+                        }
+                    ]
                 },
                 "horarios": {
+                    "description": "Lista de horarios",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.LocalHorarioPG"
                     }
                 },
                 "total": {
-                    "type": "integer"
+                    "description": "Cantidad total de horarios",
+                    "type": "integer",
+                    "example": 5
                 }
             }
         },
@@ -3302,7 +3357,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "id": {
-                    "type": "integer"
+                    "description": "ID del recurso creado",
+                    "type": "integer",
+                    "example": 42
                 }
             }
         },
@@ -3310,22 +3367,34 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "categorias": {
-                    "type": "integer"
+                    "description": "Cantidad de categorias importadas",
+                    "type": "integer",
+                    "example": 8
                 },
                 "combo_locales": {
-                    "type": "integer"
+                    "description": "Cantidad de relaciones combo-local creadas",
+                    "type": "integer",
+                    "example": 6
                 },
                 "combo_servicios": {
-                    "type": "integer"
+                    "description": "Cantidad de relaciones combo-servicio creadas",
+                    "type": "integer",
+                    "example": 12
                 },
                 "combos": {
-                    "type": "integer"
+                    "description": "Cantidad de combos importados",
+                    "type": "integer",
+                    "example": 5
                 },
                 "servicio_locales": {
-                    "type": "integer"
+                    "description": "Cantidad de relaciones servicio-local creadas",
+                    "type": "integer",
+                    "example": 30
                 },
                 "servicios": {
-                    "type": "integer"
+                    "description": "Cantidad de servicios importados",
+                    "type": "integer",
+                    "example": 25
                 }
             }
         },
@@ -3333,10 +3402,17 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "local": {
-                    "$ref": "#/definitions/models.LocalConEspacios"
+                    "description": "Datos del local con espacios y horarios",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.LocalConEspacios"
+                        }
+                    ]
                 },
                 "total": {
-                    "type": "integer"
+                    "description": "Total de resultados (siempre 1)",
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -3344,13 +3420,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "locales": {
+                    "description": "Lista de locales con espacios y horarios",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.LocalConEspacios"
                     }
                 },
                 "total": {
-                    "type": "integer"
+                    "description": "Cantidad total de locales",
+                    "type": "integer",
+                    "example": 2
                 }
             }
         },
@@ -3358,7 +3437,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "mensaje": {
-                    "type": "string"
+                    "description": "Mensaje descriptivo del resultado",
+                    "type": "string",
+                    "example": "operacion realizada correctamente"
                 }
             }
         },
@@ -3366,16 +3447,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "filtros": {
-                    "$ref": "#/definitions/handlers.reservaPGFiltrosResponse"
+                    "description": "Filtros aplicados",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handlers.reservaPGFiltrosResponse"
+                        }
+                    ]
                 },
                 "reservas": {
+                    "description": "Reservas agrupadas por local",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.LocalReservas"
                     }
                 },
                 "total_locales": {
-                    "type": "integer"
+                    "description": "Cantidad de locales con reservas",
+                    "type": "integer",
+                    "example": 2
                 }
             }
         },
@@ -3383,10 +3472,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "id": {
-                    "type": "integer"
+                    "description": "ID de la reserva creada",
+                    "type": "integer",
+                    "example": 44
                 },
                 "mensaje": {
-                    "type": "string"
+                    "description": "Mensaje de confirmacion",
+                    "type": "string",
+                    "example": "Reserva creada correctamente"
                 }
             }
         },
@@ -3394,22 +3487,34 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cliente": {
-                    "type": "string"
+                    "description": "Filtro por nombre del cliente",
+                    "type": "string",
+                    "example": "Maria"
                 },
                 "dia": {
-                    "type": "string"
+                    "description": "Filtro por dia",
+                    "type": "string",
+                    "example": "lunes"
                 },
                 "local": {
-                    "type": "string"
+                    "description": "Filtro por local",
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 },
                 "reservados": {
-                    "type": "boolean"
+                    "description": "Filtro por estado reservado",
+                    "type": "boolean",
+                    "example": true
                 },
                 "semana": {
-                    "type": "string"
+                    "description": "Filtro por semana",
+                    "type": "string",
+                    "example": "2026-05-25"
                 },
                 "tipo": {
-                    "type": "string"
+                    "description": "Filtro por tipo de reserva",
+                    "type": "string",
+                    "example": "mesa"
                 }
             }
         },
@@ -3417,7 +3522,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "reserva": {
-                    "$ref": "#/definitions/services.ReservaSimple"
+                    "description": "Datos de la reserva",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.ReservaSimple"
+                        }
+                    ]
                 }
             }
         },
@@ -3425,16 +3535,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "filtros": {
-                    "$ref": "#/definitions/handlers.reservaFiltrosResponse"
+                    "description": "Filtros aplicados",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handlers.reservaFiltrosResponse"
+                        }
+                    ]
                 },
                 "reservas": {
+                    "description": "Reservas agrupadas por local y semana",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.LocalReservas"
                     }
                 },
                 "total_locales": {
-                    "type": "integer"
+                    "description": "Cantidad de locales con reservas",
+                    "type": "integer",
+                    "example": 2
                 }
             }
         },
@@ -3442,37 +3560,59 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cliente": {
-                    "type": "string"
+                    "description": "Filtro por nombre del cliente",
+                    "type": "string",
+                    "example": "Maria Lopez"
                 },
                 "estado": {
-                    "type": "string"
+                    "description": "Filtro por estado",
+                    "type": "string",
+                    "example": "AGENDADO"
                 },
                 "fecha": {
-                    "type": "string"
+                    "description": "Filtro por fecha exacta",
+                    "type": "string",
+                    "example": "2026-05-23"
                 },
                 "fecha_desde": {
-                    "type": "string"
+                    "description": "Filtro por fecha desde",
+                    "type": "string",
+                    "example": "2026-05-19"
                 },
                 "fecha_hasta": {
-                    "type": "string"
+                    "description": "Filtro por fecha hasta",
+                    "type": "string",
+                    "example": "2026-05-24"
                 },
                 "local": {
-                    "type": "string"
+                    "description": "Filtro por local",
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 },
                 "numero_telefono": {
-                    "type": "string"
+                    "description": "Filtro por numero de telefono",
+                    "type": "string",
+                    "example": "+59170011223"
                 },
                 "reservados": {
-                    "type": "boolean"
+                    "description": "Filtro por estado reservado",
+                    "type": "boolean",
+                    "example": true
                 },
                 "servicio_confirmado": {
-                    "type": "string"
+                    "description": "Filtro por servicio confirmado",
+                    "type": "string",
+                    "example": "depilacion laser piernas"
                 },
                 "servicio_solicitado": {
-                    "type": "string"
+                    "description": "Filtro por servicio solicitado",
+                    "type": "string",
+                    "example": "depilacion"
                 },
                 "tipo": {
-                    "type": "string"
+                    "description": "Filtro por tipo de reserva",
+                    "type": "string",
+                    "example": "mesa"
                 }
             }
         },
@@ -3520,13 +3660,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "reservas": {
+                    "description": "Lista plana de reservas",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/services.ReservaSimple"
                     }
                 },
                 "total": {
-                    "type": "integer"
+                    "description": "Cantidad total de reservas",
+                    "type": "integer",
+                    "example": 15
                 }
             }
         },
@@ -3534,19 +3677,29 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "categoria": {
-                    "type": "string"
+                    "description": "Filtro por categoria del servicio",
+                    "type": "string",
+                    "example": "Corporal"
                 },
                 "local": {
-                    "type": "string"
+                    "description": "Filtro por local",
+                    "type": "string",
+                    "example": "ARANJUEZ"
                 },
                 "nombre": {
-                    "type": "string"
+                    "description": "Filtro por nombre del servicio",
+                    "type": "string",
+                    "example": "depilacion"
                 },
                 "requiere_evaluacion": {
-                    "type": "boolean"
+                    "description": "Filtro por evaluacion requerida",
+                    "type": "boolean",
+                    "example": true
                 },
                 "sesiones": {
-                    "type": "integer"
+                    "description": "Filtro por numero exacto de sesiones",
+                    "type": "integer",
+                    "example": 6
                 }
             }
         },
@@ -3554,7 +3707,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "servicio": {
-                    "$ref": "#/definitions/models.ServicioItem"
+                    "description": "Datos del servicio",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ServicioItem"
+                        }
+                    ]
                 }
             }
         },
@@ -3562,16 +3720,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "filtros": {
-                    "$ref": "#/definitions/handlers.servicioFiltrosResponse"
+                    "description": "Filtros aplicados",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handlers.servicioFiltrosResponse"
+                        }
+                    ]
                 },
                 "servicios": {
+                    "description": "Lista de servicios",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.ServicioItem"
                     }
                 },
                 "total": {
-                    "type": "integer"
+                    "description": "Cantidad total de servicios",
+                    "type": "integer",
+                    "example": 10
                 }
             }
         },
@@ -3579,16 +3745,26 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "slots_error": {
+                    "description": "Slots que no pudieron reservarse",
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "11:00",
+                        "12:00"
+                    ]
                 },
                 "slots_ok": {
+                    "description": "Slots que se reservaron exitosamente",
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "09:00",
+                        "10:00"
+                    ]
                 }
             }
         },
@@ -3596,10 +3772,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 4
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Corporal"
                 }
             }
         },
@@ -3607,16 +3785,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "apellido": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Lopez"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 12
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Maria"
                 },
                 "numero_telefono": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "+59170011223"
                 }
             }
         },
@@ -3624,16 +3806,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "categoria": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Corporal"
                 },
                 "costo_total": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "1200"
                 },
                 "local": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "ARANJUEZ"
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Relax Total"
                 },
                 "servicios_incluidos": {
                     "type": "array",
@@ -3642,7 +3828,8 @@ const docTemplate = `{
                     }
                 },
                 "sesiones_totales": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 4
                 }
             }
         },
@@ -3650,7 +3837,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "activo": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "espacios": {
                     "type": "array",
@@ -3665,10 +3853,12 @@ const docTemplate = `{
                     }
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 3
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 }
             }
         },
@@ -3676,22 +3866,28 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "activo": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "dia_semana": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1
                 },
                 "hora_desde": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "09:00"
                 },
                 "hora_hasta": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "18:00"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 15
                 },
                 "local_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 3
                 }
             }
         },
@@ -3699,7 +3895,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "local": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 },
                 "semanas": {
                     "type": "array",
@@ -3713,25 +3910,32 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cliente": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Maria Lopez"
                 },
                 "estado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "AGENDADO"
                 },
                 "numero_telefono": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "+59170011223"
                 },
                 "servicio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion Laser"
                 },
                 "servicio_confirmado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion Laser Piernas"
                 },
                 "servicio_solicitado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Piernas completas"
                 },
                 "tipo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
@@ -3748,7 +3952,8 @@ const docTemplate = `{
                     }
                 },
                 "hora": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "09:00"
                 }
             }
         },
@@ -3762,7 +3967,8 @@ const docTemplate = `{
                     }
                 },
                 "titulo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Semana 22"
                 }
             }
         },
@@ -3770,16 +3976,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "costo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "350"
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion Laser Piernas"
                 },
                 "sesiones": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 6
                 },
                 "tiempo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "01:00"
                 }
             }
         },
@@ -3787,31 +3997,40 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "categoria": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Corporal"
                 },
                 "costo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "350"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 8
                 },
                 "local": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "ARANJUEZ"
                 },
                 "nombre": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion Laser Piernas"
                 },
                 "requiere_evaluacion": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "sesiones": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 6
                 },
                 "tiempo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "01:00"
                 },
                 "tipoEspacio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
@@ -3819,10 +4038,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cantidad_espacios": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 6
                 },
                 "tipo_espacio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
@@ -3830,46 +4051,60 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cliente": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Maria Lopez"
                 },
                 "estado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "AGENDADO"
                 },
                 "fecha": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-05-23"
                 },
                 "hora_desde": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "09:00"
                 },
                 "hora_hasta": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "10:00"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 44
                 },
                 "local": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 },
                 "notas": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Primera sesion del plan"
                 },
                 "numero_telefono": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "+59170011223"
                 },
                 "precio": {
-                    "type": "number"
+                    "type": "number",
+                    "example": 350
                 },
                 "servicio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion Laser"
                 },
                 "servicio_confirmado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Depilacion Laser Piernas"
                 },
                 "servicio_solicitado": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Piernas completas"
                 },
                 "tipo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
