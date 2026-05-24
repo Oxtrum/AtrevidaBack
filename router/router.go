@@ -115,6 +115,11 @@ func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 
 		bd.GET("/combos", h.GetCombosPG)
 		//bd.GET("/combos/:id", h.GetComboById)
+		bd.GET("/combos/:combo_id/servicios", h.GetComboServiciosByCombo)
+		bd.POST("/combos/servicios", h.CreateComboServicio)
+		bd.GET("/combos/servicios/:id", h.GetComboServicioByID)
+		bd.PATCH("/combos/servicios/:id", h.PatchComboServicio)
+		bd.DELETE("/combos/servicios/:id", h.DeleteComboServicio)
 
 		bd.GET("/locales", h.GetLocales)
 		bd.GET("/locales/:id", h.GetLocalById)
