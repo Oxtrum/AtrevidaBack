@@ -81,14 +81,28 @@ type ComboPG struct {
 }
 
 type ComboServicioPG struct {
-	ID             int      `db:"id"`
-	ComboID        int      `db:"combo_id"`
-	ServicioID     int      `db:"servicio_id"`
-	Tiempo         *string  `db:"tiempo"`
-	Costo          *float64 `db:"costo"`
-	Sesiones       int      `db:"sesiones"`
-	Orden          int      `db:"orden"`
-	ServicioNombre string   `db:"servicio_nombre"`
+	ID             int      `db:"id" json:"id" example:"15"`
+	ComboID        int      `db:"combo_id" json:"combo_id" example:"12"`
+	ServicioID     *int     `db:"servicio_id" json:"servicio_id,omitempty" example:"8"`
+	ServicioTexto  *string  `db:"servicio_texto" json:"servicio_texto,omitempty" example:"Masaje relajante personalizado"`
+	Tiempo         *string  `db:"tiempo" json:"tiempo,omitempty" example:"01:00"`
+	Costo          *float64 `db:"costo" json:"costo,omitempty" example:"250"`
+	Sesiones       int      `db:"sesiones" json:"sesiones" example:"2"`
+	Orden          int      `db:"orden" json:"orden" example:"1"`
+	ServicioNombre string   `db:"servicio_nombre" json:"servicio_nombre" example:"Masaje relajante personalizado"`
+}
+
+type ComboServicioDetallePG struct {
+	ID             int      `db:"id" json:"id" example:"15"`
+	ComboID        int      `db:"combo_id" json:"combo_id" example:"12"`
+	ComboNombre    string   `db:"combo_nombre" json:"combo_nombre" example:"Combo Relax"`
+	ServicioID     *int     `db:"servicio_id" json:"servicio_id,omitempty" example:"8"`
+	ServicioTexto  *string  `db:"servicio_texto" json:"servicio_texto,omitempty" example:"Masaje relajante personalizado"`
+	ServicioNombre string   `db:"servicio_nombre" json:"servicio_nombre" example:"Masaje relajante personalizado"`
+	Tiempo         *string  `db:"tiempo" json:"tiempo,omitempty" example:"01:00"`
+	Costo          *float64 `db:"costo" json:"costo,omitempty" example:"250"`
+	Sesiones       int      `db:"sesiones" json:"sesiones" example:"2"`
+	Orden          int      `db:"orden" json:"orden" example:"1"`
 }
 
 // Planes

@@ -123,6 +123,15 @@ type comboListResponse struct {
 	Combos []models.ComboItem `json:"combos"`
 }
 
+type comboServicioListResponse struct {
+	// Cantidad total de servicios del combo
+	Total int `json:"total" example:"3"`
+	// ID del combo consultado
+	ComboID int `json:"combo_id" example:"12"`
+	// Lista de servicios del combo
+	Servicios []models.ComboServicioDetallePG `json:"servicios"`
+}
+
 type reservaListResponse struct {
 	// Cantidad de locales con reservas
 	TotalLocales int `json:"total_locales" example:"2"`
@@ -179,6 +188,11 @@ type reservaItemResponse struct {
 type servicioItemResponse struct {
 	// Datos del servicio
 	Servicio *models.ServicioItem `json:"servicio"`
+}
+
+type comboServicioItemResponse struct {
+	// Datos del servicio incluido en el combo
+	Servicio *models.ComboServicioDetallePG `json:"servicio"`
 }
 
 type localItemResponse struct {

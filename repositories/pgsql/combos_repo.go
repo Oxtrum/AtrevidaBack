@@ -69,12 +69,12 @@ func (r *CombosRepo) GetAllCombos() []models.ComboItem {
 	serviciosQuery := `
 		SELECT
 			cs.combo_id,
-			s.nombre,
+			COALESCE(NULLIF(BTRIM(cs.servicio_texto), ''), s.nombre, '') AS nombre,
 			COALESCE(cs.tiempo, s.tiempo, '')  AS tiempo,
 			COALESCE(cs.costo::text, s.costo::text, '') AS costo,
 			cs.sesiones
 		FROM combo_servicios cs
-		JOIN servicios s ON s.id = cs.servicio_id
+		LEFT JOIN servicios s ON s.id = cs.servicio_id
 		ORDER BY cs.combo_id, cs.orden
 	`
 

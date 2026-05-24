@@ -20,6 +20,27 @@ definitions:
         example: "+59170011224"
         type: string
     type: object
+  handlers.actualizarComboServicioRequest:
+    properties:
+      costo:
+        example: 250
+        type: number
+      orden:
+        example: 1
+        type: integer
+      servicio_id:
+        example: 8
+        type: integer
+      servicio_texto:
+        example: Masaje relajante personalizado
+        type: string
+      sesiones:
+        example: 2
+        type: integer
+      tiempo:
+        example: "01:00"
+        type: string
+    type: object
   handlers.actualizarEstadoReservaPGRequest:
     properties:
       causa:
@@ -262,6 +283,29 @@ definitions:
         example: 3
         type: integer
     type: object
+  handlers.comboServicioItemResponse:
+    properties:
+      servicio:
+        allOf:
+        - $ref: '#/definitions/models.ComboServicioDetallePG'
+        description: Datos del servicio incluido en el combo
+    type: object
+  handlers.comboServicioListResponse:
+    properties:
+      combo_id:
+        description: ID del combo consultado
+        example: 12
+        type: integer
+      servicios:
+        description: Lista de servicios del combo
+        items:
+          $ref: '#/definitions/models.ComboServicioDetallePG'
+        type: array
+      total:
+        description: Cantidad total de servicios del combo
+        example: 3
+        type: integer
+    type: object
   handlers.crearCategoriaRequest:
     properties:
       nombre:
@@ -281,6 +325,32 @@ definitions:
       numero_telefono:
         example: "+59170011223"
         type: string
+    type: object
+  handlers.crearComboServicioRequest:
+    properties:
+      combo_id:
+        example: 12
+        type: integer
+      costo:
+        example: 250
+        type: number
+      orden:
+        example: 1
+        type: integer
+      servicio_id:
+        example: 8
+        type: integer
+      servicio_texto:
+        example: Masaje relajante personalizado
+        type: string
+      sesiones:
+        example: 2
+        type: integer
+      tiempo:
+        example: "01:00"
+        type: string
+    required:
+    - combo_id
     type: object
   handlers.crearLocalHorarioRequest:
     properties:
@@ -810,6 +880,39 @@ definitions:
       sesiones_totales:
         example: 4
         type: integer
+    type: object
+  models.ComboServicioDetallePG:
+    properties:
+      combo_id:
+        example: 12
+        type: integer
+      combo_nombre:
+        example: Combo Relax
+        type: string
+      costo:
+        example: 250
+        type: number
+      id:
+        example: 15
+        type: integer
+      orden:
+        example: 1
+        type: integer
+      servicio_id:
+        example: 8
+        type: integer
+      servicio_nombre:
+        example: Masaje relajante personalizado
+        type: string
+      servicio_texto:
+        example: Masaje relajante personalizado
+        type: string
+      sesiones:
+        example: 2
+        type: integer
+      tiempo:
+        example: "01:00"
+        type: string
     type: object
   models.LocalConEspacios:
     properties:
@@ -1366,6 +1469,193 @@ paths:
       summary: Listar combos desde base de datos
       tags:
       - Combos BD
+  /bd/combos/{combo_id}/servicios:
+    get:
+      description: Devuelve los items de combo_servicios asociados a un combo activo.
+      parameters:
+      - description: ID del combo
+        example: 12
+        in: path
+        name: combo_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.comboServicioListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar servicios de un combo
+      tags:
+      - Combo Servicios BD
+  /bd/combos/servicios:
+    post:
+      consumes:
+      - application/json
+      description: Crea un item dentro de combo_servicios validando que el combo padre
+        enviado en el body exista y este activo.
+      parameters:
+      - description: Datos del servicio del combo
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearComboServicioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Crear servicio de combo
+      tags:
+      - Combo Servicios BD
+  /bd/combos/servicios/{id}:
+    delete:
+      description: Elimina un item de combo_servicios por su identificador.
+      parameters:
+      - description: ID del item combo_servicios
+        example: 15
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Eliminar servicio de combo
+      tags:
+      - Combo Servicios BD
+    get:
+      description: Devuelve un item de combo_servicios por su identificador.
+      parameters:
+      - description: ID del item combo_servicios
+        example: 15
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.comboServicioItemResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Obtener servicio de combo por ID
+      tags:
+      - Combo Servicios BD
+    patch:
+      consumes:
+      - application/json
+      description: Actualiza campos de un item de combo_servicios. No permite cambiar
+        el combo padre.
+      parameters:
+      - description: ID del item combo_servicios
+        example: 15
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarComboServicioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Actualizar servicio de combo
+      tags:
+      - Combo Servicios BD
   /bd/locales:
     get:
       description: Devuelve todos los locales registrados en la base de datos.

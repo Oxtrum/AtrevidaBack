@@ -556,6 +556,306 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/combos/servicios": {
+            "post": {
+                "description": "Crea un item dentro de combo_servicios validando que el combo padre enviado en el body exista y este activo.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Combo Servicios BD"
+                ],
+                "summary": "Crear servicio de combo",
+                "parameters": [
+                    {
+                        "description": "Datos del servicio del combo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearComboServicioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.idResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/combos/servicios/{id}": {
+            "get": {
+                "description": "Devuelve un item de combo_servicios por su identificador.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Combo Servicios BD"
+                ],
+                "summary": "Obtener servicio de combo por ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 15,
+                        "description": "ID del item combo_servicios",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.comboServicioItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Elimina un item de combo_servicios por su identificador.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Combo Servicios BD"
+                ],
+                "summary": "Eliminar servicio de combo",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 15,
+                        "description": "ID del item combo_servicios",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Actualiza campos de un item de combo_servicios. No permite cambiar el combo padre.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Combo Servicios BD"
+                ],
+                "summary": "Actualizar servicio de combo",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 15,
+                        "description": "ID del item combo_servicios",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarComboServicioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/combos/{combo_id}/servicios": {
+            "get": {
+                "description": "Devuelve los items de combo_servicios asociados a un combo activo.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Combo Servicios BD"
+                ],
+                "summary": "Listar servicios de un combo",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "ID del combo",
+                        "name": "combo_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.comboServicioListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/locales": {
             "get": {
                 "description": "Devuelve todos los locales registrados en la base de datos.",
@@ -2718,6 +3018,35 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarComboServicioRequest": {
+            "type": "object",
+            "properties": {
+                "costo": {
+                    "type": "number",
+                    "example": 250
+                },
+                "orden": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "servicio_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "servicio_texto": {
+                    "type": "string",
+                    "example": "Masaje relajante personalizado"
+                },
+                "sesiones": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "tiempo": {
+                    "type": "string",
+                    "example": "01:00"
+                }
+            }
+        },
         "handlers.actualizarEstadoReservaPGRequest": {
             "type": "object",
             "required": [
@@ -3057,6 +3386,41 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.comboServicioItemResponse": {
+            "type": "object",
+            "properties": {
+                "servicio": {
+                    "description": "Datos del servicio incluido en el combo",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ComboServicioDetallePG"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.comboServicioListResponse": {
+            "type": "object",
+            "properties": {
+                "combo_id": {
+                    "description": "ID del combo consultado",
+                    "type": "integer",
+                    "example": 12
+                },
+                "servicios": {
+                    "description": "Lista de servicios del combo",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ComboServicioDetallePG"
+                    }
+                },
+                "total": {
+                    "description": "Cantidad total de servicios del combo",
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
         "handlers.crearCategoriaRequest": {
             "type": "object",
             "required": [
@@ -3083,6 +3447,42 @@ const docTemplate = `{
                 "numero_telefono": {
                     "type": "string",
                     "example": "+59170011223"
+                }
+            }
+        },
+        "handlers.crearComboServicioRequest": {
+            "type": "object",
+            "required": [
+                "combo_id"
+            ],
+            "properties": {
+                "combo_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "costo": {
+                    "type": "number",
+                    "example": 250
+                },
+                "orden": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "servicio_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "servicio_texto": {
+                    "type": "string",
+                    "example": "Masaje relajante personalizado"
+                },
+                "sesiones": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "tiempo": {
+                    "type": "string",
+                    "example": "01:00"
                 }
             }
         },
@@ -3830,6 +4230,51 @@ const docTemplate = `{
                 "sesiones_totales": {
                     "type": "integer",
                     "example": 4
+                }
+            }
+        },
+        "models.ComboServicioDetallePG": {
+            "type": "object",
+            "properties": {
+                "combo_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "combo_nombre": {
+                    "type": "string",
+                    "example": "Combo Relax"
+                },
+                "costo": {
+                    "type": "number",
+                    "example": 250
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 15
+                },
+                "orden": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "servicio_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "servicio_nombre": {
+                    "type": "string",
+                    "example": "Masaje relajante personalizado"
+                },
+                "servicio_texto": {
+                    "type": "string",
+                    "example": "Masaje relajante personalizado"
+                },
+                "sesiones": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "tiempo": {
+                    "type": "string",
+                    "example": "01:00"
                 }
             }
         },
