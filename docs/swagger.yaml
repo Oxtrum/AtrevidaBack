@@ -109,39 +109,51 @@ definitions:
   handlers.actualizarReservaPGRequest:
     properties:
       id:
+        description: ID de la reserva a actualizar
         example: 44
         type: integer
       local:
+        description: Nombre del local (siempre requerido para validar existencia)
         example: SAN MARTIN
         type: string
       nueva_fecha:
+        description: Nueva fecha (YYYY-MM-DD), opcional
         example: "2026-05-24"
         type: string
       nueva_hora_desde:
+        description: Nueva hora de inicio (HH:MM), opcional
         example: "16:00"
         type: string
       nueva_hora_hasta:
+        description: Nueva hora de fin (HH:MM), opcional
         example: "17:00"
         type: string
       nuevas_notas:
+        description: Nuevas notas u observaciones, opcional
         example: Reagendada por solicitud del cliente
         type: string
       nuevo_numero_telefono:
+        description: Nuevo numero de telefono, opcional
         example: "+59170011224"
         type: string
       nuevo_precio:
+        description: Nuevo precio, opcional
         example: 180
         type: number
       nuevo_servicio:
+        description: Nuevo nombre del servicio, opcional
         example: Evaluacion corporal
         type: string
       nuevo_servicio_confirmado:
+        description: Nuevo servicio confirmado, opcional
         example: Evaluacion corporal
         type: string
       nuevo_servicio_solicitado:
+        description: Nuevo servicio solicitado, opcional
         example: Evaluacion corporal
         type: string
       nuevo_tipo:
+        description: 'Nuevo tipo de espacio: M (mesa) o B (bicicleta), opcional'
         example: B
         type: string
     required:
@@ -2179,7 +2191,11 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Actualiza una reserva existente en PostgreSQL.
+      description: Actualiza los datos de una reserva existente (fecha, hora, tipo,
+        telefono, servicio, precio, notas). Solo se actualizan los campos enviados;
+        los omitidos se mantienen igual. El campo "local" siempre es requerido para
+        validacion. No permite cambiar el estado de la reserva (usar PATCH /bd/reservas/estado
+        para eso).
       parameters:
       - description: Datos para actualizar la reserva
         in: body
@@ -2200,15 +2216,16 @@ paths:
                   $ref: '#/definitions/handlers.messageResponse'
               type: object
         "400":
-          description: Bad Request
+          description: 'Error de validacion: id invalido, local requerido, tipo invalido,
+            sin cambios para actualizar'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
-          description: Not Found
+          description: Reserva no encontrada
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
-          description: Internal Server Error
+          description: Error interno del servidor
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Actualizar reserva en base de datos

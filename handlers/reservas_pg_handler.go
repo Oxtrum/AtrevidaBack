@@ -438,31 +438,43 @@ func (h *Container) GetReservaPGByID(c *gin.Context) {
 }
 
 type actualizarReservaPGRequest struct {
-	Id                      int      `json:"id" binding:"required" example:"44"`
-	Local                   string   `json:"local" binding:"required" example:"SAN MARTIN"`
-	NuevaFecha              string   `json:"nueva_fecha" example:"2026-05-24"`
-	NuevaHoraDesde          string   `json:"nueva_hora_desde" example:"16:00"`
-	NuevaHoraHasta          string   `json:"nueva_hora_hasta" example:"17:00"`
-	NuevoTipo               string   `json:"nuevo_tipo" example:"B"`
-	NuevoNumeroTelefono     string   `json:"nuevo_numero_telefono" example:"+59170011224"`
-	NuevoServicio           string   `json:"nuevo_servicio" example:"Evaluacion corporal"`
-	NuevoServicioSolicitado string   `json:"nuevo_servicio_solicitado" example:"Evaluacion corporal"`
-	NuevoServicioConfirmado string   `json:"nuevo_servicio_confirmado" example:"Evaluacion corporal"`
-	NuevoPrecio             *float64 `json:"nuevo_precio" example:"180"`
-	NuevasNotas             string   `json:"nuevas_notas" example:"Reagendada por solicitud del cliente"`
+	// ID de la reserva a actualizar
+	Id int `json:"id" binding:"required" example:"44"`
+	// Nombre del local (siempre requerido para validar existencia)
+	Local string `json:"local" binding:"required" example:"SAN MARTIN"`
+	// Nueva fecha (YYYY-MM-DD), opcional
+	NuevaFecha string `json:"nueva_fecha" example:"2026-05-24"`
+	// Nueva hora de inicio (HH:MM), opcional
+	NuevaHoraDesde string `json:"nueva_hora_desde" example:"16:00"`
+	// Nueva hora de fin (HH:MM), opcional
+	NuevaHoraHasta string `json:"nueva_hora_hasta" example:"17:00"`
+	// Nuevo tipo de espacio: M (mesa) o B (bicicleta), opcional
+	NuevoTipo string `json:"nuevo_tipo" example:"B"`
+	// Nuevo numero de telefono, opcional
+	NuevoNumeroTelefono string `json:"nuevo_numero_telefono" example:"+59170011224"`
+	// Nuevo nombre del servicio, opcional
+	NuevoServicio string `json:"nuevo_servicio" example:"Evaluacion corporal"`
+	// Nuevo servicio solicitado, opcional
+	NuevoServicioSolicitado string `json:"nuevo_servicio_solicitado" example:"Evaluacion corporal"`
+	// Nuevo servicio confirmado, opcional
+	NuevoServicioConfirmado string `json:"nuevo_servicio_confirmado" example:"Evaluacion corporal"`
+	// Nuevo precio, opcional
+	NuevoPrecio *float64 `json:"nuevo_precio" example:"180"`
+	// Nuevas notas u observaciones, opcional
+	NuevasNotas string `json:"nuevas_notas" example:"Reagendada por solicitud del cliente"`
 }
 
 // PatchReservaPG godoc
 // @Summary Actualizar reserva en base de datos
-// @Description Actualiza una reserva existente en PostgreSQL.
+// @Description Actualiza los datos de una reserva existente (fecha, hora, tipo, telefono, servicio, precio, notas). Solo se actualizan los campos enviados; los omitidos se mantienen igual. El campo "local" siempre es requerido para validacion. No permite cambiar el estado de la reserva (usar PATCH /bd/reservas/estado para eso).
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
 // @Param payload body actualizarReservaPGRequest true "Datos para actualizar la reserva"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar"
+// @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [patch]
 func (h *Container) PatchReservaPG(c *gin.Context) {
 	var req actualizarReservaPGRequest

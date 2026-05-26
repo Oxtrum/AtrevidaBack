@@ -1652,7 +1652,7 @@
                 }
             },
             "patch": {
-                "description": "Actualiza una reserva existente en PostgreSQL.",
+                "description": "Actualiza los datos de una reserva existente (fecha, hora, tipo, telefono, servicio, precio, notas). Solo se actualizan los campos enviados; los omitidos se mantienen igual. El campo \"local\" siempre es requerido para validacion. No permite cambiar el estado de la reserva (usar PATCH /bd/reservas/estado para eso).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1694,19 +1694,19 @@
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Reserva no encontrada",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3210,50 +3210,62 @@
             ],
             "properties": {
                 "id": {
+                    "description": "ID de la reserva a actualizar",
                     "type": "integer",
                     "example": 44
                 },
                 "local": {
+                    "description": "Nombre del local (siempre requerido para validar existencia)",
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
                 "nueva_fecha": {
+                    "description": "Nueva fecha (YYYY-MM-DD), opcional",
                     "type": "string",
                     "example": "2026-05-24"
                 },
                 "nueva_hora_desde": {
+                    "description": "Nueva hora de inicio (HH:MM), opcional",
                     "type": "string",
                     "example": "16:00"
                 },
                 "nueva_hora_hasta": {
+                    "description": "Nueva hora de fin (HH:MM), opcional",
                     "type": "string",
                     "example": "17:00"
                 },
                 "nuevas_notas": {
+                    "description": "Nuevas notas u observaciones, opcional",
                     "type": "string",
                     "example": "Reagendada por solicitud del cliente"
                 },
                 "nuevo_numero_telefono": {
+                    "description": "Nuevo numero de telefono, opcional",
                     "type": "string",
                     "example": "+59170011224"
                 },
                 "nuevo_precio": {
+                    "description": "Nuevo precio, opcional",
                     "type": "number",
                     "example": 180
                 },
                 "nuevo_servicio": {
+                    "description": "Nuevo nombre del servicio, opcional",
                     "type": "string",
                     "example": "Evaluacion corporal"
                 },
                 "nuevo_servicio_confirmado": {
+                    "description": "Nuevo servicio confirmado, opcional",
                     "type": "string",
                     "example": "Evaluacion corporal"
                 },
                 "nuevo_servicio_solicitado": {
+                    "description": "Nuevo servicio solicitado, opcional",
                     "type": "string",
                     "example": "Evaluacion corporal"
                 },
                 "nuevo_tipo": {
+                    "description": "Nuevo tipo de espacio: M (mesa) o B (bicicleta), opcional",
                     "type": "string",
                     "example": "B"
                 }
