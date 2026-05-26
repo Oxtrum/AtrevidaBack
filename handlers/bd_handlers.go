@@ -60,7 +60,7 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 
 // GetCombosPG godoc
 // @Summary Listar combos desde base de datos
-// @Description Devuelve combos persistidos en PostgreSQL con filtros opcionales.
+// @Description Devuelve combos desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones), combos ([]ComboItem con: nombre, categoria, local, costo_total, sesiones_totales, servicios_incluidos []ServicioIncluido con nombre, tiempo HH:MM, costo, sesiones).
 // @Tags Combos BD
 // @Produce json
 // @Param nombre query string false "Busqueda parcial por nombre" example(relax)
@@ -68,7 +68,8 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 // @Param local query string false "Local" Enums(SAN MARTIN,PASEO ARANJUEZ) example(PASEO ARANJUEZ)
 // @Param sesiones query int false "Numero exacto de sesiones" example(4)
 // @Success 200 {object} utils.APIResponse{data=comboListResponse}
-// @Failure 400 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: sesiones debe ser entero positivo, local invalido"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/combos [get]
 func (h *Container) GetCombosPG(c *gin.Context) {
 	sesiones := 0

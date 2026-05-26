@@ -18,18 +18,18 @@ var tiposValidos = map[string]bool{
 
 // GetReservas godoc
 // @Summary Listar reservas desde Google Sheets
-// @Description Devuelve reservas filtradas por local, semana, dia, tipo, cliente y si estan reservadas.
+// @Description Devuelve reservas desde Google Sheets con filtros. Filtros: local (opcional), semana YYYY-MM-DD (opcional), dia lunes..sabado (opcional), tipo mesa/bicicleta/feriado (opcional), cliente (opcional), reservados true/false (opcional). Response: total_locales (int), filtros (objeto con filtros aplicados), reservas ([]LocalReservas cada uno con: local string, semanas []Semana con titulo y slots []ReservaSlot con hora y map dia->[]ReservaItem con tipo M/B, cliente, servicio, servicio_solicitado, servicio_confirmado, estado, numero_telefono, notificado, creado_en, actualizado_en).
 // @Tags Reservas Sheets
 // @Produce json
 // @Param local query string false "Nombre del local" example(SAN MARTIN)
-// @Param semana query string false "Semana a consultar" example(2026-05-25)
+// @Param semana query string false "Semana a consultar YYYY-MM-DD" example(2026-05-25)
 // @Param dia query string false "Dia a consultar" example(lunes)
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta,feriado) example(mesa)
 // @Param cliente query string false "Nombre del cliente" example(Maria)
 // @Param reservados query bool false "Filtrar solo reservados" example(true)
 // @Success 200 {object} utils.APIResponse{data=reservaListResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: tipo invalido"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /reservas [get]
 func (h *Container) GetReservas(c *gin.Context) {
 	paramTipo := strings.ToLower(strings.TrimSpace(c.Query("tipo")))

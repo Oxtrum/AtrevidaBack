@@ -21,13 +21,13 @@ const allowEstadoOverrideTemporal = true
 
 // GetReservasPG godoc
 // @Summary Listar reservas desde base de datos
-// @Description Devuelve reservas agrupadas por local con filtros opcionales.
+// @Description Devuelve reservas agrupadas por local con filtros opcionales. Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional), reservados true/false (opcional). Response: total_locales (int), filtros (objeto con los filtros aplicados), reservas ([]LocalReservas cada uno con: local string, semanas []Semana con titulo y slots []ReservaSlot con hora y map dia->[]ReservaItem con tipo M/B, cliente, servicio, servicio_solicitado, servicio_confirmado, estado, numero_telefono, notificado, creado_en, actualizado_en).
 // @Tags Reservas BD
 // @Produce json
 // @Param local query string false "Nombre del local" example(SAN MARTIN)
-// @Param fecha query string false "Fecha exacta" example(2026-05-23)
-// @Param fecha_desde query string false "Fecha desde" example(2026-05-19)
-// @Param fecha_hasta query string false "Fecha hasta" example(2026-05-24)
+// @Param fecha query string false "Fecha exacta YYYY-MM-DD" example(2026-05-23)
+// @Param fecha_desde query string false "Fecha inicio rango YYYY-MM-DD" example(2026-05-19)
+// @Param fecha_hasta query string false "Fecha fin rango YYYY-MM-DD" example(2026-05-24)
 // @Param cliente query string false "Nombre del cliente" example(Maria Lopez)
 // @Param numero_telefono query string false "Numero de telefono" example(+59170011223)
 // @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado" example(depilacion)
@@ -36,8 +36,8 @@ const allowEstadoOverrideTemporal = true
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta) example(mesa)
 // @Param reservados query bool false "Filtrar por estado reservado" example(true)
 // @Success 200 {object} utils.APIResponse{data=reservaCalendarioResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: tipo invalido, estado invalido"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/calendario [get]
 func (h *Container) GetReservasPG(c *gin.Context) {
 	paramTipo := strings.ToLower(strings.TrimSpace(c.Query("tipo")))
@@ -279,13 +279,13 @@ func normalizarTelefono(raw string) (string, error) {
 
 // GetReservasResumenPG godoc
 // @Summary Obtener resumen numerico de reservas
-// @Description Devuelve el resumen numerico de reservas agendadas del dia, servicios completados del dia y acumulado semanal desde el lunes hasta la fecha indicada.
+// @Description Devuelve resumen de reservas del dia. Param: fecha YYYY-MM-DD (requerido, query, no acepta domingos). Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia).
 // @Tags Reservas BD
 // @Produce json
-// @Param fecha query string true "Fecha a consultar en formato YYYY-MM-DD" example(2026-05-23)
+// @Param fecha query string true "Fecha a consultar YYYY-MM-DD (no acepta domingos)" example(2026-05-23)
 // @Success 200 {object} utils.APIResponse{data=reservaResumenResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: fecha requerida, formato invalido, domingo no permitido"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/resumen [get]
 func (h *Container) GetReservasResumenPG(c *gin.Context) {
 	fechaRaw := strings.TrimSpace(c.Query("fecha"))
@@ -357,13 +357,13 @@ func intPtr(v int) *int {
 
 // GetReservasSimplePG godoc
 // @Summary Listar reservas simples
-// @Description Devuelve reservas desde PostgreSQL en formato simple y sin agrupacion por local.
+// @Description Devuelve reservas en formato plano (sin agrupar por local). Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional). Response: total (int total de reservas), reservas ([]ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).
 // @Tags Reservas BD
 // @Produce json
 // @Param local query string false "Nombre del local" example(SAN MARTIN)
-// @Param fecha query string false "Fecha exacta" example(2026-05-23)
-// @Param fecha_desde query string false "Fecha desde" example(2026-05-19)
-// @Param fecha_hasta query string false "Fecha hasta" example(2026-05-24)
+// @Param fecha query string false "Fecha exacta YYYY-MM-DD" example(2026-05-23)
+// @Param fecha_desde query string false "Fecha inicio rango YYYY-MM-DD" example(2026-05-19)
+// @Param fecha_hasta query string false "Fecha fin rango YYYY-MM-DD" example(2026-05-24)
 // @Param cliente query string false "Nombre del cliente" example(Maria Lopez)
 // @Param numero_telefono query string false "Numero de telefono" example(+59170011223)
 // @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado" example(depilacion)
@@ -371,8 +371,8 @@ func intPtr(v int) *int {
 // @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(COMPLETADO)
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta) example(bicicleta)
 // @Success 200 {object} utils.APIResponse{data=reservaSimpleListResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: tipo invalido, estado invalido"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [get]
 func (h *Container) GetReservasSimplePG(c *gin.Context) {
 	paramTipo := strings.ToLower(strings.TrimSpace(c.Query("tipo")))
@@ -417,14 +417,14 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 
 // GetReservaPGByID godoc
 // @Summary Obtener reserva por ID
-// @Description Devuelve una reserva de PostgreSQL por su identificador.
+// @Description Devuelve una reserva por su ID. Param: id (requerido, path). Response: reserva (ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).
 // @Tags Reservas BD
 // @Produce json
 // @Param id path int true "ID de la reserva" example(44)
 // @Success 200 {object} utils.APIResponse{data=reservaItemResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/{id} [get]
 func (h *Container) GetReservaPGByID(c *gin.Context) {
 	idRaw := c.Param("id")

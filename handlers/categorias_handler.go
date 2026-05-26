@@ -11,11 +11,11 @@ import (
 
 // GetCategorias godoc
 // @Summary Listar categorias
-// @Description Devuelve todas las categorias registradas en la base de datos.
+// @Description Devuelve todas las categorias registradas en BD. Sin filtros. Response: total (int), categorias ([]CategoriaPG con: id, nombre).
 // @Tags Categorias
 // @Produce json
 // @Success 200 {object} utils.APIResponse{data=categoriaListResponse}
-// @Failure 500 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/categorias [get]
 func (h *Container) GetCategorias(c *gin.Context) {
 	resultado, err := h.CategoriasPG.GetCategorias()
@@ -36,14 +36,14 @@ type crearCategoriaRequest struct {
 
 // CreateCategoria godoc
 // @Summary Crear categoria
-// @Description Crea una nueva categoria en la base de datos.
+// @Description Crea una categoria nueva. Body: nombre (requerido). Response: id (int ID de la categoria creada).
 // @Tags Categorias
 // @Accept json
 // @Produce json
 // @Param payload body crearCategoriaRequest true "Datos de la categoria"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: nombre requerido"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/categorias [post]
 func (h *Container) CreateCategoria(c *gin.Context) {
 	var req crearCategoriaRequest

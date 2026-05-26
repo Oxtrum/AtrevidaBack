@@ -27,15 +27,15 @@ type actualizarLocalHorarioRequest struct {
 
 // GetHorariosByLocal godoc
 // @Summary Listar horarios de un local
-// @Description Devuelve los horarios activos de un local y permite filtrar opcionalmente por dia_semana.
+// @Description Devuelve los horarios activos de un local con filtro opcional. Query: local_id (requerido), dia_semana 1=lunes a 7=domingo (opcional). Response: total (int), filtros (objeto con local_id, dia_semana), horarios ([]LocalHorarioPG con: id, local_id, dia_semana, hora_desde HH:MM, hora_hasta HH:MM, activo).
 // @Tags Horarios Locales
 // @Produce json
 // @Param local_id query int true "ID del local" example(3)
 // @Param dia_semana query int false "Dia de la semana (1=lunes, 7=domingo)" example(1)
 // @Success 200 {object} utils.APIResponse{data=horarioListResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, dia_semana debe ser 1-7"
+// @Failure 404 {object} utils.APIResponse "Local no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales/horarios [get]
 func (h *Container) GetHorariosByLocal(c *gin.Context) {
 	localID, err := strconv.Atoi(c.Query("local_id"))
@@ -79,14 +79,14 @@ func (h *Container) GetHorariosByLocal(c *gin.Context) {
 
 // GetHorarioByID godoc
 // @Summary Obtener horario por ID
-// @Description Devuelve un horario de atencion por su identificador.
+// @Description Devuelve un horario por su ID. Param: id (requerido, path). Response: horario (LocalHorarioPG con: id, local_id, dia_semana, hora_desde, hora_hasta, activo).
 // @Tags Horarios Locales
 // @Produce json
 // @Param id path int true "ID del horario" example(15)
 // @Success 200 {object} utils.APIResponse{data=horarioItemResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 404 {object} utils.APIResponse "Horario no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales/horarios/{id} [get]
 func (h *Container) GetHorarioByID(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -110,16 +110,16 @@ func (h *Container) GetHorarioByID(c *gin.Context) {
 
 // CreateHorarioByLocal godoc
 // @Summary Crear horario para un local
-// @Description Crea un tramo de horario habitual para un local.
+// @Description Crea un tramo de horario para un local. Body: local_id (requerido), dia_semana 1-7 (requerido), hora_desde HH:MM (requerido), hora_hasta HH:MM (requerido, debe ser posterior a hora_desde). Response: id (int ID del horario creado).
 // @Tags Horarios Locales
 // @Accept json
 // @Produce json
-// @Param payload body crearLocalHorarioRequest true "Datos del horario"
+// @Param payload body crearLocalHorarioRequest true "Datos del horario (local_id, dia_semana, hora_desde, hora_hasta)"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 409 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, dia_semana 1-7, hora_invalida, hora_hasta debe ser posterior"
+// @Failure 404 {object} utils.APIResponse "Local no encontrado"
+// @Failure 409 {object} utils.APIResponse "Conflicto: horario ya existe o se superpone con otro existente"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales/horarios [post]
 func (h *Container) CreateHorarioByLocal(c *gin.Context) {
 	var req crearLocalHorarioRequest
@@ -162,17 +162,17 @@ func (h *Container) CreateHorarioByLocal(c *gin.Context) {
 
 // PatchHorario godoc
 // @Summary Actualizar horario
-// @Description Actualiza parcialmente un horario habitual de un local.
+// @Description Actualiza parcialmente un horario. Param: id (requerido, path). Body: dia_semana 1-7 (opcional), hora_desde HH:MM (opcional), hora_hasta HH:MM (opcional, debe ser posterior a hora_desde). Response: mensaje string.
 // @Tags Horarios Locales
 // @Accept json
 // @Produce json
 // @Param id path int true "ID del horario" example(15)
-// @Param payload body actualizarLocalHorarioRequest true "Campos a actualizar"
+// @Param payload body actualizarLocalHorarioRequest true "Campos a actualizar (todos opcionales, al menos uno requerido)"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 409 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, dia_semana 1-7, hora_invalida, hora_hasta debe ser posterior, sin cambios"
+// @Failure 404 {object} utils.APIResponse "Horario no encontrado"
+// @Failure 409 {object} utils.APIResponse "Conflicto: superposicion con otro horario existente"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales/horarios/{id} [patch]
 func (h *Container) PatchHorario(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -259,14 +259,14 @@ func (h *Container) PatchHorario(c *gin.Context) {
 
 // DeleteHorario godoc
 // @Summary Eliminar horario
-// @Description Realiza el borrado logico de un horario estableciendo activo en false.
+// @Description Realiza borrado logico de un horario (activo=false). Param: id (requerido, path). Response: mensaje string.
 // @Tags Horarios Locales
 // @Produce json
 // @Param id path int true "ID del horario" example(15)
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 404 {object} utils.APIResponse "Horario no encontrado o ya inactivo"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales/horarios/{id} [delete]
 func (h *Container) DeleteHorario(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))

@@ -22,7 +22,7 @@ import (
 //
 // GetCombos godoc
 // @Summary Listar combos
-// @Description Devuelve combos filtrados por nombre, categoria, local y sesiones.
+// @Description Devuelve combos desde catalogo Sheets con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local ARANJUEZ/CENTRO/SAN MARTIN (opcional), sesiones numero exacto (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones), combos ([]ComboItem con: nombre, categoria, local, costo_total, sesiones_totales, servicios_incluidos []ServicioIncluido con nombre, tiempo HH:MM, costo, sesiones).
 // @Tags Catalogo
 // @Produce json
 // @Param nombre query string false "Busqueda parcial por nombre" example(relax)
@@ -30,7 +30,8 @@ import (
 // @Param local query string false "Local" Enums(ARANJUEZ,CENTRO,SAN MARTIN) example(ARANJUEZ)
 // @Param sesiones query int false "Numero exacto de sesiones" example(4)
 // @Success 200 {object} utils.APIResponse{data=comboListResponse}
-// @Failure 400 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: sesiones debe ser entero positivo, local invalido"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /combos [get]
 func (h *Container) GetCombos(c *gin.Context) {
 	sesiones := 0

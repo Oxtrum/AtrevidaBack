@@ -25,14 +25,14 @@ type actualizarClienteRequest struct {
 
 // GetClientes godoc
 // @Summary Listar clientes
-// @Description Devuelve clientes de PostgreSQL con filtros opcionales por nombre, apellido y numero de telefono.
+// @Description Devuelve clientes de BD con filtros. Filtros: nombre busqueda parcial (opcional), apellido busqueda parcial (opcional), numero_telefono busqueda parcial (opcional). Response: total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido, numero_telefono).
 // @Tags Clientes
 // @Produce json
 // @Param nombre query string false "Busqueda parcial por nombre" example(Maria)
 // @Param apellido query string false "Busqueda parcial por apellido" example(Lopez)
 // @Param numero_telefono query string false "Busqueda parcial por numero de telefono" example(+59170011223)
 // @Success 200 {object} utils.APIResponse{data=clienteListResponse}
-// @Failure 500 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/clientes [get]
 func (h *Container) GetClientes(c *gin.Context) {
 	clientes, err := h.ClientesPG.GetClientes(services.FiltroClientes{
@@ -58,14 +58,14 @@ func (h *Container) GetClientes(c *gin.Context) {
 
 // GetClienteByID godoc
 // @Summary Obtener cliente por ID
-// @Description Devuelve un cliente de PostgreSQL por su identificador.
+// @Description Devuelve un cliente por su ID. Param: id (requerido, path). Response: cliente (ClientePG con: id, nombre, apellido, numero_telefono).
 // @Tags Clientes
 // @Produce json
 // @Param id path int true "ID del cliente" example(12)
 // @Success 200 {object} utils.APIResponse{data=clienteItemResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 404 {object} utils.APIResponse "Cliente no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/clientes/{id} [get]
 func (h *Container) GetClienteByID(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -89,15 +89,15 @@ func (h *Container) GetClienteByID(c *gin.Context) {
 
 // CreateCliente godoc
 // @Summary Crear cliente
-// @Description Crea un nuevo cliente en la base de datos.
+// @Description Crea un cliente en BD. Body: nombre (requerido), apellido (requerido), numero_telefono (requerido). Response: id (int ID del cliente creado).
 // @Tags Clientes
 // @Accept json
 // @Produce json
-// @Param payload body crearClienteRequest true "Datos del cliente"
+// @Param payload body crearClienteRequest true "Datos del cliente (nombre, apellido, numero_telefono)"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 409 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: nombre/apellido/numero_telefono requeridos"
+// @Failure 409 {object} utils.APIResponse "Conflicto: cliente ya existe"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/clientes [post]
 func (h *Container) CreateCliente(c *gin.Context) {
 	var req crearClienteRequest
@@ -132,17 +132,17 @@ func (h *Container) CreateCliente(c *gin.Context) {
 
 // PatchCliente godoc
 // @Summary Actualizar cliente
-// @Description Actualiza parcialmente un cliente existente en PostgreSQL.
+// @Description Actualiza parcialmente un cliente. Param: id (requerido, path). Body: nombre (opcional), apellido (opcional), numero_telefono (opcional). Response: mensaje string.
 // @Tags Clientes
 // @Accept json
 // @Produce json
 // @Param id path int true "ID del cliente" example(12)
-// @Param payload body actualizarClienteRequest true "Campos a actualizar"
+// @Param payload body actualizarClienteRequest true "Campos a actualizar (todos opcionales, al menos uno requerido)"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 409 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, body invalido, campo vacio, sin cambios"
+// @Failure 404 {object} utils.APIResponse "Cliente no encontrado"
+// @Failure 409 {object} utils.APIResponse "Conflicto: telefono ya existe"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/clientes/{id} [patch]
 func (h *Container) PatchCliente(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -202,14 +202,14 @@ func (h *Container) PatchCliente(c *gin.Context) {
 
 // DeleteCliente godoc
 // @Summary Eliminar cliente
-// @Description Elimina un cliente de la base de datos.
+// @Description Elimina un cliente de BD. Param: id (requerido, path). Response: mensaje string.
 // @Tags Clientes
 // @Produce json
 // @Param id path int true "ID del cliente" example(12)
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 404 {object} utils.APIResponse "Cliente no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/clientes/{id} [delete]
 func (h *Container) DeleteCliente(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))

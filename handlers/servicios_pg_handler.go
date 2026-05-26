@@ -14,7 +14,7 @@ import (
 
 // GetServiciosPG godoc
 // @Summary Listar servicios desde base de datos
-// @Description Devuelve servicios persistidos en PostgreSQL con filtros opcionales.
+// @Description Devuelve servicios desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).
 // @Tags Servicios BD
 // @Produce json
 // @Param nombre query string false "Busqueda parcial por nombre" example(depila)
@@ -23,7 +23,8 @@ import (
 // @Param sesiones query int false "Numero exacto de sesiones" example(6)
 // @Param requiere_evaluacion query bool false "Filtrar por servicios que requieren evaluacion" example(true)
 // @Success 200 {object} utils.APIResponse{data=servicioListResponse}
-// @Failure 400 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: sesiones debe ser entero positivo, local invalido, requiere_evaluacion debe ser true/false"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios [get]
 func (h *Container) GetServiciosPG(c *gin.Context) {
 	sesiones := 0
@@ -83,13 +84,14 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 
 // GetServicioPGByID godoc
 // @Summary Obtener servicio por ID
-// @Description Devuelve un servicio de PostgreSQL por su identificador.
+// @Description Devuelve un servicio por su ID. Param: id (requerido, path). Response: servicio (ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).
 // @Tags Servicios BD
 // @Produce json
 // @Param id path int true "ID del servicio" example(8)
 // @Success 200 {object} utils.APIResponse{data=servicioItemResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 404 {object} utils.APIResponse "Servicio no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios/{id} [get]
 func (h *Container) GetServicioPGByID(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -121,14 +123,14 @@ type crearServicioRequest struct {
 
 // CreateServicio godoc
 // @Summary Crear servicio
-// @Description Crea un nuevo servicio en PostgreSQL y opcionalmente lo asocia a un local.
+// @Description Crea un servicio en PostgreSQL y opcionalmente lo asocia a un local. Body: nombre (requerido), categoria (requerido), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false default true (opcional), local para activar (opcional). Response: id (int ID del servicio creado).
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
 // @Param payload body crearServicioRequest true "Datos del servicio"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: nombre/categoria requerido, tipo_espacio_requerido invalido, local no encontrado, local sin espacios"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios [post]
 func (h *Container) CreateServicio(c *gin.Context) {
 	var req crearServicioRequest
@@ -192,16 +194,16 @@ type actualizarServicioRequest struct {
 
 // UpdateServicio godoc
 // @Summary Actualizar servicio
-// @Description Actualiza un servicio existente en PostgreSQL.
+// @Description Actualiza un servicio existente. Solo se actualizan los campos enviados. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
 // @Param id path int true "ID del servicio" example(8)
-// @Param payload body actualizarServicioRequest true "Campos a actualizar"
+// @Param payload body actualizarServicioRequest true "Campos a actualizar (todos opcionales, al menos uno requerido)"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, tipo_espacio_requerido invalido, sin campos a modificar"
+// @Failure 404 {object} utils.APIResponse "Servicio no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios/{id} [patch]
 func (h *Container) UpdateServicio(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -263,15 +265,15 @@ type activarServicioRequest struct {
 
 // ActivarServicioEnLocal godoc
 // @Summary Activar servicio en local
-// @Description Asocia un servicio existente a un local determinado.
+// @Description Asocia un servicio existente a un local. Param: id del servicio (requerido, path). Body: local (requerido). Response: mensaje string.
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
 // @Param id path int true "ID del servicio" example(8)
 // @Param payload body activarServicioRequest true "Local donde activar el servicio"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, servicio/local no encontrado, local sin espacios"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios/local/{id} [post]
 func (h *Container) ActivarServicioEnLocal(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -302,14 +304,14 @@ func (h *Container) ActivarServicioEnLocal(c *gin.Context) {
 
 // DeleteServicio godoc
 // @Summary Eliminar servicio
-// @Description Realiza el borrado logico de un servicio estableciendo activo en false.
+// @Description Realiza borrado logico de un servicio (activo=false). Param: id (requerido, path). Response: mensaje string.
 // @Tags Servicios BD
 // @Produce json
 // @Param id path int true "ID del servicio" example(8)
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 404 {object} utils.APIResponse "Servicio no encontrado o ya inactivo"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios/{id} [delete]
 func (h *Container) DeleteServicio(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))

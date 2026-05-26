@@ -13,11 +13,11 @@ import (
 
 // GetLocales godoc
 // @Summary Listar locales
-// @Description Devuelve todos los locales registrados en la base de datos.
+// @Description Devuelve todos los locales registrados en BD. Sin filtros. Response: total (int), locales ([]LocalConEspacios con: id, nombre, activo, espacios []TipoEspacioLocal con tipo_espacio M/B y cantidad_espacios, horarios []LocalHorarioPG con id, local_id, dia_semana 1-7, hora_desde HH:MM, hora_hasta HH:MM, activo).
 // @Tags Locales
 // @Produce json
 // @Success 200 {object} utils.APIResponse{data=localListResponse}
-// @Failure 500 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales [get]
 func (h *Container) GetLocales(c *gin.Context) {
 	resultado, err := h.LocalesPG.GetLocales()
@@ -34,13 +34,13 @@ func (h *Container) GetLocales(c *gin.Context) {
 
 // GetLocalById godoc
 // @Summary Obtener local por ID
-// @Description Devuelve un local de PostgreSQL por su identificador.
+// @Description Devuelve un local por su ID. Param: id (requerido, path). Response: total (1), local (LocalConEspacios con: id, nombre, activo, espacios, horarios).
 // @Tags Locales
 // @Produce json
 // @Param id path int true "ID del local" example(3)
 // @Success 200 {object} utils.APIResponse{data=localItemResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales/{id} [get]
 func (h *Container) GetLocalById(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -73,14 +73,14 @@ type espacioRequest struct {
 
 // PostLocal godoc
 // @Summary Crear local
-// @Description Crea un local y opcionalmente sus espacios asociados.
+// @Description Crea un local y opcionalmente sus espacios. Body: nombre (requerido), espacios (opcional, array con: tipo_espacio M/B requerido, cantidad_espacios entero positivo requerido). Response: id (int ID del local creado).
 // @Tags Locales
 // @Accept json
 // @Produce json
-// @Param payload body crearLocalRequest true "Datos del local"
+// @Param payload body crearLocalRequest true "Datos del local (nombre + espacios opcionales)"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: nombre requerido, tipo_espacio invalido M/B, cantidad_espacios debe ser >= 1"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales [post]
 func (h *Container) PostLocal(c *gin.Context) {
 	var req crearLocalRequest
@@ -126,16 +126,16 @@ type actualizarLocalRequest struct {
 
 // PatchLocal godoc
 // @Summary Actualizar local
-// @Description Actualiza nombre o estado activo de un local existente.
+// @Description Actualiza nombre o estado de un local. Param: id (requerido, path). Body: nombre (opcional), activo true/false (opcional). Response: mensaje string.
 // @Tags Locales
 // @Accept json
 // @Produce json
 // @Param id path int true "ID del local" example(3)
-// @Param payload body actualizarLocalRequest true "Campos a actualizar"
+// @Param payload body actualizarLocalRequest true "Campos a actualizar (nombre y/o activo)"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, body invalido, sin campos a modificar"
+// @Failure 404 {object} utils.APIResponse "Local no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales/{id} [patch]
 func (h *Container) PatchLocal(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -175,14 +175,14 @@ func (h *Container) PatchLocal(c *gin.Context) {
 
 // DeleteLocal godoc
 // @Summary Eliminar local
-// @Description Realiza el borrado logico de un local estableciendo activo en false.
+// @Description Realiza borrado logico de un local (activo=false). Param: id (requerido, path). Response: mensaje string.
 // @Tags Locales
 // @Produce json
 // @Param id path int true "ID del local" example(3)
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 404 {object} utils.APIResponse "Local no encontrado o ya inactivo"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales/{id} [delete]
 func (h *Container) DeleteLocal(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))

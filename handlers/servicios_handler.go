@@ -22,7 +22,7 @@ import (
 //
 // GetServicios godoc
 // @Summary Listar servicios
-// @Description Devuelve servicios filtrados por nombre, categoria, local y sesiones.
+// @Description Devuelve servicios desde catalogo Sheets con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local ARANJUEZ/CENTRO/SAN MARTIN (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).
 // @Tags Catalogo
 // @Produce json
 // @Param nombre query string false "Busqueda parcial por nombre" example(depila)
@@ -31,7 +31,8 @@ import (
 // @Param sesiones query int false "Numero exacto de sesiones" example(10)
 // @Param requiere_evaluacion query bool false "Filtrar por servicios que requieren evaluacion" example(false)
 // @Success 200 {object} utils.APIResponse{data=servicioListResponse}
-// @Failure 400 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: sesiones debe ser entero positivo, local invalido, requiere_evaluacion debe ser true/false"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /servicios [get]
 func (h *Container) GetServicios(c *gin.Context) {
 	sesiones := 0

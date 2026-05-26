@@ -37,7 +37,7 @@ const docTemplate = `{
         },
         "/admin/importar": {
             "post": {
-                "description": "Ejecuta la importacion de categorias, servicios y combos desde Google Sheets hacia PostgreSQL.",
+                "description": "Ejecuta la importacion de categorias, servicios y combos desde Google Sheets hacia PostgreSQL. Response: categorias (int importadas), servicios (int), servicio_locales (int relaciones), combos (int), combo_locales (int relaciones), combo_servicios (int relaciones).",
                 "produces": [
                     "application/json"
                 ],
@@ -65,7 +65,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error durante la importacion",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -75,7 +75,7 @@ const docTemplate = `{
         },
         "/bd/categorias": {
             "get": {
-                "description": "Devuelve todas las categorias registradas en la base de datos.",
+                "description": "Devuelve todas las categorias registradas en BD. Sin filtros. Response: total (int), categorias ([]CategoriaPG con: id, nombre).",
                 "produces": [
                     "application/json"
                 ],
@@ -103,7 +103,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -111,7 +111,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una nueva categoria en la base de datos.",
+                "description": "Crea una categoria nueva. Body: nombre (requerido). Response: id (int ID de la categoria creada).",
                 "consumes": [
                     "application/json"
                 ],
@@ -153,13 +153,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: nombre requerido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -169,7 +169,7 @@ const docTemplate = `{
         },
         "/bd/clientes": {
             "get": {
-                "description": "Devuelve clientes de PostgreSQL con filtros opcionales por nombre, apellido y numero de telefono.",
+                "description": "Devuelve clientes de BD con filtros. Filtros: nombre busqueda parcial (opcional), apellido busqueda parcial (opcional), numero_telefono busqueda parcial (opcional). Response: total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido, numero_telefono).",
                 "produces": [
                     "application/json"
                 ],
@@ -220,7 +220,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -228,7 +228,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un nuevo cliente en la base de datos.",
+                "description": "Crea un cliente en BD. Body: nombre (requerido), apellido (requerido), numero_telefono (requerido). Response: id (int ID del cliente creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -241,7 +241,7 @@ const docTemplate = `{
                 "summary": "Crear cliente",
                 "parameters": [
                     {
-                        "description": "Datos del cliente",
+                        "description": "Datos del cliente (nombre, apellido, numero_telefono)",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -270,19 +270,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: nombre/apellido/numero_telefono requeridos",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Conflicto: cliente ya existe",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -292,7 +292,7 @@ const docTemplate = `{
         },
         "/bd/clientes/{id}": {
             "get": {
-                "description": "Devuelve un cliente de PostgreSQL por su identificador.",
+                "description": "Devuelve un cliente por su ID. Param: id (requerido, path). Response: cliente (ClientePG con: id, nombre, apellido, numero_telefono).",
                 "produces": [
                     "application/json"
                 ],
@@ -330,19 +330,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Cliente no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -350,7 +350,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Elimina un cliente de la base de datos.",
+                "description": "Elimina un cliente de BD. Param: id (requerido, path). Response: mensaje string.",
                 "produces": [
                     "application/json"
                 ],
@@ -388,19 +388,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Cliente no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -408,7 +408,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza parcialmente un cliente existente en PostgreSQL.",
+                "description": "Actualiza parcialmente un cliente. Param: id (requerido, path). Body: nombre (opcional), apellido (opcional), numero_telefono (opcional). Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -429,7 +429,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Campos a actualizar",
+                        "description": "Campos a actualizar (todos opcionales, al menos uno requerido)",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -458,25 +458,25 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido, body invalido, campo vacio, sin cambios",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Cliente no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Conflicto: telefono ya existe",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -486,7 +486,7 @@ const docTemplate = `{
         },
         "/bd/combos": {
             "get": {
-                "description": "Devuelve combos persistidos en PostgreSQL con filtros opcionales.",
+                "description": "Devuelve combos desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones), combos ([]ComboItem con: nombre, categoria, local, costo_total, sesiones_totales, servicios_incluidos []ServicioIncluido con nombre, tiempo HH:MM, costo, sesiones).",
                 "produces": [
                     "application/json"
                 ],
@@ -548,7 +548,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: sesiones debe ser entero positivo, local invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -558,7 +564,7 @@ const docTemplate = `{
         },
         "/bd/combos/servicios": {
             "post": {
-                "description": "Crea un item dentro de combo_servicios validando que el combo padre enviado en el body exista y este activo.",
+                "description": "Crea un item dentro de combo_servicios. Body: combo_id ID del combo padre (requerido), servicio_id (opcional si se envia servicio_texto), servicio_texto (opcional si se envia servicio_id), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), orden posicion (opcional). Response: id (int ID del item creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -600,19 +606,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: combo_id requerido, sesiones debe ser positivo, debe enviar servicio_id o servicio_texto",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Combo no encontrado o inactivo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -622,7 +628,7 @@ const docTemplate = `{
         },
         "/bd/combos/servicios/{id}": {
             "get": {
-                "description": "Devuelve un item de combo_servicios por su identificador.",
+                "description": "Devuelve un item de combo_servicios por su ID. Param: id (requerido, path). Response: servicio (ComboServicioDetallePG con: id, combo_id, combo_nombre, servicio_id, servicio_texto, servicio_nombre, tiempo HH:MM, costo, sesiones, orden).",
                 "produces": [
                     "application/json"
                 ],
@@ -660,13 +666,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Item no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -674,7 +686,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Elimina un item de combo_servicios por su identificador.",
+                "description": "Elimina un item de combo_servicios por su ID. Param: id (requerido, path). Response: mensaje string.",
                 "produces": [
                     "application/json"
                 ],
@@ -712,19 +724,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Item no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -732,7 +744,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza campos de un item de combo_servicios. No permite cambiar el combo padre.",
+                "description": "Actualiza campos de un item de combo_servicios. No permite cambiar el combo padre. Param: id (requerido, path). Body: servicio_id (opcional), servicio_texto (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), orden (opcional). Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -753,7 +765,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Campos a actualizar",
+                        "description": "Campos a actualizar (todos opcionales, al menos uno requerido)",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -782,19 +794,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido, sin campos a modificar, sesiones debe ser positivo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Item no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -804,7 +816,7 @@ const docTemplate = `{
         },
         "/bd/combos/{combo_id}/servicios": {
             "get": {
-                "description": "Devuelve los items de combo_servicios asociados a un combo activo.",
+                "description": "Devuelve los items de combo_servicios asociados a un combo activo. Param: combo_id (requerido, path). Response: total (int), combo_id (int), servicios ([]ComboServicioDetallePG con: id, combo_id, combo_nombre, servicio_id, servicio_texto, servicio_nombre, tiempo HH:MM, costo, sesiones, orden).",
                 "produces": [
                     "application/json"
                 ],
@@ -842,19 +854,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: combo_id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Combo no encontrado o inactivo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -864,7 +876,7 @@ const docTemplate = `{
         },
         "/bd/locales": {
             "get": {
-                "description": "Devuelve todos los locales registrados en la base de datos.",
+                "description": "Devuelve todos los locales registrados en BD. Sin filtros. Response: total (int), locales ([]LocalConEspacios con: id, nombre, activo, espacios []TipoEspacioLocal con tipo_espacio M/B y cantidad_espacios, horarios []LocalHorarioPG con id, local_id, dia_semana 1-7, hora_desde HH:MM, hora_hasta HH:MM, activo).",
                 "produces": [
                     "application/json"
                 ],
@@ -892,7 +904,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -900,7 +912,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un local y opcionalmente sus espacios asociados.",
+                "description": "Crea un local y opcionalmente sus espacios. Body: nombre (requerido), espacios (opcional, array con: tipo_espacio M/B requerido, cantidad_espacios entero positivo requerido). Response: id (int ID del local creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -913,7 +925,7 @@ const docTemplate = `{
                 "summary": "Crear local",
                 "parameters": [
                     {
-                        "description": "Datos del local",
+                        "description": "Datos del local (nombre + espacios opcionales)",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -942,13 +954,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: nombre requerido, tipo_espacio invalido M/B, cantidad_espacios debe ser \u003e= 1",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -958,7 +970,7 @@ const docTemplate = `{
         },
         "/bd/locales/horarios": {
             "get": {
-                "description": "Devuelve los horarios activos de un local y permite filtrar opcionalmente por dia_semana.",
+                "description": "Devuelve los horarios activos de un local con filtro opcional. Query: local_id (requerido), dia_semana 1=lunes a 7=domingo (opcional). Response: total (int), filtros (objeto con local_id, dia_semana), horarios ([]LocalHorarioPG con: id, local_id, dia_semana, hora_desde HH:MM, hora_hasta HH:MM, activo).",
                 "produces": [
                     "application/json"
                 ],
@@ -1003,19 +1015,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: local_id invalido, dia_semana debe ser 1-7",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Local no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1023,7 +1035,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un tramo de horario habitual para un local.",
+                "description": "Crea un tramo de horario para un local. Body: local_id (requerido), dia_semana 1-7 (requerido), hora_desde HH:MM (requerido), hora_hasta HH:MM (requerido, debe ser posterior a hora_desde). Response: id (int ID del horario creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1036,7 +1048,7 @@ const docTemplate = `{
                 "summary": "Crear horario para un local",
                 "parameters": [
                     {
-                        "description": "Datos del horario",
+                        "description": "Datos del horario (local_id, dia_semana, hora_desde, hora_hasta)",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -1065,25 +1077,25 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: local_id invalido, dia_semana 1-7, hora_invalida, hora_hasta debe ser posterior",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Local no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Conflicto: horario ya existe o se superpone con otro existente",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1093,7 +1105,7 @@ const docTemplate = `{
         },
         "/bd/locales/horarios/{id}": {
             "get": {
-                "description": "Devuelve un horario de atencion por su identificador.",
+                "description": "Devuelve un horario por su ID. Param: id (requerido, path). Response: horario (LocalHorarioPG con: id, local_id, dia_semana, hora_desde, hora_hasta, activo).",
                 "produces": [
                     "application/json"
                 ],
@@ -1131,19 +1143,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Horario no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1151,7 +1163,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Realiza el borrado logico de un horario estableciendo activo en false.",
+                "description": "Realiza borrado logico de un horario (activo=false). Param: id (requerido, path). Response: mensaje string.",
                 "produces": [
                     "application/json"
                 ],
@@ -1189,19 +1201,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Horario no encontrado o ya inactivo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1209,7 +1221,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza parcialmente un horario habitual de un local.",
+                "description": "Actualiza parcialmente un horario. Param: id (requerido, path). Body: dia_semana 1-7 (opcional), hora_desde HH:MM (opcional), hora_hasta HH:MM (opcional, debe ser posterior a hora_desde). Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1230,7 +1242,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Campos a actualizar",
+                        "description": "Campos a actualizar (todos opcionales, al menos uno requerido)",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -1259,25 +1271,25 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido, dia_semana 1-7, hora_invalida, hora_hasta debe ser posterior, sin cambios",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Horario no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Conflicto: superposicion con otro horario existente",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1287,7 +1299,7 @@ const docTemplate = `{
         },
         "/bd/locales/{id}": {
             "get": {
-                "description": "Devuelve un local de PostgreSQL por su identificador.",
+                "description": "Devuelve un local por su ID. Param: id (requerido, path). Response: total (1), local (LocalConEspacios con: id, nombre, activo, espacios, horarios).",
                 "produces": [
                     "application/json"
                 ],
@@ -1325,13 +1337,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1339,7 +1351,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Realiza el borrado logico de un local estableciendo activo en false.",
+                "description": "Realiza borrado logico de un local (activo=false). Param: id (requerido, path). Response: mensaje string.",
                 "produces": [
                     "application/json"
                 ],
@@ -1377,19 +1389,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Local no encontrado o ya inactivo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1397,7 +1409,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza nombre o estado activo de un local existente.",
+                "description": "Actualiza nombre o estado de un local. Param: id (requerido, path). Body: nombre (opcional), activo true/false (opcional). Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1418,7 +1430,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Campos a actualizar",
+                        "description": "Campos a actualizar (nombre y/o activo)",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -1447,19 +1459,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido, body invalido, sin campos a modificar",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Local no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1469,7 +1481,7 @@ const docTemplate = `{
         },
         "/bd/reservas": {
             "get": {
-                "description": "Devuelve reservas desde PostgreSQL en formato simple y sin agrupacion por local.",
+                "description": "Devuelve reservas en formato plano (sin agrupar por local). Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional). Response: total (int total de reservas), reservas ([]ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
                 "produces": [
                     "application/json"
                 ],
@@ -1488,21 +1500,21 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "example": "2026-05-23",
-                        "description": "Fecha exacta",
+                        "description": "Fecha exacta YYYY-MM-DD",
                         "name": "fecha",
                         "in": "query"
                     },
                     {
                         "type": "string",
                         "example": "2026-05-19",
-                        "description": "Fecha desde",
+                        "description": "Fecha inicio rango YYYY-MM-DD",
                         "name": "fecha_desde",
                         "in": "query"
                     },
                     {
                         "type": "string",
                         "example": "2026-05-24",
-                        "description": "Fecha hasta",
+                        "description": "Fecha fin rango YYYY-MM-DD",
                         "name": "fecha_hasta",
                         "in": "query"
                     },
@@ -1579,13 +1591,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: tipo invalido, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1719,7 +1731,7 @@ const docTemplate = `{
         },
         "/bd/reservas/calendario": {
             "get": {
-                "description": "Devuelve reservas agrupadas por local con filtros opcionales.",
+                "description": "Devuelve reservas agrupadas por local con filtros opcionales. Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional), reservados true/false (opcional). Response: total_locales (int), filtros (objeto con los filtros aplicados), reservas ([]LocalReservas cada uno con: local string, semanas []Semana con titulo y slots []ReservaSlot con hora y map dia-\u003e[]ReservaItem con tipo M/B, cliente, servicio, servicio_solicitado, servicio_confirmado, estado, numero_telefono, notificado, creado_en, actualizado_en).",
                 "produces": [
                     "application/json"
                 ],
@@ -1738,21 +1750,21 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "example": "2026-05-23",
-                        "description": "Fecha exacta",
+                        "description": "Fecha exacta YYYY-MM-DD",
                         "name": "fecha",
                         "in": "query"
                     },
                     {
                         "type": "string",
                         "example": "2026-05-19",
-                        "description": "Fecha desde",
+                        "description": "Fecha inicio rango YYYY-MM-DD",
                         "name": "fecha_desde",
                         "in": "query"
                     },
                     {
                         "type": "string",
                         "example": "2026-05-24",
-                        "description": "Fecha hasta",
+                        "description": "Fecha fin rango YYYY-MM-DD",
                         "name": "fecha_hasta",
                         "in": "query"
                     },
@@ -1836,13 +1848,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: tipo invalido, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1980,7 +1992,7 @@ const docTemplate = `{
         },
         "/bd/reservas/resumen": {
             "get": {
-                "description": "Devuelve el resumen numerico de reservas agendadas del dia, servicios completados del dia y acumulado semanal desde el lunes hasta la fecha indicada.",
+                "description": "Devuelve resumen de reservas del dia. Param: fecha YYYY-MM-DD (requerido, query, no acepta domingos). Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia).",
                 "produces": [
                     "application/json"
                 ],
@@ -1992,7 +2004,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "example": "2026-05-23",
-                        "description": "Fecha a consultar en formato YYYY-MM-DD",
+                        "description": "Fecha a consultar YYYY-MM-DD (no acepta domingos)",
                         "name": "fecha",
                         "in": "query",
                         "required": true
@@ -2018,13 +2030,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: fecha requerida, formato invalido, domingo no permitido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2034,7 +2046,7 @@ const docTemplate = `{
         },
         "/bd/reservas/{id}": {
             "get": {
-                "description": "Devuelve una reserva de PostgreSQL por su identificador.",
+                "description": "Devuelve una reserva por su ID. Param: id (requerido, path). Response: reserva (ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
                 "produces": [
                     "application/json"
                 ],
@@ -2072,19 +2084,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Reserva no encontrada",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2152,7 +2164,7 @@ const docTemplate = `{
         },
         "/bd/servicios": {
             "get": {
-                "description": "Devuelve servicios persistidos en PostgreSQL con filtros opcionales.",
+                "description": "Devuelve servicios desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).",
                 "produces": [
                     "application/json"
                 ],
@@ -2221,7 +2233,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: sesiones debe ser entero positivo, local invalido, requiere_evaluacion debe ser true/false",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2229,7 +2247,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un nuevo servicio en PostgreSQL y opcionalmente lo asocia a un local.",
+                "description": "Crea un servicio en PostgreSQL y opcionalmente lo asocia a un local. Body: nombre (requerido), categoria (requerido), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false default true (opcional), local para activar (opcional). Response: id (int ID del servicio creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -2271,13 +2289,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: nombre/categoria requerido, tipo_espacio_requerido invalido, local no encontrado, local sin espacios",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2287,7 +2305,7 @@ const docTemplate = `{
         },
         "/bd/servicios/local/{id}": {
             "post": {
-                "description": "Asocia un servicio existente a un local determinado.",
+                "description": "Asocia un servicio existente a un local. Param: id del servicio (requerido, path). Body: local (requerido). Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2337,13 +2355,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido, local requerido, servicio/local no encontrado, local sin espacios",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2353,7 +2371,7 @@ const docTemplate = `{
         },
         "/bd/servicios/{id}": {
             "get": {
-                "description": "Devuelve un servicio de PostgreSQL por su identificador.",
+                "description": "Devuelve un servicio por su ID. Param: id (requerido, path). Response: servicio (ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).",
                 "produces": [
                     "application/json"
                 ],
@@ -2391,13 +2409,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Servicio no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2405,7 +2429,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Realiza el borrado logico de un servicio estableciendo activo en false.",
+                "description": "Realiza borrado logico de un servicio (activo=false). Param: id (requerido, path). Response: mensaje string.",
                 "produces": [
                     "application/json"
                 ],
@@ -2443,19 +2467,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Servicio no encontrado o ya inactivo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2463,7 +2487,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza un servicio existente en PostgreSQL.",
+                "description": "Actualiza un servicio existente. Solo se actualizan los campos enviados. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2484,7 +2508,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Campos a actualizar",
+                        "description": "Campos a actualizar (todos opcionales, al menos uno requerido)",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -2513,19 +2537,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido, tipo_espacio_requerido invalido, sin campos a modificar",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Servicio no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2535,7 +2559,7 @@ const docTemplate = `{
         },
         "/combos": {
             "get": {
-                "description": "Devuelve combos filtrados por nombre, categoria, local y sesiones.",
+                "description": "Devuelve combos desde catalogo Sheets con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local ARANJUEZ/CENTRO/SAN MARTIN (opcional), sesiones numero exacto (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones), combos ([]ComboItem con: nombre, categoria, local, costo_total, sesiones_totales, servicios_incluidos []ServicioIncluido con nombre, tiempo HH:MM, costo, sesiones).",
                 "produces": [
                     "application/json"
                 ],
@@ -2598,7 +2622,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: sesiones debe ser entero positivo, local invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2608,7 +2638,7 @@ const docTemplate = `{
         },
         "/reservas": {
             "get": {
-                "description": "Devuelve reservas filtradas por local, semana, dia, tipo, cliente y si estan reservadas.",
+                "description": "Devuelve reservas desde Google Sheets con filtros. Filtros: local (opcional), semana YYYY-MM-DD (opcional), dia lunes..sabado (opcional), tipo mesa/bicicleta/feriado (opcional), cliente (opcional), reservados true/false (opcional). Response: total_locales (int), filtros (objeto con filtros aplicados), reservas ([]LocalReservas cada uno con: local string, semanas []Semana con titulo y slots []ReservaSlot con hora y map dia-\u003e[]ReservaItem con tipo M/B, cliente, servicio, servicio_solicitado, servicio_confirmado, estado, numero_telefono, notificado, creado_en, actualizado_en).",
                 "produces": [
                     "application/json"
                 ],
@@ -2627,7 +2657,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "example": "2026-05-25",
-                        "description": "Semana a consultar",
+                        "description": "Semana a consultar YYYY-MM-DD",
                         "name": "semana",
                         "in": "query"
                     },
@@ -2685,13 +2715,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: tipo invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2861,7 +2891,7 @@ const docTemplate = `{
         },
         "/reservas/celda-raw": {
             "get": {
-                "description": "Obtiene la coordenada resuelta, el valor crudo y el parseo de una celda especifica.",
+                "description": "Obtiene la coordenada A1, el valor crudo y el parseo de una celda especifica. local: nombre del local (requerido). semana: YYYY-MM-DD (requerido). dia: lunes a sabado (requerido). hora: HH:MM (requerido). Solo uso en depuracion.",
                 "produces": [
                     "application/json"
                 ],
@@ -2872,20 +2902,23 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Local",
+                        "example": "SAN MARTIN",
+                        "description": "Nombre del local",
                         "name": "local",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Semana",
+                        "example": "2026-05-25",
+                        "description": "Semana YYYY-MM-DD",
                         "name": "semana",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "string",
+                        "example": "lunes",
                         "description": "Dia",
                         "name": "dia",
                         "in": "query",
@@ -2893,7 +2926,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Hora",
+                        "example": "15:00",
+                        "description": "Hora HH:MM",
                         "name": "hora",
                         "in": "query",
                         "required": true
@@ -2901,13 +2935,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Coordenada A1, raw, parsed",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error al resolver o leer la celda",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2917,7 +2951,7 @@ const docTemplate = `{
         },
         "/reservas/raw": {
             "get": {
-                "description": "Devuelve el contenido crudo de la hoja SAN MARTIN desde Google Sheets.",
+                "description": "Devuelve el contenido crudo de la hoja SAN MARTIN desde Google Sheets. Solo uso en depuracion.",
                 "produces": [
                     "application/json"
                 ],
@@ -2927,7 +2961,7 @@ const docTemplate = `{
                 "summary": "Ver hoja cruda de reservas",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Datos crudos de la hoja",
                         "schema": {
                             "type": "array",
                             "items": {}
@@ -2938,7 +2972,7 @@ const docTemplate = `{
         },
         "/reservas/unfiltered": {
             "get": {
-                "description": "Devuelve todas las reservas procesadas desde Google Sheets sin aplicar filtros.",
+                "description": "Devuelve todas las reservas procesadas desde Google Sheets sin aplicar filtros. Solo uso en depuracion.",
                 "produces": [
                     "application/json"
                 ],
@@ -2948,7 +2982,7 @@ const docTemplate = `{
                 "summary": "Ver reservas sin filtrar",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Lista completa de reservas procesadas",
                         "schema": {
                             "type": "array",
                             "items": {}
@@ -2959,7 +2993,7 @@ const docTemplate = `{
         },
         "/servicios": {
             "get": {
-                "description": "Devuelve servicios filtrados por nombre, categoria, local y sesiones.",
+                "description": "Devuelve servicios desde catalogo Sheets con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local ARANJUEZ/CENTRO/SAN MARTIN (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).",
                 "produces": [
                     "application/json"
                 ],
@@ -3029,7 +3063,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: sesiones debe ser entero positivo, local invalido, requiere_evaluacion debe ser true/false",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3383,14 +3423,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "categorias": {
-                    "description": "Lista de categorias",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.CategoriaPG"
                     }
                 },
                 "total": {
-                    "description": "Cantidad total de categorias",
                     "type": "integer",
                     "example": 5
                 }
@@ -3400,17 +3438,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "apellido": {
-                    "description": "Filtro por apellido",
                     "type": "string",
                     "example": "Lopez"
                 },
                 "nombre": {
-                    "description": "Filtro por nombre",
                     "type": "string",
                     "example": "Maria"
                 },
                 "numero_telefono": {
-                    "description": "Filtro por numero de telefono",
                     "type": "string",
                     "example": "+59170011223"
                 }
@@ -3420,12 +3455,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cliente": {
-                    "description": "Datos del cliente",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.ClientePG"
-                        }
-                    ]
+                    "$ref": "#/definitions/models.ClientePG"
                 }
             }
         },
@@ -3433,22 +3463,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "clientes": {
-                    "description": "Lista de clientes",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.ClientePG"
                     }
                 },
                 "filtros": {
-                    "description": "Filtros aplicados",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/handlers.clienteFiltrosResponse"
-                        }
-                    ]
+                    "$ref": "#/definitions/handlers.clienteFiltrosResponse"
                 },
                 "total": {
-                    "description": "Cantidad total de clientes",
                     "type": "integer",
                     "example": 1
                 }
@@ -3458,22 +3481,18 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "categoria": {
-                    "description": "Filtro por categoria del combo",
                     "type": "string",
                     "example": "Corporal"
                 },
                 "local": {
-                    "description": "Filtro por local",
                     "type": "string",
                     "example": "ARANJUEZ"
                 },
                 "nombre": {
-                    "description": "Filtro por nombre del combo",
                     "type": "string",
                     "example": "relax"
                 },
                 "sesiones": {
-                    "description": "Filtro por numero exacto de sesiones",
                     "type": "integer",
                     "example": 4
                 }
@@ -3483,22 +3502,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "combos": {
-                    "description": "Lista de combos",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.ComboItem"
                     }
                 },
                 "filtros": {
-                    "description": "Filtros aplicados",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/handlers.comboFiltrosResponse"
-                        }
-                    ]
+                    "$ref": "#/definitions/handlers.comboFiltrosResponse"
                 },
                 "total": {
-                    "description": "Cantidad total de combos",
                     "type": "integer",
                     "example": 3
                 }
@@ -3508,12 +3520,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "servicio": {
-                    "description": "Datos del servicio incluido en el combo",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.ComboServicioDetallePG"
-                        }
-                    ]
+                    "$ref": "#/definitions/models.ComboServicioDetallePG"
                 }
             }
         },
@@ -3521,19 +3528,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "combo_id": {
-                    "description": "ID del combo consultado",
                     "type": "integer",
                     "example": 12
                 },
                 "servicios": {
-                    "description": "Lista de servicios del combo",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.ComboServicioDetallePG"
                     }
                 },
                 "total": {
-                    "description": "Cantidad total de servicios del combo",
                     "type": "integer",
                     "example": 3
                 }
@@ -3844,12 +3848,10 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "dia_semana": {
-                    "description": "Dia de la semana filtrado (1=lunes, 7=domingo)",
                     "type": "integer",
                     "example": 1
                 },
                 "local_id": {
-                    "description": "ID del local consultado",
                     "type": "integer",
                     "example": 3
                 }
@@ -3859,12 +3861,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "horario": {
-                    "description": "Datos del horario",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.LocalHorarioPG"
-                        }
-                    ]
+                    "$ref": "#/definitions/models.LocalHorarioPG"
                 }
             }
         },
@@ -3872,22 +3869,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "filtros": {
-                    "description": "Filtros aplicados",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/handlers.horarioFiltrosResponse"
-                        }
-                    ]
+                    "$ref": "#/definitions/handlers.horarioFiltrosResponse"
                 },
                 "horarios": {
-                    "description": "Lista de horarios",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.LocalHorarioPG"
                     }
                 },
                 "total": {
-                    "description": "Cantidad total de horarios",
                     "type": "integer",
                     "example": 5
                 }
@@ -3897,7 +3887,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "id": {
-                    "description": "ID del recurso creado",
                     "type": "integer",
                     "example": 42
                 }
@@ -3907,32 +3896,26 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "categorias": {
-                    "description": "Cantidad de categorias importadas",
                     "type": "integer",
                     "example": 8
                 },
                 "combo_locales": {
-                    "description": "Cantidad de relaciones combo-local creadas",
                     "type": "integer",
                     "example": 6
                 },
                 "combo_servicios": {
-                    "description": "Cantidad de relaciones combo-servicio creadas",
                     "type": "integer",
                     "example": 12
                 },
                 "combos": {
-                    "description": "Cantidad de combos importados",
                     "type": "integer",
                     "example": 5
                 },
                 "servicio_locales": {
-                    "description": "Cantidad de relaciones servicio-local creadas",
                     "type": "integer",
                     "example": 30
                 },
                 "servicios": {
-                    "description": "Cantidad de servicios importados",
                     "type": "integer",
                     "example": 25
                 }
@@ -3942,15 +3925,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "local": {
-                    "description": "Datos del local con espacios y horarios",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.LocalConEspacios"
-                        }
-                    ]
+                    "$ref": "#/definitions/models.LocalConEspacios"
                 },
                 "total": {
-                    "description": "Total de resultados (siempre 1)",
                     "type": "integer",
                     "example": 1
                 }
@@ -3960,14 +3937,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "locales": {
-                    "description": "Lista de locales con espacios y horarios",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.LocalConEspacios"
                     }
                 },
                 "total": {
-                    "description": "Cantidad total de locales",
                     "type": "integer",
                     "example": 2
                 }
@@ -3977,7 +3952,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "mensaje": {
-                    "description": "Mensaje descriptivo del resultado",
                     "type": "string",
                     "example": "operacion realizada correctamente"
                 }
@@ -3987,22 +3961,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "filtros": {
-                    "description": "Filtros aplicados",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/handlers.reservaPGFiltrosResponse"
-                        }
-                    ]
+                    "$ref": "#/definitions/handlers.reservaPGFiltrosResponse"
                 },
                 "reservas": {
-                    "description": "Reservas agrupadas por local",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.LocalReservas"
                     }
                 },
                 "total_locales": {
-                    "description": "Cantidad de locales con reservas",
                     "type": "integer",
                     "example": 2
                 }
@@ -4012,12 +3979,10 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "id": {
-                    "description": "ID de la reserva creada",
                     "type": "integer",
                     "example": 44
                 },
                 "mensaje": {
-                    "description": "Mensaje de confirmacion",
                     "type": "string",
                     "example": "Reserva creada correctamente"
                 }
@@ -4027,32 +3992,26 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cliente": {
-                    "description": "Filtro por nombre del cliente",
                     "type": "string",
                     "example": "Maria"
                 },
                 "dia": {
-                    "description": "Filtro por dia",
                     "type": "string",
                     "example": "lunes"
                 },
                 "local": {
-                    "description": "Filtro por local",
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
                 "reservados": {
-                    "description": "Filtro por estado reservado",
                     "type": "boolean",
                     "example": true
                 },
                 "semana": {
-                    "description": "Filtro por semana",
                     "type": "string",
                     "example": "2026-05-25"
                 },
                 "tipo": {
-                    "description": "Filtro por tipo de reserva",
                     "type": "string",
                     "example": "mesa"
                 }
@@ -4062,12 +4021,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "reserva": {
-                    "description": "Datos de la reserva",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/services.ReservaSimple"
-                        }
-                    ]
+                    "$ref": "#/definitions/services.ReservaSimple"
                 }
             }
         },
@@ -4075,22 +4029,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "filtros": {
-                    "description": "Filtros aplicados",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/handlers.reservaFiltrosResponse"
-                        }
-                    ]
+                    "$ref": "#/definitions/handlers.reservaFiltrosResponse"
                 },
                 "reservas": {
-                    "description": "Reservas agrupadas por local y semana",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.LocalReservas"
                     }
                 },
                 "total_locales": {
-                    "description": "Cantidad de locales con reservas",
                     "type": "integer",
                     "example": 2
                 }
@@ -4100,57 +4047,46 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cliente": {
-                    "description": "Filtro por nombre del cliente",
                     "type": "string",
                     "example": "Maria Lopez"
                 },
                 "estado": {
-                    "description": "Filtro por estado",
                     "type": "string",
                     "example": "AGENDADO"
                 },
                 "fecha": {
-                    "description": "Filtro por fecha exacta",
                     "type": "string",
                     "example": "2026-05-23"
                 },
                 "fecha_desde": {
-                    "description": "Filtro por fecha desde",
                     "type": "string",
                     "example": "2026-05-19"
                 },
                 "fecha_hasta": {
-                    "description": "Filtro por fecha hasta",
                     "type": "string",
                     "example": "2026-05-24"
                 },
                 "local": {
-                    "description": "Filtro por local",
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
                 "numero_telefono": {
-                    "description": "Filtro por numero de telefono",
                     "type": "string",
                     "example": "+59170011223"
                 },
                 "reservados": {
-                    "description": "Filtro por estado reservado",
                     "type": "boolean",
                     "example": true
                 },
                 "servicio_confirmado": {
-                    "description": "Filtro por servicio confirmado",
                     "type": "string",
                     "example": "depilacion laser piernas"
                 },
                 "servicio_solicitado": {
-                    "description": "Filtro por servicio solicitado",
                     "type": "string",
                     "example": "depilacion"
                 },
                 "tipo": {
-                    "description": "Filtro por tipo de reserva",
                     "type": "string",
                     "example": "mesa"
                 }
@@ -4223,14 +4159,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "reservas": {
-                    "description": "Lista plana de reservas",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/services.ReservaSimple"
                     }
                 },
                 "total": {
-                    "description": "Cantidad total de reservas",
                     "type": "integer",
                     "example": 15
                 }
@@ -4240,27 +4174,22 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "categoria": {
-                    "description": "Filtro por categoria del servicio",
                     "type": "string",
                     "example": "Corporal"
                 },
                 "local": {
-                    "description": "Filtro por local",
                     "type": "string",
                     "example": "ARANJUEZ"
                 },
                 "nombre": {
-                    "description": "Filtro por nombre del servicio",
                     "type": "string",
                     "example": "depilacion"
                 },
                 "requiere_evaluacion": {
-                    "description": "Filtro por evaluacion requerida",
                     "type": "boolean",
                     "example": true
                 },
                 "sesiones": {
-                    "description": "Filtro por numero exacto de sesiones",
                     "type": "integer",
                     "example": 6
                 }
@@ -4270,12 +4199,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "servicio": {
-                    "description": "Datos del servicio",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.ServicioItem"
-                        }
-                    ]
+                    "$ref": "#/definitions/models.ServicioItem"
                 }
             }
         },
@@ -4283,22 +4207,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "filtros": {
-                    "description": "Filtros aplicados",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/handlers.servicioFiltrosResponse"
-                        }
-                    ]
+                    "$ref": "#/definitions/handlers.servicioFiltrosResponse"
                 },
                 "servicios": {
-                    "description": "Lista de servicios",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.ServicioItem"
                     }
                 },
                 "total": {
-                    "description": "Cantidad total de servicios",
                     "type": "integer",
                     "example": 10
                 }
@@ -4308,7 +4225,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "slots_error": {
-                    "description": "Slots que no pudieron reservarse",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -4319,7 +4235,6 @@ const docTemplate = `{
                     ]
                 },
                 "slots_ok": {
-                    "description": "Slots que se reservaron exitosamente",
                     "type": "array",
                     "items": {
                         "type": "string"
