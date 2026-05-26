@@ -1587,7 +1587,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una reserva persistida en PostgreSQL.",
+                "description": "Crea una reserva persistida en PostgreSQL. Si el servicio no requiere evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE.",
                 "consumes": [
                     "application/json"
                 ],

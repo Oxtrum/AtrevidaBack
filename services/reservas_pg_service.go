@@ -714,14 +714,34 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		servicio := strings.TrimSpace(*input.ServicioConfirmado)
 		input.ServicioConfirmado = &servicio
 	}
+
+	servicioReserva, servicioEncontrado := s.servicioParaReserva(input)
+	requiereEvaluacion := true
+	if servicioEncontrado {
+		requiereEvaluacion = servicioReserva.RequiereEvaluacion
+		if strings.TrimSpace(servicioReserva.TipoEspacio) != "" {
+			input.Tipo = strings.ToUpper(strings.TrimSpace(servicioReserva.TipoEspacio))
+		}
+	}
+
 	estadoFinal := "PENDIENTE"
+	if !requiereEvaluacion {
+		estadoFinal = "AGENDADO"
+		if input.ServicioConfirmado == nil || strings.TrimSpace(*input.ServicioConfirmado) == "" {
+			servicio := strings.TrimSpace(servicioReserva.Nombre)
+			input.ServicioConfirmado = &servicio
+		}
+	}
 	if strings.TrimSpace(input.Estado) != "" {
 		estadoRecibido, err := NormalizarEstadoReserva(input.Estado)
 		if err != nil {
 			return 0, err
 		}
-		if estadoRecibido != "PENDIENTE" {
-			return 0, errors.New("una reserva nueva siempre inicia en estado PENDIENTE")
+		if estadoRecibido == "RECHAZADO" || estadoRecibido == "COMPLETADO" {
+			return 0, errors.New("estado inicial inválido para una reserva nueva")
+		}
+		if estadoRecibido == "AGENDADO" && requiereEvaluacion {
+			return 0, errors.New("solo los servicios que no requieren evaluación pueden iniciar en estado AGENDADO")
 		}
 	}
 
@@ -748,6 +768,32 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		PlanID:             input.PlanID,
 	})
 	return id, err
+}
+
+func (s *ReservasPGService) servicioParaReserva(input CrearReservaPGInput) (*models.ServicioItem, bool) {
+	if s.serviciosRepo == nil {
+		return nil, false
+	}
+
+	candidatos := []string{}
+	if input.ServicioConfirmado != nil {
+		candidatos = append(candidatos, *input.ServicioConfirmado)
+	}
+	candidatos = append(candidatos, input.ServicioSolicitado, input.Servicio)
+
+	for _, nombre := range candidatos {
+		nombre = strings.TrimSpace(nombre)
+		if nombre == "" {
+			continue
+		}
+
+		servicio, err := s.serviciosRepo.GetServicioByNombre(nombre)
+		if err == nil && servicio != nil {
+			return servicio, true
+		}
+	}
+
+	return nil, false
 }
 
 type ActualizarEstadoReservaInput struct {

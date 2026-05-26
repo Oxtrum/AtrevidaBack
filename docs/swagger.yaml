@@ -2159,7 +2159,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Crea una reserva persistida en PostgreSQL.
+      description: Crea una reserva persistida en PostgreSQL. Si el servicio no requiere
+        evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE.
       parameters:
       - description: Datos de la reserva
         in: body

@@ -124,7 +124,7 @@ type crearReservaPGRequest struct {
 
 // PostReservaPG godoc
 // @Summary Crear reserva en base de datos
-// @Description Crea una reserva persistida en PostgreSQL.
+// @Description Crea una reserva persistida en PostgreSQL. Si el servicio no requiere evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
