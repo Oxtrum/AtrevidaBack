@@ -163,36 +163,47 @@ definitions:
   handlers.actualizarReservaRequest:
     properties:
       cliente:
+        description: Nombre del cliente
         example: Maria Lopez
         type: string
       dia:
+        description: Dia actual de la reserva
         example: lunes
         type: string
       hora:
+        description: Hora actual de la reserva
         example: "09:00"
         type: string
       local:
+        description: Nombre del local
         example: SAN MARTIN
         type: string
       nueva_hora_desde:
+        description: Nueva hora de inicio (opcional)
         example: "11:00"
         type: string
       nueva_hora_hasta:
+        description: Nueva hora de fin (opcional)
         example: "12:00"
         type: string
       nuevo_dia:
+        description: Nuevo dia (opcional)
         example: martes
         type: string
       nuevo_servicio:
+        description: Nuevo servicio (opcional)
         example: Evaluacion corporal
         type: string
       nuevo_tipo:
+        description: 'Nuevo tipo de espacio: M o B (opcional)'
         example: B
         type: string
       semana:
+        description: Semana en formato YYYY-MM-DD
         example: "2026-05-25"
         type: string
       tipo:
+        description: 'Tipo actual de espacio: M (mesa) o B (bicicleta)'
         example: M
         type: string
     required:
@@ -482,27 +493,36 @@ definitions:
   handlers.crearReservaRequest:
     properties:
       cliente:
+        description: Nombre del cliente
         example: Maria Lopez
         type: string
       dia:
+        description: Dia de la semana (lunes, martes, miercoles, jueves, viernes,
+          sabado)
         example: lunes
         type: string
       hora_desde:
+        description: Hora de inicio (HH:MM)
         example: "09:00"
         type: string
       hora_hasta:
+        description: Hora de fin (HH:MM), opcional
         example: "10:00"
         type: string
       local:
+        description: Nombre del local
         example: SAN MARTIN
         type: string
       semana:
+        description: Semana en formato YYYY-MM-DD (primer dia de la semana, lunes)
         example: "2026-05-25"
         type: string
       servicio:
+        description: Servicio solicitado (texto libre)
         example: Depilacion piernas completas
         type: string
       tipo:
+        description: 'Tipo de espacio: M (mesa) o B (bicicleta)'
         example: M
         type: string
     required:
@@ -783,27 +803,48 @@ definitions:
   handlers.reservaResumenResponse:
     properties:
       reservas_agendadas_dia:
+        description: Cantidad de reservas agendadas para el dia consultado
+        example: 15
         type: integer
       semana:
-        $ref: '#/definitions/handlers.reservaResumenSemanaResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.reservaResumenSemanaResponse'
+        description: Resumen por dia de la semana desde el lunes hasta la fecha consultada
       servicios_completados_dia:
+        description: Cantidad de servicios completados en el dia consultado
+        example: 10
         type: integer
     type: object
   handlers.reservaResumenSemanaResponse:
     properties:
       jueves:
+        description: Reservas del dia jueves (incluido si la fecha es jueves o posterior)
+        example: 5
         type: integer
       lunes:
+        description: Reservas del dia lunes (incluido si la fecha es lunes o posterior)
+        example: 8
         type: integer
       martes:
+        description: Reservas del dia martes (incluido si la fecha es martes o posterior)
+        example: 10
         type: integer
       miercoles:
+        description: Reservas del dia miercoles (incluido si la fecha es miercoles
+          o posterior)
+        example: 12
         type: integer
       sabado:
+        description: Reservas del dia sabado (incluido si la fecha es sabado o posterior)
+        example: 3
         type: integer
       total_reservas:
+        description: Total de reservas en la semana (lunes a la fecha consultada)
+        example: 45
         type: integer
       viernes:
+        description: Reservas del dia viernes (incluido si la fecha es viernes o posterior)
+        example: 7
         type: integer
     type: object
   handlers.reservaSimpleListResponse:
@@ -2908,7 +2949,9 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Modifica una reserva existente en Google Sheets.
+      description: Modifica una reserva existente en Google Sheets. Solo se actualizan
+        los campos nuevos enviados. Si hay conflictos, algunos slots pueden fallar
+        (207 Multi-Status).
       parameters:
       - description: Datos para actualizar la reserva
         in: body
@@ -2920,7 +2963,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Todos los slots actualizados exitosamente
           schema:
             allOf:
             - $ref: '#/definitions/utils.APIResponse'
@@ -2929,7 +2972,7 @@ paths:
                   $ref: '#/definitions/handlers.slotsResponse'
               type: object
         "207":
-          description: Multi-Status
+          description: Algunos slots no pudieron actualizarse
           schema:
             allOf:
             - $ref: '#/definitions/utils.APIResponse'
@@ -2938,15 +2981,16 @@ paths:
                   $ref: '#/definitions/handlers.slotsResponse'
               type: object
         "400":
-          description: Bad Request
+          description: 'Error de validacion: campo requerido faltante, tipo invalido,
+            sin cambios para actualizar'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
-          description: Conflict
+          description: 'Conflicto: ningun slot pudo actualizarse'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
-          description: Internal Server Error
+          description: Error interno del servidor
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Actualizar reserva en Google Sheets
@@ -2956,6 +3000,8 @@ paths:
       consumes:
       - application/json
       description: Crea una reserva en uno o varios slots dentro de Google Sheets.
+        Si hay conflictos de horario, algunos slots pueden fallar y otros crearse
+        (207 Multi-Status).
       parameters:
       - description: Datos de la reserva
         in: body
@@ -2967,7 +3013,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Todos los slots reservados exitosamente
           schema:
             allOf:
             - $ref: '#/definitions/utils.APIResponse'
@@ -2976,7 +3022,7 @@ paths:
                   $ref: '#/definitions/handlers.slotsResponse'
               type: object
         "207":
-          description: Multi-Status
+          description: Algunos slots no pudieron reservarse
           schema:
             allOf:
             - $ref: '#/definitions/utils.APIResponse'
@@ -2985,15 +3031,15 @@ paths:
                   $ref: '#/definitions/handlers.slotsResponse'
               type: object
         "400":
-          description: Bad Request
+          description: 'Error de validacion: campo requerido faltante o tipo invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
-          description: Conflict
+          description: 'Conflicto: ningun slot pudo reservarse'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
-          description: Internal Server Error
+          description: Error interno del servidor
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Crear reserva en Google Sheets

@@ -226,19 +226,29 @@ type actualizarNotificadoReservaPGRequest struct {
 }
 
 type reservaResumenSemanaResponse struct {
-	TotalReservas int  `json:"total_reservas"`
-	Lunes         *int `json:"lunes,omitempty"`
-	Martes        *int `json:"martes,omitempty"`
-	Miercoles     *int `json:"miercoles,omitempty"`
-	Jueves        *int `json:"jueves,omitempty"`
-	Viernes       *int `json:"viernes,omitempty"`
-	Sabado        *int `json:"sabado,omitempty"`
+	// Total de reservas en la semana (lunes a la fecha consultada)
+	TotalReservas int  `json:"total_reservas" example:"45"`
+	// Reservas del dia lunes (incluido si la fecha es lunes o posterior)
+	Lunes  *int `json:"lunes,omitempty" example:"8"`
+	// Reservas del dia martes (incluido si la fecha es martes o posterior)
+	Martes *int `json:"martes,omitempty" example:"10"`
+	// Reservas del dia miercoles (incluido si la fecha es miercoles o posterior)
+	Miercoles *int `json:"miercoles,omitempty" example:"12"`
+	// Reservas del dia jueves (incluido si la fecha es jueves o posterior)
+	Jueves *int `json:"jueves,omitempty" example:"5"`
+	// Reservas del dia viernes (incluido si la fecha es viernes o posterior)
+	Viernes *int `json:"viernes,omitempty" example:"7"`
+	// Reservas del dia sabado (incluido si la fecha es sabado o posterior)
+	Sabado *int `json:"sabado,omitempty" example:"3"`
 }
 
 type reservaResumenResponse struct {
-	ReservasAgendadasDia    int                          `json:"reservas_agendadas_dia"`
-	ServiciosCompletadosDia int                          `json:"servicios_completados_dia"`
-	Semana                  reservaResumenSemanaResponse `json:"semana"`
+	// Cantidad de reservas agendadas para el dia consultado
+	ReservasAgendadasDia int `json:"reservas_agendadas_dia" example:"15"`
+	// Cantidad de servicios completados en el dia consultado
+	ServiciosCompletadosDia int `json:"servicios_completados_dia" example:"10"`
+	// Resumen por dia de la semana desde el lunes hasta la fecha consultada
+	Semana reservaResumenSemanaResponse `json:"semana"`
 }
 
 func normalizarTelefono(raw string) (string, error) {

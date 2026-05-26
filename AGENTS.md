@@ -75,6 +75,24 @@ Si el clon aun no los usa, instala:
 ./scripts/install-git-hooks.ps1
 ```
 
+## Checklist de documentacion
+
+Cuando se te pida documentar APIs, revisa CADA endpoint modificado contra esta lista:
+
+- [ ] `@Summary` describe la accion en pocas palabras
+- [ ] `@Description` explica comportamiento, reglas de negocio y casos borde
+- [ ] `@Tags` agrupa correctamente (ej: `Reservas BD`, `Reservas Sheets`, `Combos BD`, etc.)
+- [ ] `@Accept json` presente en handlers que reciben body
+- [ ] `@Produce json` presente (excepto Swagger UI)
+- [ ] `@Param` cubre TODOS los parametros: path, query, body
+- [ ] Cada campo del struct request/response tiene comentario `//` con descripcion
+- [ ] `@Success` coincide con el codigo real del handler (200, 201, 207...)
+- [ ] `@Failure` cubre TODOS los codigos que el handler puede retornar (400, 404, 409, 500...)
+- [ ] `@Failure` incluye texto descriptivo entre comillas: `"Error de validacion: ..."`
+- [ ] `@Router` coincide exactamente con la ruta registrada en `router.go`
+- [ ] Response types en `{object}` existen en el codigo
+- [ ] `example` tags presentes en campos de request/response
+
 ## Criterio de cierre
 
 No des por terminado un cambio de API si:
@@ -82,4 +100,5 @@ No des por terminado un cambio de API si:
 - Swagger no fue actualizado
 - `docs/` no fue regenerado
 - `go build ./...` no pasa
+- La checklist de documentacion no fue verificada
 

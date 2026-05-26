@@ -2696,7 +2696,7 @@
                 }
             },
             "post": {
-                "description": "Crea una reserva en uno o varios slots dentro de Google Sheets.",
+                "description": "Crea una reserva en uno o varios slots dentro de Google Sheets. Si hay conflictos de horario, algunos slots pueden fallar y otros crearse (207 Multi-Status).",
                 "consumes": [
                     "application/json"
                 ],
@@ -2720,7 +2720,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Todos los slots reservados exitosamente",
                         "schema": {
                             "allOf": [
                                 {
@@ -2738,7 +2738,7 @@
                         }
                     },
                     "207": {
-                        "description": "Multi-Status",
+                        "description": "Algunos slots no pudieron reservarse",
                         "schema": {
                             "allOf": [
                                 {
@@ -2756,19 +2756,19 @@
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: campo requerido faltante o tipo invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Conflicto: ningun slot pudo reservarse",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2776,7 +2776,7 @@
                 }
             },
             "patch": {
-                "description": "Modifica una reserva existente en Google Sheets.",
+                "description": "Modifica una reserva existente en Google Sheets. Solo se actualizan los campos nuevos enviados. Si hay conflictos, algunos slots pueden fallar (207 Multi-Status).",
                 "consumes": [
                     "application/json"
                 ],
@@ -2800,7 +2800,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Todos los slots actualizados exitosamente",
                         "schema": {
                             "allOf": [
                                 {
@@ -2818,7 +2818,7 @@
                         }
                     },
                     "207": {
-                        "description": "Multi-Status",
+                        "description": "Algunos slots no pudieron actualizarse",
                         "schema": {
                             "allOf": [
                                 {
@@ -2836,19 +2836,19 @@
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: campo requerido faltante, tipo invalido, sin cambios para actualizar",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Conflicto: ningun slot pudo actualizarse",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3283,46 +3283,57 @@
             ],
             "properties": {
                 "cliente": {
+                    "description": "Nombre del cliente",
                     "type": "string",
                     "example": "Maria Lopez"
                 },
                 "dia": {
+                    "description": "Dia actual de la reserva",
                     "type": "string",
                     "example": "lunes"
                 },
                 "hora": {
+                    "description": "Hora actual de la reserva",
                     "type": "string",
                     "example": "09:00"
                 },
                 "local": {
+                    "description": "Nombre del local",
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
                 "nueva_hora_desde": {
+                    "description": "Nueva hora de inicio (opcional)",
                     "type": "string",
                     "example": "11:00"
                 },
                 "nueva_hora_hasta": {
+                    "description": "Nueva hora de fin (opcional)",
                     "type": "string",
                     "example": "12:00"
                 },
                 "nuevo_dia": {
+                    "description": "Nuevo dia (opcional)",
                     "type": "string",
                     "example": "martes"
                 },
                 "nuevo_servicio": {
+                    "description": "Nuevo servicio (opcional)",
                     "type": "string",
                     "example": "Evaluacion corporal"
                 },
                 "nuevo_tipo": {
+                    "description": "Nuevo tipo de espacio: M o B (opcional)",
                     "type": "string",
                     "example": "B"
                 },
                 "semana": {
+                    "description": "Semana en formato YYYY-MM-DD",
                     "type": "string",
                     "example": "2026-05-25"
                 },
                 "tipo": {
+                    "description": "Tipo actual de espacio: M (mesa) o B (bicicleta)",
                     "type": "string",
                     "example": "M"
                 }
@@ -3724,34 +3735,42 @@
             ],
             "properties": {
                 "cliente": {
+                    "description": "Nombre del cliente",
                     "type": "string",
                     "example": "Maria Lopez"
                 },
                 "dia": {
+                    "description": "Dia de la semana (lunes, martes, miercoles, jueves, viernes, sabado)",
                     "type": "string",
                     "example": "lunes"
                 },
                 "hora_desde": {
+                    "description": "Hora de inicio (HH:MM)",
                     "type": "string",
                     "example": "09:00"
                 },
                 "hora_hasta": {
+                    "description": "Hora de fin (HH:MM), opcional",
                     "type": "string",
                     "example": "10:00"
                 },
                 "local": {
+                    "description": "Nombre del local",
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
                 "semana": {
+                    "description": "Semana en formato YYYY-MM-DD (primer dia de la semana, lunes)",
                     "type": "string",
                     "example": "2026-05-25"
                 },
                 "servicio": {
+                    "description": "Servicio solicitado (texto libre)",
                     "type": "string",
                     "example": "Depilacion piernas completas"
                 },
                 "tipo": {
+                    "description": "Tipo de espacio: M (mesa) o B (bicicleta)",
                     "type": "string",
                     "example": "M"
                 }
@@ -4138,13 +4157,22 @@
             "type": "object",
             "properties": {
                 "reservas_agendadas_dia": {
-                    "type": "integer"
+                    "description": "Cantidad de reservas agendadas para el dia consultado",
+                    "type": "integer",
+                    "example": 15
                 },
                 "semana": {
-                    "$ref": "#/definitions/handlers.reservaResumenSemanaResponse"
+                    "description": "Resumen por dia de la semana desde el lunes hasta la fecha consultada",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handlers.reservaResumenSemanaResponse"
+                        }
+                    ]
                 },
                 "servicios_completados_dia": {
-                    "type": "integer"
+                    "description": "Cantidad de servicios completados en el dia consultado",
+                    "type": "integer",
+                    "example": 10
                 }
             }
         },
@@ -4152,25 +4180,39 @@
             "type": "object",
             "properties": {
                 "jueves": {
-                    "type": "integer"
+                    "description": "Reservas del dia jueves (incluido si la fecha es jueves o posterior)",
+                    "type": "integer",
+                    "example": 5
                 },
                 "lunes": {
-                    "type": "integer"
+                    "description": "Reservas del dia lunes (incluido si la fecha es lunes o posterior)",
+                    "type": "integer",
+                    "example": 8
                 },
                 "martes": {
-                    "type": "integer"
+                    "description": "Reservas del dia martes (incluido si la fecha es martes o posterior)",
+                    "type": "integer",
+                    "example": 10
                 },
                 "miercoles": {
-                    "type": "integer"
+                    "description": "Reservas del dia miercoles (incluido si la fecha es miercoles o posterior)",
+                    "type": "integer",
+                    "example": 12
                 },
                 "sabado": {
-                    "type": "integer"
+                    "description": "Reservas del dia sabado (incluido si la fecha es sabado o posterior)",
+                    "type": "integer",
+                    "example": 3
                 },
                 "total_reservas": {
-                    "type": "integer"
+                    "description": "Total de reservas en la semana (lunes a la fecha consultada)",
+                    "type": "integer",
+                    "example": 45
                 },
                 "viernes": {
-                    "type": "integer"
+                    "description": "Reservas del dia viernes (incluido si la fecha es viernes o posterior)",
+                    "type": "integer",
+                    "example": 7
                 }
             }
         },
