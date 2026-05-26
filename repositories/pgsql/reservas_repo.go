@@ -98,7 +98,8 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
 			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
-			r.precio, r.notas, r.activo, r.creado_en, r.actualizado_en
+			r.precio, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
+			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
 		ORDER BY r.local_nombre, r.fecha, r.hora_desde
@@ -130,7 +131,8 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
 			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
-			r.precio, r.notas, r.activo, r.creado_en, r.actualizado_en
+			r.precio, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
+			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE r.id = $1
 	`
@@ -511,8 +513,9 @@ func BuildJerarquia(reservas []models.ReservaPGCompleta) []models.LocalReservas 
 		slot := slotKey{horaDesde: rv.HoraDesde, horaHasta: rv.HoraHasta}
 
 		item := models.ReservaItem{
-			Tipo:    tipoLetraANombre(rv.TipoEspacio),
-			Cliente: rv.Cliente,
+			Tipo:       tipoLetraANombre(rv.TipoEspacio),
+			Cliente:    rv.Cliente,
+			Notificado: rv.Notificado,
 		}
 		if !rv.CreadoEn.IsZero() {
 			item.CreadoEn = rv.CreadoEn.Format(time.RFC3339)

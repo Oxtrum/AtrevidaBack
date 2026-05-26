@@ -443,6 +443,7 @@ type ReservaSimple struct {
 	ServicioConfirmado *string  `json:"servicio_confirmado,omitempty" example:"Depilacion Laser Piernas"`
 	Precio             *float64 `json:"precio,omitempty" example:"350"`
 	Notas              *string  `json:"notas,omitempty" example:"Primera sesion del plan"`
+	Notificado         bool     `json:"notificado" example:"false"`
 	CreadoEn           string   `json:"creado_en" example:"2026-05-23T15:04:05Z"`
 	ActualizadoEn      string   `json:"actualizado_en" example:"2026-05-23T16:04:05Z"`
 }
@@ -531,6 +532,7 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 			ServicioConfirmado: rv.ServicioConfirmado,
 			Precio:             rv.Precio,
 			Notas:              rv.Notas,
+			Notificado:         rv.Notificado,
 			CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
 			ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
 		})
@@ -559,6 +561,7 @@ func (s *ReservasPGService) GetReservaByID(id int) (*ReservaSimple, error) {
 		ServicioConfirmado: rv.ServicioConfirmado,
 		Precio:             rv.Precio,
 		Notas:              rv.Notas,
+		Notificado:         rv.Notificado,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
 		ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
 	}, nil

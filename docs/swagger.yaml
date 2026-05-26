@@ -979,6 +979,9 @@ definitions:
       estado:
         example: AGENDADO
         type: string
+      notificado:
+        example: false
+        type: boolean
       numero_telefono:
         example: "+59170011223"
         type: string
@@ -1103,6 +1106,9 @@ definitions:
       notas:
         example: Primera sesion del plan
         type: string
+      notificado:
+        example: false
+        type: boolean
       numero_telefono:
         example: "+59170011223"
         type: string

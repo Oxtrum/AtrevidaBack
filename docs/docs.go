@@ -4370,6 +4370,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "AGENDADO"
                 },
+                "notificado": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "numero_telefono": {
                     "type": "string",
                     "example": "+59170011223"
@@ -4542,6 +4546,10 @@ const docTemplate = `{
                 "notas": {
                     "type": "string",
                     "example": "Primera sesion del plan"
+                },
+                "notificado": {
+                    "type": "boolean",
+                    "example": false
                 },
                 "numero_telefono": {
                     "type": "string",

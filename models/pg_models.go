@@ -142,6 +142,7 @@ type ReservaPG struct {
 	Precio             *float64  `db:"precio"`
 	Notas              *string   `db:"notas"`
 	Activo             bool      `db:"activo"`
+	Notificado         bool      `db:"notificado"`
 	CreadoEn           time.Time `db:"creado_en"`
 	ActualizadoEn      time.Time `db:"actualizado_en"`
 }

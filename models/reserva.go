@@ -8,6 +8,7 @@ type ReservaItem struct {
 	ServicioConfirmado string `json:"servicio_confirmado,omitempty" example:"Depilacion Laser Piernas"`
 	Estado             string `json:"estado,omitempty" example:"AGENDADO"`
 	NumeroTelefono     string `json:"numero_telefono,omitempty" example:"+59170011223"`
+	Notificado         bool   `json:"notificado" example:"false"`
 	CreadoEn           string `json:"creado_en,omitempty" example:"2026-05-23T15:04:05Z"`
 	ActualizadoEn      string `json:"actualizado_en,omitempty" example:"2026-05-23T16:04:05Z"`
 }
