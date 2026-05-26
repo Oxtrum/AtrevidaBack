@@ -65,6 +65,7 @@ func (h *Container) GetComboServicioByID(c *gin.Context) {
 // @Success 200 {object} utils.APIResponse{data=comboServicioListResponse}
 // @Failure 400 {object} utils.APIResponse
 // @Failure 404 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
 // @Router /bd/combos/{combo_id}/servicios [get]
 func (h *Container) GetComboServiciosByCombo(c *gin.Context) {
 	comboID, err := strconv.Atoi(c.Param("combo_id"))

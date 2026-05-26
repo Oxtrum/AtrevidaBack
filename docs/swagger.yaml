@@ -1553,6 +1553,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
       summary: Listar servicios de un combo
       tags:
       - Combo Servicios BD
