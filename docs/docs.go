@@ -3253,19 +3253,19 @@ const docTemplate = `{
                     "example": 180
                 },
                 "nuevo_servicio": {
-                    "description": "Nuevo nombre del servicio, opcional",
+                    "description": "Nuevo nombre del servicio principal (opcional)",
                     "type": "string",
                     "example": "Evaluacion corporal"
                 },
                 "nuevo_servicio_confirmado": {
-                    "description": "Nuevo servicio confirmado, opcional",
+                    "description": "Nuevo servicio confirmado tras evaluacion (opcional)",
                     "type": "string",
                     "example": "Evaluacion corporal"
                 },
                 "nuevo_servicio_solicitado": {
-                    "description": "Nuevo servicio solicitado, opcional",
+                    "description": "Nuevo detalle de lo que solicito el cliente (opcional)",
                     "type": "string",
-                    "example": "Evaluacion corporal"
+                    "example": "Evaluacion corporal completa"
                 },
                 "nuevo_tipo": {
                     "description": "Nuevo tipo de espacio: M (mesa) o B (bicicleta), opcional",
@@ -3321,7 +3321,7 @@ const docTemplate = `{
                     "example": "martes"
                 },
                 "nuevo_servicio": {
-                    "description": "Nuevo servicio (opcional)",
+                    "description": "Nuevo nombre del servicio (opcional)",
                     "type": "string",
                     "example": "Evaluacion corporal"
                 },
@@ -3705,17 +3705,17 @@ const docTemplate = `{
                     "example": 350
                 },
                 "servicio": {
-                    "description": "Nombre del servicio (texto libre)",
+                    "description": "Nombre del servicio principal (ej: \"Depilacion laser\"). Se usa como identificador general.",
                     "type": "string",
                     "example": "Depilacion laser"
                 },
                 "servicio_confirmado": {
-                    "description": "Servicio confirmado (se autocompleta si se omite y el servicio no requiere evaluacion)",
+                    "description": "Servicio final confirmado tras evaluacion (ej: \"Depilacion Laser Piernas\"). Si se omite y el servicio no requiere evaluacion, se autocompleta con el nombre del servicio encontrado en BD.",
                     "type": "string",
                     "example": "Depilacion Laser Piernas"
                 },
                 "servicio_solicitado": {
-                    "description": "Servicio solicitado por el cliente (texto libre)",
+                    "description": "Detalle de lo que solicito el cliente (ej: \"Piernas completas\"). Si se omite, se copia de \"servicio\".",
                     "type": "string",
                     "example": "Piernas completas"
                 },
@@ -3768,7 +3768,7 @@ const docTemplate = `{
                     "example": "2026-05-25"
                 },
                 "servicio": {
-                    "description": "Servicio solicitado (texto libre)",
+                    "description": "Nombre del servicio (ej: \"Depilacion piernas completas\"). Texto libre.",
                     "type": "string",
                     "example": "Depilacion piernas completas"
                 },

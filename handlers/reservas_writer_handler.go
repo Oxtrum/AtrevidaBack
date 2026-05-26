@@ -26,7 +26,7 @@ type crearReservaRequest struct {
 	Tipo string `json:"tipo" binding:"required" example:"M"`
 	// Nombre del cliente
 	Cliente string `json:"cliente" binding:"required" example:"Maria Lopez"`
-	// Servicio solicitado (texto libre)
+	// Nombre del servicio (ej: "Depilacion piernas completas"). Texto libre.
 	Servicio string `json:"servicio" example:"Depilacion piernas completas"`
 }
 
@@ -110,7 +110,7 @@ type actualizarReservaRequest struct {
 	NuevaHoraHasta string `json:"nueva_hora_hasta" example:"12:00"`
 	// Nuevo tipo de espacio: M o B (opcional)
 	NuevoTipo string `json:"nuevo_tipo" example:"B"`
-	// Nuevo servicio (opcional)
+	// Nuevo nombre del servicio (opcional)
 	NuevoServicio string `json:"nuevo_servicio" example:"Evaluacion corporal"`
 }
 

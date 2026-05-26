@@ -122,11 +122,11 @@ type crearReservaPGRequest struct {
 	NumeroTelefono string `json:"numero_telefono" binding:"required" example:"+59170011223"`
 	// Estado inicial: PENDIENTE (default), AGENDADO (solo si el servicio no requiere evaluacion)
 	Estado string `json:"estado" example:"PENDIENTE"`
-	// Nombre del servicio (texto libre)
+	// Nombre del servicio principal (ej: "Depilacion laser"). Se usa como identificador general.
 	Servicio string `json:"servicio" example:"Depilacion laser"`
-	// Servicio solicitado por el cliente (texto libre)
+	// Detalle de lo que solicito el cliente (ej: "Piernas completas"). Si se omite, se copia de "servicio".
 	ServicioSolicitado string `json:"servicio_solicitado" example:"Piernas completas"`
-	// Servicio confirmado (se autocompleta si se omite y el servicio no requiere evaluacion)
+	// Servicio final confirmado tras evaluacion (ej: "Depilacion Laser Piernas"). Si se omite y el servicio no requiere evaluacion, se autocompleta con el nombre del servicio encontrado en BD.
 	ServicioConfirmado *string `json:"servicio_confirmado" example:"Depilacion Laser Piernas"`
 	// Precio de la reserva
 	Precio *float64 `json:"precio" example:"350"`
@@ -462,11 +462,11 @@ type actualizarReservaPGRequest struct {
 	NuevoTipo string `json:"nuevo_tipo" example:"B"`
 	// Nuevo numero de telefono, opcional
 	NuevoNumeroTelefono string `json:"nuevo_numero_telefono" example:"+59170011224"`
-	// Nuevo nombre del servicio, opcional
+	// Nuevo nombre del servicio principal (opcional)
 	NuevoServicio string `json:"nuevo_servicio" example:"Evaluacion corporal"`
-	// Nuevo servicio solicitado, opcional
-	NuevoServicioSolicitado string `json:"nuevo_servicio_solicitado" example:"Evaluacion corporal"`
-	// Nuevo servicio confirmado, opcional
+	// Nuevo detalle de lo que solicito el cliente (opcional)
+	NuevoServicioSolicitado string `json:"nuevo_servicio_solicitado" example:"Evaluacion corporal completa"`
+	// Nuevo servicio confirmado tras evaluacion (opcional)
 	NuevoServicioConfirmado string `json:"nuevo_servicio_confirmado" example:"Evaluacion corporal"`
 	// Nuevo precio, opcional
 	NuevoPrecio *float64 `json:"nuevo_precio" example:"180"`

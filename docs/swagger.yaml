@@ -141,16 +141,16 @@ definitions:
         example: 180
         type: number
       nuevo_servicio:
-        description: Nuevo nombre del servicio, opcional
+        description: Nuevo nombre del servicio principal (opcional)
         example: Evaluacion corporal
         type: string
       nuevo_servicio_confirmado:
-        description: Nuevo servicio confirmado, opcional
+        description: Nuevo servicio confirmado tras evaluacion (opcional)
         example: Evaluacion corporal
         type: string
       nuevo_servicio_solicitado:
-        description: Nuevo servicio solicitado, opcional
-        example: Evaluacion corporal
+        description: Nuevo detalle de lo que solicito el cliente (opcional)
+        example: Evaluacion corporal completa
         type: string
       nuevo_tipo:
         description: 'Nuevo tipo de espacio: M (mesa) o B (bicicleta), opcional'
@@ -191,7 +191,7 @@ definitions:
         example: martes
         type: string
       nuevo_servicio:
-        description: Nuevo servicio (opcional)
+        description: Nuevo nombre del servicio (opcional)
         example: Evaluacion corporal
         type: string
       nuevo_tipo:
@@ -467,16 +467,19 @@ definitions:
         example: 350
         type: number
       servicio:
-        description: Nombre del servicio (texto libre)
+        description: 'Nombre del servicio principal (ej: "Depilacion laser"). Se usa
+          como identificador general.'
         example: Depilacion laser
         type: string
       servicio_confirmado:
-        description: Servicio confirmado (se autocompleta si se omite y el servicio
-          no requiere evaluacion)
+        description: 'Servicio final confirmado tras evaluacion (ej: "Depilacion Laser
+          Piernas"). Si se omite y el servicio no requiere evaluacion, se autocompleta
+          con el nombre del servicio encontrado en BD.'
         example: Depilacion Laser Piernas
         type: string
       servicio_solicitado:
-        description: Servicio solicitado por el cliente (texto libre)
+        description: 'Detalle de lo que solicito el cliente (ej: "Piernas completas").
+          Si se omite, se copia de "servicio".'
         example: Piernas completas
         type: string
       tipo:
@@ -518,7 +521,8 @@ definitions:
         example: "2026-05-25"
         type: string
       servicio:
-        description: Servicio solicitado (texto libre)
+        description: 'Nombre del servicio (ej: "Depilacion piernas completas"). Texto
+          libre.'
         example: Depilacion piernas completas
         type: string
       tipo:
