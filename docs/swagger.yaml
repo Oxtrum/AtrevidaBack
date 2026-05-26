@@ -967,8 +967,14 @@ definitions:
     type: object
   models.ReservaItem:
     properties:
+      actualizado_en:
+        example: "2026-05-23T16:04:05Z"
+        type: string
       cliente:
         example: Maria Lopez
+        type: string
+      creado_en:
+        example: "2026-05-23T15:04:05Z"
         type: string
       estado:
         example: AGENDADO
@@ -1067,8 +1073,14 @@ definitions:
     type: object
   services.ReservaSimple:
     properties:
+      actualizado_en:
+        example: "2026-05-23T16:04:05Z"
+        type: string
       cliente:
         example: Maria Lopez
+        type: string
+      creado_en:
+        example: "2026-05-23T15:04:05Z"
         type: string
       estado:
         example: AGENDADO

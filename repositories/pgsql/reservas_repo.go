@@ -514,6 +514,12 @@ func BuildJerarquia(reservas []models.ReservaPGCompleta) []models.LocalReservas 
 			Tipo:    tipoLetraANombre(rv.TipoEspacio),
 			Cliente: rv.Cliente,
 		}
+		if !rv.CreadoEn.IsZero() {
+			item.CreadoEn = rv.CreadoEn.Format(time.RFC3339)
+		}
+		if !rv.ActualizadoEn.IsZero() {
+			item.ActualizadoEn = rv.ActualizadoEn.Format(time.RFC3339)
+		}
 		if rv.ServicioNombre != nil {
 			item.Servicio = *rv.ServicioNombre
 		}

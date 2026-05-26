@@ -4354,9 +4354,17 @@ const docTemplate = `{
         "models.ReservaItem": {
             "type": "object",
             "properties": {
+                "actualizado_en": {
+                    "type": "string",
+                    "example": "2026-05-23T16:04:05Z"
+                },
                 "cliente": {
                     "type": "string",
                     "example": "Maria Lopez"
+                },
+                "creado_en": {
+                    "type": "string",
+                    "example": "2026-05-23T15:04:05Z"
                 },
                 "estado": {
                     "type": "string",
@@ -4495,9 +4503,17 @@ const docTemplate = `{
         "services.ReservaSimple": {
             "type": "object",
             "properties": {
+                "actualizado_en": {
+                    "type": "string",
+                    "example": "2026-05-23T16:04:05Z"
+                },
                 "cliente": {
                     "type": "string",
                     "example": "Maria Lopez"
+                },
+                "creado_en": {
+                    "type": "string",
+                    "example": "2026-05-23T15:04:05Z"
                 },
                 "estado": {
                     "type": "string",
