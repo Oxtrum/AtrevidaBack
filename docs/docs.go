@@ -1593,7 +1593,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una reserva persistida en PostgreSQL. Si el servicio no requiere evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE. Si se envia el campo \"estado\", los valores permitidos son PENDIENTE o AGENDADO. AGENDADO solo se acepta si el servicio no requiere evaluacion. RECHAZADO y COMPLETADO no son estados iniciales validos.",
+                "description": "Crea una reserva en PostgreSQL. Campos: local (req), fecha (req), hora_desde (req), hora_hasta, tipo (M/B), cliente (req), numero_telefono (req), estado (PENDIENTE/AGENDADO), servicio, servicio_solicitado, servicio_confirmado, precio, notas, plan_id. Si el servicio no requiere evaluacion inicia como AGENDADO, sino PENDIENTE. AGENDADO solo aceptado si el servicio no requiere evaluacion. RECHAZADO y COMPLETADO no son estados iniciales.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1655,7 +1655,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza los datos de una reserva existente (fecha, hora, tipo, telefono, servicio, precio, notas). Solo se actualizan los campos enviados; los omitidos se mantienen igual. El campo \"local\" siempre es requerido para validacion. No permite cambiar el estado de la reserva (usar PATCH /bd/reservas/estado para eso).",
+                "description": "Actualiza los datos de una reserva existente. Solo se actualizan los campos enviados en el body; los omitidos se mantienen igual. Campos: id (req), local (req), nueva_fecha, nueva_hora_desde, nueva_hora_hasta, nuevo_tipo (M/B), nuevo_numero_telefono, nuevo_servicio, nuevo_servicio_solicitado, nuevo_servicio_confirmado, nuevo_precio, nuevas_notas. No cambia estado (usar PATCH /bd/reservas/estado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1852,7 +1852,7 @@ const docTemplate = `{
         },
         "/bd/reservas/estado": {
             "patch": {
-                "description": "Cambia el estado de una reserva. Transiciones permitidas: PENDIENTE -\u003e AGENDADO/RECHAZADO, AGENDADO -\u003e COMPLETADO/RECHAZADO, RECHAZADO/COMPLETADO no admiten cambios.",
+                "description": "Cambia el estado de una reserva. Campos: id (req), estado (req): PENDIENTE/AGENDADO/RECHAZADO/COMPLETADO, causa, servicio_confirmado, precio, tipo (M/B). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO. RECHAZADO/COMPLETADO no admiten cambios.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1916,7 +1916,7 @@ const docTemplate = `{
         },
         "/bd/reservas/notificar": {
             "patch": {
-                "description": "Marca una reserva como notificada (true) o no notificada (false). Se usa para tracking de avisos al cliente.",
+                "description": "Marca una reserva como notificada o no. Campos: id (req), notificado true/false (req). Se usa para tracking de avisos al cliente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2092,7 +2092,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Realiza el borrado logico de una reserva estableciendo activo en false.",
+                "description": "Elimina (logico) una reserva. Param: id (path). Establece activo=false.",
                 "produces": [
                     "application/json"
                 ],
@@ -2699,7 +2699,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una reserva en uno o varios slots dentro de Google Sheets. Si hay conflictos de horario, algunos slots pueden fallar y otros crearse (207 Multi-Status).",
+                "description": "Crea una reserva en Google Sheets. Campos: local (req), semana (req), dia (req), hora_desde (req), hora_hasta, tipo M/B (req), cliente (req), servicio. Si hay conflictos, algunos slots pueden fallar (207 Multi-Status).",
                 "consumes": [
                     "application/json"
                 ],
@@ -2779,7 +2779,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Modifica una reserva existente en Google Sheets. Solo se actualizan los campos nuevos enviados. Si hay conflictos, algunos slots pueden fallar (207 Multi-Status).",
+                "description": "Modifica una reserva existente en Google Sheets. Solo se actualizan los campos nuevos enviados. Campos: local (req), semana (req), dia (req), hora (req), tipo M/B (req), cliente (req), nuevo_dia, nueva_hora_desde, nueva_hora_hasta, nuevo_tipo (M/B), nuevo_servicio. Si hay conflictos, algunos slots pueden fallar (207 Multi-Status).",
                 "consumes": [
                     "application/json"
                 ],

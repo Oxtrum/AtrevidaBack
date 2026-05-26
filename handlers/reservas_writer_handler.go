@@ -32,7 +32,7 @@ type crearReservaRequest struct {
 
 // PostReserva godoc
 // @Summary Crear reserva en Google Sheets
-// @Description Crea una reserva en uno o varios slots dentro de Google Sheets. Si hay conflictos de horario, algunos slots pueden fallar y otros crearse (207 Multi-Status).
+// @Description Crea una reserva en Google Sheets. Campos: local (req), semana (req), dia (req), hora_desde (req), hora_hasta, tipo M/B (req), cliente (req), servicio. Si hay conflictos, algunos slots pueden fallar (207 Multi-Status).
 // @Tags Reservas Sheets
 // @Accept json
 // @Produce json
@@ -116,7 +116,7 @@ type actualizarReservaRequest struct {
 
 // PatchReserva godoc
 // @Summary Actualizar reserva en Google Sheets
-// @Description Modifica una reserva existente en Google Sheets. Solo se actualizan los campos nuevos enviados. Si hay conflictos, algunos slots pueden fallar (207 Multi-Status).
+// @Description Modifica una reserva existente en Google Sheets. Solo se actualizan los campos nuevos enviados. Campos: local (req), semana (req), dia (req), hora (req), tipo M/B (req), cliente (req), nuevo_dia, nueva_hora_desde, nueva_hora_hasta, nuevo_tipo (M/B), nuevo_servicio. Si hay conflictos, algunos slots pueden fallar (207 Multi-Status).
 // @Tags Reservas Sheets
 // @Accept json
 // @Produce json

@@ -138,7 +138,7 @@ type crearReservaPGRequest struct {
 
 // PostReservaPG godoc
 // @Summary Crear reserva en base de datos
-// @Description Crea una reserva persistida en PostgreSQL. Si el servicio no requiere evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE. Si se envia el campo "estado", los valores permitidos son PENDIENTE o AGENDADO. AGENDADO solo se acepta si el servicio no requiere evaluacion. RECHAZADO y COMPLETADO no son estados iniciales validos.
+// @Description Crea una reserva en PostgreSQL. Campos: local (req), fecha (req), hora_desde (req), hora_hasta, tipo (M/B), cliente (req), numero_telefono (req), estado (PENDIENTE/AGENDADO), servicio, servicio_solicitado, servicio_confirmado, precio, notas, plan_id. Si el servicio no requiere evaluacion inicia como AGENDADO, sino PENDIENTE. AGENDADO solo aceptado si el servicio no requiere evaluacion. RECHAZADO y COMPLETADO no son estados iniciales.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -476,7 +476,7 @@ type actualizarReservaPGRequest struct {
 
 // PatchReservaPG godoc
 // @Summary Actualizar reserva en base de datos
-// @Description Actualiza los datos de una reserva existente (fecha, hora, tipo, telefono, servicio, precio, notas). Solo se actualizan los campos enviados; los omitidos se mantienen igual. El campo "local" siempre es requerido para validacion. No permite cambiar el estado de la reserva (usar PATCH /bd/reservas/estado para eso).
+// @Description Actualiza los datos de una reserva existente. Solo se actualizan los campos enviados en el body; los omitidos se mantienen igual. Campos: id (req), local (req), nueva_fecha, nueva_hora_desde, nueva_hora_hasta, nuevo_tipo (M/B), nuevo_numero_telefono, nuevo_servicio, nuevo_servicio_solicitado, nuevo_servicio_confirmado, nuevo_precio, nuevas_notas. No cambia estado (usar PATCH /bd/reservas/estado).
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -556,7 +556,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 
 // PatchReservaEstadoPG godoc
 // @Summary Actualizar estado de reserva
-// @Description Cambia el estado de una reserva. Transiciones permitidas: PENDIENTE -> AGENDADO/RECHAZADO, AGENDADO -> COMPLETADO/RECHAZADO, RECHAZADO/COMPLETADO no admiten cambios.
+// @Description Cambia el estado de una reserva. Campos: id (req), estado (req): PENDIENTE/AGENDADO/RECHAZADO/COMPLETADO, causa, servicio_confirmado, precio, tipo (M/B). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO. RECHAZADO/COMPLETADO no admiten cambios.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -600,7 +600,7 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 
 // PatchReservaNotificadoPG godoc
 // @Summary Actualizar notificacion de reserva
-// @Description Marca una reserva como notificada (true) o no notificada (false). Se usa para tracking de avisos al cliente.
+// @Description Marca una reserva como notificada o no. Campos: id (req), notificado true/false (req). Se usa para tracking de avisos al cliente.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -640,7 +640,7 @@ func (h *Container) PatchReservaNotificadoPG(c *gin.Context) {
 
 // DeleteReservaPG godoc
 // @Summary Eliminar reserva
-// @Description Realiza el borrado logico de una reserva estableciendo activo en false.
+// @Description Elimina (logico) una reserva. Param: id (path). Establece activo=false.
 // @Tags Reservas BD
 // @Produce json
 // @Param id path int true "ID de la reserva" example(44)
