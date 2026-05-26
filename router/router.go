@@ -135,6 +135,7 @@ func Setup(h *handlers.Container, repo *sheetsrepo.ReservasRepo) *gin.Engine {
 		bd.GET("/reservas", h.GetReservasSimplePG)
 		bd.GET("/reservas/resumen", h.GetReservasResumenPG)
 		bd.GET("/reservas/:id", h.GetReservaPGByID)
+		bd.PATCH("/reservas/notificar", h.PatchReservaNotificadoPG)
 		bd.DELETE("/reservas/:id", h.DeleteReservaPG)
 		bd.GET("/reservas/calendario", h.GetReservasPG)
 		bd.POST("/reservas", h.PostReservaPG)

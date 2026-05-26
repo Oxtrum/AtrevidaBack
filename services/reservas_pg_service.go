@@ -571,6 +571,22 @@ func (s *ReservasPGService) DeleteReserva(id int) error {
 	return s.repo.AnularReserva(id)
 }
 
+func (s *ReservasPGService) ActualizarNotificacionReserva(id int, notificado bool) error {
+	if id <= 0 {
+		return errors.New("id no valido")
+	}
+
+	err := s.repo.UpdateReservaNotificado(id, notificado)
+	if err != nil {
+		if esReservaNoEncontrada(err) {
+			return errors.New("No se pudo encontrar la reserva")
+		}
+		return err
+	}
+
+	return nil
+}
+
 func (s *ReservasPGService) GetResumenReservas(fecha time.Time) (*ResumenReservas, error) {
 	fecha = fecha.Truncate(24 * time.Hour)
 	if fecha.Weekday() == time.Sunday {

@@ -198,6 +198,11 @@ type actualizarEstadoReservaPGRequest struct {
 	Tipo               string   `json:"tipo" example:"M"`
 }
 
+type actualizarNotificadoReservaPGRequest struct {
+	Id         int   `json:"id" binding:"required" example:"44"`
+	Notificado *bool `json:"notificado" binding:"required" example:"true"`
+}
+
 type reservaResumenSemanaResponse struct {
 	TotalReservas int  `json:"total_reservas"`
 	Lunes         *int `json:"lunes,omitempty"`
@@ -547,6 +552,46 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "Estado de reserva actualizado correctamente"})
+}
+
+// PatchReservaNotificadoPG godoc
+// @Summary Actualizar notificacion de reserva
+// @Description Marca una reserva como notificada o no notificada.
+// @Tags Reservas BD
+// @Accept json
+// @Produce json
+// @Param payload body actualizarNotificadoReservaPGRequest true "Estado de notificacion"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
+// @Failure 500 {object} utils.APIResponse
+// @Router /bd/reservas/notifcar [patch]
+func (h *Container) PatchReservaNotificadoPG(c *gin.Context) {
+	var req actualizarNotificadoReservaPGRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.Id <= 0 {
+		utils.RespondError(c, http.StatusBadRequest, "id invalido")
+		return
+	}
+	if req.Notificado == nil {
+		utils.RespondError(c, http.StatusBadRequest, "notificado es requerido")
+		return
+	}
+
+	err := h.ReservasPG.ActualizarNotificacionReserva(req.Id, *req.Notificado)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "no se pudo encontrar la reserva") {
+			utils.RespondError(c, http.StatusNotFound, "No se pudo encontrar la reserva")
+			return
+		}
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "Notificacion de reserva actualizada correctamente"})
 }
 
 // DeleteReservaPG godoc

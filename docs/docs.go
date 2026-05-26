@@ -1908,6 +1908,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/reservas/notifcar": {
+            "patch": {
+                "description": "Marca una reserva como notificada o no notificada.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservas BD"
+                ],
+                "summary": "Actualizar notificacion de reserva",
+                "parameters": [
+                    {
+                        "description": "Estado de notificacion",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarNotificadoReservaPGRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/reservas/resumen": {
             "get": {
                 "description": "Devuelve el resumen numerico de reservas agendadas del dia, servicios completados del dia y acumulado semanal desde el lunes hasta la fecha indicada.",
@@ -3107,6 +3171,23 @@ const docTemplate = `{
                 "nombre": {
                     "type": "string",
                     "example": "PASEO ARANJUEZ"
+                }
+            }
+        },
+        "handlers.actualizarNotificadoReservaPGRequest": {
+            "type": "object",
+            "required": [
+                "id",
+                "notificado"
+            ],
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 44
+                },
+                "notificado": {
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },

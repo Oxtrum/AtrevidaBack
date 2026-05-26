@@ -390,6 +390,23 @@ func (r *ReservasRepo) AnularReserva(id int) error {
 	return nil
 }
 
+func (r *ReservasRepo) UpdateReservaNotificado(id int, notificado bool) error {
+	res, err := r.db.Exec(
+		`UPDATE reservas SET notificado = $1, actualizado_en = NOW() WHERE id = $2 AND activo = TRUE`,
+		notificado,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("error al actualizar notificacion de reserva: %w", err)
+	}
+
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("reserva con id %d no encontrada o inactiva", id)
+	}
+
+	return nil
+}
+
 func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoInput) error {
 	tx, err := r.db.Beginx()
 	if err != nil {

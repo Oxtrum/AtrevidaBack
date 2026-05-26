@@ -83,5 +83,6 @@ type ReservasPGRepository interface {
 	CreateReserva(input CreateReservaInput) (int, error)
 	UpdateReserva(input UpdateReservaInput) error
 	UpdateReservaEstado(input UpdateReservaEstadoInput) error
+	UpdateReservaNotificado(id int, notificado bool) error
 	AnularReserva(id int) error
 }
