@@ -32,7 +32,7 @@ type crearReservaRequest struct {
 
 // PostReserva godoc
 // @Summary Crear reserva en Google Sheets
-// @Description Crea una reserva en Google Sheets. Campos: local (req), semana (req), dia (req), hora_desde (req), hora_hasta, tipo M/B (req), cliente (req), servicio. Si hay conflictos, algunos slots pueden fallar (207 Multi-Status).
+// @Description Crea una reserva en Google Sheets. local: nombre del local (requerido). semana: YYYY-MM-DD (requerido). dia: lunes a sabado (requerido). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). tipo: M=mesa o B=bicicleta (requerido). cliente: nombre del cliente (requerido). servicio: nombre del servicio (opcional). Si hay conflictos, algunos slots fallan (207).
 // @Tags Reservas Sheets
 // @Accept json
 // @Produce json
@@ -116,7 +116,7 @@ type actualizarReservaRequest struct {
 
 // PatchReserva godoc
 // @Summary Actualizar reserva en Google Sheets
-// @Description Modifica una reserva existente en Google Sheets. Solo se actualizan los campos nuevos enviados. Campos: local (req), semana (req), dia (req), hora (req), tipo M/B (req), cliente (req), nuevo_dia, nueva_hora_desde, nueva_hora_hasta, nuevo_tipo (M/B), nuevo_servicio. Si hay conflictos, algunos slots pueden fallar (207 Multi-Status).
+// @Description Modifica una reserva en Google Sheets. Solo se actualizan los campos nuevos enviados. local: nombre del local (requerido). semana: YYYY-MM-DD (requerido). dia: lunes a sabado (requerido). hora: hora actual HH:MM (requerido). tipo: M=mesa o B=bicicleta (requerido). cliente: nombre del cliente (requerido). nuevo_dia: nuevo dia (opcional). nueva_hora_desde: nueva hora inicio (opcional). nueva_hora_hasta: nueva hora fin (opcional). nuevo_tipo: M o B (opcional). nuevo_servicio: nuevo servicio (opcional). Si hay conflictos, algunos slots fallan (207).
 // @Tags Reservas Sheets
 // @Accept json
 // @Produce json

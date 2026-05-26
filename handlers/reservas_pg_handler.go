@@ -138,7 +138,7 @@ type crearReservaPGRequest struct {
 
 // PostReservaPG godoc
 // @Summary Crear reserva en base de datos
-// @Description Crea una reserva en PostgreSQL. Campos: local (req), fecha (req), hora_desde (req), hora_hasta, tipo (M/B), cliente (req), numero_telefono (req), estado (PENDIENTE/AGENDADO), servicio, servicio_solicitado, servicio_confirmado, precio, notas, plan_id. Si el servicio no requiere evaluacion inicia como AGENDADO, sino PENDIENTE. AGENDADO solo aceptado si el servicio no requiere evaluacion. RECHAZADO y COMPLETADO no son estados iniciales.
+// @Description Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO solo si servicio no requiere evaluacion (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -476,7 +476,7 @@ type actualizarReservaPGRequest struct {
 
 // PatchReservaPG godoc
 // @Summary Actualizar reserva en base de datos
-// @Description Actualiza los datos de una reserva existente. Solo se actualizan los campos enviados en el body; los omitidos se mantienen igual. Campos: id (req), local (req), nueva_fecha, nueva_hora_desde, nueva_hora_hasta, nuevo_tipo (M/B), nuevo_numero_telefono, nuevo_servicio, nuevo_servicio_solicitado, nuevo_servicio_confirmado, nuevo_precio, nuevas_notas. No cambia estado (usar PATCH /bd/reservas/estado).
+// @Description Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional).
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -556,7 +556,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 
 // PatchReservaEstadoPG godoc
 // @Summary Actualizar estado de reserva
-// @Description Cambia el estado de una reserva. Campos: id (req), estado (req): PENDIENTE/AGENDADO/RECHAZADO/COMPLETADO, causa, servicio_confirmado, precio, tipo (M/B). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO. RECHAZADO/COMPLETADO no admiten cambios.
+// @Description Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio (opcional). servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO. RECHAZADO y COMPLETADO no admiten cambios.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -600,7 +600,7 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 
 // PatchReservaNotificadoPG godoc
 // @Summary Actualizar notificacion de reserva
-// @Description Marca una reserva como notificada o no. Campos: id (req), notificado true/false (req). Se usa para tracking de avisos al cliente.
+// @Description Marca una reserva como notificada o no. id: ID de la reserva (requerido). notificado: true=notificado, false=no notificado (requerido). Se usa para tracking de avisos al cliente.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -640,7 +640,7 @@ func (h *Container) PatchReservaNotificadoPG(c *gin.Context) {
 
 // DeleteReservaPG godoc
 // @Summary Eliminar reserva
-// @Description Elimina (logico) una reserva. Param: id (path). Establece activo=false.
+// @Description Eliminacion logica de una reserva (activo=false). id: ID de la reserva (requerido, path).
 // @Tags Reservas BD
 // @Produce json
 // @Param id path int true "ID de la reserva" example(44)

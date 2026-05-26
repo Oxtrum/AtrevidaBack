@@ -2236,11 +2236,16 @@ paths:
     patch:
       consumes:
       - application/json
-      description: 'Actualiza los datos de una reserva existente. Solo se actualizan
-        los campos enviados en el body; los omitidos se mantienen igual. Campos: id
-        (req), local (req), nueva_fecha, nueva_hora_desde, nueva_hora_hasta, nuevo_tipo
-        (M/B), nuevo_numero_telefono, nuevo_servicio, nuevo_servicio_solicitado, nuevo_servicio_confirmado,
-        nuevo_precio, nuevas_notas. No cambia estado (usar PATCH /bd/reservas/estado).'
+      description: 'Actualiza datos de una reserva. Solo se actualizan los campos
+        enviados. No cambia estado (usar PATCH /bd/reservas/estado). id: ID de la
+        reserva (requerido). local: nombre del local para validar existencia (requerido).
+        nueva_fecha: nueva fecha YYYY-MM-DD (opcional). nueva_hora_desde: nueva hora
+        inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional).
+        nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_numero_telefono: nuevo
+        telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional).
+        nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado:
+        servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional).
+        nuevas_notas: nuevas notas u observaciones (opcional).'
       parameters:
       - description: Datos para actualizar la reserva
         in: body
@@ -2279,12 +2284,16 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Crea una reserva en PostgreSQL. Campos: local (req), fecha (req),
-        hora_desde (req), hora_hasta, tipo (M/B), cliente (req), numero_telefono (req),
-        estado (PENDIENTE/AGENDADO), servicio, servicio_solicitado, servicio_confirmado,
-        precio, notas, plan_id. Si el servicio no requiere evaluacion inicia como
-        AGENDADO, sino PENDIENTE. AGENDADO solo aceptado si el servicio no requiere
-        evaluacion. RECHAZADO y COMPLETADO no son estados iniciales.'
+      description: 'Crea una reserva en PostgreSQL. local: nombre del local (requerido).
+        fecha: YYYY-MM-DD (requerido). hora_desde: HH:MM (requerido). hora_hasta:
+        HH:MM (opcional). tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del
+        cliente (requerido). numero_telefono: telefono del cliente (requerido). estado:
+        PENDIENTE por defecto, AGENDADO solo si servicio no requiere evaluacion (opcional).
+        servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle
+        solicitado, se copia de servicio si se omite (opcional). servicio_confirmado:
+        servicio final tras evaluacion, se autocompleta si no requiere evaluacion
+        (opcional). precio: precio de la reserva (opcional). notas: observaciones
+        (opcional). plan_id: ID del plan asociado (opcional).'
       parameters:
       - description: Datos de la reserva
         in: body
@@ -2323,7 +2332,8 @@ paths:
       - Reservas BD
   /bd/reservas/{id}:
     delete:
-      description: 'Elimina (logico) una reserva. Param: id (path). Establece activo=false.'
+      description: 'Eliminacion logica de una reserva (activo=false). id: ID de la
+        reserva (requerido, path).'
       parameters:
       - description: ID de la reserva
         example: 44
@@ -2488,10 +2498,12 @@ paths:
     patch:
       consumes:
       - application/json
-      description: 'Cambia el estado de una reserva. Campos: id (req), estado (req):
-        PENDIENTE/AGENDADO/RECHAZADO/COMPLETADO, causa, servicio_confirmado, precio,
-        tipo (M/B). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO.
-        RECHAZADO/COMPLETADO no admiten cambios.'
+      description: 'Cambia el estado de una reserva. id: ID de la reserva (requerido).
+        estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo
+        del cambio (opcional). servicio_confirmado: servicio final (opcional). precio:
+        precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones:
+        PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO. RECHAZADO y COMPLETADO
+        no admiten cambios.'
       parameters:
       - description: Nuevo estado de la reserva
         in: body
@@ -2531,8 +2543,9 @@ paths:
     patch:
       consumes:
       - application/json
-      description: 'Marca una reserva como notificada o no. Campos: id (req), notificado
-        true/false (req). Se usa para tracking de avisos al cliente.'
+      description: 'Marca una reserva como notificada o no. id: ID de la reserva (requerido).
+        notificado: true=notificado, false=no notificado (requerido). Se usa para
+        tracking de avisos al cliente.'
       parameters:
       - description: Estado de notificacion
         in: body
@@ -2954,11 +2967,14 @@ paths:
     patch:
       consumes:
       - application/json
-      description: 'Modifica una reserva existente en Google Sheets. Solo se actualizan
-        los campos nuevos enviados. Campos: local (req), semana (req), dia (req),
-        hora (req), tipo M/B (req), cliente (req), nuevo_dia, nueva_hora_desde, nueva_hora_hasta,
-        nuevo_tipo (M/B), nuevo_servicio. Si hay conflictos, algunos slots pueden
-        fallar (207 Multi-Status).'
+      description: 'Modifica una reserva en Google Sheets. Solo se actualizan los
+        campos nuevos enviados. local: nombre del local (requerido). semana: YYYY-MM-DD
+        (requerido). dia: lunes a sabado (requerido). hora: hora actual HH:MM (requerido).
+        tipo: M=mesa o B=bicicleta (requerido). cliente: nombre del cliente (requerido).
+        nuevo_dia: nuevo dia (opcional). nueva_hora_desde: nueva hora inicio (opcional).
+        nueva_hora_hasta: nueva hora fin (opcional). nuevo_tipo: M o B (opcional).
+        nuevo_servicio: nuevo servicio (opcional). Si hay conflictos, algunos slots
+        fallan (207).'
       parameters:
       - description: Datos para actualizar la reserva
         in: body
@@ -3006,9 +3022,11 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Crea una reserva en Google Sheets. Campos: local (req), semana
-        (req), dia (req), hora_desde (req), hora_hasta, tipo M/B (req), cliente (req),
-        servicio. Si hay conflictos, algunos slots pueden fallar (207 Multi-Status).'
+      description: 'Crea una reserva en Google Sheets. local: nombre del local (requerido).
+        semana: YYYY-MM-DD (requerido). dia: lunes a sabado (requerido). hora_desde:
+        HH:MM (requerido). hora_hasta: HH:MM (opcional). tipo: M=mesa o B=bicicleta
+        (requerido). cliente: nombre del cliente (requerido). servicio: nombre del
+        servicio (opcional). Si hay conflictos, algunos slots fallan (207).'
       parameters:
       - description: Datos de la reserva
         in: body
