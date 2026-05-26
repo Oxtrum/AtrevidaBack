@@ -44,21 +44,27 @@ definitions:
   handlers.actualizarEstadoReservaPGRequest:
     properties:
       causa:
+        description: Motivo del cambio de estado
         example: Cliente confirmo por WhatsApp
         type: string
       estado:
+        description: 'Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO'
         example: AGENDADO
         type: string
       id:
+        description: ID de la reserva
         example: 44
         type: integer
       precio:
+        description: Precio actualizado (opcional)
         example: 350
         type: number
       servicio_confirmado:
+        description: Servicio confirmado (opcional, se actualiza si se envia)
         example: Depilacion Laser Piernas
         type: string
       tipo:
+        description: 'Tipo de espacio: M (mesa) o B (bicicleta)'
         example: M
         type: string
     required:
@@ -89,9 +95,11 @@ definitions:
   handlers.actualizarNotificadoReservaPGRequest:
     properties:
       id:
+        description: ID de la reserva
         example: 44
         type: integer
       notificado:
+        description: 'Estado de notificacion: true = notificado, false = no notificado'
         example: true
         type: boolean
     required:
@@ -395,45 +403,61 @@ definitions:
   handlers.crearReservaPGRequest:
     properties:
       cliente:
+        description: Nombre del cliente
         example: Maria Lopez
         type: string
       estado:
+        description: 'Estado inicial: PENDIENTE (default), AGENDADO (solo si el servicio
+          no requiere evaluacion)'
         example: PENDIENTE
         type: string
       fecha:
+        description: Fecha de la reserva (YYYY-MM-DD)
         example: "2026-05-23"
         type: string
       hora_desde:
+        description: Hora de inicio (HH:MM)
         example: "15:00"
         type: string
       hora_hasta:
+        description: Hora de fin (HH:MM)
         example: "16:00"
         type: string
       local:
+        description: Nombre del local
         example: SAN MARTIN
         type: string
       notas:
+        description: Notas u observaciones
         example: Primera sesion del plan
         type: string
       numero_telefono:
+        description: Numero de telefono del cliente
         example: "+59170011223"
         type: string
       plan_id:
+        description: ID del plan asociado (opcional)
         example: 21
         type: integer
       precio:
+        description: Precio de la reserva
         example: 350
         type: number
       servicio:
+        description: Nombre del servicio (texto libre)
         example: Depilacion laser
         type: string
       servicio_confirmado:
+        description: Servicio confirmado (se autocompleta si se omite y el servicio
+          no requiere evaluacion)
         example: Depilacion Laser Piernas
         type: string
       servicio_solicitado:
+        description: Servicio solicitado por el cliente (texto libre)
         example: Piernas completas
         type: string
       tipo:
+        description: 'Tipo de espacio: M (mesa) o B (bicicleta)'
         example: M
         type: string
     required:
@@ -2190,7 +2214,10 @@ paths:
       consumes:
       - application/json
       description: Crea una reserva persistida en PostgreSQL. Si el servicio no requiere
-        evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE.
+        evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE. Si
+        se envia el campo "estado", los valores permitidos son PENDIENTE o AGENDADO.
+        AGENDADO solo se acepta si el servicio no requiere evaluacion. RECHAZADO y
+        COMPLETADO no son estados iniciales validos.
       parameters:
       - description: Datos de la reserva
         in: body
@@ -2211,15 +2238,17 @@ paths:
                   $ref: '#/definitions/handlers.reservaCreatedResponse'
               type: object
         "400":
-          description: Bad Request
+          description: 'Error de validacion: campo requerido faltante, estado invalido,
+            formato incorrecto'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
-          description: Conflict
+          description: 'Conflicto: no hay espacios disponibles o el horario no esta
+            libre'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
-          description: Internal Server Error
+          description: Error interno del servidor
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Crear reserva en base de datos
@@ -2393,7 +2422,9 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Cambia el estado de una reserva segun las reglas de negocio.
+      description: 'Cambia el estado de una reserva. Transiciones permitidas: PENDIENTE
+        -> AGENDADO/RECHAZADO, AGENDADO -> COMPLETADO/RECHAZADO, RECHAZADO/COMPLETADO
+        no admiten cambios.'
       parameters:
       - description: Nuevo estado de la reserva
         in: body
@@ -2414,25 +2445,27 @@ paths:
                   $ref: '#/definitions/handlers.messageResponse'
               type: object
         "400":
-          description: Bad Request
+          description: 'Error de validacion: estado invalido, transicion no permitida,
+            campo requerido faltante'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
-          description: Not Found
+          description: Reserva no encontrada
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
-          description: Internal Server Error
+          description: Error interno del servidor
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Actualizar estado de reserva
       tags:
       - Reservas BD
-  /bd/reservas/notifcar:
+  /bd/reservas/notificar:
     patch:
       consumes:
       - application/json
-      description: Marca una reserva como notificada o no notificada.
+      description: Marca una reserva como notificada (true) o no notificada (false).
+        Se usa para tracking de avisos al cliente.
       parameters:
       - description: Estado de notificacion
         in: body
@@ -2453,15 +2486,15 @@ paths:
                   $ref: '#/definitions/handlers.messageResponse'
               type: object
         "400":
-          description: Bad Request
+          description: 'Error de validacion: id invalido, notificado requerido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
-          description: Not Found
+          description: Reserva no encontrada
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
-          description: Internal Server Error
+          description: Error interno del servidor
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Actualizar notificacion de reserva

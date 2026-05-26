@@ -106,33 +106,47 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 
 // POST /bd/reservas
 type crearReservaPGRequest struct {
-	Local              string   `json:"local" binding:"required" example:"SAN MARTIN"`
-	Fecha              string   `json:"fecha" binding:"required" example:"2026-05-23"`
-	HoraDesde          string   `json:"hora_desde" binding:"required" example:"15:00"`
-	HoraHasta          string   `json:"hora_hasta" example:"16:00"`
-	Tipo               string   `json:"tipo" example:"M"`
-	Cliente            string   `json:"cliente" binding:"required" example:"Maria Lopez"`
-	NumeroTelefono     string   `json:"numero_telefono" binding:"required" example:"+59170011223"`
-	Estado             string   `json:"estado" example:"PENDIENTE"`
-	Servicio           string   `json:"servicio" example:"Depilacion laser"`
-	ServicioSolicitado string   `json:"servicio_solicitado" example:"Piernas completas"`
-	ServicioConfirmado *string  `json:"servicio_confirmado" example:"Depilacion Laser Piernas"`
-	Precio             *float64 `json:"precio" example:"350"`
-	Notas              string   `json:"notas" example:"Primera sesion del plan"`
-	PlanID             *int     `json:"plan_id" example:"21"`
+	// Nombre del local
+	Local string `json:"local" binding:"required" example:"SAN MARTIN"`
+	// Fecha de la reserva (YYYY-MM-DD)
+	Fecha string `json:"fecha" binding:"required" example:"2026-05-23"`
+	// Hora de inicio (HH:MM)
+	HoraDesde string `json:"hora_desde" binding:"required" example:"15:00"`
+	// Hora de fin (HH:MM)
+	HoraHasta string `json:"hora_hasta" example:"16:00"`
+	// Tipo de espacio: M (mesa) o B (bicicleta)
+	Tipo string `json:"tipo" example:"M"`
+	// Nombre del cliente
+	Cliente string `json:"cliente" binding:"required" example:"Maria Lopez"`
+	// Numero de telefono del cliente
+	NumeroTelefono string `json:"numero_telefono" binding:"required" example:"+59170011223"`
+	// Estado inicial: PENDIENTE (default), AGENDADO (solo si el servicio no requiere evaluacion)
+	Estado string `json:"estado" example:"PENDIENTE"`
+	// Nombre del servicio (texto libre)
+	Servicio string `json:"servicio" example:"Depilacion laser"`
+	// Servicio solicitado por el cliente (texto libre)
+	ServicioSolicitado string `json:"servicio_solicitado" example:"Piernas completas"`
+	// Servicio confirmado (se autocompleta si se omite y el servicio no requiere evaluacion)
+	ServicioConfirmado *string `json:"servicio_confirmado" example:"Depilacion Laser Piernas"`
+	// Precio de la reserva
+	Precio *float64 `json:"precio" example:"350"`
+	// Notas u observaciones
+	Notas string `json:"notas" example:"Primera sesion del plan"`
+	// ID del plan asociado (opcional)
+	PlanID *int `json:"plan_id" example:"21"`
 }
 
 // PostReservaPG godoc
 // @Summary Crear reserva en base de datos
-// @Description Crea una reserva persistida en PostgreSQL. Si el servicio no requiere evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE.
+// @Description Crea una reserva persistida en PostgreSQL. Si el servicio no requiere evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE. Si se envia el campo "estado", los valores permitidos son PENDIENTE o AGENDADO. AGENDADO solo se acepta si el servicio no requiere evaluacion. RECHAZADO y COMPLETADO no son estados iniciales validos.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
 // @Param payload body crearReservaPGRequest true "Datos de la reserva"
 // @Success 201 {object} utils.APIResponse{data=reservaCreatedResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 409 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, estado invalido, formato incorrecto"
+// @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles o el horario no esta libre"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [post]
 func (h *Container) PostReservaPG(c *gin.Context) {
 	var req crearReservaPGRequest
@@ -190,16 +204,24 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 }
 
 type actualizarEstadoReservaPGRequest struct {
-	Id                 int      `json:"id" binding:"required" example:"44"`
-	Estado             string   `json:"estado" binding:"required" example:"AGENDADO"`
-	Causa              string   `json:"causa" example:"Cliente confirmo por WhatsApp"`
-	ServicioConfirmado *string  `json:"servicio_confirmado" example:"Depilacion Laser Piernas"`
-	Precio             *float64 `json:"precio" example:"350"`
-	Tipo               string   `json:"tipo" example:"M"`
+	// ID de la reserva
+	Id int `json:"id" binding:"required" example:"44"`
+	// Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO
+	Estado string `json:"estado" binding:"required" example:"AGENDADO"`
+	// Motivo del cambio de estado
+	Causa string `json:"causa" example:"Cliente confirmo por WhatsApp"`
+	// Servicio confirmado (opcional, se actualiza si se envia)
+	ServicioConfirmado *string `json:"servicio_confirmado" example:"Depilacion Laser Piernas"`
+	// Precio actualizado (opcional)
+	Precio *float64 `json:"precio" example:"350"`
+	// Tipo de espacio: M (mesa) o B (bicicleta)
+	Tipo string `json:"tipo" example:"M"`
 }
 
 type actualizarNotificadoReservaPGRequest struct {
-	Id         int   `json:"id" binding:"required" example:"44"`
+	// ID de la reserva
+	Id int `json:"id" binding:"required" example:"44"`
+	// Estado de notificacion: true = notificado, false = no notificado
 	Notificado *bool `json:"notificado" binding:"required" example:"true"`
 }
 
@@ -512,15 +534,15 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 
 // PatchReservaEstadoPG godoc
 // @Summary Actualizar estado de reserva
-// @Description Cambia el estado de una reserva segun las reglas de negocio.
+// @Description Cambia el estado de una reserva. Transiciones permitidas: PENDIENTE -> AGENDADO/RECHAZADO, AGENDADO -> COMPLETADO/RECHAZADO, RECHAZADO/COMPLETADO no admiten cambios.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
 // @Param payload body actualizarEstadoReservaPGRequest true "Nuevo estado de la reserva"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: estado invalido, transicion no permitida, campo requerido faltante"
+// @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/estado [patch]
 func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 	var req actualizarEstadoReservaPGRequest
@@ -556,16 +578,16 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 
 // PatchReservaNotificadoPG godoc
 // @Summary Actualizar notificacion de reserva
-// @Description Marca una reserva como notificada o no notificada.
+// @Description Marca una reserva como notificada (true) o no notificada (false). Se usa para tracking de avisos al cliente.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
 // @Param payload body actualizarNotificadoReservaPGRequest true "Estado de notificacion"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
-// @Router /bd/reservas/notifcar [patch]
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, notificado requerido"
+// @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/reservas/notificar [patch]
 func (h *Container) PatchReservaNotificadoPG(c *gin.Context) {
 	var req actualizarNotificadoReservaPGRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

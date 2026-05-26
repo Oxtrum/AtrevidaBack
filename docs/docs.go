@@ -1587,7 +1587,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una reserva persistida en PostgreSQL. Si el servicio no requiere evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE.",
+                "description": "Crea una reserva persistida en PostgreSQL. Si el servicio no requiere evaluacion, inicia como AGENDADO; caso contrario inicia como PENDIENTE. Si se envia el campo \"estado\", los valores permitidos son PENDIENTE o AGENDADO. AGENDADO solo se acepta si el servicio no requiere evaluacion. RECHAZADO y COMPLETADO no son estados iniciales validos.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1629,19 +1629,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: campo requerido faltante, estado invalido, formato incorrecto",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Conflicto: no hay espacios disponibles o el horario no esta libre",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1846,7 +1846,7 @@ const docTemplate = `{
         },
         "/bd/reservas/estado": {
             "patch": {
-                "description": "Cambia el estado de una reserva segun las reglas de negocio.",
+                "description": "Cambia el estado de una reserva. Transiciones permitidas: PENDIENTE -\u003e AGENDADO/RECHAZADO, AGENDADO -\u003e COMPLETADO/RECHAZADO, RECHAZADO/COMPLETADO no admiten cambios.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1888,19 +1888,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: estado invalido, transicion no permitida, campo requerido faltante",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Reserva no encontrada",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1908,9 +1908,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/bd/reservas/notifcar": {
+        "/bd/reservas/notificar": {
             "patch": {
-                "description": "Marca una reserva como notificada o no notificada.",
+                "description": "Marca una reserva como notificada (true) o no notificada (false). Se usa para tracking de avisos al cliente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1952,19 +1952,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Error de validacion: id invalido, notificado requerido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Reserva no encontrada",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3119,26 +3119,32 @@ const docTemplate = `{
             ],
             "properties": {
                 "causa": {
+                    "description": "Motivo del cambio de estado",
                     "type": "string",
                     "example": "Cliente confirmo por WhatsApp"
                 },
                 "estado": {
+                    "description": "Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO",
                     "type": "string",
                     "example": "AGENDADO"
                 },
                 "id": {
+                    "description": "ID de la reserva",
                     "type": "integer",
                     "example": 44
                 },
                 "precio": {
+                    "description": "Precio actualizado (opcional)",
                     "type": "number",
                     "example": 350
                 },
                 "servicio_confirmado": {
+                    "description": "Servicio confirmado (opcional, se actualiza si se envia)",
                     "type": "string",
                     "example": "Depilacion Laser Piernas"
                 },
                 "tipo": {
+                    "description": "Tipo de espacio: M (mesa) o B (bicicleta)",
                     "type": "string",
                     "example": "M"
                 }
@@ -3182,10 +3188,12 @@ const docTemplate = `{
             ],
             "properties": {
                 "id": {
+                    "description": "ID de la reserva",
                     "type": "integer",
                     "example": 44
                 },
                 "notificado": {
+                    "description": "Estado de notificacion: true = notificado, false = no notificado",
                     "type": "boolean",
                     "example": true
                 }
@@ -3618,58 +3626,72 @@ const docTemplate = `{
             ],
             "properties": {
                 "cliente": {
+                    "description": "Nombre del cliente",
                     "type": "string",
                     "example": "Maria Lopez"
                 },
                 "estado": {
+                    "description": "Estado inicial: PENDIENTE (default), AGENDADO (solo si el servicio no requiere evaluacion)",
                     "type": "string",
                     "example": "PENDIENTE"
                 },
                 "fecha": {
+                    "description": "Fecha de la reserva (YYYY-MM-DD)",
                     "type": "string",
                     "example": "2026-05-23"
                 },
                 "hora_desde": {
+                    "description": "Hora de inicio (HH:MM)",
                     "type": "string",
                     "example": "15:00"
                 },
                 "hora_hasta": {
+                    "description": "Hora de fin (HH:MM)",
                     "type": "string",
                     "example": "16:00"
                 },
                 "local": {
+                    "description": "Nombre del local",
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
                 "notas": {
+                    "description": "Notas u observaciones",
                     "type": "string",
                     "example": "Primera sesion del plan"
                 },
                 "numero_telefono": {
+                    "description": "Numero de telefono del cliente",
                     "type": "string",
                     "example": "+59170011223"
                 },
                 "plan_id": {
+                    "description": "ID del plan asociado (opcional)",
                     "type": "integer",
                     "example": 21
                 },
                 "precio": {
+                    "description": "Precio de la reserva",
                     "type": "number",
                     "example": 350
                 },
                 "servicio": {
+                    "description": "Nombre del servicio (texto libre)",
                     "type": "string",
                     "example": "Depilacion laser"
                 },
                 "servicio_confirmado": {
+                    "description": "Servicio confirmado (se autocompleta si se omite y el servicio no requiere evaluacion)",
                     "type": "string",
                     "example": "Depilacion Laser Piernas"
                 },
                 "servicio_solicitado": {
+                    "description": "Servicio solicitado por el cliente (texto libre)",
                     "type": "string",
                     "example": "Piernas completas"
                 },
                 "tipo": {
+                    "description": "Tipo de espacio: M (mesa) o B (bicicleta)",
                     "type": "string",
                     "example": "M"
                 }
