@@ -15,14 +15,7 @@ import (
 func Setup(h *handlers.Container) *gin.Engine {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:3000",
-			"http://127.0.0.1:3000",
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
-			"http://localhost:4173",
-			"http://127.0.0.1:4173",
-		},
+		AllowAllOrigins: true,
 		AllowMethods: []string{
 			http.MethodGet,
 			http.MethodPost,
@@ -41,8 +34,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		ExposeHeaders: []string{
 			"Content-Length",
 		},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
+		MaxAge: 12 * time.Hour,
 	}))
 
 	r.GET("/", func(c *gin.Context) {

@@ -32,9 +32,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := db.RunMigrations(pgDB, "file://migrations"); err != nil {
-		panic(err)
-	}
 
 	categoriasPGRepo := pgsqlrepo.NewCategoriasRepo(pgDB)
 	clientesPGRepo := pgsqlrepo.NewClientesRepo(pgDB)
