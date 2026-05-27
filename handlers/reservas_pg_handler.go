@@ -138,13 +138,13 @@ type crearReservaPGRequest struct {
 
 // PostReservaPG godoc
 // @Summary Crear reserva en base de datos
-// @Description Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO solo si servicio no requiere evaluacion (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).
+// @Description Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO solo si servicio no requiere evaluacion (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
 // @Param payload body crearReservaPGRequest true "Datos de la reserva"
 // @Success 201 {object} utils.APIResponse{data=reservaCreatedResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, estado invalido, formato incorrecto"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, estado invalido, formato incorrecto u horario fuera de atencion"
 // @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles o el horario no esta libre"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [post]
@@ -189,8 +189,15 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 
 	if err != nil {
 		status := http.StatusInternalServerError
-		if strings.Contains(err.Error(), "no hay espacios") ||
-			strings.Contains(err.Error(), "no estÃ¡ disponible") {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "horario fuera de atenci") ||
+			strings.Contains(errLower, "hora_desde") ||
+			strings.Contains(errLower, "hora_hasta") ||
+			strings.Contains(errLower, "formato de fecha") {
+			status = http.StatusBadRequest
+		} else if strings.Contains(errLower, "no hay espacios") ||
+			strings.Contains(errLower, "no está disponible") ||
+			strings.Contains(errLower, "no estÃ¡ disponible") {
 			status = http.StatusConflict
 		}
 		utils.RespondError(c, status, err.Error())
@@ -227,9 +234,9 @@ type actualizarNotificadoReservaPGRequest struct {
 
 type reservaResumenSemanaResponse struct {
 	// Total de reservas en la semana (lunes a la fecha consultada)
-	TotalReservas int  `json:"total_reservas" example:"45"`
+	TotalReservas int `json:"total_reservas" example:"45"`
 	// Reservas del dia lunes (incluido si la fecha es lunes o posterior)
-	Lunes  *int `json:"lunes,omitempty" example:"8"`
+	Lunes *int `json:"lunes,omitempty" example:"8"`
 	// Reservas del dia martes (incluido si la fecha es martes o posterior)
 	Martes *int `json:"martes,omitempty" example:"10"`
 	// Reservas del dia miercoles (incluido si la fecha es miercoles o posterior)
@@ -476,13 +483,13 @@ type actualizarReservaPGRequest struct {
 
 // PatchReservaPG godoc
 // @Summary Actualizar reserva en base de datos
-// @Description Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional).
+// @Description Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional).
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
 // @Param payload body actualizarReservaPGRequest true "Datos para actualizar la reserva"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar u horario fuera de atencion"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [patch]
@@ -543,8 +550,18 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 	})
 
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "no se pudo encontrar la reserva") {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "no se pudo encontrar la reserva") {
 			utils.RespondError(c, http.StatusNotFound, "No se pudo encontrar la reserva")
+			return
+		}
+		if strings.Contains(errLower, "horario fuera de atenci") ||
+			strings.Contains(errLower, "hora_desde") ||
+			strings.Contains(errLower, "hora_hasta") ||
+			strings.Contains(errLower, "formato de fecha") ||
+			strings.Contains(errLower, "hora de inicio") ||
+			strings.Contains(errLower, "hora de finalizaci") {
+			utils.RespondError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())

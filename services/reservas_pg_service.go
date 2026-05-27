@@ -171,7 +171,7 @@ func (s *ReservasPGService) getCalendarioCompleto(
 		tipo := strings.ToUpper(cap.TipoEspacio)
 
 		for d := desde; !d.After(hasta); d = d.AddDate(0, 0, 1) {
-			slots := horarioLocal(d)
+			slots := horarioLocal(cap.LocalNombre, d)
 			fecha := d.Format("2006-01-02")
 
 			for _, slot := range slots {
@@ -323,7 +323,7 @@ func (s *ReservasPGService) getEspaciosLibresRaw(f FiltroReservasPG, desde, hast
 			continue
 		}
 		for d := desde; !d.After(hasta); d = d.AddDate(0, 0, 1) {
-			slots := horarioLocal(d)
+			slots := horarioLocal(cap.LocalNombre, d)
 			fecha := d.Format("2006-01-02")
 			tipo := strings.ToUpper(cap.TipoEspacio)
 			rangosOcupados := ocupadosIdx[cap.LocalNombre][fecha][tipo]
@@ -356,12 +356,15 @@ func (s *ReservasPGService) getEspaciosLibresRaw(f FiltroReservasPG, desde, hast
 	return resultado, nil
 }
 
-// horarioLocal retorna los slots de 60 min disponibles para un día dado.
-func horarioLocal(fecha time.Time) [][2]string {
+// horarioLocal retorna los slots de 60 min disponibles para un local y día dado.
+func horarioLocal(local string, fecha time.Time) [][2]string {
 	if fecha.Weekday() == time.Sunday {
 		return nil
 	}
 	if fecha.Weekday() == time.Saturday {
+		if strings.EqualFold(strings.TrimSpace(local), "PASEO ARANJUEZ") {
+			return generarSlots60("08:00", "18:00")
+		}
 		return generarSlots60("08:00", "15:00")
 	}
 	return generarSlots60("08:00", "20:00")
@@ -384,6 +387,51 @@ func generarSlots60(apertura, cierre string) [][2]string {
 		t = siguiente
 	}
 	return slots
+}
+
+func validarHorarioAtencion(local string, fecha time.Time, horaDesde, horaHasta string) error {
+	if fecha.Weekday() == time.Sunday {
+		return errors.New("horario fuera de atención: los domingos no hay atención")
+	}
+
+	apertura, _ := time.Parse("15:04", "08:00")
+	cierreRaw := "20:00"
+	if fecha.Weekday() == time.Saturday {
+		cierreRaw = "15:00"
+		if strings.EqualFold(strings.TrimSpace(local), "PASEO ARANJUEZ") {
+			cierreRaw = "18:00"
+		}
+	}
+	cierre, _ := time.Parse("15:04", cierreRaw)
+
+	desde, err := parseHoraAtencion(horaDesde)
+	if err != nil {
+		return errors.New("hora_desde inválida")
+	}
+	hasta, err := parseHoraAtencion(horaHasta)
+	if err != nil {
+		return errors.New("hora_hasta inválida")
+	}
+	if !desde.Before(hasta) {
+		return errors.New("hora_hasta debe ser posterior a hora_desde")
+	}
+	if desde.Before(apertura) || hasta.After(cierre) {
+		return fmt.Errorf("horario fuera de atención para %s: atiende de 08:00 a %s", strings.TrimSpace(local), cierreRaw)
+	}
+
+	return nil
+}
+
+func parseHoraAtencion(hora string) (time.Time, error) {
+	hora = strings.TrimSpace(hora)
+	if len(hora) > 5 {
+		hora = hora[:5]
+	}
+	t, err := time.Parse("15:04", hora)
+	if err != nil {
+		t, err = time.Parse("15:4", hora)
+	}
+	return t, err
 }
 
 // getRangoTiempoDisp aplica las reglas de defaulting de fechas para disponibles.
@@ -692,6 +740,9 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 	horaHasta := input.HoraHasta
 	if horaHasta == "" {
 		horaHasta = sumar60Min(input.HoraDesde)
+	}
+	if err := validarHorarioAtencion(input.Local, fecha, input.HoraDesde, horaHasta); err != nil {
+		return 0, err
 	}
 
 	/* COMENTADO HASTA QUE FRONTEND RECUPERE SERVICIOS DE LA BD
@@ -1079,9 +1130,8 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 		valHoraHasta = current.HoraHasta
 	}
 
-	valTipo := input.NuevoTipo
-	if valTipo == "" {
-		valTipo = current.TipoEspacio
+	if err := validarHorarioAtencion(valLocal, *valFecha, valHoraDesde, valHoraHasta); err != nil {
+		return err
 	}
 
 	// 2. Ejecutar actualización en BD
