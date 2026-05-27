@@ -16,7 +16,7 @@ concurrency:
 
 env:
   AWS_REGION: sa-east-1
-  LAMBDA_FUNCTION_NAME: atrevida-backend-prod
+  LAMBDA_FUNCTION_NAME: atrevida-back-prod
   GOARCH: arm64
 
 jobs:
