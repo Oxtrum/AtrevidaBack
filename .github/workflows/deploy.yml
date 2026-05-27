@@ -1,0 +1,65 @@
+name: Despliegue Automático a AWS Lambda
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: lambda-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: sa-east-1
+  LAMBDA_FUNCTION_NAME: atrevida-backend-prod
+  GOARCH: arm64
+
+jobs:
+  deploy:
+    name: Compilar y Desplegar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Descargar dependencias
+        run: go mod download
+
+      - name: Verificar compilación
+        run: go build ./...
+
+      - name: Compilar binario para AWS Lambda
+        run: |
+          GOOS=linux GOARCH=${GOARCH} CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bootstrap .
+
+      - name: Crear archivo ZIP
+        run: zip lambda.zip bootstrap
+
+      - name: Autenticarse en AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Actualizar código en AWS Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name "${LAMBDA_FUNCTION_NAME}" \
+            --zip-file fileb://lambda.zip
+
+      - name: Esperar actualización de Lambda
+        run: |
+          aws lambda wait function-updated \
+            --function-name "${LAMBDA_FUNCTION_NAME}"
