@@ -5,9 +5,7 @@ import (
 	"atrevida-agenda-api/db"
 	"atrevida-agenda-api/docs"
 	"atrevida-agenda-api/handlers"
-	"atrevida-agenda-api/importacion"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
-	sheetsrepo "atrevida-agenda-api/repositories/sheets"
 	"atrevida-agenda-api/router"
 	"atrevida-agenda-api/services"
 )
@@ -38,9 +36,6 @@ func main() {
 		panic(err)
 	}
 
-	// Repos
-	repo := sheetsrepo.NewReservasRepo(config.App)
-
 	categoriasPGRepo := pgsqlrepo.NewCategoriasRepo(pgDB)
 	clientesPGRepo := pgsqlrepo.NewClientesRepo(pgDB)
 	localesHorariosPGRepo := pgsqlrepo.NewLocalesHorariosRepo(pgDB)
@@ -49,12 +44,6 @@ func main() {
 	comboServiciosPGRepo := pgsqlrepo.NewComboServiciosRepo(pgDB)
 	reservasPGRepo := pgsqlrepo.NewReservasRepo(pgDB)
 	localesPGRepo := pgsqlrepo.NewLocalesRepo(pgDB)
-
-	// Services
-	reservasService := services.NewReservasService(repo)
-	writerService := services.NewReservasWriterService(repo)
-	//serviciosService := services.NewServiciosService(repo)
-	combosService := services.NewCombosService(repo)
 
 	categoriasPGService := services.NewCategoriasService(categoriasPGRepo)
 	clientesPGService := services.NewClientesService(clientesPGRepo)
@@ -65,13 +54,7 @@ func main() {
 	reservasPGService := services.NewReservasPGService(reservasPGRepo, serviciosPGRepo)
 	localesPGService := services.NewLocalesService(localesPGRepo)
 
-	importService := importacion.NewImportService(pgDB, repo)
-
 	h := handlers.NewContainer(
-		reservasService,
-		writerService,
-		//serviciosService,
-		combosService,
 		categoriasPGService,
 		clientesPGService,
 		localesHorariosPGService,
@@ -80,11 +63,10 @@ func main() {
 		comboServiciosPGService,
 		reservasPGService,
 		localesPGService,
-		importService,
 	)
 
 	println(apiName + "\n" + "Running")
 
-	routerAtrevida := router.Setup(h, repo)
+	routerAtrevida := router.Setup(h)
 	routerAtrevida.Run(":8080")
 }

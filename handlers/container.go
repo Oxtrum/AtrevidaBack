@@ -1,16 +1,10 @@
 package handlers
 
 import (
-	"atrevida-agenda-api/importacion"
 	"atrevida-agenda-api/services"
 )
 
 type Container struct {
-	Reservas *services.ReservasService
-	Writer   *services.ReservasWriterService
-	//Servicios *services.ServiciosService
-	Combos *services.CombosService
-
 	CategoriasPG      *services.CategoriasService
 	ClientesPG        *services.ClientesService
 	LocalesHorariosPG *services.LocalesHorariosService
@@ -19,15 +13,9 @@ type Container struct {
 	ComboServiciosPG  *services.ComboServiciosService
 	ReservasPG        *services.ReservasPGService
 	LocalesPG         *services.LocalesService
-
-	Import *importacion.ImportService
 }
 
 func NewContainer(
-	reservas *services.ReservasService,
-	writer *services.ReservasWriterService,
-	//servicios *services.ServiciosService,
-	combos *services.CombosService,
 	categoriasPG *services.CategoriasService,
 	clientesPG *services.ClientesService,
 	localesHorariosPG *services.LocalesHorariosService,
@@ -36,13 +24,8 @@ func NewContainer(
 	comboServiciosPG *services.ComboServiciosService,
 	reservasPG *services.ReservasPGService,
 	localesPG *services.LocalesService,
-	imp *importacion.ImportService,
 ) *Container {
 	return &Container{
-		Reservas: reservas,
-		Writer:   writer,
-		//Servicios:   servicios,
-		Combos:            combos,
 		CategoriasPG:      categoriasPG,
 		ClientesPG:        clientesPG,
 		LocalesHorariosPG: localesHorariosPG,
@@ -51,6 +34,5 @@ func NewContainer(
 		ComboServiciosPG:  comboServiciosPG,
 		ReservasPG:        reservasPG,
 		LocalesPG:         localesPG,
-		Import:            imp,
 	}
 }

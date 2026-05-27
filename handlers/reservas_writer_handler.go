@@ -1,14 +1,6 @@
 package handlers
 
-import (
-	"net/http"
-	"strings"
-
-	"atrevida-agenda-api/services"
-	"atrevida-agenda-api/utils"
-
-	"github.com/gin-gonic/gin"
-)
+import "github.com/gin-gonic/gin"
 
 // POST /reservas
 type crearReservaRequest struct {
@@ -31,60 +23,16 @@ type crearReservaRequest struct {
 }
 
 // PostReserva godoc
-// @Summary Crear reserva en Google Sheets
-// @Description Crea una reserva en Google Sheets. local: nombre del local (requerido). semana: YYYY-MM-DD (requerido). dia: lunes a sabado (requerido). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). tipo: M=mesa o B=bicicleta (requerido). cliente: nombre del cliente (requerido). servicio: nombre del servicio (opcional). Si hay conflictos, algunos slots fallan (207).
+// @Summary Endpoint legacy para crear reservas en Google Sheets
+// @Description Endpoint legacy deshabilitado. Google Sheets ya no esta soportado; use POST /bd/reservas.
 // @Tags Reservas Sheets
 // @Accept json
 // @Produce json
 // @Param payload body crearReservaRequest true "Datos de la reserva"
-// @Success 200 {object} utils.APIResponse{data=slotsResponse} "Todos los slots reservados exitosamente"
-// @Success 207 {object} utils.APIResponse{data=slotsResponse} "Algunos slots no pudieron reservarse"
-// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante o tipo invalido"
-// @Failure 409 {object} utils.APIResponse "Conflicto: ningun slot pudo reservarse"
-// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Failure 410 {object} utils.APIResponse "Google Sheets ya no soportado"
 // @Router /reservas [post]
 func (h *Container) PostReserva(c *gin.Context) {
-	var req crearReservaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.RespondError(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	tipoNorm := strings.ToUpper(strings.TrimSpace(req.Tipo))
-	if tipoNorm != "M" && tipoNorm != "B" {
-		utils.RespondError(c, http.StatusBadRequest, "tipo inválido, valores permitidos: M, B")
-		return
-	}
-
-	resultado, err := h.Writer.CrearReserva(services.CrearReservaInput{
-		Local:     strings.TrimSpace(req.Local),
-		Semana:    strings.TrimSpace(req.Semana),
-		Dia:       strings.TrimSpace(req.Dia),
-		HoraDesde: strings.TrimSpace(req.HoraDesde),
-		HoraHasta: strings.TrimSpace(req.HoraHasta),
-		Tipo:      tipoNorm,
-		Cliente:   strings.TrimSpace(req.Cliente),
-		Servicio:  strings.TrimSpace(req.Servicio),
-	})
-	if err != nil {
-		utils.RespondError(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	data := slotsResponse{
-		SlotsOk:    resultado.Exitosos,
-		SlotsError: resultado.Errores,
-	}
-
-	switch {
-	case len(resultado.Exitosos) == 0:
-		utils.RespondError(c, http.StatusConflict,
-			"no se pudo reservar ningún slot: "+strings.Join(resultado.Errores, "; "))
-	case len(resultado.Errores) > 0:
-		utils.RespondMultiStatus(c, data, "algunos slots no pudieron reservarse")
-	default:
-		utils.Respond(c, http.StatusOK, data)
-	}
+	RespondGoogleSheetsUnsupported(c)
 }
 
 // PATCH /reservas
@@ -101,7 +49,6 @@ type actualizarReservaRequest struct {
 	Tipo string `json:"tipo" binding:"required" example:"M"`
 	// Nombre del cliente
 	Cliente string `json:"cliente" binding:"required" example:"Maria Lopez"`
-
 	// Nuevo dia (opcional)
 	NuevoDia string `json:"nuevo_dia" example:"martes"`
 	// Nueva hora de inicio (opcional)
@@ -115,73 +62,14 @@ type actualizarReservaRequest struct {
 }
 
 // PatchReserva godoc
-// @Summary Actualizar reserva en Google Sheets
-// @Description Modifica una reserva en Google Sheets. Solo se actualizan los campos nuevos enviados. local: nombre del local (requerido). semana: YYYY-MM-DD (requerido). dia: lunes a sabado (requerido). hora: hora actual HH:MM (requerido). tipo: M=mesa o B=bicicleta (requerido). cliente: nombre del cliente (requerido). nuevo_dia: nuevo dia (opcional). nueva_hora_desde: nueva hora inicio (opcional). nueva_hora_hasta: nueva hora fin (opcional). nuevo_tipo: M o B (opcional). nuevo_servicio: nuevo servicio (opcional). Si hay conflictos, algunos slots fallan (207).
+// @Summary Endpoint legacy para actualizar reservas en Google Sheets
+// @Description Endpoint legacy deshabilitado. Google Sheets ya no esta soportado; use PATCH /bd/reservas.
 // @Tags Reservas Sheets
 // @Accept json
 // @Produce json
 // @Param payload body actualizarReservaRequest true "Datos para actualizar la reserva"
-// @Success 200 {object} utils.APIResponse{data=slotsResponse} "Todos los slots actualizados exitosamente"
-// @Success 207 {object} utils.APIResponse{data=slotsResponse} "Algunos slots no pudieron actualizarse"
-// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, tipo invalido, sin cambios para actualizar"
-// @Failure 409 {object} utils.APIResponse "Conflicto: ningun slot pudo actualizarse"
-// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Failure 410 {object} utils.APIResponse "Google Sheets ya no soportado"
 // @Router /reservas [patch]
 func (h *Container) PatchReserva(c *gin.Context) {
-	var req actualizarReservaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.RespondError(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	tipoNorm := strings.ToUpper(strings.TrimSpace(req.Tipo))
-	if tipoNorm != "M" && tipoNorm != "B" {
-		utils.RespondError(c, http.StatusBadRequest, "tipo inválido, valores permitidos: M, B")
-		return
-	}
-
-	nuevoTipoNorm := strings.ToUpper(strings.TrimSpace(req.NuevoTipo))
-	if nuevoTipoNorm != "" && nuevoTipoNorm != "M" && nuevoTipoNorm != "B" {
-		utils.RespondError(c, http.StatusBadRequest, "nuevo_tipo inválido, valores permitidos: M, B")
-		return
-	}
-
-	if req.NuevoDia == "" && req.NuevaHoraDesde == "" && nuevoTipoNorm == "" && req.NuevoServicio == "" {
-		utils.RespondError(c, http.StatusBadRequest,
-			"debe especificarse al menos un campo a modificar: nuevo_dia, nueva_hora_desde, nuevo_tipo, nuevo_servicio")
-		return
-	}
-
-	resultado, err := h.Writer.ActualizarReserva(services.ActualizarReservaInput{
-		Local:          strings.TrimSpace(req.Local),
-		Semana:         strings.TrimSpace(req.Semana),
-		Dia:            strings.TrimSpace(req.Dia),
-		Hora:           strings.TrimSpace(req.Hora),
-		Tipo:           tipoNorm,
-		Cliente:        strings.TrimSpace(req.Cliente),
-		NuevoDia:       strings.TrimSpace(req.NuevoDia),
-		NuevaHoraDesde: strings.TrimSpace(req.NuevaHoraDesde),
-		NuevaHoraHasta: strings.TrimSpace(req.NuevaHoraHasta),
-		NuevoTipo:      nuevoTipoNorm,
-		NuevoServicio:  strings.TrimSpace(req.NuevoServicio),
-	})
-	if err != nil {
-		utils.RespondError(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	data := slotsResponse{
-		SlotsOk:    resultado.Exitosos,
-		SlotsError: resultado.Errores,
-	}
-
-	switch {
-	case len(resultado.Exitosos) == 0:
-		utils.RespondError(c, http.StatusConflict,
-			"no se pudo actualizar ningún slot: "+strings.Join(resultado.Errores, "; "))
-	case len(resultado.Errores) > 0:
-		utils.RespondMultiStatus(c, data, "algunos slots no pudieron actualizarse")
-	default:
-		utils.Respond(c, http.StatusOK, data)
-	}
+	RespondGoogleSheetsUnsupported(c)
 }

@@ -34,35 +34,17 @@
         },
         "/admin/importar": {
             "post": {
-                "description": "Ejecuta la importacion de categorias, servicios y combos desde Google Sheets hacia PostgreSQL. Response: categorias (int importadas), servicios (int), servicio_locales (int relaciones), combos (int), combo_locales (int relaciones), combo_servicios (int relaciones).",
+                "description": "Endpoint legacy deshabilitado. Google Sheets ya no esta soportado; el codigo anterior queda comentado para una posible recuperacion futura.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Admin"
                 ],
-                "summary": "Importar catalogo desde Google Sheets",
+                "summary": "Endpoint legacy para importar catalogo desde Google Sheets",
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/utils.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handlers.importResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "500": {
-                        "description": "Error durante la importacion",
+                    "410": {
+                        "description": "Google Sheets ya no soportado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2556,14 +2538,14 @@
         },
         "/combos": {
             "get": {
-                "description": "Devuelve combos desde catalogo Sheets con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local ARANJUEZ/CENTRO/SAN MARTIN (opcional), sesiones numero exacto (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones), combos ([]ComboItem con: nombre, categoria, local, costo_total, sesiones_totales, servicios_incluidos []ServicioIncluido con nombre, tiempo HH:MM, costo, sesiones).",
+                "description": "Endpoint legacy deshabilitado. Google Sheets ya no esta soportado; use GET /bd/combos.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Catalogo"
                 ],
-                "summary": "Listar combos",
+                "summary": "Endpoint legacy de combos en Google Sheets",
                 "parameters": [
                     {
                         "type": "string",
@@ -2600,32 +2582,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/utils.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handlers.comboListResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Error de validacion: sesiones debe ser entero positivo, local invalido",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Error interno del servidor",
+                    "410": {
+                        "description": "Google Sheets ya no soportado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2635,14 +2593,14 @@
         },
         "/reservas": {
             "get": {
-                "description": "Devuelve reservas desde Google Sheets con filtros. Filtros: local (opcional), semana YYYY-MM-DD (opcional), dia lunes..sabado (opcional), tipo mesa/bicicleta/feriado (opcional), cliente (opcional), reservados true/false (opcional). Response: total_locales (int), filtros (objeto con filtros aplicados), reservas ([]LocalReservas cada uno con: local string, semanas []Semana con titulo y slots []ReservaSlot con hora y map dia-\u003e[]ReservaItem con tipo M/B, cliente, servicio, servicio_solicitado, servicio_confirmado, estado, numero_telefono, notificado, creado_en, actualizado_en).",
+                "description": "Endpoint legacy deshabilitado. Google Sheets ya no esta soportado; use los endpoints de reservas bajo /bd.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Reservas Sheets"
                 ],
-                "summary": "Listar reservas desde Google Sheets",
+                "summary": "Endpoint legacy de reservas en Google Sheets",
                 "parameters": [
                     {
                         "type": "string",
@@ -2693,32 +2651,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/utils.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handlers.reservaListResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Error de validacion: tipo invalido",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Error interno del servidor",
+                    "410": {
+                        "description": "Google Sheets ya no soportado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2726,7 +2660,7 @@
                 }
             },
             "post": {
-                "description": "Crea una reserva en Google Sheets. local: nombre del local (requerido). semana: YYYY-MM-DD (requerido). dia: lunes a sabado (requerido). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). tipo: M=mesa o B=bicicleta (requerido). cliente: nombre del cliente (requerido). servicio: nombre del servicio (opcional). Si hay conflictos, algunos slots fallan (207).",
+                "description": "Endpoint legacy deshabilitado. Google Sheets ya no esta soportado; use POST /bd/reservas.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2736,7 +2670,7 @@
                 "tags": [
                     "Reservas Sheets"
                 ],
-                "summary": "Crear reserva en Google Sheets",
+                "summary": "Endpoint legacy para crear reservas en Google Sheets",
                 "parameters": [
                     {
                         "description": "Datos de la reserva",
@@ -2749,56 +2683,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Todos los slots reservados exitosamente",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/utils.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handlers.slotsResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "207": {
-                        "description": "Algunos slots no pudieron reservarse",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/utils.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handlers.slotsResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Error de validacion: campo requerido faltante o tipo invalido",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflicto: ningun slot pudo reservarse",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Error interno del servidor",
+                    "410": {
+                        "description": "Google Sheets ya no soportado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2806,7 +2692,7 @@
                 }
             },
             "patch": {
-                "description": "Modifica una reserva en Google Sheets. Solo se actualizan los campos nuevos enviados. local: nombre del local (requerido). semana: YYYY-MM-DD (requerido). dia: lunes a sabado (requerido). hora: hora actual HH:MM (requerido). tipo: M=mesa o B=bicicleta (requerido). cliente: nombre del cliente (requerido). nuevo_dia: nuevo dia (opcional). nueva_hora_desde: nueva hora inicio (opcional). nueva_hora_hasta: nueva hora fin (opcional). nuevo_tipo: M o B (opcional). nuevo_servicio: nuevo servicio (opcional). Si hay conflictos, algunos slots fallan (207).",
+                "description": "Endpoint legacy deshabilitado. Google Sheets ya no esta soportado; use PATCH /bd/reservas.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2816,7 +2702,7 @@
                 "tags": [
                     "Reservas Sheets"
                 ],
-                "summary": "Actualizar reserva en Google Sheets",
+                "summary": "Endpoint legacy para actualizar reservas en Google Sheets",
                 "parameters": [
                     {
                         "description": "Datos para actualizar la reserva",
@@ -2829,56 +2715,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Todos los slots actualizados exitosamente",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/utils.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handlers.slotsResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "207": {
-                        "description": "Algunos slots no pudieron actualizarse",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/utils.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handlers.slotsResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Error de validacion: campo requerido faltante, tipo invalido, sin cambios para actualizar",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflicto: ningun slot pudo actualizarse",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Error interno del servidor",
+                    "410": {
+                        "description": "Google Sheets ya no soportado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2888,57 +2726,47 @@
         },
         "/reservas/celda-raw": {
             "get": {
-                "description": "Obtiene la coordenada A1, el valor crudo y el parseo de una celda especifica. local: nombre del local (requerido). semana: YYYY-MM-DD (requerido). dia: lunes a sabado (requerido). hora: HH:MM (requerido). Solo uso en depuracion.",
+                "description": "Endpoint debug legacy deshabilitado. Google Sheets ya no esta soportado.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Debug Sheets"
                 ],
-                "summary": "Ver contenido crudo de una celda",
+                "summary": "Endpoint debug legacy de celda en Google Sheets",
                 "parameters": [
                     {
                         "type": "string",
                         "example": "SAN MARTIN",
                         "description": "Nombre del local",
                         "name": "local",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
                         "example": "2026-05-25",
                         "description": "Semana YYYY-MM-DD",
                         "name": "semana",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
                         "example": "lunes",
                         "description": "Dia",
                         "name": "dia",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
                         "example": "15:00",
                         "description": "Hora HH:MM",
                         "name": "hora",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Coordenada A1, raw, parsed",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Error al resolver o leer la celda",
+                    "410": {
+                        "description": "Google Sheets ya no soportado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2948,20 +2776,19 @@
         },
         "/reservas/raw": {
             "get": {
-                "description": "Devuelve el contenido crudo de la hoja SAN MARTIN desde Google Sheets. Solo uso en depuracion.",
+                "description": "Endpoint debug legacy deshabilitado. Google Sheets ya no esta soportado.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Debug Sheets"
                 ],
-                "summary": "Ver hoja cruda de reservas",
+                "summary": "Endpoint debug legacy de hoja cruda en Google Sheets",
                 "responses": {
-                    "200": {
-                        "description": "Datos crudos de la hoja",
+                    "410": {
+                        "description": "Google Sheets ya no soportado",
                         "schema": {
-                            "type": "array",
-                            "items": {}
+                            "$ref": "#/definitions/utils.APIResponse"
                         }
                     }
                 }
@@ -2969,20 +2796,19 @@
         },
         "/reservas/unfiltered": {
             "get": {
-                "description": "Devuelve todas las reservas procesadas desde Google Sheets sin aplicar filtros. Solo uso en depuracion.",
+                "description": "Endpoint debug legacy deshabilitado. Google Sheets ya no esta soportado.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Debug Sheets"
                 ],
-                "summary": "Ver reservas sin filtrar",
+                "summary": "Endpoint debug legacy de reservas en Google Sheets",
                 "responses": {
-                    "200": {
-                        "description": "Lista completa de reservas procesadas",
+                    "410": {
+                        "description": "Google Sheets ya no soportado",
                         "schema": {
-                            "type": "array",
-                            "items": {}
+                            "$ref": "#/definitions/utils.APIResponse"
                         }
                     }
                 }
@@ -3889,35 +3715,6 @@
                 }
             }
         },
-        "handlers.importResponse": {
-            "type": "object",
-            "properties": {
-                "categorias": {
-                    "type": "integer",
-                    "example": 8
-                },
-                "combo_locales": {
-                    "type": "integer",
-                    "example": 6
-                },
-                "combo_servicios": {
-                    "type": "integer",
-                    "example": 12
-                },
-                "combos": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "servicio_locales": {
-                    "type": "integer",
-                    "example": 30
-                },
-                "servicios": {
-                    "type": "integer",
-                    "example": 25
-                }
-            }
-        },
         "handlers.localItemResponse": {
             "type": "object",
             "properties": {
@@ -3985,58 +3782,11 @@
                 }
             }
         },
-        "handlers.reservaFiltrosResponse": {
-            "type": "object",
-            "properties": {
-                "cliente": {
-                    "type": "string",
-                    "example": "Maria"
-                },
-                "dia": {
-                    "type": "string",
-                    "example": "lunes"
-                },
-                "local": {
-                    "type": "string",
-                    "example": "SAN MARTIN"
-                },
-                "reservados": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "semana": {
-                    "type": "string",
-                    "example": "2026-05-25"
-                },
-                "tipo": {
-                    "type": "string",
-                    "example": "mesa"
-                }
-            }
-        },
         "handlers.reservaItemResponse": {
             "type": "object",
             "properties": {
                 "reserva": {
                     "$ref": "#/definitions/services.ReservaSimple"
-                }
-            }
-        },
-        "handlers.reservaListResponse": {
-            "type": "object",
-            "properties": {
-                "filtros": {
-                    "$ref": "#/definitions/handlers.reservaFiltrosResponse"
-                },
-                "reservas": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.LocalReservas"
-                    }
-                },
-                "total_locales": {
-                    "type": "integer",
-                    "example": 2
                 }
             }
         },
@@ -4215,31 +3965,6 @@
                 "total": {
                     "type": "integer",
                     "example": 10
-                }
-            }
-        },
-        "handlers.slotsResponse": {
-            "type": "object",
-            "properties": {
-                "slots_error": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "11:00",
-                        "12:00"
-                    ]
-                },
-                "slots_ok": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "09:00",
-                        "10:00"
-                    ]
                 }
             }
         },

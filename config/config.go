@@ -3,16 +3,12 @@ package config
 import (
 	"log"
 	"os"
-	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	SpreadsheetID     string
-	SheetsDisponibles []string
-	CredentialsPath   string
-	DB                DBConfig
+	DB DBConfig
 }
 
 type DBConfig struct {
@@ -33,13 +29,7 @@ func Load() {
 		log.Println("No .env file found")
 	}
 
-	sheetsRaw := os.Getenv("SHEETS_DISPONIBLES")
-	sheets := strings.Split(sheetsRaw, ",")
-
 	App = &Config{
-		SpreadsheetID:     os.Getenv("SPREADSHEET_ID"),
-		SheetsDisponibles: sheets,
-		CredentialsPath:   os.Getenv("CREDENTIALS_PATH"),
 		DB: DBConfig{
 			Host:     os.Getenv("DB_HOST"),
 			Port:     os.Getenv("DB_PORT"),

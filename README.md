@@ -7,7 +7,6 @@ API REST desarrollada en Go con Gin para gestionar reservas, catalogo y datos op
 - Go
 - Gin
 - PostgreSQL
-- Google Sheets API
 - Swagger (`swaggo`)
 
 ## Puesta en marcha
@@ -81,20 +80,20 @@ La regla importante es simple: si una IA cambia la API, tambien debe actualizar 
 | GET | `/` | Estado de la API |
 | GET | `/swagger/*any` | UI y spec de Swagger |
 
-### Reservas Sheets
+### Reservas legacy
 
 | Metodo | Ruta | Descripcion |
 |---|---|---|
-| GET | `/reservas` | Lista reservas con filtros |
-| POST | `/reservas` | Crea una reserva en Google Sheets |
-| PATCH | `/reservas` | Actualiza una reserva en Google Sheets |
+| GET | `/reservas` | Endpoint legacy: Google Sheets ya no soportado |
+| POST | `/reservas` | Endpoint legacy: Google Sheets ya no soportado |
+| PATCH | `/reservas` | Endpoint legacy: Google Sheets ya no soportado |
 
 ### Catalogo
 
 | Metodo | Ruta | Descripcion |
 |---|---|---|
 | GET | `/servicios` | Lista servicios |
-| GET | `/combos` | Lista combos |
+| GET | `/combos` | Endpoint legacy: Google Sheets ya no soportado |
 
 ### Base de datos
 
@@ -115,14 +114,18 @@ La regla importante es simple: si una IA cambia la API, tambien debe actualizar 
 
 | Metodo | Ruta | Descripcion |
 |---|---|---|
-| POST | `/admin/importar` | Importa catalogo a la BD |
+| POST | `/admin/importar` | Endpoint legacy: Google Sheets ya no soportado |
 
 ## Variables de entorno
 
 | Variable | Descripcion |
 |---|---|
-| `SPREADSHEET_ID` | ID del spreadsheet de Google Sheets |
-| `SHEETS_DISPONIBLES` | Nombres de hojas separados por coma |
+| `DB_HOST` | Host de PostgreSQL |
+| `DB_PORT` | Puerto de PostgreSQL |
+| `DB_USER` | Usuario de PostgreSQL |
+| `DB_PASSWORD` | Password de PostgreSQL |
+| `DB_NAME` | Nombre de la base de datos |
+| `DB_SSLMODE` | Modo SSL para PostgreSQL |
 
 ## Notas
 

@@ -19,33 +19,32 @@ func RootStatus() {}
 func SwaggerUI() {}
 
 // DebugReservasUnfiltered godoc
-// @Summary Ver reservas sin filtrar
-// @Description Devuelve todas las reservas procesadas desde Google Sheets sin aplicar filtros. Solo uso en depuracion.
+// @Summary Endpoint debug legacy de reservas en Google Sheets
+// @Description Endpoint debug legacy deshabilitado. Google Sheets ya no esta soportado.
 // @Tags Debug Sheets
 // @Produce json
-// @Success 200 {array} interface{} "Lista completa de reservas procesadas"
+// @Failure 410 {object} utils.APIResponse "Google Sheets ya no soportado"
 // @Router /reservas/unfiltered [get]
 func DebugReservasUnfiltered() {}
 
 // DebugReservasRaw godoc
-// @Summary Ver hoja cruda de reservas
-// @Description Devuelve el contenido crudo de la hoja SAN MARTIN desde Google Sheets. Solo uso en depuracion.
+// @Summary Endpoint debug legacy de hoja cruda en Google Sheets
+// @Description Endpoint debug legacy deshabilitado. Google Sheets ya no esta soportado.
 // @Tags Debug Sheets
 // @Produce json
-// @Success 200 {array} interface{} "Datos crudos de la hoja"
+// @Failure 410 {object} utils.APIResponse "Google Sheets ya no soportado"
 // @Router /reservas/raw [get]
 func DebugReservasRaw() {}
 
 // DebugCeldaRaw godoc
-// @Summary Ver contenido crudo de una celda
-// @Description Obtiene la coordenada A1, el valor crudo y el parseo de una celda especifica. local: nombre del local (requerido). semana: YYYY-MM-DD (requerido). dia: lunes a sabado (requerido). hora: HH:MM (requerido). Solo uso en depuracion.
+// @Summary Endpoint debug legacy de celda en Google Sheets
+// @Description Endpoint debug legacy deshabilitado. Google Sheets ya no esta soportado.
 // @Tags Debug Sheets
 // @Produce json
-// @Param local query string true "Nombre del local" example(SAN MARTIN)
-// @Param semana query string true "Semana YYYY-MM-DD" example(2026-05-25)
-// @Param dia query string true "Dia" example(lunes)
-// @Param hora query string true "Hora HH:MM" example(15:00)
-// @Success 200 {object} utils.APIResponse "Coordenada A1, raw, parsed"
-// @Failure 500 {object} utils.APIResponse "Error al resolver o leer la celda"
+// @Param local query string false "Nombre del local" example(SAN MARTIN)
+// @Param semana query string false "Semana YYYY-MM-DD" example(2026-05-25)
+// @Param dia query string false "Dia" example(lunes)
+// @Param hora query string false "Hora HH:MM" example(15:00)
+// @Failure 410 {object} utils.APIResponse "Google Sheets ya no soportado"
 // @Router /reservas/celda-raw [get]
 func DebugCeldaRaw() {}

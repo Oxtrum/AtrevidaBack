@@ -1,37 +1,32 @@
 package handlers
 
-import (
-	"net/http"
-
-	"atrevida-agenda-api/utils"
-
-	"github.com/gin-gonic/gin"
-)
+import "github.com/gin-gonic/gin"
 
 // POST /admin/importar
-// Triggerea pipelinede importación desde Google Sheets a PostgreSQL.
+// Triggerea pipeline de importacion desde Google Sheets a PostgreSQL.
 // ImportarCatalogo godoc
-// @Summary Importar catalogo desde Google Sheets
-// @Description Ejecuta la importacion de categorias, servicios y combos desde Google Sheets hacia PostgreSQL. Response: categorias (int importadas), servicios (int), servicio_locales (int relaciones), combos (int), combo_locales (int relaciones), combo_servicios (int relaciones).
+// @Summary Endpoint legacy para importar catalogo desde Google Sheets
+// @Description Endpoint legacy deshabilitado. Google Sheets ya no esta soportado; el codigo anterior queda comentado para una posible recuperacion futura.
 // @Tags Admin
 // @Produce json
-// @Success 200 {object} utils.APIResponse{data=importResponse}
-// @Failure 500 {object} utils.APIResponse "Error durante la importacion"
+// @Failure 410 {object} utils.APIResponse "Google Sheets ya no soportado"
 // @Router /admin/importar [post]
 func (h *Container) ImportarCatalogo(c *gin.Context) {
-	resultado, err := h.Import.Ejecutar()
-	if err != nil {
-		utils.RespondError(c, http.StatusInternalServerError,
-			"error durante la importación: "+err.Error())
-		return
-	}
+	// resultado, err := h.Import.Ejecutar()
+	// if err != nil {
+	// 	utils.RespondError(c, http.StatusInternalServerError,
+	// 		"error durante la importacion: "+err.Error())
+	// 	return
+	// }
+	//
+	// utils.Respond(c, http.StatusOK, importResponse{
+	// 	Categorias:      resultado.Categorias,
+	// 	Servicios:       resultado.Servicios,
+	// 	ServicioLocales: resultado.ServicioLocales,
+	// 	Combos:          resultado.Combos,
+	// 	ComboLocales:    resultado.ComboLocales,
+	// 	ComboServicios:  resultado.ComboServicios,
+	// })
 
-	utils.Respond(c, http.StatusOK, importResponse{
-		Categorias:      resultado.Categorias,
-		Servicios:       resultado.Servicios,
-		ServicioLocales: resultado.ServicioLocales,
-		Combos:          resultado.Combos,
-		ComboLocales:    resultado.ComboLocales,
-		ComboServicios:  resultado.ComboServicios,
-	})
+	RespondGoogleSheetsUnsupported(c)
 }
