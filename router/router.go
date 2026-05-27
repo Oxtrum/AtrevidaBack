@@ -14,6 +14,9 @@ import (
 
 func Setup(h *handlers.Container) *gin.Engine {
 	r := gin.Default()
+	if err := r.SetTrustedProxies(nil); err != nil {
+		panic(err)
+	}
 	r.Use(cors.New(cors.Config{
 		AllowAllOrigins: true,
 		AllowMethods: []string{
