@@ -8,6 +8,7 @@ type ServicioIncluido struct {
 }
 
 type ComboItem struct {
+	ID                 int                `json:"id,omitempty" example:"12"`
 	Nombre             string             `json:"nombre" example:"Relax Total"`
 	Categoria          string             `json:"categoria" example:"Corporal"`
 	Local              string             `json:"local" example:"ARANJUEZ"`

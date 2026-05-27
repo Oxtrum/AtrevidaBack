@@ -800,6 +800,9 @@ definitions:
       costo_total:
         example: "1200"
         type: string
+      id:
+        example: 12
+        type: integer
       local:
         example: ARANJUEZ
         type: string

@@ -104,6 +104,7 @@ func (r *CombosRepo) GetAllCombos() []models.ComboItem {
 			servicios = []models.ServicioIncluido{}
 		}
 		resultado = append(resultado, models.ComboItem{
+			ID:                 cr.ID,
 			Nombre:             cr.Nombre,
 			Categoria:          cr.Categoria,
 			Local:              cr.Local,

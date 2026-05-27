@@ -4016,6 +4016,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "1200"
                 },
+                "id": {
+                    "type": "integer",
+                    "example": 12
+                },
                 "local": {
                     "type": "string",
                     "example": "ARANJUEZ"
