@@ -55,6 +55,174 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/change-password": {
+            "patch": {
+                "description": "Cambia la password del usuario autenticado. Requiere token Bearer y toma el usuario exclusivamente del token. Body: password requerida.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Cambiar password propia",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Nueva password",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.cambiarPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: body invalido, password obligatoria",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/deactivate": {
+            "patch": {
+                "description": "Actualiza el estado activo de otro usuario. Requiere token Bearer. No permite modificar el estado del usuario autenticado. Body: username y activo requeridos; activo=false desactiva, activo=true reactiva.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Activar o desactivar usuario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Usuario y estado activo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarUsuarioActivoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: body invalido, username requerido, activo requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "No autorizado: no puedes modificar tu propio estado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflicto: ya existe un usuario activo con ese nombre",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
                 "description": "Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer para acceder a endpoints protegidos.",
@@ -190,6 +358,60 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflicto: usuario ya existe",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/usuarios": {
+            "get": {
+                "description": "Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Listar usuarios",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.usuariosListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3393,6 +3615,25 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarUsuarioActivoRequest": {
+            "type": "object",
+            "required": [
+                "activo",
+                "username"
+            ],
+            "properties": {
+                "activo": {
+                    "description": "Estado activo del usuario a modificar.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "username": {
+                    "description": "Nombre de usuario a activar o desactivar.",
+                    "type": "string",
+                    "example": "operador"
+                }
+            }
+        },
         "handlers.authRequest": {
             "type": "object",
             "required": [
@@ -3409,6 +3650,19 @@ const docTemplate = `{
                     "description": "Nombre de usuario para registrar o iniciar sesion.",
                     "type": "string",
                     "example": "admin"
+                }
+            }
+        },
+        "handlers.cambiarPasswordRequest": {
+            "type": "object",
+            "required": [
+                "password"
+            ],
+            "properties": {
+                "password": {
+                    "description": "Nueva password del usuario autenticado.",
+                    "type": "string",
+                    "example": "NuevoSecreto123"
                 }
             }
         },
@@ -4164,6 +4418,21 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.usuariosListResponse": {
+            "type": "object",
+            "properties": {
+                "total": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "usuarios": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.UsuarioResumenPG"
+                    }
+                }
+            }
+        },
         "models.CategoriaPG": {
             "type": "object",
             "properties": {
@@ -4501,6 +4770,23 @@ const docTemplate = `{
                 "tipo_espacio": {
                     "type": "string",
                     "example": "M"
+                }
+            }
+        },
+        "models.UsuarioResumenPG": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "fecha_registro": {
+                    "type": "string",
+                    "example": "2026-05-28T14:30:00Z"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "admin"
                 }
             }
         },

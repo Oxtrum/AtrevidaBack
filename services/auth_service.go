@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
 
 	"golang.org/x/crypto/bcrypt"
@@ -20,6 +22,8 @@ var (
 	ErrUsuarioNoEncontrado      = errors.New("usuario no encontrado")
 	ErrPasswordIncorrecta       = errors.New("contrasena incorrecta")
 	ErrUsuarioYaExiste          = errors.New("usuario ya existe")
+	ErrNoAutorizado             = errors.New("no autorizado")
+	ErrNoModificarPropioEstado  = errors.New("no puedes modificar tu propio estado")
 )
 
 type AuthService struct {
@@ -72,6 +76,73 @@ func (s *AuthService) RegistrarUsuario(input RegistrarUsuarioInput) (int, error)
 	return id, nil
 }
 
+func (s *AuthService) GetUsuarios() ([]models.UsuarioResumenPG, error) {
+	return s.repo.GetUsuarios()
+}
+
+type CambiarPasswordInput struct {
+	TokenUserID int
+	Password    string
+}
+
+func (s *AuthService) CambiarPassword(input CambiarPasswordInput) error {
+	if input.TokenUserID <= 0 {
+		return errors.New("token invalido")
+	}
+	if strings.TrimSpace(input.Password) == "" {
+		return ErrCredencialesObligatorias
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("no se pudo encriptar la password")
+	}
+
+	err = s.repo.UpdatePassword(input.TokenUserID, string(hash))
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "usuario no encontrado") {
+			return ErrUsuarioNoEncontrado
+		}
+		return err
+	}
+
+	return nil
+}
+
+type ActualizarUsuarioActivoInput struct {
+	Username      string
+	TokenUsername string
+	Activo        bool
+}
+
+func (s *AuthService) ActualizarUsuarioActivo(input ActualizarUsuarioActivoInput) error {
+	username := strings.TrimSpace(input.Username)
+	tokenUsername := strings.TrimSpace(input.TokenUsername)
+
+	if username == "" {
+		return errors.New("username es requerido")
+	}
+	if tokenUsername == "" {
+		return errors.New("token invalido")
+	}
+	if strings.EqualFold(username, tokenUsername) {
+		return ErrNoModificarPropioEstado
+	}
+
+	err := s.repo.UpdateActivo(username, input.Activo)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "usuario no encontrado") {
+			return ErrUsuarioNoEncontrado
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "ya existe") {
+			return ErrUsuarioYaExiste
+		}
+		return err
+	}
+
+	return nil
+}
+
 type LoginInput struct {
 	Username string
 	Password string
@@ -115,17 +186,30 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, error) {
 	}, nil
 }
 
-func (s *AuthService) ValidarToken(token string) error {
+type TokenData struct {
+	UserID   int
+	Username string
+}
+
+func (s *AuthService) ValidarToken(token string) (*TokenData, error) {
 	claims, err := s.parsearToken(token)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if claims.ExpiresAt < time.Now().Unix() {
-		return errors.New("token expirado")
+		return nil, errors.New("token expirado")
 	}
 
-	return nil
+	userID, err := strconv.Atoi(claims.Subject)
+	if err != nil || userID <= 0 {
+		return nil, errors.New("token invalido")
+	}
+
+	return &TokenData{
+		UserID:   userID,
+		Username: claims.Username,
+	}, nil
 }
 
 type tokenHeader struct {

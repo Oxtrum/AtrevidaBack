@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"atrevida-agenda-api/models"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -23,6 +24,46 @@ type loginResponse struct {
 	TokenType string `json:"token_type" example:"Bearer"`
 	Username  string `json:"username" example:"admin"`
 	ExpiresIn int    `json:"expires_in" example:"3600"`
+}
+
+type usuariosListResponse struct {
+	Total    int                       `json:"total" example:"2"`
+	Usuarios []models.UsuarioResumenPG `json:"usuarios"`
+}
+
+type cambiarPasswordRequest struct {
+	// Nueva password del usuario autenticado.
+	Password string `json:"password" binding:"required" example:"NuevoSecreto123"`
+}
+
+type actualizarUsuarioActivoRequest struct {
+	// Nombre de usuario a activar o desactivar.
+	Username string `json:"username" binding:"required" example:"operador"`
+	// Estado activo del usuario a modificar.
+	Activo *bool `json:"activo" binding:"required" example:"true"`
+}
+
+// GetUsuarios godoc
+// @Summary Listar usuarios
+// @Description Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro).
+// @Tags Auth
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Success 200 {object} utils.APIResponse{data=usuariosListResponse}
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /auth/usuarios [get]
+func (h *Container) GetUsuarios(c *gin.Context) {
+	usuarios, err := h.Auth.GetUsuarios()
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, usuariosListResponse{
+		Total:    len(usuarios),
+		Usuarios: usuarios,
+	})
 }
 
 // RegisterUsuario godoc
@@ -63,6 +104,120 @@ func (h *Container) RegisterUsuario(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, idResponse{ID: id})
+}
+
+// CambiarPassword godoc
+// @Summary Cambiar password propia
+// @Description Cambia la password del usuario autenticado. Requiere token Bearer y toma el usuario exclusivamente del token. Body: password requerida.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param payload body cambiarPasswordRequest true "Nueva password"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, password obligatoria"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 404 {object} utils.APIResponse "Usuario no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /auth/change-password [patch]
+func (h *Container) CambiarPassword(c *gin.Context) {
+	var req cambiarPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+
+	tokenUserID, ok := authenticatedUserID(c)
+	if !ok {
+		utils.RespondError(c, http.StatusUnauthorized, "token invalido")
+		return
+	}
+
+	err := h.Auth.CambiarPassword(services.CambiarPasswordInput{
+		TokenUserID: tokenUserID,
+		Password:    req.Password,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case errors.Is(err, services.ErrCredencialesObligatorias):
+			status = http.StatusBadRequest
+		case errors.Is(err, services.ErrUsuarioNoEncontrado):
+			status = http.StatusNotFound
+		case err.Error() == "token invalido":
+			status = http.StatusUnauthorized
+		}
+		utils.RespondError(c, status, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "password actualizada correctamente"})
+}
+
+// ActualizarUsuarioActivo godoc
+// @Summary Activar o desactivar usuario
+// @Description Actualiza el estado activo de otro usuario. Requiere token Bearer. No permite modificar el estado del usuario autenticado. Body: username y activo requeridos; activo=false desactiva, activo=true reactiva.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param payload body actualizarUsuarioActivoRequest true "Usuario y estado activo"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, username requerido, activo requerido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "No autorizado: no puedes modificar tu propio estado"
+// @Failure 404 {object} utils.APIResponse "Usuario no encontrado"
+// @Failure 409 {object} utils.APIResponse "Conflicto: ya existe un usuario activo con ese nombre"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /auth/deactivate [patch]
+func (h *Container) ActualizarUsuarioActivo(c *gin.Context) {
+	var req actualizarUsuarioActivoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+	if strings.TrimSpace(req.Username) == "" {
+		utils.RespondError(c, http.StatusBadRequest, "username es requerido")
+		return
+	}
+	if req.Activo == nil {
+		utils.RespondError(c, http.StatusBadRequest, "activo es requerido")
+		return
+	}
+
+	tokenUsername, ok := authenticatedUsername(c)
+	if !ok {
+		utils.RespondError(c, http.StatusUnauthorized, "token invalido")
+		return
+	}
+
+	err := h.Auth.ActualizarUsuarioActivo(services.ActualizarUsuarioActivoInput{
+		Username:      req.Username,
+		TokenUsername: tokenUsername,
+		Activo:        *req.Activo,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case err.Error() == "username es requerido":
+			status = http.StatusBadRequest
+		case errors.Is(err, services.ErrNoModificarPropioEstado):
+			status = http.StatusForbidden
+		case errors.Is(err, services.ErrUsuarioNoEncontrado):
+			status = http.StatusNotFound
+		case errors.Is(err, services.ErrUsuarioYaExiste):
+			status = http.StatusConflict
+		}
+		utils.RespondError(c, status, err.Error())
+		return
+	}
+
+	mensaje := "usuario desactivado correctamente"
+	if *req.Activo {
+		mensaje = "usuario restaurado correctamente"
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: mensaje})
 }
 
 // Login godoc
@@ -133,11 +288,42 @@ func (h *Container) AuthRequired(c *gin.Context) {
 		return
 	}
 
-	if err := h.Auth.ValidarToken(token); err != nil {
+	tokenData, err := h.Auth.ValidarToken(token)
+	if err != nil {
 		utils.RespondError(c, http.StatusUnauthorized, err.Error())
 		c.Abort()
 		return
 	}
 
+	c.Set("auth_user_id", tokenData.UserID)
+	c.Set("auth_username", tokenData.Username)
 	c.Next()
+}
+
+func authenticatedUserID(c *gin.Context) (int, bool) {
+	value, exists := c.Get("auth_user_id")
+	if !exists {
+		return 0, false
+	}
+
+	userID, ok := value.(int)
+	if !ok || userID <= 0 {
+		return 0, false
+	}
+
+	return userID, true
+}
+
+func authenticatedUsername(c *gin.Context) (string, bool) {
+	value, exists := c.Get("auth_username")
+	if !exists {
+		return "", false
+	}
+
+	username, ok := value.(string)
+	if !ok || strings.TrimSpace(username) == "" {
+		return "", false
+	}
+
+	return username, true
 }

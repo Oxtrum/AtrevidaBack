@@ -48,8 +48,11 @@ func Setup(h *handlers.Container) *gin.Engine {
 	// Auth
 	auth := r.Group("/auth")
 	{
+		auth.GET("/usuarios", h.AuthRequired, h.GetUsuarios)
 		auth.POST("/register", h.AuthRequired, h.RegisterUsuario)
 		auth.POST("/login", h.Login)
+		auth.PATCH("/change-password", h.AuthRequired, h.CambiarPassword)
+		auth.PATCH("/deactivate", h.AuthRequired, h.ActualizarUsuarioActivo)
 	}
 
 	// Debug - Sheets

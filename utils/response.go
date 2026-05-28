@@ -66,6 +66,8 @@ func httpStatusText(code int) string {
 		return "BAD_REQUEST"
 	case http.StatusUnauthorized:
 		return "UNAUTHORIZED"
+	case http.StatusForbidden:
+		return "FORBIDDEN"
 	case http.StatusNotFound:
 		return "NOT_FOUND"
 	case http.StatusConflict:

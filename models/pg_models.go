@@ -52,10 +52,17 @@ type ClientePG struct {
 // Usuarios
 
 type UsuarioPG struct {
-	ID       int    `db:"id" json:"id" example:"1"`
-	Username string `db:"username" json:"username" example:"admin"`
-	Password string `db:"password" json:"-"`
-	Activo   bool   `db:"activo" json:"activo" example:"true"`
+	ID            int       `db:"id" json:"id" example:"1"`
+	Username      string    `db:"username" json:"username" example:"admin"`
+	Password      string    `db:"password" json:"-"`
+	Activo        bool      `db:"activo" json:"activo" example:"true"`
+	FechaRegistro time.Time `db:"fecha_registro" json:"fecha_registro" example:"2026-05-28T14:30:00Z"`
+}
+
+type UsuarioResumenPG struct {
+	Username      string    `db:"username" json:"username" example:"admin"`
+	Activo        bool      `db:"activo" json:"activo" example:"true"`
+	FechaRegistro time.Time `db:"fecha_registro" json:"fecha_registro" example:"2026-05-28T14:30:00Z"`
 }
 
 // Servicios

@@ -241,6 +241,20 @@ definitions:
         example: M
         type: string
     type: object
+  handlers.actualizarUsuarioActivoRequest:
+    properties:
+      activo:
+        description: Estado activo del usuario a modificar.
+        example: true
+        type: boolean
+      username:
+        description: Nombre de usuario a activar o desactivar.
+        example: operador
+        type: string
+    required:
+    - activo
+    - username
+    type: object
   handlers.authRequest:
     properties:
       password:
@@ -255,6 +269,15 @@ definitions:
     required:
     - password
     - username
+    type: object
+  handlers.cambiarPasswordRequest:
+    properties:
+      password:
+        description: Nueva password del usuario autenticado.
+        example: NuevoSecreto123
+        type: string
+    required:
+    - password
     type: object
   handlers.categoriaListResponse:
     properties:
@@ -803,6 +826,16 @@ definitions:
         example: 10
         type: integer
     type: object
+  handlers.usuariosListResponse:
+    properties:
+      total:
+        example: 2
+        type: integer
+      usuarios:
+        items:
+          $ref: '#/definitions/models.UsuarioResumenPG'
+        type: array
+    type: object
   models.CategoriaPG:
     properties:
       id:
@@ -1045,6 +1078,18 @@ definitions:
         example: M
         type: string
     type: object
+  models.UsuarioResumenPG:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      fecha_registro:
+        example: "2026-05-28T14:30:00Z"
+        type: string
+      username:
+        example: admin
+        type: string
+    type: object
   services.ReservaSimple:
     properties:
       actualizado_en:
@@ -1149,6 +1194,116 @@ paths:
       summary: Endpoint legacy para importar catalogo desde Google Sheets
       tags:
       - Admin
+  /auth/change-password:
+    patch:
+      consumes:
+      - application/json
+      description: 'Cambia la password del usuario autenticado. Requiere token Bearer
+        y toma el usuario exclusivamente del token. Body: password requerida.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Nueva password
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.cambiarPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: body invalido, password obligatoria'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Usuario no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Cambiar password propia
+      tags:
+      - Auth
+  /auth/deactivate:
+    patch:
+      consumes:
+      - application/json
+      description: 'Actualiza el estado activo de otro usuario. Requiere token Bearer.
+        No permite modificar el estado del usuario autenticado. Body: username y activo
+        requeridos; activo=false desactiva, activo=true reactiva.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Usuario y estado activo
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarUsuarioActivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: body invalido, username requerido, activo
+            requerido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: 'No autorizado: no puedes modificar tu propio estado'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Usuario no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: 'Conflicto: ya existe un usuario activo con ese nombre'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Activar o desactivar usuario
+      tags:
+      - Auth
   /auth/login:
     post:
       consumes:
@@ -1245,6 +1400,41 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Registrar usuario
+      tags:
+      - Auth
+  /auth/usuarios:
+    get:
+      description: 'Devuelve todos los usuarios registrados sin filtros. Requiere
+        token Bearer. Response: total (int), usuarios ([]UsuarioResumenPG con username,
+        activo, fecha_registro).'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.usuariosListResponse'
+              type: object
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar usuarios
       tags:
       - Auth
   /bd/categorias:
