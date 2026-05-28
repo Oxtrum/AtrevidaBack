@@ -118,7 +118,8 @@ func (r *ServiciosRepo) GetServicioByNombre(nombre string) (*models.ServicioItem
 			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacio,
 			s.requiere_evaluacion
 		FROM servicios s
-		WHERE UPPER(s.nombre) = UPPER($1)
+		WHERE LOWER(translate(s.nombre, 'áéíóúÁÉÍÓÚ', 'aeiouAEIOU')) =
+			LOWER(translate($1, 'áéíóúÁÉÍÓÚ', 'aeiouAEIOU'))
 		AND s.activo = TRUE
 		LIMIT 1
 	`

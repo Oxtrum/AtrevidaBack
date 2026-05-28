@@ -723,6 +723,7 @@ type CrearReservaPGInput struct {
 	Cliente            string
 	Telefono           string
 	Estado             string
+	ServicioID         *int
 	Servicio           string
 	ServicioSolicitado string
 	ServicioConfirmado *string
@@ -793,18 +794,31 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 
 	servicioReserva, servicioEncontrado := s.servicioParaReserva(input)
 	requiereEvaluacion := true
+	servicioDirectoManual := ""
 	if servicioEncontrado {
 		requiereEvaluacion = servicioReserva.RequiereEvaluacion
+		if input.Servicio == "" {
+			input.Servicio = strings.TrimSpace(servicioReserva.Nombre)
+		}
+		if input.ServicioSolicitado == "" {
+			input.ServicioSolicitado = strings.TrimSpace(servicioReserva.Nombre)
+		}
 		if strings.TrimSpace(servicioReserva.TipoEspacio) != "" {
 			input.Tipo = strings.ToUpper(strings.TrimSpace(servicioReserva.TipoEspacio))
 		}
+	} else if servicioDirecto, ok := servicioNoRequiereEvaluacionManual(input); ok {
+		requiereEvaluacion = false
+		servicioDirectoManual = servicioDirecto
 	}
 
 	estadoFinal := "PENDIENTE"
 	if !requiereEvaluacion {
 		estadoFinal = "AGENDADO"
 		if input.ServicioConfirmado == nil || strings.TrimSpace(*input.ServicioConfirmado) == "" {
-			servicio := strings.TrimSpace(servicioReserva.Nombre)
+			servicio := strings.TrimSpace(servicioDirectoManual)
+			if servicioReserva != nil {
+				servicio = strings.TrimSpace(servicioReserva.Nombre)
+			}
 			input.ServicioConfirmado = &servicio
 		}
 	}
@@ -851,6 +865,13 @@ func (s *ReservasPGService) servicioParaReserva(input CrearReservaPGInput) (*mod
 		return nil, false
 	}
 
+	if input.ServicioID != nil && *input.ServicioID > 0 {
+		servicio, err := s.serviciosRepo.GetServicioByID(*input.ServicioID)
+		if err == nil && servicio != nil {
+			return servicio, true
+		}
+	}
+
 	candidatos := []string{}
 	if input.ServicioConfirmado != nil {
 		candidatos = append(candidatos, *input.ServicioConfirmado)
@@ -870,6 +891,41 @@ func (s *ReservasPGService) servicioParaReserva(input CrearReservaPGInput) (*mod
 	}
 
 	return nil, false
+}
+
+func servicioNoRequiereEvaluacionManual(input CrearReservaPGInput) (string, bool) {
+	candidatos := []string{}
+	if input.ServicioConfirmado != nil {
+		candidatos = append(candidatos, *input.ServicioConfirmado)
+	}
+	candidatos = append(candidatos, input.ServicioSolicitado, input.Servicio)
+
+	for _, nombre := range candidatos {
+		nombre = strings.TrimSpace(nombre)
+		switch normalizarNombreServicio(nombre) {
+		case "evaluacion gratuita", "limpieza facial", "limpieza facial premium":
+			return nombre, true
+		}
+	}
+
+	return "", false
+}
+
+func normalizarNombreServicio(nombre string) string {
+	nombre = strings.ToLower(strings.TrimSpace(nombre))
+	replacer := strings.NewReplacer(
+		"á", "a",
+		"é", "e",
+		"í", "i",
+		"ó", "o",
+		"ú", "u",
+		"Á", "a",
+		"É", "e",
+		"Í", "i",
+		"Ó", "o",
+		"Ú", "u",
+	)
+	return replacer.Replace(nombre)
 }
 
 type ActualizarEstadoReservaInput struct {

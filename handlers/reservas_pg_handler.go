@@ -122,6 +122,8 @@ type crearReservaPGRequest struct {
 	NumeroTelefono string `json:"numero_telefono" binding:"required" example:"+59170011223"`
 	// Estado inicial: PENDIENTE (default), AGENDADO (solo si el servicio no requiere evaluacion)
 	Estado string `json:"estado" example:"PENDIENTE"`
+	// ID del servicio seleccionado en BD. Si se envia, se usa para validar si requiere evaluacion.
+	ServicioID *int `json:"servicio_id" example:"8"`
 	// Nombre del servicio principal (ej: "Depilacion laser"). Se usa como identificador general.
 	Servicio string `json:"servicio" example:"Depilacion laser"`
 	// Detalle de lo que solicito el cliente (ej: "Piernas completas"). Si se omite, se copia de "servicio".
@@ -138,13 +140,13 @@ type crearReservaPGRequest struct {
 
 // PostReservaPG godoc
 // @Summary Crear reserva en base de datos
-// @Description Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO solo si servicio no requiere evaluacion (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).
+// @Description Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO solo si servicio no requiere evaluacion (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
 // @Param payload body crearReservaPGRequest true "Datos de la reserva"
 // @Success 201 {object} utils.APIResponse{data=reservaCreatedResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, estado invalido, formato incorrecto u horario fuera de atencion"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion"
 // @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles o el horario no esta libre"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [post]
@@ -179,6 +181,7 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		Cliente:            strings.TrimSpace(req.Cliente),
 		Telefono:           telefono,
 		Estado:             estadoFinal,
+		ServicioID:         req.ServicioID,
 		Servicio:           strings.TrimSpace(req.Servicio),
 		ServicioSolicitado: strings.TrimSpace(req.ServicioSolicitado),
 		ServicioConfirmado: req.ServicioConfirmado,
@@ -193,7 +196,12 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		if strings.Contains(errLower, "horario fuera de atenci") ||
 			strings.Contains(errLower, "hora_desde") ||
 			strings.Contains(errLower, "hora_hasta") ||
-			strings.Contains(errLower, "formato de fecha") {
+			strings.Contains(errLower, "formato de fecha") ||
+			strings.Contains(errLower, "estado inicial") ||
+			strings.Contains(errLower, "requieren evaluación") ||
+			strings.Contains(errLower, "requieren evaluaci") ||
+			strings.Contains(errLower, "requiere evaluación") ||
+			strings.Contains(errLower, "requiere evaluaci") {
 			status = http.StatusBadRequest
 		} else if strings.Contains(errLower, "no hay espacios") ||
 			strings.Contains(errLower, "no está disponible") ||
