@@ -27,6 +27,7 @@ func Build() (*gin.Engine, error) {
 		return nil, err
 	}
 
+	authRepo := pgsqlrepo.NewAuthRepo(pgDB)
 	categoriasPGRepo := pgsqlrepo.NewCategoriasRepo(pgDB)
 	clientesPGRepo := pgsqlrepo.NewClientesRepo(pgDB)
 	localesHorariosPGRepo := pgsqlrepo.NewLocalesHorariosRepo(pgDB)
@@ -36,6 +37,7 @@ func Build() (*gin.Engine, error) {
 	reservasPGRepo := pgsqlrepo.NewReservasRepo(pgDB)
 	localesPGRepo := pgsqlrepo.NewLocalesRepo(pgDB)
 
+	authService := services.NewAuthService(authRepo, config.App.Auth.TokenSecret, config.App.Auth.TokenTTL)
 	categoriasPGService := services.NewCategoriasService(categoriasPGRepo)
 	clientesPGService := services.NewClientesService(clientesPGRepo)
 	localesHorariosPGService := services.NewLocalesHorariosService(localesHorariosPGRepo)
@@ -46,6 +48,7 @@ func Build() (*gin.Engine, error) {
 	localesPGService := services.NewLocalesService(localesPGRepo)
 
 	h := handlers.NewContainer(
+		authService,
 		categoriasPGService,
 		clientesPGService,
 		localesHorariosPGService,

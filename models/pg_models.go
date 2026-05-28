@@ -49,6 +49,15 @@ type ClientePG struct {
 	NumeroTelefono string `db:"numero_telefono" json:"numero_telefono" example:"+59170011223"`
 }
 
+// Usuarios
+
+type UsuarioPG struct {
+	ID       int    `db:"id" json:"id" example:"1"`
+	Username string `db:"username" json:"username" example:"admin"`
+	Password string `db:"password" json:"-"`
+	Activo   bool   `db:"activo" json:"activo" example:"true"`
+}
+
 // Servicios
 
 type ServicioPG struct {

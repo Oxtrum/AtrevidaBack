@@ -5,6 +5,7 @@ import (
 )
 
 type Container struct {
+	Auth              *services.AuthService
 	CategoriasPG      *services.CategoriasService
 	ClientesPG        *services.ClientesService
 	LocalesHorariosPG *services.LocalesHorariosService
@@ -16,6 +17,7 @@ type Container struct {
 }
 
 func NewContainer(
+	auth *services.AuthService,
 	categoriasPG *services.CategoriasService,
 	clientesPG *services.ClientesService,
 	localesHorariosPG *services.LocalesHorariosService,
@@ -26,6 +28,7 @@ func NewContainer(
 	localesPG *services.LocalesService,
 ) *Container {
 	return &Container{
+		Auth:              auth,
 		CategoriasPG:      categoriasPG,
 		ClientesPG:        clientesPG,
 		LocalesHorariosPG: localesHorariosPG,

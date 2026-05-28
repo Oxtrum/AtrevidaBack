@@ -6,5 +6,5 @@ CREATE TABLE IF NOT EXISTS usuarios (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_usuarios_username_activo
-    ON usuarios(username)
+    ON usuarios(LOWER(username))
     WHERE activo = TRUE;

@@ -45,6 +45,13 @@ func Setup(h *handlers.Container) *gin.Engine {
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// Auth
+	auth := r.Group("/auth")
+	{
+		auth.POST("/register", h.AuthRequired, h.RegisterUsuario)
+		auth.POST("/login", h.Login)
+	}
+
 	// Debug - Sheets
 	debug := r.Group("/reservas")
 	{

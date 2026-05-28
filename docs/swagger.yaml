@@ -241,6 +241,21 @@ definitions:
         example: M
         type: string
     type: object
+  handlers.authRequest:
+    properties:
+      password:
+        description: Password en texto plano enviada por el cliente; se guarda encriptada
+          con bcrypt.
+        example: Secreto123
+        type: string
+      username:
+        description: Nombre de usuario para registrar o iniciar sesion.
+        example: admin
+        type: string
+    required:
+    - password
+    - username
+    type: object
   handlers.categoriaListResponse:
     properties:
       categorias:
@@ -612,6 +627,21 @@ definitions:
       total:
         example: 2
         type: integer
+    type: object
+  handlers.loginResponse:
+    properties:
+      expires_in:
+        example: 3600
+        type: integer
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      token_type:
+        example: Bearer
+        type: string
+      username:
+        example: admin
+        type: string
     type: object
   handlers.messageResponse:
     properties:
@@ -1119,6 +1149,104 @@ paths:
       summary: Endpoint legacy para importar catalogo desde Google Sheets
       tags:
       - Admin
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Valida username y password contra un usuario activo. La password
+        recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas
+        responde un token Bearer para acceder a endpoints protegidos.
+      parameters:
+      - description: Credenciales de acceso
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.authRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.loginResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: body invalido, username y password son
+            obligatorios'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Contrasena incorrecta
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Usuario no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Iniciar sesion
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: 'Crea un usuario activo sin validacion de rol. Requiere token Bearer
+        emitido por login. Body: username y password requeridos. La password se encripta
+        con bcrypt antes de guardarse. Response: id (int ID del usuario creado).'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Credenciales del usuario
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.authRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: body invalido, username y password son
+            obligatorios'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: 'Conflicto: usuario ya existe'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Registrar usuario
+      tags:
+      - Auth
   /bd/categorias:
     get:
       description: 'Devuelve todas las categorias registradas en BD. Sin filtros.
