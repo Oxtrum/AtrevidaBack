@@ -171,7 +171,7 @@ func (s *ReservasPGService) getCalendarioCompleto(
 		tipo := strings.ToUpper(cap.TipoEspacio)
 
 		for d := desde; !d.After(hasta); d = d.AddDate(0, 0, 1) {
-			slots := horarioLocal(d)
+			slots := horarioLocal(cap.LocalNombre, d)
 			fecha := d.Format("2006-01-02")
 
 			for _, slot := range slots {
@@ -323,7 +323,7 @@ func (s *ReservasPGService) getEspaciosLibresRaw(f FiltroReservasPG, desde, hast
 			continue
 		}
 		for d := desde; !d.After(hasta); d = d.AddDate(0, 0, 1) {
-			slots := horarioLocal(d)
+			slots := horarioLocal(cap.LocalNombre, d)
 			fecha := d.Format("2006-01-02")
 			tipo := strings.ToUpper(cap.TipoEspacio)
 			rangosOcupados := ocupadosIdx[cap.LocalNombre][fecha][tipo]
@@ -356,12 +356,15 @@ func (s *ReservasPGService) getEspaciosLibresRaw(f FiltroReservasPG, desde, hast
 	return resultado, nil
 }
 
-// horarioLocal retorna los slots de 60 min disponibles para un día dado.
-func horarioLocal(fecha time.Time) [][2]string {
+// horarioLocal retorna los slots de 60 min disponibles para un local y día dado.
+func horarioLocal(local string, fecha time.Time) [][2]string {
 	if fecha.Weekday() == time.Sunday {
 		return nil
 	}
 	if fecha.Weekday() == time.Saturday {
+		if strings.EqualFold(strings.TrimSpace(local), "PASEO ARANJUEZ") {
+			return generarSlots60("08:00", "18:00")
+		}
 		return generarSlots60("08:00", "15:00")
 	}
 	return generarSlots60("08:00", "20:00")
@@ -384,6 +387,51 @@ func generarSlots60(apertura, cierre string) [][2]string {
 		t = siguiente
 	}
 	return slots
+}
+
+func validarHorarioAtencion(local string, fecha time.Time, horaDesde, horaHasta string) error {
+	if fecha.Weekday() == time.Sunday {
+		return errors.New("horario fuera de atención: los domingos no hay atención")
+	}
+
+	apertura, _ := time.Parse("15:04", "08:00")
+	cierreRaw := "20:00"
+	if fecha.Weekday() == time.Saturday {
+		cierreRaw = "15:00"
+		if strings.EqualFold(strings.TrimSpace(local), "PASEO ARANJUEZ") {
+			cierreRaw = "18:00"
+		}
+	}
+	cierre, _ := time.Parse("15:04", cierreRaw)
+
+	desde, err := parseHoraAtencion(horaDesde)
+	if err != nil {
+		return errors.New("hora_desde inválida")
+	}
+	hasta, err := parseHoraAtencion(horaHasta)
+	if err != nil {
+		return errors.New("hora_hasta inválida")
+	}
+	if !desde.Before(hasta) {
+		return errors.New("hora_hasta debe ser posterior a hora_desde")
+	}
+	if desde.Before(apertura) || hasta.After(cierre) {
+		return fmt.Errorf("horario fuera de atención para %s: atiende de 08:00 a %s", strings.TrimSpace(local), cierreRaw)
+	}
+
+	return nil
+}
+
+func parseHoraAtencion(hora string) (time.Time, error) {
+	hora = strings.TrimSpace(hora)
+	if len(hora) > 5 {
+		hora = hora[:5]
+	}
+	t, err := time.Parse("15:04", hora)
+	if err != nil {
+		t, err = time.Parse("15:4", hora)
+	}
+	return t, err
 }
 
 // getRangoTiempoDisp aplica las reglas de defaulting de fechas para disponibles.
@@ -675,6 +723,7 @@ type CrearReservaPGInput struct {
 	Cliente            string
 	Telefono           string
 	Estado             string
+	ServicioID         *int
 	Servicio           string
 	ServicioSolicitado string
 	ServicioConfirmado *string
@@ -692,6 +741,9 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 	horaHasta := input.HoraHasta
 	if horaHasta == "" {
 		horaHasta = sumar60Min(input.HoraDesde)
+	}
+	if err := validarHorarioAtencion(input.Local, fecha, input.HoraDesde, horaHasta); err != nil {
+		return 0, err
 	}
 
 	/* COMENTADO HASTA QUE FRONTEND RECUPERE SERVICIOS DE LA BD
@@ -742,18 +794,31 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 
 	servicioReserva, servicioEncontrado := s.servicioParaReserva(input)
 	requiereEvaluacion := true
+	servicioDirectoManual := ""
 	if servicioEncontrado {
 		requiereEvaluacion = servicioReserva.RequiereEvaluacion
+		if input.Servicio == "" {
+			input.Servicio = strings.TrimSpace(servicioReserva.Nombre)
+		}
+		if input.ServicioSolicitado == "" {
+			input.ServicioSolicitado = strings.TrimSpace(servicioReserva.Nombre)
+		}
 		if strings.TrimSpace(servicioReserva.TipoEspacio) != "" {
 			input.Tipo = strings.ToUpper(strings.TrimSpace(servicioReserva.TipoEspacio))
 		}
+	} else if servicioDirecto, ok := servicioNoRequiereEvaluacionManual(input); ok {
+		requiereEvaluacion = false
+		servicioDirectoManual = servicioDirecto
 	}
 
 	estadoFinal := "PENDIENTE"
 	if !requiereEvaluacion {
 		estadoFinal = "AGENDADO"
 		if input.ServicioConfirmado == nil || strings.TrimSpace(*input.ServicioConfirmado) == "" {
-			servicio := strings.TrimSpace(servicioReserva.Nombre)
+			servicio := strings.TrimSpace(servicioDirectoManual)
+			if servicioReserva != nil {
+				servicio = strings.TrimSpace(servicioReserva.Nombre)
+			}
 			input.ServicioConfirmado = &servicio
 		}
 	}
@@ -800,6 +865,13 @@ func (s *ReservasPGService) servicioParaReserva(input CrearReservaPGInput) (*mod
 		return nil, false
 	}
 
+	if input.ServicioID != nil && *input.ServicioID > 0 {
+		servicio, err := s.serviciosRepo.GetServicioByID(*input.ServicioID)
+		if err == nil && servicio != nil {
+			return servicio, true
+		}
+	}
+
 	candidatos := []string{}
 	if input.ServicioConfirmado != nil {
 		candidatos = append(candidatos, *input.ServicioConfirmado)
@@ -819,6 +891,41 @@ func (s *ReservasPGService) servicioParaReserva(input CrearReservaPGInput) (*mod
 	}
 
 	return nil, false
+}
+
+func servicioNoRequiereEvaluacionManual(input CrearReservaPGInput) (string, bool) {
+	candidatos := []string{}
+	if input.ServicioConfirmado != nil {
+		candidatos = append(candidatos, *input.ServicioConfirmado)
+	}
+	candidatos = append(candidatos, input.ServicioSolicitado, input.Servicio)
+
+	for _, nombre := range candidatos {
+		nombre = strings.TrimSpace(nombre)
+		switch normalizarNombreServicio(nombre) {
+		case "evaluacion gratuita", "limpieza facial", "limpieza facial premium":
+			return nombre, true
+		}
+	}
+
+	return "", false
+}
+
+func normalizarNombreServicio(nombre string) string {
+	nombre = strings.ToLower(strings.TrimSpace(nombre))
+	replacer := strings.NewReplacer(
+		"á", "a",
+		"é", "e",
+		"í", "i",
+		"ó", "o",
+		"ú", "u",
+		"Á", "a",
+		"É", "e",
+		"Í", "i",
+		"Ó", "o",
+		"Ú", "u",
+	)
+	return replacer.Replace(nombre)
 }
 
 type ActualizarEstadoReservaInput struct {
@@ -1079,9 +1186,8 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 		valHoraHasta = current.HoraHasta
 	}
 
-	valTipo := input.NuevoTipo
-	if valTipo == "" {
-		valTipo = current.TipoEspacio
+	if err := validarHorarioAtencion(valLocal, *valFecha, valHoraDesde, valHoraHasta); err != nil {
+		return err
 	}
 
 	// 2. Ejecutar actualización en BD
