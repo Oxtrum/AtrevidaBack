@@ -670,9 +670,9 @@ func (h *Container) PatchReservaNotificadoPG(c *gin.Context) {
 // @Produce json
 // @Param id path int true "ID de la reserva" example(44)
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse
-// @Failure 404 {object} utils.APIResponse
-// @Failure 500 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 404 {object} utils.APIResponse "Reserva no encontrada o ya inactiva"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/{id} [delete]
 func (h *Container) DeleteReservaPG(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
