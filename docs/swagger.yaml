@@ -3,6 +3,7 @@ definitions:
   handlers.activarServicioRequest:
     properties:
       local:
+        description: Nombre del local donde activar el servicio
         example: PASEO ARANJUEZ
         type: string
     required:
@@ -11,33 +12,42 @@ definitions:
   handlers.actualizarClienteRequest:
     properties:
       apellido:
+        description: Nuevo apellido (opcional)
         example: Lopez Aguilar
         type: string
       nombre:
+        description: Nuevo nombre (opcional)
         example: Maria Fernanda
         type: string
       numero_telefono:
+        description: Nuevo numero de telefono (opcional)
         example: "+59170011224"
         type: string
     type: object
   handlers.actualizarComboServicioRequest:
     properties:
       costo:
+        description: Costo del servicio (opcional)
         example: 250
         type: number
       orden:
+        description: Orden de aparición (opcional)
         example: 1
         type: integer
       servicio_id:
+        description: ID del servicio en BD (opcional)
         example: 8
         type: integer
       servicio_texto:
+        description: Nombre del servicio personalizado (opcional)
         example: Masaje relajante personalizado
         type: string
       sesiones:
+        description: Cantidad de sesiones (opcional)
         example: 2
         type: integer
       tiempo:
+        description: Duración del servicio HH:MM (opcional)
         example: "01:00"
         type: string
     type: object
@@ -74,21 +84,26 @@ definitions:
   handlers.actualizarLocalHorarioRequest:
     properties:
       dia_semana:
+        description: Día de la semana 1-7 (opcional)
         example: 6
         type: integer
       hora_desde:
+        description: Hora de inicio HH:MM (opcional)
         example: "10:00"
         type: string
       hora_hasta:
+        description: Hora de fin HH:MM (opcional)
         example: "16:00"
         type: string
     type: object
   handlers.actualizarLocalRequest:
     properties:
       activo:
+        description: Estado activo/inactivo (opcional)
         example: true
         type: boolean
       nombre:
+        description: Nuevo nombre del local (opcional)
         example: PASEO ARANJUEZ
         type: string
     type: object
@@ -217,27 +232,35 @@ definitions:
   handlers.actualizarServicioRequest:
     properties:
       activo:
+        description: Nuevo estado activo/inactivo (opcional)
         example: true
         type: boolean
       categoria:
+        description: Nueva categoría (opcional)
         example: Corporal
         type: string
       costo:
+        description: Nuevo costo (opcional)
         example: 420
         type: number
       nombre:
+        description: Nuevo nombre (opcional)
         example: Depilacion Laser Piernas Premium
         type: string
       requiere_evaluacion:
+        description: Nuevo estado de requiere evaluación (opcional)
         example: false
         type: boolean
       sesiones:
+        description: Nueva cantidad de sesiones (opcional)
         example: 8
         type: integer
       tiempo:
+        description: Nueva duración HH:MM (opcional)
         example: "01:15"
         type: string
       tipo_espacio_requerido:
+        description: Nuevo tipo de espacio requerido M/B (opcional)
         example: M
         type: string
     type: object
@@ -282,90 +305,115 @@ definitions:
   handlers.categoriaListResponse:
     properties:
       categorias:
+        description: Lista de categorías
         items:
           $ref: '#/definitions/models.CategoriaPG'
         type: array
       total:
+        description: Total de categorías encontradas
         example: 5
         type: integer
     type: object
   handlers.clienteFiltrosResponse:
     properties:
       apellido:
+        description: 'Filtro aplicado: apellido del cliente'
         example: Lopez
         type: string
       nombre:
+        description: 'Filtro aplicado: nombre del cliente'
         example: Maria
         type: string
       numero_telefono:
+        description: 'Filtro aplicado: número de teléfono del cliente'
         example: "+59170011223"
         type: string
     type: object
   handlers.clienteItemResponse:
     properties:
       cliente:
-        $ref: '#/definitions/models.ClientePG'
+        allOf:
+        - $ref: '#/definitions/models.ClientePG'
+        description: Datos del cliente
     type: object
   handlers.clienteListResponse:
     properties:
       clientes:
+        description: Lista de clientes
         items:
           $ref: '#/definitions/models.ClientePG'
         type: array
       filtros:
-        $ref: '#/definitions/handlers.clienteFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.clienteFiltrosResponse'
+        description: Filtros aplicados en la búsqueda
       total:
+        description: Total de clientes encontrados
         example: 1
         type: integer
     type: object
   handlers.comboFiltrosResponse:
     properties:
       categoria:
+        description: 'Filtro aplicado: categoría del combo'
         example: Corporal
         type: string
       local:
+        description: 'Filtro aplicado: nombre del local'
         example: ARANJUEZ
         type: string
       nombre:
+        description: 'Filtro aplicado: nombre del combo'
         example: relax
         type: string
       sesiones:
+        description: 'Filtro aplicado: cantidad de sesiones'
         example: 4
         type: integer
     type: object
   handlers.comboListResponse:
     properties:
       combos:
+        description: Lista de combos
         items:
           $ref: '#/definitions/models.ComboItem'
         type: array
       filtros:
-        $ref: '#/definitions/handlers.comboFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.comboFiltrosResponse'
+        description: Filtros aplicados en la búsqueda
       total:
+        description: Total de combos encontrados
         example: 3
         type: integer
     type: object
   handlers.comboServicioItemResponse:
     properties:
       servicio:
-        $ref: '#/definitions/models.ComboServicioDetallePG'
+        allOf:
+        - $ref: '#/definitions/models.ComboServicioDetallePG'
+        description: Datos del servicio de combo
     type: object
   handlers.comboServicioListResponse:
     properties:
       combo_id:
+        description: ID del combo padre
         example: 12
         type: integer
       servicios:
+        description: Lista de servicios del combo
         items:
           $ref: '#/definitions/models.ComboServicioDetallePG'
         type: array
       total:
+        description: Total de servicios del combo
         example: 3
         type: integer
     type: object
   handlers.crearCategoriaRequest:
     properties:
       nombre:
+        description: Nombre de la categoria
         example: Depilacion Laser
         type: string
     required:
@@ -374,36 +422,46 @@ definitions:
   handlers.crearClienteRequest:
     properties:
       apellido:
+        description: Apellido del cliente
         example: Lopez
         type: string
       nombre:
+        description: Nombre del cliente
         example: Maria
         type: string
       numero_telefono:
+        description: Numero de telefono del cliente
         example: "+59170011223"
         type: string
     type: object
   handlers.crearComboServicioRequest:
     properties:
       combo_id:
+        description: ID del combo padre
         example: 12
         type: integer
       costo:
+        description: Costo del servicio
         example: 250
         type: number
       orden:
+        description: Orden de aparición dentro del combo
         example: 1
         type: integer
       servicio_id:
+        description: ID del servicio en BD (opcional si se envía servicio_texto)
         example: 8
         type: integer
       servicio_texto:
+        description: Nombre del servicio personalizado (opcional si se envía servicio_id)
         example: Masaje relajante personalizado
         type: string
       sesiones:
+        description: Cantidad de sesiones
         example: 2
         type: integer
       tiempo:
+        description: Duración del servicio (HH:MM)
         example: "01:00"
         type: string
     required:
@@ -412,26 +470,31 @@ definitions:
   handlers.crearLocalHorarioRequest:
     properties:
       dia_semana:
+        description: Día de la semana (1=lunes, 7=domingo)
         example: 1
         type: integer
       hora_desde:
+        description: Hora de inicio (HH:MM)
         example: "09:00"
         type: string
       hora_hasta:
+        description: Hora de fin (HH:MM)
         example: "18:00"
         type: string
       local_id:
+        description: ID del local
         example: 3
         type: integer
     type: object
   handlers.crearLocalRequest:
     properties:
       espacios:
-        description: opcional
+        description: Espacios del local (opcional)
         items:
           $ref: '#/definitions/handlers.espacioRequest'
         type: array
       nombre:
+        description: Nombre del local
         example: SAN MARTIN
         type: string
     required:
@@ -559,29 +622,35 @@ definitions:
   handlers.crearServicioRequest:
     properties:
       categoria:
+        description: Nombre de la categoría
         example: Corporal
         type: string
       costo:
+        description: Costo del servicio
         example: 350
         type: number
       local:
-        description: opcional
+        description: Nombre del local donde activar el servicio (opcional)
         example: SAN MARTIN
         type: string
       nombre:
+        description: Nombre del servicio
         example: Depilacion Laser Piernas
         type: string
       requiere_evaluacion:
+        description: Indica si requiere evaluación previa (default true)
         example: true
         type: boolean
       sesiones:
+        description: Cantidad de sesiones (default 1)
         example: 6
         type: integer
       tiempo:
+        description: Duración del servicio (HH:MM)
         example: "01:00"
         type: string
       tipo_espacio_requerido:
-        description: '"M" | "B" | nil'
+        description: 'Tipo de espacio requerido: M (mesa) o B (bicicleta)'
         example: M
         type: string
     required:
@@ -591,10 +660,12 @@ definitions:
   handlers.espacioRequest:
     properties:
       cantidad_espacios:
+        description: Cantidad de espacios de este tipo
         example: 6
         minimum: 1
         type: integer
       tipo_espacio:
+        description: 'Tipo de espacio: M (mesa) o B (bicicleta)'
         example: M
         type: string
     required:
@@ -604,50 +675,64 @@ definitions:
   handlers.horarioFiltrosResponse:
     properties:
       dia_semana:
+        description: 'Filtro aplicado: día de la semana (1=lunes, 7=domingo)'
         example: 1
         type: integer
       local_id:
+        description: 'Filtro aplicado: ID del local'
         example: 3
         type: integer
     type: object
   handlers.horarioItemResponse:
     properties:
       horario:
-        $ref: '#/definitions/models.LocalHorarioPG'
+        allOf:
+        - $ref: '#/definitions/models.LocalHorarioPG'
+        description: Datos del horario
     type: object
   handlers.horarioListResponse:
     properties:
       filtros:
-        $ref: '#/definitions/handlers.horarioFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.horarioFiltrosResponse'
+        description: Filtros aplicados en la búsqueda
       horarios:
+        description: Lista de horarios del local
         items:
           $ref: '#/definitions/models.LocalHorarioPG'
         type: array
       total:
+        description: Total de horarios encontrados
         example: 5
         type: integer
     type: object
   handlers.idResponse:
     properties:
       id:
+        description: ID del recurso creado
         example: 42
         type: integer
     type: object
   handlers.localItemResponse:
     properties:
       local:
-        $ref: '#/definitions/models.LocalConEspacios'
+        allOf:
+        - $ref: '#/definitions/models.LocalConEspacios'
+        description: Datos del local con espacios y horarios
       total:
+        description: Total de locales (siempre 1 para consulta por ID)
         example: 1
         type: integer
     type: object
   handlers.localListResponse:
     properties:
       locales:
+        description: Lista de locales con espacios y horarios
         items:
           $ref: '#/definitions/models.LocalConEspacios'
         type: array
       total:
+        description: Total de locales encontrados
         example: 2
         type: integer
     type: object
@@ -669,68 +754,88 @@ definitions:
   handlers.messageResponse:
     properties:
       mensaje:
+        description: Mensaje descriptivo del resultado de la operación
         example: operacion realizada correctamente
         type: string
     type: object
   handlers.reservaCalendarioResponse:
     properties:
       filtros:
-        $ref: '#/definitions/handlers.reservaPGFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.reservaPGFiltrosResponse'
+        description: Filtros aplicados en la búsqueda
       reservas:
+        description: Reservas agrupadas por local con detalle semanal
         items:
           $ref: '#/definitions/models.LocalReservas'
         type: array
       total_locales:
+        description: Total de locales con reservas
         example: 2
         type: integer
     type: object
   handlers.reservaCreatedResponse:
     properties:
       id:
+        description: ID de la reserva creada
         example: 44
         type: integer
       mensaje:
+        description: Mensaje de confirmación
         example: Reserva creada correctamente
         type: string
     type: object
   handlers.reservaItemResponse:
     properties:
       reserva:
-        $ref: '#/definitions/services.ReservaSimple'
+        allOf:
+        - $ref: '#/definitions/services.ReservaSimple'
+        description: Datos de la reserva
     type: object
   handlers.reservaPGFiltrosResponse:
     properties:
       cliente:
+        description: 'Filtro aplicado: nombre del cliente'
         example: Maria Lopez
         type: string
       estado:
+        description: 'Filtro aplicado: estado de la reserva'
         example: AGENDADO
         type: string
       fecha:
+        description: 'Filtro aplicado: fecha exacta YYYY-MM-DD'
         example: "2026-05-23"
         type: string
       fecha_desde:
+        description: 'Filtro aplicado: fecha inicio de rango YYYY-MM-DD'
         example: "2026-05-19"
         type: string
       fecha_hasta:
+        description: 'Filtro aplicado: fecha fin de rango YYYY-MM-DD'
         example: "2026-05-24"
         type: string
       local:
+        description: 'Filtro aplicado: nombre del local'
         example: SAN MARTIN
         type: string
       numero_telefono:
+        description: 'Filtro aplicado: número de teléfono'
         example: "+59170011223"
         type: string
       reservados:
+        description: 'Filtro aplicado: solo reservas con estado reservado'
         example: true
         type: boolean
       servicio_confirmado:
+        description: 'Filtro aplicado: servicio confirmado final'
         example: depilacion laser piernas
         type: string
       servicio_solicitado:
+        description: 'Filtro aplicado: servicio solicitado por el cliente'
         example: depilacion
         type: string
       tipo:
+        description: 'Filtro aplicado: tipo de reserva (mesa/bicicleta)'
         example: mesa
         type: string
     type: object
@@ -784,45 +889,58 @@ definitions:
   handlers.reservaSimpleListResponse:
     properties:
       reservas:
+        description: Lista de reservas en formato plano (sin agrupar)
         items:
           $ref: '#/definitions/services.ReservaSimple'
         type: array
       total:
+        description: Total de reservas encontradas
         example: 15
         type: integer
     type: object
   handlers.servicioFiltrosResponse:
     properties:
       categoria:
+        description: 'Filtro aplicado: categoría del servicio'
         example: Corporal
         type: string
       local:
+        description: 'Filtro aplicado: nombre del local'
         example: ARANJUEZ
         type: string
       nombre:
+        description: 'Filtro aplicado: nombre del servicio'
         example: depilacion
         type: string
       requiere_evaluacion:
+        description: 'Filtro aplicado: si requiere evaluación (true/false)'
         example: true
         type: boolean
       sesiones:
+        description: 'Filtro aplicado: cantidad exacta de sesiones'
         example: 6
         type: integer
     type: object
   handlers.servicioItemResponse:
     properties:
       servicio:
-        $ref: '#/definitions/models.ServicioItem'
+        allOf:
+        - $ref: '#/definitions/models.ServicioItem'
+        description: Datos del servicio
     type: object
   handlers.servicioListResponse:
     properties:
       filtros:
-        $ref: '#/definitions/handlers.servicioFiltrosResponse'
+        allOf:
+        - $ref: '#/definitions/handlers.servicioFiltrosResponse'
+        description: Filtros aplicados en la búsqueda
       servicios:
+        description: Lista de servicios
         items:
           $ref: '#/definitions/models.ServicioItem'
         type: array
       total:
+        description: Total de servicios encontrados
         example: 10
         type: integer
     type: object
@@ -1578,8 +1696,8 @@ paths:
       - Clientes
   /bd/clientes/{id}:
     delete:
-      description: 'Elimina un cliente de BD. Param: id (requerido, path). Response:
-        mensaje string.'
+      description: 'Elimina un cliente de BD permanentemente (borrado fisico, no logico).
+        Param: id (requerido, path). Response: mensaje string.'
       parameters:
       - description: ID del cliente
         example: 12
@@ -2584,15 +2702,15 @@ paths:
                   $ref: '#/definitions/handlers.messageResponse'
               type: object
         "400":
-          description: Bad Request
+          description: 'Error de validacion: id invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
-          description: Not Found
+          description: Reserva no encontrada o ya inactiva
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
-          description: Internal Server Error
+          description: Error interno del servidor
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Eliminar reserva
