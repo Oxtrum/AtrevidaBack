@@ -44,6 +44,20 @@ func Setup(h *handlers.Container) *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"message": "Atrevida Fit - Agenda API"})
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.GET("/docs", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html>
+<html>
+<head>
+  <title>Atrevida Fit - API Docs</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <script id="api-reference" data-url="/swagger/doc.json" data-configuration='{"theme":"purple","defaultHttpClient":{"targetKey":"shell","clientKey":"curl"},"defaultFonts":false}'></script>
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body>
+</html>`))
+	})
 
 	// Auth
 	auth := r.Group("/auth")
