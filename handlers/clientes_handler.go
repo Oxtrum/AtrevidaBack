@@ -12,14 +12,20 @@ import (
 )
 
 type crearClienteRequest struct {
-	Nombre         string `json:"nombre" example:"Maria"`
-	Apellido       string `json:"apellido" example:"Lopez"`
+	// Nombre del cliente
+	Nombre string `json:"nombre" example:"Maria"`
+	// Apellido del cliente
+	Apellido string `json:"apellido" example:"Lopez"`
+	// Numero de telefono del cliente
 	NumeroTelefono string `json:"numero_telefono" example:"+59170011223"`
 }
 
 type actualizarClienteRequest struct {
-	Nombre         *string `json:"nombre" example:"Maria Fernanda"`
-	Apellido       *string `json:"apellido" example:"Lopez Aguilar"`
+	// Nuevo nombre (opcional)
+	Nombre *string `json:"nombre" example:"Maria Fernanda"`
+	// Nuevo apellido (opcional)
+	Apellido *string `json:"apellido" example:"Lopez Aguilar"`
+	// Nuevo numero de telefono (opcional)
 	NumeroTelefono *string `json:"numero_telefono" example:"+59170011224"`
 }
 
@@ -202,7 +208,7 @@ func (h *Container) PatchCliente(c *gin.Context) {
 
 // DeleteCliente godoc
 // @Summary Eliminar cliente
-// @Description Elimina un cliente de BD. Param: id (requerido, path). Response: mensaje string.
+// @Description Elimina un cliente de BD permanentemente (borrado fisico, no logico). Param: id (requerido, path). Response: mensaje string.
 // @Tags Clientes
 // @Produce json
 // @Param id path int true "ID del cliente" example(12)

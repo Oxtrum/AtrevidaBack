@@ -13,15 +13,22 @@ import (
 )
 
 type crearLocalHorarioRequest struct {
-	LocalID   int    `json:"local_id" example:"3"`
-	DiaSemana int    `json:"dia_semana" example:"1"`
+	// ID del local
+	LocalID int `json:"local_id" example:"3"`
+	// Día de la semana (1=lunes, 7=domingo)
+	DiaSemana int `json:"dia_semana" example:"1"`
+	// Hora de inicio (HH:MM)
 	HoraDesde string `json:"hora_desde" example:"09:00"`
+	// Hora de fin (HH:MM)
 	HoraHasta string `json:"hora_hasta" example:"18:00"`
 }
 
 type actualizarLocalHorarioRequest struct {
-	DiaSemana *int    `json:"dia_semana" example:"6"`
+	// Día de la semana 1-7 (opcional)
+	DiaSemana *int `json:"dia_semana" example:"6"`
+	// Hora de inicio HH:MM (opcional)
 	HoraDesde *string `json:"hora_desde" example:"10:00"`
+	// Hora de fin HH:MM (opcional)
 	HoraHasta *string `json:"hora_hasta" example:"16:00"`
 }
 

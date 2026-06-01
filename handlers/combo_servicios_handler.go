@@ -12,22 +12,35 @@ import (
 )
 
 type crearComboServicioRequest struct {
-	ComboID       int      `json:"combo_id" binding:"required" example:"12"`
-	ServicioID    *int     `json:"servicio_id" example:"8"`
-	ServicioTexto string   `json:"servicio_texto" example:"Masaje relajante personalizado"`
-	Tiempo        string   `json:"tiempo" example:"01:00"`
-	Costo         *float64 `json:"costo" example:"250"`
-	Sesiones      int      `json:"sesiones" example:"2"`
-	Orden         int      `json:"orden" example:"1"`
+	// ID del combo padre
+	ComboID int `json:"combo_id" binding:"required" example:"12"`
+	// ID del servicio en BD (opcional si se envía servicio_texto)
+	ServicioID *int `json:"servicio_id" example:"8"`
+	// Nombre del servicio personalizado (opcional si se envía servicio_id)
+	ServicioTexto string `json:"servicio_texto" example:"Masaje relajante personalizado"`
+	// Duración del servicio (HH:MM)
+	Tiempo string `json:"tiempo" example:"01:00"`
+	// Costo del servicio
+	Costo *float64 `json:"costo" example:"250"`
+	// Cantidad de sesiones
+	Sesiones int `json:"sesiones" example:"2"`
+	// Orden de aparición dentro del combo
+	Orden int `json:"orden" example:"1"`
 }
 
 type actualizarComboServicioRequest struct {
-	ServicioID    *int     `json:"servicio_id" example:"8"`
-	ServicioTexto *string  `json:"servicio_texto" example:"Masaje relajante personalizado"`
-	Tiempo        *string  `json:"tiempo" example:"01:00"`
-	Costo         *float64 `json:"costo" example:"250"`
-	Sesiones      *int     `json:"sesiones" example:"2"`
-	Orden         *int     `json:"orden" example:"1"`
+	// ID del servicio en BD (opcional)
+	ServicioID *int `json:"servicio_id" example:"8"`
+	// Nombre del servicio personalizado (opcional)
+	ServicioTexto *string `json:"servicio_texto" example:"Masaje relajante personalizado"`
+	// Duración del servicio HH:MM (opcional)
+	Tiempo *string `json:"tiempo" example:"01:00"`
+	// Costo del servicio (opcional)
+	Costo *float64 `json:"costo" example:"250"`
+	// Cantidad de sesiones (opcional)
+	Sesiones *int `json:"sesiones" example:"2"`
+	// Orden de aparición (opcional)
+	Orden *int `json:"orden" example:"1"`
 }
 
 // GetComboServicioByID godoc

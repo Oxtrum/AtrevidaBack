@@ -31,6 +31,7 @@ func (h *Container) GetCategorias(c *gin.Context) {
 }
 
 type crearCategoriaRequest struct {
+	// Nombre de la categoria
 	Nombre string `json:"nombre"   binding:"required" example:"Depilacion Laser"`
 }
 

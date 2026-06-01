@@ -111,14 +111,22 @@ func (h *Container) GetServicioPGByID(c *gin.Context) {
 
 // POST /admin/servicios
 type crearServicioRequest struct {
-	Nombre               string   `json:"nombre"                binding:"required" example:"Depilacion Laser Piernas"`
-	CategoriaNombre      string   `json:"categoria"             binding:"required" example:"Corporal"`
-	Tiempo               string   `json:"tiempo" example:"01:00"`
-	Costo                *float64 `json:"costo" example:"350"`
-	Sesiones             int      `json:"sesiones" example:"6"`
-	TipoEspacioRequerido *string  `json:"tipo_espacio_requerido" example:"M"` // "M" | "B" | nil
-	RequiereEvaluacion   *bool    `json:"requiere_evaluacion" example:"true"`
-	LocalNombre          string   `json:"local" example:"SAN MARTIN"` // opcional
+	// Nombre del servicio
+	Nombre string `json:"nombre"                binding:"required" example:"Depilacion Laser Piernas"`
+	// Nombre de la categoría
+	CategoriaNombre string `json:"categoria"             binding:"required" example:"Corporal"`
+	// Duración del servicio (HH:MM)
+	Tiempo string `json:"tiempo" example:"01:00"`
+	// Costo del servicio
+	Costo *float64 `json:"costo" example:"350"`
+	// Cantidad de sesiones (default 1)
+	Sesiones int `json:"sesiones" example:"6"`
+	// Tipo de espacio requerido: M (mesa) o B (bicicleta)
+	TipoEspacioRequerido *string `json:"tipo_espacio_requerido" example:"M"`
+	// Indica si requiere evaluación previa (default true)
+	RequiereEvaluacion *bool `json:"requiere_evaluacion" example:"true"`
+	// Nombre del local donde activar el servicio (opcional)
+	LocalNombre string `json:"local" example:"SAN MARTIN"`
 }
 
 // CreateServicio godoc
@@ -182,14 +190,22 @@ func (h *Container) CreateServicio(c *gin.Context) {
 
 // PATCH /admin/servicios/:id
 type actualizarServicioRequest struct {
-	Nombre               *string  `json:"nombre" example:"Depilacion Laser Piernas Premium"`
-	CategoriaNombre      *string  `json:"categoria" example:"Corporal"`
-	Tiempo               *string  `json:"tiempo" example:"01:15"`
-	Costo                *float64 `json:"costo" example:"420"`
-	Sesiones             *int     `json:"sesiones" example:"8"`
-	TipoEspacioRequerido *string  `json:"tipo_espacio_requerido" example:"M"`
-	RequiereEvaluacion   *bool    `json:"requiere_evaluacion" example:"false"`
-	Activo               *bool    `json:"activo" example:"true"`
+	// Nuevo nombre (opcional)
+	Nombre *string `json:"nombre" example:"Depilacion Laser Piernas Premium"`
+	// Nueva categoría (opcional)
+	CategoriaNombre *string `json:"categoria" example:"Corporal"`
+	// Nueva duración HH:MM (opcional)
+	Tiempo *string `json:"tiempo" example:"01:15"`
+	// Nuevo costo (opcional)
+	Costo *float64 `json:"costo" example:"420"`
+	// Nueva cantidad de sesiones (opcional)
+	Sesiones *int `json:"sesiones" example:"8"`
+	// Nuevo tipo de espacio requerido M/B (opcional)
+	TipoEspacioRequerido *string `json:"tipo_espacio_requerido" example:"M"`
+	// Nuevo estado de requiere evaluación (opcional)
+	RequiereEvaluacion *bool `json:"requiere_evaluacion" example:"false"`
+	// Nuevo estado activo/inactivo (opcional)
+	Activo *bool `json:"activo" example:"true"`
 }
 
 // UpdateServicio godoc
@@ -260,6 +276,7 @@ func (h *Container) UpdateServicio(c *gin.Context) {
 
 // POST /admin/servicios/:id/activar
 type activarServicioRequest struct {
+	// Nombre del local donde activar el servicio
 	Local string `json:"local" binding:"required" example:"PASEO ARANJUEZ"`
 }
 

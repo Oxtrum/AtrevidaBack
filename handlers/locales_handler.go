@@ -62,13 +62,17 @@ func (h *Container) GetLocalById(c *gin.Context) {
 }
 
 type crearLocalRequest struct {
-	Nombre   string           `json:"nombre"   binding:"required" example:"SAN MARTIN"`
-	Espacios []espacioRequest `json:"espacios"` // opcional
+	// Nombre del local
+	Nombre string `json:"nombre"   binding:"required" example:"SAN MARTIN"`
+	// Espacios del local (opcional)
+	Espacios []espacioRequest `json:"espacios"`
 }
 
 type espacioRequest struct {
-	TipoEspacio      string `json:"tipo_espacio"       binding:"required" example:"M"`
-	CantidadEspacios int    `json:"cantidad_espacios"  binding:"required,min=1" example:"6"`
+	// Tipo de espacio: M (mesa) o B (bicicleta)
+	TipoEspacio string `json:"tipo_espacio"       binding:"required" example:"M"`
+	// Cantidad de espacios de este tipo
+	CantidadEspacios int `json:"cantidad_espacios"  binding:"required,min=1" example:"6"`
 }
 
 // PostLocal godoc
@@ -120,8 +124,10 @@ func (h *Container) PostLocal(c *gin.Context) {
 
 // PATCH /admin/locales/:id
 type actualizarLocalRequest struct {
+	// Nuevo nombre del local (opcional)
 	Nombre *string `json:"nombre" example:"PASEO ARANJUEZ"`
-	Activo *bool   `json:"activo" example:"true"`
+	// Estado activo/inactivo (opcional)
+	Activo *bool `json:"activo" example:"true"`
 }
 
 // PatchLocal godoc
