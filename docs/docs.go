@@ -427,7 +427,7 @@ const docTemplate = `{
         },
         "/bd/categorias": {
             "get": {
-                "description": "Devuelve todas las categorias registradas en BD. Sin filtros. Response: total (int), categorias ([]CategoriaPG con: id, nombre).",
+                "description": "Devuelve categorias registradas en BD. Sin filtros devuelve todas. Si se envia local o local_id, devuelve solo categorias asociadas a ese local mediante categorias_locales. Response: total (int), categorias ([]CategoriaPG con: id, nombre).",
                 "produces": [
                     "application/json"
                 ],
@@ -435,6 +435,22 @@ const docTemplate = `{
                     "Categorias"
                 ],
                 "summary": "Listar categorias",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "SAN MARTIN",
+                        "description": "Nombre exacto del local",
+                        "name": "local",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del local",
+                        "name": "local_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -454,6 +470,12 @@ const docTemplate = `{
                             ]
                         }
                     },
+                    "400": {
+                        "description": "Error de validacion: local_id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "500": {
                         "description": "Error interno del servidor",
                         "schema": {
@@ -463,7 +485,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una categoria nueva. Body: nombre (requerido). Response: id (int ID de la categoria creada).",
+                "description": "Crea una categoria nueva. Body: nombre (requerido) y local_id (opcional, puede ser null). Si local_id viene informado, tambien asocia la categoria al local mediante categorias_locales en la misma transaccion. Response: id (int ID de la categoria creada).",
                 "consumes": [
                     "application/json"
                 ],
@@ -505,7 +527,139 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: nombre requerido",
+                        "description": "Error de validacion: nombre requerido o local_id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Local no encontrado o inactivo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/categorias/locales": {
+            "post": {
+                "description": "Crea una relacion en categorias_locales. Body: categoria_id y local_id requeridos. Si la relacion ya existe, la operacion es idempotente.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Categorias"
+                ],
+                "summary": "Asociar categoria con local",
+                "parameters": [
+                    {
+                        "description": "IDs de categoria y local",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.categoriaLocalRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: categoria_id/local_id invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Categoria o local no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Elimina una relacion de categorias_locales. Body: categoria_id y local_id requeridos.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Categorias"
+                ],
+                "summary": "Eliminar asociacion categoria-local",
+                "parameters": [
+                    {
+                        "description": "IDs de categoria y local",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.categoriaLocalRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: categoria_id/local_id invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Asociacion categoria-local no encontrada",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2599,7 +2753,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un servicio en PostgreSQL y opcionalmente lo asocia a un local. Body: nombre (requerido), categoria (requerido), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false default true (opcional), local para activar (opcional). Response: id (int ID del servicio creado).",
+                "description": "Crea un servicio en PostgreSQL y opcionalmente lo asocia a un local. Si se envia local, la categoria del servicio debe estar asociada a ese local en categorias_locales. Body: nombre (requerido), categoria (requerido), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false default true (opcional), local para activar (opcional). Response: id (int ID del servicio creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -2641,7 +2795,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: nombre/categoria requerido, tipo_espacio_requerido invalido, local no encontrado, local sin espacios",
+                        "description": "Error de validacion: nombre/categoria requerido, tipo_espacio_requerido invalido, local no encontrado, categoria no disponible para el local, local sin espacios",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2657,7 +2811,7 @@ const docTemplate = `{
         },
         "/bd/servicios/local/{id}": {
             "post": {
-                "description": "Asocia un servicio existente a un local. Param: id del servicio (requerido, path). Body: local (requerido). Response: mensaje string.",
+                "description": "Asocia un servicio existente a un local. La categoria del servicio debe estar asociada a ese local en categorias_locales. Param: id del servicio (requerido, path). Body: local (requerido). Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2707,7 +2861,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: id invalido, local requerido, servicio/local no encontrado, local sin espacios",
+                        "description": "Error de validacion: id invalido, local requerido, servicio/local no encontrado, categoria no disponible para el local, local sin espacios",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2839,7 +2993,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza un servicio existente. Solo se actualizan los campos enviados. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.",
+                "description": "Actualiza un servicio existente. Solo se actualizan los campos enviados. Si se cambia categoria y el servicio ya esta asociado a locales, la nueva categoria debe estar asociada a esos locales en categorias_locales. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2889,7 +3043,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: id invalido, tipo_espacio_requerido invalido, sin campos a modificar",
+                        "description": "Error de validacion: id invalido, tipo_espacio_requerido invalido, categoria no disponible para locales del servicio, sin campos a modificar",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3706,6 +3860,25 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.categoriaLocalRequest": {
+            "type": "object",
+            "required": [
+                "categoria_id",
+                "local_id"
+            ],
+            "properties": {
+                "categoria_id": {
+                    "description": "ID de la categoria a asociar con el local",
+                    "type": "integer",
+                    "example": 3
+                },
+                "local_id": {
+                    "description": "ID del local a asociar con la categoria",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
         "handlers.clienteFiltrosResponse": {
             "type": "object",
             "properties": {
@@ -3855,6 +4028,11 @@ const docTemplate = `{
                 "nombre"
             ],
             "properties": {
+                "local_id": {
+                    "description": "ID del local al que se asociara la categoria; si es null u omitido, solo crea la categoria",
+                    "type": "integer",
+                    "example": 1
+                },
                 "nombre": {
                     "description": "Nombre de la categoria",
                     "type": "string",

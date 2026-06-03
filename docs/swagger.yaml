@@ -314,6 +314,20 @@ definitions:
         example: 5
         type: integer
     type: object
+  handlers.categoriaLocalRequest:
+    properties:
+      categoria_id:
+        description: ID de la categoria a asociar con el local
+        example: 3
+        type: integer
+      local_id:
+        description: ID del local a asociar con la categoria
+        example: 1
+        type: integer
+    required:
+    - categoria_id
+    - local_id
+    type: object
   handlers.clienteFiltrosResponse:
     properties:
       apellido:
@@ -412,6 +426,11 @@ definitions:
     type: object
   handlers.crearCategoriaRequest:
     properties:
+      local_id:
+        description: ID del local al que se asociara la categoria; si es null u omitido,
+          solo crea la categoria
+        example: 1
+        type: integer
       nombre:
         description: Nombre de la categoria
         example: Depilacion Laser
@@ -1557,8 +1576,21 @@ paths:
       - Auth
   /bd/categorias:
     get:
-      description: 'Devuelve todas las categorias registradas en BD. Sin filtros.
-        Response: total (int), categorias ([]CategoriaPG con: id, nombre).'
+      description: 'Devuelve categorias registradas en BD. Sin filtros devuelve todas.
+        Si se envia local o local_id, devuelve solo categorias asociadas a ese local
+        mediante categorias_locales. Response: total (int), categorias ([]CategoriaPG
+        con: id, nombre).'
+      parameters:
+      - description: Nombre exacto del local
+        example: SAN MARTIN
+        in: query
+        name: local
+        type: string
+      - description: ID del local
+        example: 1
+        in: query
+        name: local_id
+        type: integer
       produces:
       - application/json
       responses:
@@ -1571,6 +1603,10 @@ paths:
                 data:
                   $ref: '#/definitions/handlers.categoriaListResponse'
               type: object
+        "400":
+          description: 'Error de validacion: local_id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
         "500":
           description: Error interno del servidor
           schema:
@@ -1581,7 +1617,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Crea una categoria nueva. Body: nombre (requerido). Response:
+      description: 'Crea una categoria nueva. Body: nombre (requerido) y local_id
+        (opcional, puede ser null). Si local_id viene informado, tambien asocia la
+        categoria al local mediante categorias_locales en la misma transaccion. Response:
         id (int ID de la categoria creada).'
       parameters:
       - description: Datos de la categoria
@@ -1603,7 +1641,11 @@ paths:
                   $ref: '#/definitions/handlers.idResponse'
               type: object
         "400":
-          description: 'Error de validacion: nombre requerido'
+          description: 'Error de validacion: nombre requerido o local_id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Local no encontrado o inactivo
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
@@ -1611,6 +1653,85 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Crear categoria
+      tags:
+      - Categorias
+  /bd/categorias/locales:
+    delete:
+      consumes:
+      - application/json
+      description: 'Elimina una relacion de categorias_locales. Body: categoria_id
+        y local_id requeridos.'
+      parameters:
+      - description: IDs de categoria y local
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.categoriaLocalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: categoria_id/local_id invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Asociacion categoria-local no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Eliminar asociacion categoria-local
+      tags:
+      - Categorias
+    post:
+      consumes:
+      - application/json
+      description: 'Crea una relacion en categorias_locales. Body: categoria_id y
+        local_id requeridos. Si la relacion ya existe, la operacion es idempotente.'
+      parameters:
+      - description: IDs de categoria y local
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.categoriaLocalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: categoria_id/local_id invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria o local no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Asociar categoria con local
       tags:
       - Categorias
   /bd/clientes:
@@ -3043,10 +3164,12 @@ paths:
       consumes:
       - application/json
       description: 'Crea un servicio en PostgreSQL y opcionalmente lo asocia a un
-        local. Body: nombre (requerido), categoria (requerido), tiempo HH:MM (opcional),
-        costo (opcional), sesiones entero positivo default 1 (opcional), tipo_espacio_requerido
-        M/B (opcional), requiere_evaluacion true/false default true (opcional), local
-        para activar (opcional). Response: id (int ID del servicio creado).'
+        local. Si se envia local, la categoria del servicio debe estar asociada a
+        ese local en categorias_locales. Body: nombre (requerido), categoria (requerido),
+        tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default
+        1 (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false
+        default true (opcional), local para activar (opcional). Response: id (int
+        ID del servicio creado).'
       parameters:
       - description: Datos del servicio
         in: body
@@ -3068,7 +3191,8 @@ paths:
               type: object
         "400":
           description: 'Error de validacion: nombre/categoria requerido, tipo_espacio_requerido
-            invalido, local no encontrado, local sin espacios'
+            invalido, local no encontrado, categoria no disponible para el local,
+            local sin espacios'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
@@ -3158,10 +3282,12 @@ paths:
       consumes:
       - application/json
       description: 'Actualiza un servicio existente. Solo se actualizan los campos
-        enviados. Param: id (requerido, path). Body: nombre (opcional), categoria
-        (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional),
-        tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional),
-        activo true/false (opcional). Response: mensaje string.'
+        enviados. Si se cambia categoria y el servicio ya esta asociado a locales,
+        la nueva categoria debe estar asociada a esos locales en categorias_locales.
+        Param: id (requerido, path). Body: nombre (opcional), categoria (opcional),
+        tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido
+        M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false
+        (opcional). Response: mensaje string.'
       parameters:
       - description: ID del servicio
         example: 8
@@ -3189,7 +3315,7 @@ paths:
               type: object
         "400":
           description: 'Error de validacion: id invalido, tipo_espacio_requerido invalido,
-            sin campos a modificar'
+            categoria no disponible para locales del servicio, sin campos a modificar'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
@@ -3207,7 +3333,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Asocia un servicio existente a un local. Param: id del servicio
+      description: 'Asocia un servicio existente a un local. La categoria del servicio
+        debe estar asociada a ese local en categorias_locales. Param: id del servicio
         (requerido, path). Body: local (requerido). Response: mensaje string.'
       parameters:
       - description: ID del servicio
@@ -3236,7 +3363,7 @@ paths:
               type: object
         "400":
           description: 'Error de validacion: id invalido, local requerido, servicio/local
-            no encontrado, local sin espacios'
+            no encontrado, categoria no disponible para el local, local sin espacios'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":

@@ -168,6 +168,12 @@ func (r *ServiciosRepo) CreateServicio(input repository.CrearServicioInput) (int
 		return 0, fmt.Errorf("categoría '%s' no encontrada", input.CategoriaNombre)
 	}
 
+	if strings.TrimSpace(input.LocalNombre) != "" {
+		if err := validarCategoriaDisponibleEnLocal(tx, catID, input.LocalNombre); err != nil {
+			return 0, err
+		}
+	}
+
 	// NOTA: Temporal hasta que existan mas espacios
 	if input.TipoEspacioRequerido != nil {
 		t := strings.ToUpper(*input.TipoEspacioRequerido)
@@ -195,7 +201,7 @@ func (r *ServiciosRepo) CreateServicio(input repository.CrearServicioInput) (int
 	}
 
 	if strings.TrimSpace(input.LocalNombre) != "" {
-		if err := activarEnLocal(tx, servicioID, input.LocalNombre, input.TipoEspacioRequerido); err != nil {
+		if err := activarEnLocal(tx, servicioID, input.LocalNombre, input.TipoEspacioRequerido, catID); err != nil {
 			return 0, err
 		}
 	}
@@ -227,6 +233,9 @@ func (r *ServiciosRepo) UpdateServicio(input repository.ActualizarServicioInput)
 		).Scan(&catID)
 		if err != nil {
 			return fmt.Errorf("categoría '%s' no encontrada", *input.CategoriaNombre)
+		}
+		if err := validarCategoriaParaLocalesDelServicio(tx, input.ID, catID); err != nil {
+			return err
 		}
 		sets = append(sets, fmt.Sprintf("categoria_id = $%d", idx))
 		args = append(args, catID)
@@ -296,15 +305,22 @@ func (r *ServiciosRepo) AddServicioInLocal(servicioID int, localNombre string) e
 	defer tx.Rollback()
 
 	var tipoEspacio *string
+	var categoriaID *int
 	err = tx.QueryRowx(
-		`SELECT tipo_espacio_requerido FROM servicios WHERE id = $1 AND activo = TRUE`,
+		`SELECT tipo_espacio_requerido, categoria_id FROM servicios WHERE id = $1 AND activo = TRUE`,
 		servicioID,
-	).Scan(&tipoEspacio)
+	).Scan(&tipoEspacio, &categoriaID)
 	if err != nil {
 		return fmt.Errorf("servicio con id %d no encontrado o inactivo", servicioID)
 	}
 
-	if err := activarEnLocal(tx, servicioID, localNombre, tipoEspacio); err != nil {
+	if categoriaID != nil {
+		if err := validarCategoriaDisponibleEnLocal(tx, *categoriaID, localNombre); err != nil {
+			return err
+		}
+	}
+
+	if err := activarEnLocal(tx, servicioID, localNombre, tipoEspacio, categoriaIDValue(categoriaID)); err != nil {
 		return err
 	}
 
@@ -336,7 +352,7 @@ func findLocal(tx *sqlx.Tx, nombre string) (int, error) {
 	return id, err
 }
 
-func activarEnLocal(tx *sqlx.Tx, servicioID int, localNombre string, tipoEspacioRequerido *string) error {
+func activarEnLocal(tx *sqlx.Tx, servicioID int, localNombre string, tipoEspacioRequerido *string, categoriaID int) error {
 	// resolver local
 	var localID int
 	err := tx.QueryRowx(
@@ -345,6 +361,12 @@ func activarEnLocal(tx *sqlx.Tx, servicioID int, localNombre string, tipoEspacio
 	).Scan(&localID)
 	if err != nil {
 		return fmt.Errorf("local '%s' no encontrado o inactivo", localNombre)
+	}
+
+	if categoriaID > 0 {
+		if err := validarCategoriaDisponibleEnLocalID(tx, categoriaID, localID, localNombre); err != nil {
+			return err
+		}
 	}
 
 	// validar que el local tenga el tipo de espacio requerido
@@ -372,6 +394,73 @@ func activarEnLocal(tx *sqlx.Tx, servicioID int, localNombre string, tipoEspacio
 	`, servicioID, localID)
 	if err != nil {
 		return fmt.Errorf("error al activar servicio en local: %w", err)
+	}
+
+	return nil
+}
+
+func categoriaIDValue(categoriaID *int) int {
+	if categoriaID == nil {
+		return 0
+	}
+	return *categoriaID
+}
+
+func validarCategoriaDisponibleEnLocal(tx *sqlx.Tx, categoriaID int, localNombre string) error {
+	var localID int
+	err := tx.QueryRowx(
+		`SELECT id FROM locales WHERE UPPER(nombre) = UPPER($1) AND activo = TRUE`,
+		strings.TrimSpace(localNombre),
+	).Scan(&localID)
+	if err != nil {
+		return fmt.Errorf("local '%s' no encontrado o inactivo", localNombre)
+	}
+
+	return validarCategoriaDisponibleEnLocalID(tx, categoriaID, localID, localNombre)
+}
+
+func validarCategoriaDisponibleEnLocalID(tx *sqlx.Tx, categoriaID, localID int, localNombre string) error {
+	var existe bool
+	err := tx.QueryRowx(`
+		SELECT EXISTS(
+			SELECT 1
+			FROM categorias_locales
+			WHERE categoria_id = $1
+			  AND local_id = $2
+		)
+	`, categoriaID, localID).Scan(&existe)
+	if err != nil {
+		return fmt.Errorf("error al validar categoria en local: %w", err)
+	}
+	if !existe {
+		return fmt.Errorf("categoria no disponible para el local '%s'", localNombre)
+	}
+
+	return nil
+}
+
+func validarCategoriaParaLocalesDelServicio(tx *sqlx.Tx, servicioID, categoriaID int) error {
+	type localServicio struct {
+		ID     int    `db:"id"`
+		Nombre string `db:"nombre"`
+	}
+
+	var locales []localServicio
+	err := tx.Select(&locales, `
+		SELECT l.id, l.nombre
+		FROM servicio_local sl
+		JOIN locales l ON l.id = sl.local_id
+		WHERE sl.servicio_id = $1
+		  AND l.activo = TRUE
+	`, servicioID)
+	if err != nil {
+		return fmt.Errorf("error al validar locales del servicio: %w", err)
+	}
+
+	for _, local := range locales {
+		if err := validarCategoriaDisponibleEnLocalID(tx, categoriaID, local.ID, local.Nombre); err != nil {
+			return err
+		}
 	}
 
 	return nil

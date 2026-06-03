@@ -131,13 +131,13 @@ type crearServicioRequest struct {
 
 // CreateServicio godoc
 // @Summary Crear servicio
-// @Description Crea un servicio en PostgreSQL y opcionalmente lo asocia a un local. Body: nombre (requerido), categoria (requerido), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false default true (opcional), local para activar (opcional). Response: id (int ID del servicio creado).
+// @Description Crea un servicio en PostgreSQL y opcionalmente lo asocia a un local. Si se envia local, la categoria del servicio debe estar asociada a ese local en categorias_locales. Body: nombre (requerido), categoria (requerido), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false default true (opcional), local para activar (opcional). Response: id (int ID del servicio creado).
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
 // @Param payload body crearServicioRequest true "Datos del servicio"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: nombre/categoria requerido, tipo_espacio_requerido invalido, local no encontrado, local sin espacios"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: nombre/categoria requerido, tipo_espacio_requerido invalido, local no encontrado, categoria no disponible para el local, local sin espacios"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios [post]
 func (h *Container) CreateServicio(c *gin.Context) {
@@ -178,7 +178,8 @@ func (h *Container) CreateServicio(c *gin.Context) {
 	if err != nil {
 		status := http.StatusInternalServerError
 		if strings.Contains(err.Error(), "no encontrada") ||
-			strings.Contains(err.Error(), "no tiene espacios") {
+			strings.Contains(err.Error(), "no tiene espacios") ||
+			strings.Contains(err.Error(), "no disponible") {
 			status = http.StatusBadRequest
 		}
 		utils.RespondError(c, status, err.Error())
@@ -210,14 +211,14 @@ type actualizarServicioRequest struct {
 
 // UpdateServicio godoc
 // @Summary Actualizar servicio
-// @Description Actualiza un servicio existente. Solo se actualizan los campos enviados. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.
+// @Description Actualiza un servicio existente. Solo se actualizan los campos enviados. Si se cambia categoria y el servicio ya esta asociado a locales, la nueva categoria debe estar asociada a esos locales en categorias_locales. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
 // @Param id path int true "ID del servicio" example(8)
 // @Param payload body actualizarServicioRequest true "Campos a actualizar (todos opcionales, al menos uno requerido)"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, tipo_espacio_requerido invalido, sin campos a modificar"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, tipo_espacio_requerido invalido, categoria no disponible para locales del servicio, sin campos a modificar"
 // @Failure 404 {object} utils.APIResponse "Servicio no encontrado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios/{id} [patch]
@@ -267,6 +268,9 @@ func (h *Container) UpdateServicio(c *gin.Context) {
 		if strings.Contains(err.Error(), "no encontrad") {
 			status = http.StatusNotFound
 		}
+		if strings.Contains(err.Error(), "no disponible") {
+			status = http.StatusBadRequest
+		}
 		utils.RespondError(c, status, err.Error())
 		return
 	}
@@ -282,14 +286,14 @@ type activarServicioRequest struct {
 
 // ActivarServicioEnLocal godoc
 // @Summary Activar servicio en local
-// @Description Asocia un servicio existente a un local. Param: id del servicio (requerido, path). Body: local (requerido). Response: mensaje string.
+// @Description Asocia un servicio existente a un local. La categoria del servicio debe estar asociada a ese local en categorias_locales. Param: id del servicio (requerido, path). Body: local (requerido). Response: mensaje string.
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
 // @Param id path int true "ID del servicio" example(8)
 // @Param payload body activarServicioRequest true "Local donde activar el servicio"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, servicio/local no encontrado, local sin espacios"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, servicio/local no encontrado, categoria no disponible para el local, local sin espacios"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios/local/{id} [post]
 func (h *Container) ActivarServicioEnLocal(c *gin.Context) {
@@ -309,7 +313,8 @@ func (h *Container) ActivarServicioEnLocal(c *gin.Context) {
 	if err != nil {
 		status := http.StatusInternalServerError
 		if strings.Contains(err.Error(), "no encontrado") ||
-			strings.Contains(err.Error(), "no tiene espacios") {
+			strings.Contains(err.Error(), "no tiene espacios") ||
+			strings.Contains(err.Error(), "no disponible") {
 			status = http.StatusBadRequest
 		}
 		utils.RespondError(c, status, err.Error())

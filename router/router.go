@@ -95,6 +95,8 @@ func Setup(h *handlers.Container) *gin.Engine {
 	{
 		bd.GET("/categorias", h.GetCategorias)
 		bd.POST("/categorias", h.CreateCategoria)
+		bd.POST("/categorias/locales", h.CreateCategoriaLocal)
+		bd.DELETE("/categorias/locales", h.DeleteCategoriaLocal)
 
 		bd.GET("/clientes", h.GetClientes)
 		bd.GET("/clientes/:id", h.GetClienteByID)
