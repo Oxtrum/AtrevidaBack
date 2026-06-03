@@ -27,10 +27,6 @@ func Build() (*gin.Engine, error) {
 		return nil, err
 	}
 
-	if err := db.RunMigrations(pgDB, "file://migrations"); err != nil {
-		return nil, err
-	}
-
 	authRepo := pgsqlrepo.NewAuthRepo(pgDB)
 	categoriasPGRepo := pgsqlrepo.NewCategoriasRepo(pgDB)
 	clientesPGRepo := pgsqlrepo.NewClientesRepo(pgDB)
