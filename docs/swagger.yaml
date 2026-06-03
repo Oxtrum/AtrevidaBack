@@ -9,6 +9,13 @@ definitions:
     required:
     - local
     type: object
+  handlers.actualizadasResponse:
+    properties:
+      actualizadas:
+        description: Cantidad de registros actualizados
+        example: 3
+        type: integer
+    type: object
   handlers.actualizarClienteRequest:
     properties:
       apellido:
@@ -770,6 +777,20 @@ definitions:
         example: admin
         type: string
     type: object
+  handlers.marcarNotificacionesReservasLeidasRequest:
+    properties:
+      ids:
+        description: IDs de reservas a marcar como leidas
+        example:
+        - 44
+        - 45
+        - 46
+        items:
+          type: integer
+        type: array
+    required:
+    - ids
+    type: object
   handlers.messageResponse:
     properties:
       mensaje:
@@ -810,6 +831,18 @@ definitions:
         allOf:
         - $ref: '#/definitions/services.ReservaSimple'
         description: Datos de la reserva
+    type: object
+  handlers.reservaNotificacionListResponse:
+    properties:
+      reservas:
+        description: Reservas agendadas pendientes de marcar como leidas
+        items:
+          $ref: '#/definitions/services.ReservaSimple'
+        type: array
+      total:
+        description: Total de notificaciones pendientes
+        example: 3
+        type: integer
     type: object
   handlers.reservaPGFiltrosResponse:
     properties:
@@ -2604,6 +2637,120 @@ paths:
       summary: Actualizar horario
       tags:
       - Horarios Locales
+  /bd/notificaciones/reservas:
+    get:
+      description: 'Devuelve reservas activas en estado AGENDADO que aun no fueron
+        marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas
+        recientes primero). Este endpoint esta pensado para polling de la campanita
+        del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad
+        maxima a devolver (opcional, default 20, maximo 100). Response: total (int),
+        reservas ([]ReservaSimple con datos de la reserva agendada pendiente).'
+      parameters:
+      - description: Cantidad maxima de notificaciones a devolver (default 20, maximo
+          100)
+        example: 20
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reservaNotificacionListResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: limit invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar notificaciones de reservas
+      tags:
+      - Notificaciones
+  /bd/notificaciones/reservas/{id}/leer:
+    patch:
+      description: 'Marca como notificada/leida una reserva agendada para quitarla
+        de la campanita. Param: id de la reserva (requerido, path). Response: mensaje
+        string.'
+      parameters:
+      - description: ID de la reserva
+        example: 44
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Reserva no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Marcar notificacion de reserva como leida
+      tags:
+      - Notificaciones
+  /bd/notificaciones/reservas/leer:
+    patch:
+      consumes:
+      - application/json
+      description: 'Marca como notificadas/leidas varias reservas agendadas en una
+        sola operacion. Body: ids lista de IDs de reservas a marcar. Response: actualizadas
+        cantidad de reservas activas actualizadas.'
+      parameters:
+      - description: IDs de reservas a marcar como leidas
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.marcarNotificacionesReservasLeidasRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.actualizadasResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: ids requerido o contiene valores invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Marcar notificaciones de reservas como leidas
+      tags:
+      - Notificaciones
   /bd/reservas:
     get:
       description: 'Devuelve reservas en formato plano (sin agrupar por local). Filtros:

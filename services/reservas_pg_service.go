@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -525,6 +526,42 @@ type FiltroReservasSimple struct {
 	Tipo               string
 }
 
+func (s *ReservasPGService) GetReservasAgendadasNoNotificadas(limit int) ([]ReservaSimple, error) {
+	filtro := FiltroReservasSimple{
+		Estado: "AGENDADO",
+	}
+
+	reservas, err := s.GetReservasSimple(filtro)
+	if err != nil {
+		return nil, err
+	}
+
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	resultado := make([]ReservaSimple, 0, len(reservas))
+	for _, rv := range reservas {
+		if rv.Notificado {
+			continue
+		}
+		resultado = append(resultado, rv)
+	}
+
+	sort.SliceStable(resultado, func(i, j int) bool {
+		return resultado[i].CreadoEn > resultado[j].CreadoEn
+	})
+
+	if len(resultado) > limit {
+		resultado = resultado[:limit]
+	}
+
+	return resultado, nil
+}
+
 func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]ReservaSimple, error) {
 	filtro := repository.FiltroReservasPG{
 		LocalNombre:        f.Local,
@@ -633,6 +670,32 @@ func (s *ReservasPGService) ActualizarNotificacionReserva(id int, notificado boo
 	}
 
 	return nil
+}
+
+func (s *ReservasPGService) ActualizarNotificacionReservas(ids []int, notificado bool) (int, error) {
+	if len(ids) == 0 {
+		return 0, errors.New("ids es requerido")
+	}
+
+	vistos := map[int]bool{}
+	idsValidos := make([]int, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return 0, errors.New("ids contiene un valor invalido")
+		}
+		if vistos[id] {
+			continue
+		}
+		vistos[id] = true
+		idsValidos = append(idsValidos, id)
+	}
+
+	actualizadas, err := s.repo.UpdateReservasNotificado(idsValidos, notificado)
+	if err != nil {
+		return 0, err
+	}
+
+	return actualizadas, nil
 }
 
 func (s *ReservasPGService) GetResumenReservas(fecha time.Time) (*ResumenReservas, error) {

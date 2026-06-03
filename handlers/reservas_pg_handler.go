@@ -240,6 +240,11 @@ type actualizarNotificadoReservaPGRequest struct {
 	Notificado *bool `json:"notificado" binding:"required" example:"true"`
 }
 
+type marcarNotificacionesReservasLeidasRequest struct {
+	// IDs de reservas a marcar como leidas
+	Ids []int `json:"ids" binding:"required" example:"44,45,46"`
+}
+
 type reservaResumenSemanaResponse struct {
 	// Total de reservas en la semana (lunes a la fecha consultada)
 	TotalReservas int `json:"total_reservas" example:"45"`
@@ -661,6 +666,102 @@ func (h *Container) PatchReservaNotificadoPG(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "Notificacion de reserva actualizada correctamente"})
+}
+
+// GetNotificacionesReservasPG godoc
+// @Summary Listar notificaciones de reservas
+// @Description Devuelve reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos de la reserva agendada pendiente).
+// @Tags Notificaciones
+// @Produce json
+// @Param limit query int false "Cantidad maxima de notificaciones a devolver (default 20, maximo 100)" example(20)
+// @Success 200 {object} utils.APIResponse{data=reservaNotificacionListResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: limit invalido"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/notificaciones/reservas [get]
+func (h *Container) GetNotificacionesReservasPG(c *gin.Context) {
+	limit := 20
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 {
+			utils.RespondError(c, http.StatusBadRequest, "limit invalido")
+			return
+		}
+		limit = parsed
+	}
+
+	reservas, err := h.ReservasPG.GetReservasAgendadasNoNotificadas(limit)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, reservaNotificacionListResponse{
+		Total:    len(reservas),
+		Reservas: reservas,
+	})
+}
+
+// PatchNotificacionesReservasLeidasPG godoc
+// @Summary Marcar notificaciones de reservas como leidas
+// @Description Marca como notificadas/leidas varias reservas agendadas en una sola operacion. Body: ids lista de IDs de reservas a marcar. Response: actualizadas cantidad de reservas activas actualizadas.
+// @Tags Notificaciones
+// @Accept json
+// @Produce json
+// @Param payload body marcarNotificacionesReservasLeidasRequest true "IDs de reservas a marcar como leidas"
+// @Success 200 {object} utils.APIResponse{data=actualizadasResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: ids requerido o contiene valores invalidos"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/notificaciones/reservas/leer [patch]
+func (h *Container) PatchNotificacionesReservasLeidasPG(c *gin.Context) {
+	var req marcarNotificacionesReservasLeidasRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	actualizadas, err := h.ReservasPG.ActualizarNotificacionReservas(req.Ids, true)
+	if err != nil {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "ids es requerido") || strings.Contains(errLower, "valor invalido") {
+			utils.RespondError(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, actualizadasResponse{Actualizadas: actualizadas})
+}
+
+// PatchNotificacionReservaLeidaPG godoc
+// @Summary Marcar notificacion de reserva como leida
+// @Description Marca como notificada/leida una reserva agendada para quitarla de la campanita. Param: id de la reserva (requerido, path). Response: mensaje string.
+// @Tags Notificaciones
+// @Produce json
+// @Param id path int true "ID de la reserva" example(44)
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/notificaciones/reservas/{id}/leer [patch]
+func (h *Container) PatchNotificacionReservaLeidaPG(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		utils.RespondError(c, http.StatusBadRequest, "id invalido")
+		return
+	}
+
+	err = h.ReservasPG.ActualizarNotificacionReserva(id, true)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "no se pudo encontrar la reserva") {
+			utils.RespondError(c, http.StatusNotFound, "No se pudo encontrar la reserva")
+			return
+		}
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "Notificacion de reserva marcada como leida correctamente"})
 }
 
 // DeleteReservaPG godoc

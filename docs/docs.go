@@ -1985,6 +1985,177 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/notificaciones/reservas": {
+            "get": {
+                "description": "Devuelve reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos de la reserva agendada pendiente).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Notificaciones"
+                ],
+                "summary": "Listar notificaciones de reservas",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 20,
+                        "description": "Cantidad maxima de notificaciones a devolver (default 20, maximo 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reservaNotificacionListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: limit invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/notificaciones/reservas/leer": {
+            "patch": {
+                "description": "Marca como notificadas/leidas varias reservas agendadas en una sola operacion. Body: ids lista de IDs de reservas a marcar. Response: actualizadas cantidad de reservas activas actualizadas.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Notificaciones"
+                ],
+                "summary": "Marcar notificaciones de reservas como leidas",
+                "parameters": [
+                    {
+                        "description": "IDs de reservas a marcar como leidas",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.marcarNotificacionesReservasLeidasRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.actualizadasResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: ids requerido o contiene valores invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/notificaciones/reservas/{id}/leer": {
+            "patch": {
+                "description": "Marca como notificada/leida una reserva agendada para quitarla de la campanita. Param: id de la reserva (requerido, path). Response: mensaje string.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Notificaciones"
+                ],
+                "summary": "Marcar notificacion de reserva como leida",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 44,
+                        "description": "ID de la reserva",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Reserva no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/reservas": {
             "get": {
                 "description": "Devuelve reservas en formato plano (sin agrupar por local). Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional). Response: total (int total de reservas), reservas ([]ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
@@ -3462,6 +3633,16 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizadasResponse": {
+            "type": "object",
+            "properties": {
+                "actualizadas": {
+                    "description": "Cantidad de registros actualizados",
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
         "handlers.actualizarClienteRequest": {
             "type": "object",
             "properties": {
@@ -4476,6 +4657,26 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.marcarNotificacionesReservasLeidasRequest": {
+            "type": "object",
+            "required": [
+                "ids"
+            ],
+            "properties": {
+                "ids": {
+                    "description": "IDs de reservas a marcar como leidas",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        44,
+                        45,
+                        46
+                    ]
+                }
+            }
+        },
         "handlers.messageResponse": {
             "type": "object",
             "properties": {
@@ -4536,6 +4737,23 @@ const docTemplate = `{
                             "$ref": "#/definitions/services.ReservaSimple"
                         }
                     ]
+                }
+            }
+        },
+        "handlers.reservaNotificacionListResponse": {
+            "type": "object",
+            "properties": {
+                "reservas": {
+                    "description": "Reservas agendadas pendientes de marcar como leidas",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.ReservaSimple"
+                    }
+                },
+                "total": {
+                    "description": "Total de notificaciones pendientes",
+                    "type": "integer",
+                    "example": 3
                 }
             }
         },

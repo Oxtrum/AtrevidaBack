@@ -157,6 +157,13 @@ type reservaSimpleListResponse struct {
 	Reservas []services.ReservaSimple `json:"reservas"`
 }
 
+type reservaNotificacionListResponse struct {
+	// Total de notificaciones pendientes
+	Total int `json:"total" example:"3"`
+	// Reservas agendadas pendientes de marcar como leidas
+	Reservas []services.ReservaSimple `json:"reservas"`
+}
+
 type localListResponse struct {
 	// Total de locales encontrados
 	Total int `json:"total" example:"2"`
@@ -233,6 +240,11 @@ type slotsResponse struct {
 type messageResponse struct {
 	// Mensaje descriptivo del resultado de la operación
 	Mensaje string `json:"mensaje" example:"operacion realizada correctamente"`
+}
+
+type actualizadasResponse struct {
+	// Cantidad de registros actualizados
+	Actualizadas int `json:"actualizadas" example:"3"`
 }
 
 // ─── Import Response ───
