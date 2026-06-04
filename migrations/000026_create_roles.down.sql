@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS uq_roles_codigo;
+DROP TABLE IF EXISTS roles;
