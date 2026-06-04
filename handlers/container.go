@@ -14,6 +14,7 @@ type Container struct {
 	ComboServiciosPG  *services.ComboServiciosService
 	ReservasPG        *services.ReservasPGService
 	LocalesPG         *services.LocalesService
+	PagosPG           *services.PagosService
 }
 
 func NewContainer(
@@ -26,6 +27,7 @@ func NewContainer(
 	comboServiciosPG *services.ComboServiciosService,
 	reservasPG *services.ReservasPGService,
 	localesPG *services.LocalesService,
+	pagosPG *services.PagosService,
 ) *Container {
 	return &Container{
 		Auth:              auth,
@@ -37,5 +39,6 @@ func NewContainer(
 		ComboServiciosPG:  comboServiciosPG,
 		ReservasPG:        reservasPG,
 		LocalesPG:         localesPG,
+		PagosPG:           pagosPG,
 	}
 }

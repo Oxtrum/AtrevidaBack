@@ -140,6 +140,12 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/reservas", h.PatchReservaPG)
 		bd.PATCH("/reservas/estado", h.PatchReservaEstadoPG)
 
+		bd.GET("/pagos", h.GetPagos)
+		bd.GET("/pagos/:codigo_pago", h.GetPagoByCodigo)
+		bd.POST("/pagos", h.CreatePago)
+		bd.PATCH("/pagos/:codigo_pago", h.PatchPago)
+		bd.DELETE("/pagos/:codigo_pago", h.DeletePago)
+
 	}
 
 	// Admin

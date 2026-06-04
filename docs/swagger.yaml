@@ -51,6 +51,33 @@ definitions:
         example: "01:00"
         type: string
     type: object
+  handlers.actualizarDetallePagoRequest:
+    properties:
+      cantidad:
+        description: Cantidad para un detalle nuevo.
+        example: 2
+        type: integer
+      id:
+        description: ID del detalle existente que debe conservarse.
+        example: 25
+        type: integer
+      precio_unitario:
+        description: Precio unitario para un detalle nuevo.
+        example: 250
+        type: number
+      servicio:
+        description: Texto del servicio para un detalle nuevo.
+        example: Limpieza facial
+        type: string
+      servicio_id:
+        description: ID opcional del servicio para un detalle nuevo.
+        example: 8
+        type: integer
+      subtotal:
+        description: Subtotal para un detalle nuevo.
+        example: 500
+        type: number
+    type: object
   handlers.actualizarEstadoReservaPGRequest:
     properties:
       causa:
@@ -120,6 +147,55 @@ definitions:
     required:
     - id
     - notificado
+    type: object
+  handlers.actualizarPagoRequest:
+    properties:
+      activo:
+        description: Nuevo estado activo (opcional).
+        example: true
+        type: boolean
+      cliente_id:
+        description: Nuevo ID del cliente; puede enviarse null para limpiar la referencia.
+        example: 12
+        type: integer
+      cliente_nit:
+        description: Nuevo NIT del cliente (opcional).
+        example: "1234567"
+        type: string
+      cliente_nombre:
+        description: Nuevo nombre del cliente (opcional).
+        example: Maria Lopez
+        type: string
+      descuento:
+        description: Nuevo descuento del pago (opcional).
+        example: 50
+        type: number
+      detalle:
+        description: Detalle completo deseado para sincronizar; ids presentes se conservan,
+          ids ausentes se eliminan y items sin id se crean.
+        items:
+          $ref: '#/definitions/handlers.actualizarDetallePagoRequest'
+        type: array
+      estado:
+        description: Nuevo estado del pago (opcional).
+        example: PAGADO
+        type: string
+      local_id:
+        description: Nuevo ID del local (opcional).
+        example: 1
+        type: integer
+      local_nombre:
+        description: Nuevo nombre del local (opcional).
+        example: SAN MARTIN
+        type: string
+      subtotal:
+        description: Nuevo subtotal del pago (opcional).
+        example: 500
+        type: number
+      total_final:
+        description: Nuevo total final del pago (opcional).
+        example: 450
+        type: number
     type: object
   handlers.actualizarReservaPGRequest:
     properties:
@@ -486,6 +562,29 @@ definitions:
     required:
     - combo_id
     type: object
+  handlers.crearDetallePagoRequest:
+    properties:
+      cantidad:
+        description: Cantidad cobrada.
+        example: 2
+        type: integer
+      precio_unitario:
+        description: Precio unitario del servicio.
+        example: 250
+        type: number
+      servicio:
+        description: Texto del servicio cobrado.
+        example: Limpieza facial
+        type: string
+      servicio_id:
+        description: ID opcional del servicio cobrado; puede enviarse null.
+        example: 8
+        type: integer
+      subtotal:
+        description: Subtotal de la linea.
+        example: 500
+        type: number
+    type: object
   handlers.crearLocalHorarioRequest:
     properties:
       dia_semana:
@@ -518,6 +617,54 @@ definitions:
         type: string
     required:
     - nombre
+    type: object
+  handlers.crearPagoRequest:
+    properties:
+      activo:
+        description: Estado activo inicial del pago.
+        example: true
+        type: boolean
+      cliente_id:
+        description: ID opcional del cliente registrado; puede enviarse null.
+        example: 12
+        type: integer
+      cliente_nit:
+        description: NIT del cliente.
+        example: "1234567"
+        type: string
+      cliente_nombre:
+        description: Nombre del cliente.
+        example: Maria Lopez
+        type: string
+      descuento:
+        description: Descuento aplicado.
+        example: 50
+        type: number
+      detalle:
+        description: Detalle de servicios cobrados.
+        items:
+          $ref: '#/definitions/handlers.crearDetallePagoRequest'
+        type: array
+      estado:
+        description: Estado inicial del pago.
+        example: PENDIENTE
+        type: string
+      local_id:
+        description: ID del local donde se registra el pago.
+        example: 1
+        type: integer
+      local_nombre:
+        description: Nombre del local donde se registra el pago.
+        example: SAN MARTIN
+        type: string
+      subtotal:
+        description: Subtotal del pago.
+        example: 500
+        type: number
+      total_final:
+        description: Total final del pago.
+        example: 450
+        type: number
     type: object
   handlers.crearReservaPGRequest:
     properties:
@@ -776,6 +923,75 @@ definitions:
         description: Mensaje descriptivo del resultado de la operación
         example: operacion realizada correctamente
         type: string
+    type: object
+  handlers.pagoCreatedResponse:
+    properties:
+      codigo_pago:
+        description: Codigo publico del pago creado
+        example: PAGO-000001
+        type: string
+      mensaje:
+        description: Mensaje de confirmacion
+        example: Pago creado correctamente
+        type: string
+    type: object
+  handlers.pagoFiltrosResponse:
+    properties:
+      activo:
+        description: 'Filtro aplicado: estado activo'
+        example: true
+        type: boolean
+      cliente_id:
+        description: 'Filtro aplicado: ID del cliente'
+        example: 12
+        type: integer
+      cliente_nit:
+        description: 'Filtro aplicado: NIT del cliente'
+        example: "1234567"
+        type: string
+      cliente_nombre:
+        description: 'Filtro aplicado: nombre del cliente'
+        example: Maria
+        type: string
+      codigo_pago:
+        description: 'Filtro aplicado: codigo del pago'
+        example: PAGO-000001
+        type: string
+      estado:
+        description: 'Filtro aplicado: estado del pago'
+        example: PENDIENTE
+        type: string
+      local_id:
+        description: 'Filtro aplicado: ID del local'
+        example: 1
+        type: integer
+      local_nombre:
+        description: 'Filtro aplicado: nombre del local'
+        example: SAN MARTIN
+        type: string
+    type: object
+  handlers.pagoItemResponse:
+    properties:
+      pago:
+        allOf:
+        - $ref: '#/definitions/models.PagoCompletoPG'
+        description: Datos del pago con detalle
+    type: object
+  handlers.pagoListResponse:
+    properties:
+      filtros:
+        allOf:
+        - $ref: '#/definitions/handlers.pagoFiltrosResponse'
+        description: Filtros aplicados en la busqueda
+      pagos:
+        description: Lista de pagos sin detalle
+        items:
+          $ref: '#/definitions/models.PagoPG'
+        type: array
+      total:
+        description: Total de pagos encontrados
+        example: 3
+        type: integer
     type: object
   handlers.reservaCalendarioResponse:
     properties:
@@ -1055,6 +1271,33 @@ definitions:
         example: "01:00"
         type: string
     type: object
+  models.DetallePagoPG:
+    properties:
+      cantidad:
+        description: Cantidad cobrada.
+        example: 2
+        type: integer
+      id:
+        description: ID del detalle de pago.
+        example: 25
+        type: integer
+      precio_unitario:
+        description: Precio unitario del servicio.
+        example: 250
+        type: number
+      servicio:
+        description: Texto del servicio cobrado.
+        example: Limpieza facial
+        type: string
+      servicio_id:
+        description: ID opcional del servicio cobrado.
+        example: 8
+        type: integer
+      subtotal:
+        description: Subtotal de la linea.
+        example: 500
+        type: number
+    type: object
   models.LocalConEspacios:
     properties:
       activo:
@@ -1105,6 +1348,121 @@ definitions:
         items:
           $ref: '#/definitions/models.Semana'
         type: array
+    type: object
+  models.PagoCompletoPG:
+    properties:
+      activo:
+        description: Estado activo para borrado logico.
+        example: true
+        type: boolean
+      cliente_id:
+        description: ID opcional del cliente registrado.
+        example: 12
+        type: integer
+      cliente_nit:
+        description: NIT del cliente.
+        example: "1234567"
+        type: string
+      cliente_nombre:
+        description: Nombre del cliente al momento de registrar el pago.
+        example: Maria Lopez
+        type: string
+      codigo_pago:
+        description: Codigo publico incremental del pago.
+        example: PAGO-000001
+        type: string
+      descuento:
+        description: Descuento aplicado al pago.
+        example: 50
+        type: number
+      detalle:
+        description: Detalle de servicios cobrados.
+        items:
+          $ref: '#/definitions/models.DetallePagoPG'
+        type: array
+      estado:
+        description: Estado informativo del pago.
+        example: PENDIENTE
+        type: string
+      fecha_creacion:
+        description: Fecha de creacion del pago.
+        example: "2026-06-03T10:00:00Z"
+        type: string
+      fecha_modificacion:
+        description: Fecha de ultima modificacion del pago.
+        example: "2026-06-03T10:30:00Z"
+        type: string
+      local_id:
+        description: ID del local donde se registra el pago.
+        example: 1
+        type: integer
+      local_nombre:
+        description: Nombre del local al momento de registrar el pago.
+        example: SAN MARTIN
+        type: string
+      subtotal:
+        description: Subtotal del pago antes del descuento.
+        example: 500
+        type: number
+      total_final:
+        description: Total final del pago.
+        example: 450
+        type: number
+    type: object
+  models.PagoPG:
+    properties:
+      activo:
+        description: Estado activo para borrado logico.
+        example: true
+        type: boolean
+      cliente_id:
+        description: ID opcional del cliente registrado.
+        example: 12
+        type: integer
+      cliente_nit:
+        description: NIT del cliente.
+        example: "1234567"
+        type: string
+      cliente_nombre:
+        description: Nombre del cliente al momento de registrar el pago.
+        example: Maria Lopez
+        type: string
+      codigo_pago:
+        description: Codigo publico incremental del pago.
+        example: PAGO-000001
+        type: string
+      descuento:
+        description: Descuento aplicado al pago.
+        example: 50
+        type: number
+      estado:
+        description: Estado informativo del pago.
+        example: PENDIENTE
+        type: string
+      fecha_creacion:
+        description: Fecha de creacion del pago.
+        example: "2026-06-03T10:00:00Z"
+        type: string
+      fecha_modificacion:
+        description: Fecha de ultima modificacion del pago.
+        example: "2026-06-03T10:30:00Z"
+        type: string
+      local_id:
+        description: ID del local donde se registra el pago.
+        example: 1
+        type: integer
+      local_nombre:
+        description: Nombre del local al momento de registrar el pago.
+        example: SAN MARTIN
+        type: string
+      subtotal:
+        description: Subtotal del pago antes del descuento.
+        example: 500
+        type: number
+      total_final:
+        description: Total final del pago.
+        example: 450
+        type: number
     type: object
   models.ReservaItem:
     properties:
@@ -2604,6 +2962,258 @@ paths:
       summary: Actualizar horario
       tags:
       - Horarios Locales
+  /bd/pagos:
+    get:
+      description: 'Devuelve pagos activos de BD con filtros opcionales. Solo retorna
+        la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial,
+        local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda
+        parcial, cliente_nombre busqueda parcial, estado PAGADO/BORRADOR/PENDIENTE
+        y activo true/false. Si activo no se envia, lista solo pagos activos.'
+      parameters:
+      - description: Busqueda parcial por codigo de pago
+        example: PAGO-000001
+        in: query
+        name: codigo_pago
+        type: string
+      - description: ID del local
+        example: 1
+        in: query
+        name: local_id
+        type: integer
+      - description: Busqueda parcial por nombre del local
+        example: SAN MARTIN
+        in: query
+        name: local_nombre
+        type: string
+      - description: ID del cliente
+        example: 12
+        in: query
+        name: cliente_id
+        type: integer
+      - description: Busqueda parcial por NIT del cliente
+        example: "1234567"
+        in: query
+        name: cliente_nit
+        type: string
+      - description: Busqueda parcial por nombre del cliente
+        example: Maria
+        in: query
+        name: cliente_nombre
+        type: string
+      - description: Estado del pago
+        enum:
+        - PAGADO
+        - BORRADOR
+        - PENDIENTE
+        example: PENDIENTE
+        in: query
+        name: estado
+        type: string
+      - description: Filtrar por activo; default true
+        example: true
+        in: query
+        name: activo
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.pagoListResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: local_id invalido, cliente_id invalido,
+            activo invalido, estado invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar pagos
+      tags:
+      - Pagos
+    post:
+      consumes:
+      - application/json
+      description: 'Crea un pago independiente junto con su detalle en una sola transaccion.
+        Todos los campos de cabecera deben venir en el body excepto codigo_pago, fecha_creacion
+        y fecha_modificacion, que se generan en BD. subtotal y total_final son opcionales:
+        si no se envian, se calculan desde la suma de subtotales del detalle y el
+        descuento. cliente_id puede venir como null. Cada item de detalle debe incluir
+        servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal.
+        Response: codigo_pago generado incrementalmente.'
+      parameters:
+      - description: Datos completos del pago y su detalle
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearPagoRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.pagoCreatedResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: body invalido, campos requeridos, importes
+            invalidos, estado invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: 'Referencia no encontrada: local, cliente o servicio invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Crear pago
+      tags:
+      - Pagos
+  /bd/pagos/{codigo_pago}:
+    delete:
+      description: Realiza borrado logico de un pago activo por codigo_pago (activo=false).
+        No elimina fisicamente la cabecera ni el detalle.
+      parameters:
+      - description: Codigo publico del pago
+        example: PAGO-000001
+        in: path
+        name: codigo_pago
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: codigo_pago requerido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Pago no encontrado o ya inactivo
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Eliminar pago
+      tags:
+      - Pagos
+    get:
+      description: 'Devuelve un pago activo por codigo_pago junto con su detalle.
+        Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera
+        y detalle_pagos).'
+      parameters:
+      - description: Codigo publico del pago
+        example: PAGO-000001
+        in: path
+        name: codigo_pago
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.pagoItemResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: codigo_pago requerido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Pago no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Obtener pago por codigo
+      tags:
+      - Pagos
+    patch:
+      consumes:
+      - application/json
+      description: 'Actualiza parcialmente la cabecera de un pago activo por codigo_pago
+        y puede sincronizar detalle_pagos. Solo permite modificar pagos cuyo estado
+        actual no sea PAGADO. Si se envia detalle, la lista representa el estado final:
+        ids presentes se conservan, ids ausentes se eliminan y items sin id se crean.
+        Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan
+        automaticamente desde los subtotales del detalle final. cliente_id puede enviarse
+        como null para limpiar la referencia.'
+      parameters:
+      - description: Codigo publico del pago
+        example: PAGO-000001
+        in: path
+        name: codigo_pago
+        required: true
+        type: string
+      - description: Campos base a actualizar y/o detalle a sincronizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarPagoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: codigo_pago requerido, body invalido,
+            sin cambios, campos invalidos, estado invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Pago no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: 'Conflicto: no se puede modificar un pago en estado PAGADO'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Actualizar pago
+      tags:
+      - Pagos
   /bd/reservas:
     get:
       description: 'Devuelve reservas en formato plano (sin agrupar por local). Filtros:

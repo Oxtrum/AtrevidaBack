@@ -177,3 +177,59 @@ type ReservaPGCompleta struct {
 	ReservaPG
 	Detalle []DetalleReservaPG `db:"-"`
 }
+
+// Pagos
+
+type PagoPG struct {
+	// ID interno del pago; no se expone en la API.
+	ID int `db:"id" json:"-"`
+	// Codigo publico incremental del pago.
+	CodigoPago string `db:"codigo_pago" json:"codigo_pago" example:"PAGO-000001"`
+	// ID del local donde se registra el pago.
+	LocalID int `db:"local_id" json:"local_id" example:"1"`
+	// Nombre del local al momento de registrar el pago.
+	LocalNombre string `db:"local_nombre" json:"local_nombre" example:"SAN MARTIN"`
+	// ID opcional del cliente registrado.
+	ClienteID *int `db:"cliente_id" json:"cliente_id,omitempty" example:"12"`
+	// NIT del cliente.
+	ClienteNIT string `db:"cliente_nit" json:"cliente_nit" example:"1234567"`
+	// Nombre del cliente al momento de registrar el pago.
+	ClienteNombre string `db:"cliente_nombre" json:"cliente_nombre" example:"Maria Lopez"`
+	// Subtotal del pago antes del descuento.
+	Subtotal float64 `db:"subtotal" json:"subtotal" example:"500"`
+	// Descuento aplicado al pago.
+	Descuento float64 `db:"descuento" json:"descuento" example:"50"`
+	// Total final del pago.
+	TotalFinal float64 `db:"total_final" json:"total_final" example:"450"`
+	// Estado informativo del pago.
+	Estado string `db:"estado" json:"estado" example:"PENDIENTE"`
+	// Estado activo para borrado logico.
+	Activo bool `db:"activo" json:"activo" example:"true"`
+	// Fecha de creacion del pago.
+	FechaCreacion time.Time `db:"fecha_creacion" json:"fecha_creacion" example:"2026-06-03T10:00:00Z"`
+	// Fecha de ultima modificacion del pago.
+	FechaModificacion time.Time `db:"fecha_modificacion" json:"fecha_modificacion" example:"2026-06-03T10:30:00Z"`
+}
+
+type DetallePagoPG struct {
+	// ID del detalle de pago.
+	ID int `db:"id" json:"id" example:"25"`
+	// ID interno del pago; no se expone en la API.
+	PagoID int `db:"pago_id" json:"-"`
+	// ID opcional del servicio cobrado.
+	ServicioID *int `db:"servicio_id" json:"servicio_id,omitempty" example:"8"`
+	// Texto del servicio cobrado.
+	Servicio string `db:"servicio" json:"servicio" example:"Limpieza facial"`
+	// Precio unitario del servicio.
+	PrecioUnitario float64 `db:"precio_unitario" json:"precio_unitario" example:"250"`
+	// Cantidad cobrada.
+	Cantidad int `db:"cantidad" json:"cantidad" example:"2"`
+	// Subtotal de la linea.
+	Subtotal float64 `db:"subtotal" json:"subtotal" example:"500"`
+}
+
+type PagoCompletoPG struct {
+	PagoPG
+	// Detalle de servicios cobrados.
+	Detalle []DetallePagoPG `db:"-" json:"detalle"`
+}

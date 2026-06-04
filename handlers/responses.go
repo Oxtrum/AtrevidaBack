@@ -87,6 +87,25 @@ type horarioFiltrosResponse struct {
 	DiaSemana *int `json:"dia_semana" example:"1"`
 }
 
+type pagoFiltrosResponse struct {
+	// Filtro aplicado: codigo del pago
+	CodigoPago string `json:"codigo_pago" example:"PAGO-000001"`
+	// Filtro aplicado: ID del local
+	LocalID *int `json:"local_id,omitempty" example:"1"`
+	// Filtro aplicado: nombre del local
+	LocalNombre string `json:"local_nombre" example:"SAN MARTIN"`
+	// Filtro aplicado: ID del cliente
+	ClienteID *int `json:"cliente_id,omitempty" example:"12"`
+	// Filtro aplicado: NIT del cliente
+	ClienteNIT string `json:"cliente_nit" example:"1234567"`
+	// Filtro aplicado: nombre del cliente
+	ClienteNombre string `json:"cliente_nombre" example:"Maria"`
+	// Filtro aplicado: estado del pago
+	Estado string `json:"estado" example:"PENDIENTE"`
+	// Filtro aplicado: estado activo
+	Activo *bool `json:"activo,omitempty" example:"true"`
+}
+
 // ─── List Responses ───
 
 type categoriaListResponse struct {
@@ -173,6 +192,15 @@ type horarioListResponse struct {
 	Horarios []models.LocalHorarioPG `json:"horarios"`
 }
 
+type pagoListResponse struct {
+	// Total de pagos encontrados
+	Total int `json:"total" example:"3"`
+	// Filtros aplicados en la busqueda
+	Filtros pagoFiltrosResponse `json:"filtros"`
+	// Lista de pagos sin detalle
+	Pagos []models.PagoPG `json:"pagos"`
+}
+
 // ─── Single Item Responses ───
 
 type clienteItemResponse struct {
@@ -207,6 +235,11 @@ type horarioItemResponse struct {
 	Horario *models.LocalHorarioPG `json:"horario"`
 }
 
+type pagoItemResponse struct {
+	// Datos del pago con detalle
+	Pago *models.PagoCompletoPG `json:"pago"`
+}
+
 // ─── Creation Responses ───
 
 type idResponse struct {
@@ -219,6 +252,13 @@ type reservaCreatedResponse struct {
 	ID int `json:"id" example:"44"`
 	// Mensaje de confirmación
 	Mensaje string `json:"mensaje" example:"Reserva creada correctamente"`
+}
+
+type pagoCreatedResponse struct {
+	// Codigo publico del pago creado
+	CodigoPago string `json:"codigo_pago" example:"PAGO-000001"`
+	// Mensaje de confirmacion
+	Mensaje string `json:"mensaje" example:"Pago creado correctamente"`
 }
 
 type slotsResponse struct {

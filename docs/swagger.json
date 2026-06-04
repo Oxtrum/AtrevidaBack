@@ -1982,6 +1982,369 @@
                 }
             }
         },
+        "/bd/pagos": {
+            "get": {
+                "description": "Devuelve pagos activos de BD con filtros opcionales. Solo retorna la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia, lista solo pagos activos.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Listar pagos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "PAGO-000001",
+                        "description": "Busqueda parcial por codigo de pago",
+                        "name": "codigo_pago",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del local",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "SAN MARTIN",
+                        "description": "Busqueda parcial por nombre del local",
+                        "name": "local_nombre",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "ID del cliente",
+                        "name": "cliente_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "1234567",
+                        "description": "Busqueda parcial por NIT del cliente",
+                        "name": "cliente_nit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "Maria",
+                        "description": "Busqueda parcial por nombre del cliente",
+                        "name": "cliente_nombre",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "PAGADO",
+                            "BORRADOR",
+                            "PENDIENTE"
+                        ],
+                        "type": "string",
+                        "example": "PENDIENTE",
+                        "description": "Estado del pago",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": true,
+                        "description": "Filtrar por activo; default true",
+                        "name": "activo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.pagoListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: local_id invalido, cliente_id invalido, activo invalido, estado invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Todos los campos de cabecera deben venir en el body excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. cliente_id puede venir como null. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Crear pago",
+                "parameters": [
+                    {
+                        "description": "Datos completos del pago y su detalle",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearPagoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.pagoCreatedResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: body invalido, campos requeridos, importes invalidos, estado invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Referencia no encontrada: local, cliente o servicio invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/pagos/{codigo_pago}": {
+            "get": {
+                "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera y detalle_pagos).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Obtener pago por codigo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "PAGO-000001",
+                        "description": "Codigo publico del pago",
+                        "name": "codigo_pago",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.pagoItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: codigo_pago requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Pago no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Realiza borrado logico de un pago activo por codigo_pago (activo=false). No elimina fisicamente la cabecera ni el detalle.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Eliminar pago",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "PAGO-000001",
+                        "description": "Codigo publico del pago",
+                        "name": "codigo_pago",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: codigo_pago requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Pago no encontrado o ya inactivo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Solo permite modificar pagos cuyo estado actual no sea PAGADO. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id puede enviarse como null para limpiar la referencia.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Actualizar pago",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "PAGO-000001",
+                        "description": "Codigo publico del pago",
+                        "name": "codigo_pago",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos base a actualizar y/o detalle a sincronizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarPagoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, estado invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Pago no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflicto: no se puede modificar un pago en estado PAGADO",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/reservas": {
             "get": {
                 "description": "Devuelve reservas en formato plano (sin agrupar por local). Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional). Response: total (int total de reservas), reservas ([]ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
@@ -3514,6 +3877,41 @@
                 }
             }
         },
+        "handlers.actualizarDetallePagoRequest": {
+            "type": "object",
+            "properties": {
+                "cantidad": {
+                    "description": "Cantidad para un detalle nuevo.",
+                    "type": "integer",
+                    "example": 2
+                },
+                "id": {
+                    "description": "ID del detalle existente que debe conservarse.",
+                    "type": "integer",
+                    "example": 25
+                },
+                "precio_unitario": {
+                    "description": "Precio unitario para un detalle nuevo.",
+                    "type": "number",
+                    "example": 250
+                },
+                "servicio": {
+                    "description": "Texto del servicio para un detalle nuevo.",
+                    "type": "string",
+                    "example": "Limpieza facial"
+                },
+                "servicio_id": {
+                    "description": "ID opcional del servicio para un detalle nuevo.",
+                    "type": "integer",
+                    "example": 8
+                },
+                "subtotal": {
+                    "description": "Subtotal para un detalle nuevo.",
+                    "type": "number",
+                    "example": 500
+                }
+            }
+        },
         "handlers.actualizarEstadoReservaPGRequest": {
             "type": "object",
             "required": [
@@ -3604,6 +4002,68 @@
                     "description": "Estado de notificacion: true = notificado, false = no notificado",
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "handlers.actualizarPagoRequest": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "description": "Nuevo estado activo (opcional).",
+                    "type": "boolean",
+                    "example": true
+                },
+                "cliente_id": {
+                    "description": "Nuevo ID del cliente; puede enviarse null para limpiar la referencia.",
+                    "type": "integer",
+                    "example": 12
+                },
+                "cliente_nit": {
+                    "description": "Nuevo NIT del cliente (opcional).",
+                    "type": "string",
+                    "example": "1234567"
+                },
+                "cliente_nombre": {
+                    "description": "Nuevo nombre del cliente (opcional).",
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "descuento": {
+                    "description": "Nuevo descuento del pago (opcional).",
+                    "type": "number",
+                    "example": 50
+                },
+                "detalle": {
+                    "description": "Detalle completo deseado para sincronizar; ids presentes se conservan, ids ausentes se eliminan y items sin id se crean.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.actualizarDetallePagoRequest"
+                    }
+                },
+                "estado": {
+                    "description": "Nuevo estado del pago (opcional).",
+                    "type": "string",
+                    "example": "PAGADO"
+                },
+                "local_id": {
+                    "description": "Nuevo ID del local (opcional).",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nuevo nombre del local (opcional).",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "subtotal": {
+                    "description": "Nuevo subtotal del pago (opcional).",
+                    "type": "number",
+                    "example": 500
+                },
+                "total_final": {
+                    "description": "Nuevo total final del pago (opcional).",
+                    "type": "number",
+                    "example": 450
                 }
             }
         },
@@ -4100,6 +4560,36 @@
                 }
             }
         },
+        "handlers.crearDetallePagoRequest": {
+            "type": "object",
+            "properties": {
+                "cantidad": {
+                    "description": "Cantidad cobrada.",
+                    "type": "integer",
+                    "example": 2
+                },
+                "precio_unitario": {
+                    "description": "Precio unitario del servicio.",
+                    "type": "number",
+                    "example": 250
+                },
+                "servicio": {
+                    "description": "Texto del servicio cobrado.",
+                    "type": "string",
+                    "example": "Limpieza facial"
+                },
+                "servicio_id": {
+                    "description": "ID opcional del servicio cobrado; puede enviarse null.",
+                    "type": "integer",
+                    "example": 8
+                },
+                "subtotal": {
+                    "description": "Subtotal de la linea.",
+                    "type": "number",
+                    "example": 500
+                }
+            }
+        },
         "handlers.crearLocalHorarioRequest": {
             "type": "object",
             "properties": {
@@ -4142,6 +4632,68 @@
                     "description": "Nombre del local",
                     "type": "string",
                     "example": "SAN MARTIN"
+                }
+            }
+        },
+        "handlers.crearPagoRequest": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "description": "Estado activo inicial del pago.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "cliente_id": {
+                    "description": "ID opcional del cliente registrado; puede enviarse null.",
+                    "type": "integer",
+                    "example": 12
+                },
+                "cliente_nit": {
+                    "description": "NIT del cliente.",
+                    "type": "string",
+                    "example": "1234567"
+                },
+                "cliente_nombre": {
+                    "description": "Nombre del cliente.",
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "descuento": {
+                    "description": "Descuento aplicado.",
+                    "type": "number",
+                    "example": 50
+                },
+                "detalle": {
+                    "description": "Detalle de servicios cobrados.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.crearDetallePagoRequest"
+                    }
+                },
+                "estado": {
+                    "description": "Estado inicial del pago.",
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "local_id": {
+                    "description": "ID del local donde se registra el pago.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local donde se registra el pago.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "subtotal": {
+                    "description": "Subtotal del pago.",
+                    "type": "number",
+                    "example": 500
+                },
+                "total_final": {
+                    "description": "Total final del pago.",
+                    "type": "number",
+                    "example": 450
                 }
             }
         },
@@ -4480,6 +5032,104 @@
                     "description": "Mensaje descriptivo del resultado de la operación",
                     "type": "string",
                     "example": "operacion realizada correctamente"
+                }
+            }
+        },
+        "handlers.pagoCreatedResponse": {
+            "type": "object",
+            "properties": {
+                "codigo_pago": {
+                    "description": "Codigo publico del pago creado",
+                    "type": "string",
+                    "example": "PAGO-000001"
+                },
+                "mensaje": {
+                    "description": "Mensaje de confirmacion",
+                    "type": "string",
+                    "example": "Pago creado correctamente"
+                }
+            }
+        },
+        "handlers.pagoFiltrosResponse": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "description": "Filtro aplicado: estado activo",
+                    "type": "boolean",
+                    "example": true
+                },
+                "cliente_id": {
+                    "description": "Filtro aplicado: ID del cliente",
+                    "type": "integer",
+                    "example": 12
+                },
+                "cliente_nit": {
+                    "description": "Filtro aplicado: NIT del cliente",
+                    "type": "string",
+                    "example": "1234567"
+                },
+                "cliente_nombre": {
+                    "description": "Filtro aplicado: nombre del cliente",
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "codigo_pago": {
+                    "description": "Filtro aplicado: codigo del pago",
+                    "type": "string",
+                    "example": "PAGO-000001"
+                },
+                "estado": {
+                    "description": "Filtro aplicado: estado del pago",
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "local_id": {
+                    "description": "Filtro aplicado: ID del local",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Filtro aplicado: nombre del local",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                }
+            }
+        },
+        "handlers.pagoItemResponse": {
+            "type": "object",
+            "properties": {
+                "pago": {
+                    "description": "Datos del pago con detalle",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.PagoCompletoPG"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.pagoListResponse": {
+            "type": "object",
+            "properties": {
+                "filtros": {
+                    "description": "Filtros aplicados en la busqueda",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handlers.pagoFiltrosResponse"
+                        }
+                    ]
+                },
+                "pagos": {
+                    "description": "Lista de pagos sin detalle",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PagoPG"
+                    }
+                },
+                "total": {
+                    "description": "Total de pagos encontrados",
+                    "type": "integer",
+                    "example": 3
                 }
             }
         },
@@ -4873,6 +5523,41 @@
                 }
             }
         },
+        "models.DetallePagoPG": {
+            "type": "object",
+            "properties": {
+                "cantidad": {
+                    "description": "Cantidad cobrada.",
+                    "type": "integer",
+                    "example": 2
+                },
+                "id": {
+                    "description": "ID del detalle de pago.",
+                    "type": "integer",
+                    "example": 25
+                },
+                "precio_unitario": {
+                    "description": "Precio unitario del servicio.",
+                    "type": "number",
+                    "example": 250
+                },
+                "servicio": {
+                    "description": "Texto del servicio cobrado.",
+                    "type": "string",
+                    "example": "Limpieza facial"
+                },
+                "servicio_id": {
+                    "description": "ID opcional del servicio cobrado.",
+                    "type": "integer",
+                    "example": 8
+                },
+                "subtotal": {
+                    "description": "Subtotal de la linea.",
+                    "type": "number",
+                    "example": 500
+                }
+            }
+        },
         "models.LocalConEspacios": {
             "type": "object",
             "properties": {
@@ -4943,6 +5628,153 @@
                     "items": {
                         "$ref": "#/definitions/models.Semana"
                     }
+                }
+            }
+        },
+        "models.PagoCompletoPG": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "description": "Estado activo para borrado logico.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "cliente_id": {
+                    "description": "ID opcional del cliente registrado.",
+                    "type": "integer",
+                    "example": 12
+                },
+                "cliente_nit": {
+                    "description": "NIT del cliente.",
+                    "type": "string",
+                    "example": "1234567"
+                },
+                "cliente_nombre": {
+                    "description": "Nombre del cliente al momento de registrar el pago.",
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "codigo_pago": {
+                    "description": "Codigo publico incremental del pago.",
+                    "type": "string",
+                    "example": "PAGO-000001"
+                },
+                "descuento": {
+                    "description": "Descuento aplicado al pago.",
+                    "type": "number",
+                    "example": 50
+                },
+                "detalle": {
+                    "description": "Detalle de servicios cobrados.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DetallePagoPG"
+                    }
+                },
+                "estado": {
+                    "description": "Estado informativo del pago.",
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "fecha_creacion": {
+                    "description": "Fecha de creacion del pago.",
+                    "type": "string",
+                    "example": "2026-06-03T10:00:00Z"
+                },
+                "fecha_modificacion": {
+                    "description": "Fecha de ultima modificacion del pago.",
+                    "type": "string",
+                    "example": "2026-06-03T10:30:00Z"
+                },
+                "local_id": {
+                    "description": "ID del local donde se registra el pago.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local al momento de registrar el pago.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "subtotal": {
+                    "description": "Subtotal del pago antes del descuento.",
+                    "type": "number",
+                    "example": 500
+                },
+                "total_final": {
+                    "description": "Total final del pago.",
+                    "type": "number",
+                    "example": 450
+                }
+            }
+        },
+        "models.PagoPG": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "description": "Estado activo para borrado logico.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "cliente_id": {
+                    "description": "ID opcional del cliente registrado.",
+                    "type": "integer",
+                    "example": 12
+                },
+                "cliente_nit": {
+                    "description": "NIT del cliente.",
+                    "type": "string",
+                    "example": "1234567"
+                },
+                "cliente_nombre": {
+                    "description": "Nombre del cliente al momento de registrar el pago.",
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "codigo_pago": {
+                    "description": "Codigo publico incremental del pago.",
+                    "type": "string",
+                    "example": "PAGO-000001"
+                },
+                "descuento": {
+                    "description": "Descuento aplicado al pago.",
+                    "type": "number",
+                    "example": 50
+                },
+                "estado": {
+                    "description": "Estado informativo del pago.",
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "fecha_creacion": {
+                    "description": "Fecha de creacion del pago.",
+                    "type": "string",
+                    "example": "2026-06-03T10:00:00Z"
+                },
+                "fecha_modificacion": {
+                    "description": "Fecha de ultima modificacion del pago.",
+                    "type": "string",
+                    "example": "2026-06-03T10:30:00Z"
+                },
+                "local_id": {
+                    "description": "ID del local donde se registra el pago.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local al momento de registrar el pago.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "subtotal": {
+                    "description": "Subtotal del pago antes del descuento.",
+                    "type": "number",
+                    "example": 500
+                },
+                "total_final": {
+                    "description": "Total final del pago.",
+                    "type": "number",
+                    "example": 450
                 }
             }
         },
