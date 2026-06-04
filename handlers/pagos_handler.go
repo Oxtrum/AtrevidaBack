@@ -92,9 +92,10 @@ type actualizarDetallePagoRequest struct {
 
 // GetPagos godoc
 // @Summary Listar pagos
-// @Description Devuelve pagos activos de BD con filtros opcionales. Solo retorna la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia, lista solo pagos activos.
+// @Description Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia, lista solo pagos activos.
 // @Tags Pagos
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param codigo_pago query string false "Busqueda parcial por codigo de pago" example(PAGO-000001)
 // @Param local_id query int false "ID del local" example(1)
 // @Param local_nombre query string false "Busqueda parcial por nombre del local" example(SAN MARTIN)
@@ -105,6 +106,7 @@ type actualizarDetallePagoRequest struct {
 // @Param activo query bool false "Filtrar por activo; default true" example(true)
 // @Success 200 {object} utils.APIResponse{data=pagoListResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, activo invalido, estado invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos [get]
 func (h *Container) GetPagos(c *gin.Context) {
@@ -160,12 +162,14 @@ func (h *Container) GetPagos(c *gin.Context) {
 
 // GetPagoByCodigo godoc
 // @Summary Obtener pago por codigo
-// @Description Devuelve un pago activo por codigo_pago junto con su detalle. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera y detalle_pagos).
+// @Description Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera y detalle_pagos).
 // @Tags Pagos
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param codigo_pago path string true "Codigo publico del pago" example(PAGO-000001)
 // @Success 200 {object} utils.APIResponse{data=pagoItemResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Pago no encontrado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos/{codigo_pago} [get]
@@ -187,13 +191,15 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 
 // CreatePago godoc
 // @Summary Crear pago
-// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Todos los campos de cabecera deben venir en el body excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. cliente_id puede venir como null. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
+// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Todos los campos de cabecera deben venir en el body excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. cliente_id puede venir como null. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
 // @Tags Pagos
 // @Accept json
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param payload body crearPagoRequest true "Datos completos del pago y su detalle"
 // @Success 201 {object} utils.APIResponse{data=pagoCreatedResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, estado invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Referencia no encontrada: local, cliente o servicio invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos [post]
@@ -240,14 +246,16 @@ func (h *Container) CreatePago(c *gin.Context) {
 
 // PatchPago godoc
 // @Summary Actualizar pago
-// @Description Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Solo permite modificar pagos cuyo estado actual no sea PAGADO. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id puede enviarse como null para limpiar la referencia.
+// @Description Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id puede enviarse como null para limpiar la referencia.
 // @Tags Pagos
 // @Accept json
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param codigo_pago path string true "Codigo publico del pago" example(PAGO-000001)
 // @Param payload body actualizarPagoRequest true "Campos base a actualizar y/o detalle a sincronizar"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, estado invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Pago no encontrado"
 // @Failure 409 {object} utils.APIResponse "Conflicto: no se puede modificar un pago en estado PAGADO"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
@@ -314,12 +322,14 @@ func (h *Container) PatchPago(c *gin.Context) {
 
 // DeletePago godoc
 // @Summary Eliminar pago
-// @Description Realiza borrado logico de un pago activo por codigo_pago (activo=false). No elimina fisicamente la cabecera ni el detalle.
+// @Description Realiza borrado logico de un pago activo por codigo_pago (activo=false). Requiere token Bearer. No elimina fisicamente la cabecera ni el detalle.
 // @Tags Pagos
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param codigo_pago path string true "Codigo publico del pago" example(PAGO-000001)
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Pago no encontrado o ya inactivo"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos/{codigo_pago} [delete]

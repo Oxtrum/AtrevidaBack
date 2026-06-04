@@ -94,9 +94,9 @@ func Setup(h *handlers.Container) *gin.Engine {
 	bd := r.Group("/bd")
 	{
 		bd.GET("/categorias", h.GetCategorias)
-		bd.POST("/categorias", h.CreateCategoria)
-		bd.POST("/categorias/locales", h.CreateCategoriaLocal)
-		bd.DELETE("/categorias/locales", h.DeleteCategoriaLocal)
+		bd.POST("/categorias", h.AuthRequired, h.AdminSysRequired, h.CreateCategoria)
+		bd.POST("/categorias/locales", h.AuthRequired, h.AdminSysRequired, h.CreateCategoriaLocal)
+		bd.DELETE("/categorias/locales", h.AuthRequired, h.AdminSysRequired, h.DeleteCategoriaLocal)
 
 		bd.GET("/clientes", h.GetClientes)
 		bd.GET("/clientes/:id", h.GetClienteByID)
@@ -145,11 +145,11 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/reservas", h.PatchReservaPG)
 		bd.PATCH("/reservas/estado", h.PatchReservaEstadoPG)
 
-		bd.GET("/pagos", h.GetPagos)
-		bd.GET("/pagos/:codigo_pago", h.GetPagoByCodigo)
-		bd.POST("/pagos", h.CreatePago)
-		bd.PATCH("/pagos/:codigo_pago", h.PatchPago)
-		bd.DELETE("/pagos/:codigo_pago", h.DeletePago)
+		bd.GET("/pagos", h.AuthRequired, h.GetPagos)
+		bd.GET("/pagos/:codigo_pago", h.AuthRequired, h.GetPagoByCodigo)
+		bd.POST("/pagos", h.AuthRequired, h.CreatePago)
+		bd.PATCH("/pagos/:codigo_pago", h.AuthRequired, h.PatchPago)
+		bd.DELETE("/pagos/:codigo_pago", h.AuthRequired, h.DeletePago)
 
 	}
 

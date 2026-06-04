@@ -503,7 +503,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una categoria nueva. Body: nombre (requerido) y local_id (opcional, puede ser null). Si local_id viene informado, tambien asocia la categoria al local mediante categorias_locales en la misma transaccion. Response: id (int ID de la categoria creada).",
+                "description": "Crea una categoria nueva. Requiere token Bearer con rol admin_sys. Body: nombre (requerido) y local_id (opcional, puede ser null). Si local_id viene informado, tambien asocia la categoria al local mediante categorias_locales en la misma transaccion. Response: id (int ID de la categoria creada).",
                 "consumes": [
                     "application/json"
                 ],
@@ -515,6 +515,14 @@ const docTemplate = `{
                 ],
                 "summary": "Crear categoria",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "description": "Datos de la categoria",
                         "name": "payload",
@@ -550,6 +558,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "404": {
                         "description": "Local no encontrado o inactivo",
                         "schema": {
@@ -567,7 +587,7 @@ const docTemplate = `{
         },
         "/bd/categorias/locales": {
             "post": {
-                "description": "Crea una relacion en categorias_locales. Body: categoria_id y local_id requeridos. Si la relacion ya existe, la operacion es idempotente.",
+                "description": "Crea una relacion en categorias_locales. Requiere token Bearer con rol admin_sys. Body: categoria_id y local_id requeridos. Si la relacion ya existe, la operacion es idempotente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -579,6 +599,14 @@ const docTemplate = `{
                 ],
                 "summary": "Asociar categoria con local",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "description": "IDs de categoria y local",
                         "name": "payload",
@@ -610,6 +638,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Error de validacion: categoria_id/local_id invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -629,7 +669,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Elimina una relacion de categorias_locales. Body: categoria_id y local_id requeridos.",
+                "description": "Elimina una relacion de categorias_locales. Requiere token Bearer con rol admin_sys. Body: categoria_id y local_id requeridos.",
                 "consumes": [
                     "application/json"
                 ],
@@ -641,6 +681,14 @@ const docTemplate = `{
                 ],
                 "summary": "Eliminar asociacion categoria-local",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "description": "IDs de categoria y local",
                         "name": "payload",
@@ -672,6 +720,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Error de validacion: categoria_id/local_id invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2176,7 +2236,7 @@ const docTemplate = `{
         },
         "/bd/pagos": {
             "get": {
-                "description": "Devuelve pagos activos de BD con filtros opcionales. Solo retorna la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia, lista solo pagos activos.",
+                "description": "Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia, lista solo pagos activos.",
                 "produces": [
                     "application/json"
                 ],
@@ -2185,6 +2245,14 @@ const docTemplate = `{
                 ],
                 "summary": "Listar pagos",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "example": "PAGO-000001",
@@ -2272,6 +2340,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "500": {
                         "description": "Error interno del servidor",
                         "schema": {
@@ -2281,7 +2355,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Todos los campos de cabecera deben venir en el body excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. cliente_id puede venir como null. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
+                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Todos los campos de cabecera deben venir en el body excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. cliente_id puede venir como null. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2293,6 +2367,14 @@ const docTemplate = `{
                 ],
                 "summary": "Crear pago",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "description": "Datos completos del pago y su detalle",
                         "name": "payload",
@@ -2328,6 +2410,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "404": {
                         "description": "Referencia no encontrada: local, cliente o servicio invalido",
                         "schema": {
@@ -2345,7 +2433,7 @@ const docTemplate = `{
         },
         "/bd/pagos/{codigo_pago}": {
             "get": {
-                "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera y detalle_pagos).",
+                "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera y detalle_pagos).",
                 "produces": [
                     "application/json"
                 ],
@@ -2354,6 +2442,14 @@ const docTemplate = `{
                 ],
                 "summary": "Obtener pago por codigo",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "example": "PAGO-000001",
@@ -2388,6 +2484,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "404": {
                         "description": "Pago no encontrado",
                         "schema": {
@@ -2403,7 +2505,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Realiza borrado logico de un pago activo por codigo_pago (activo=false). No elimina fisicamente la cabecera ni el detalle.",
+                "description": "Realiza borrado logico de un pago activo por codigo_pago (activo=false). Requiere token Bearer. No elimina fisicamente la cabecera ni el detalle.",
                 "produces": [
                     "application/json"
                 ],
@@ -2412,6 +2514,14 @@ const docTemplate = `{
                 ],
                 "summary": "Eliminar pago",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "example": "PAGO-000001",
@@ -2446,6 +2556,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "404": {
                         "description": "Pago no encontrado o ya inactivo",
                         "schema": {
@@ -2461,7 +2577,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Solo permite modificar pagos cuyo estado actual no sea PAGADO. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id puede enviarse como null para limpiar la referencia.",
+                "description": "Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id puede enviarse como null para limpiar la referencia.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2473,6 +2589,14 @@ const docTemplate = `{
                 ],
                 "summary": "Actualizar pago",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "example": "PAGO-000001",
@@ -2512,6 +2636,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, estado invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }

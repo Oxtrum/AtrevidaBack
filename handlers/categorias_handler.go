@@ -64,13 +64,16 @@ type crearCategoriaRequest struct {
 
 // CreateCategoria godoc
 // @Summary Crear categoria
-// @Description Crea una categoria nueva. Body: nombre (requerido) y local_id (opcional, puede ser null). Si local_id viene informado, tambien asocia la categoria al local mediante categorias_locales en la misma transaccion. Response: id (int ID de la categoria creada).
+// @Description Crea una categoria nueva. Requiere token Bearer con rol admin_sys. Body: nombre (requerido) y local_id (opcional, puede ser null). Si local_id viene informado, tambien asocia la categoria al local mediante categorias_locales en la misma transaccion. Response: id (int ID de la categoria creada).
 // @Tags Categorias
 // @Accept json
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param payload body crearCategoriaRequest true "Datos de la categoria"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: nombre requerido o local_id invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Local no encontrado o inactivo"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/categorias [post]
@@ -95,13 +98,16 @@ func (h *Container) CreateCategoria(c *gin.Context) {
 
 // CreateCategoriaLocal godoc
 // @Summary Asociar categoria con local
-// @Description Crea una relacion en categorias_locales. Body: categoria_id y local_id requeridos. Si la relacion ya existe, la operacion es idempotente.
+// @Description Crea una relacion en categorias_locales. Requiere token Bearer con rol admin_sys. Body: categoria_id y local_id requeridos. Si la relacion ya existe, la operacion es idempotente.
 // @Tags Categorias
 // @Accept json
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param payload body categoriaLocalRequest true "IDs de categoria y local"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: categoria_id/local_id invalidos"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Categoria o local no encontrado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/categorias/locales [post]
@@ -126,13 +132,16 @@ func (h *Container) CreateCategoriaLocal(c *gin.Context) {
 
 // DeleteCategoriaLocal godoc
 // @Summary Eliminar asociacion categoria-local
-// @Description Elimina una relacion de categorias_locales. Body: categoria_id y local_id requeridos.
+// @Description Elimina una relacion de categorias_locales. Requiere token Bearer con rol admin_sys. Body: categoria_id y local_id requeridos.
 // @Tags Categorias
 // @Accept json
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param payload body categoriaLocalRequest true "IDs de categoria y local"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: categoria_id/local_id invalidos"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Asociacion categoria-local no encontrada"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/categorias/locales [delete]
