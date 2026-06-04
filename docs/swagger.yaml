@@ -1596,6 +1596,9 @@ definitions:
       tipoEspacio:
         example: M
         type: string
+      visible_paciente_nuevo:
+        example: true
+        type: boolean
     type: object
   models.TipoEspacioLocal:
     properties:
@@ -3860,10 +3863,11 @@ paths:
       description: 'Devuelve servicios desde PostgreSQL con filtros. Filtros: nombre
         busqueda parcial (opcional), categoria busqueda parcial (opcional), local
         SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion
-        true/false (opcional). Response: total (int), filtros (objeto con nombre,
-        categoria, local, sesiones, requiere_evaluacion), servicios ([]ServicioItem
-        con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio
-        M/B, requiere_evaluacion).'
+        true/false (opcional), paciente_nuevo true/false (opcional) filtrar solo servicios
+        visibles para nuevos pacientes. Response: total (int), filtros (objeto con
+        nombre, categoria, local, sesiones, requiere_evaluacion, paciente_nuevo),
+        servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM,
+        costo, sesiones, tipoEspacio M/B, requiere_evaluacion, visible_paciente_nuevo).'
       parameters:
       - description: Busqueda parcial por nombre
         example: depila
@@ -3892,6 +3896,11 @@ paths:
         example: true
         in: query
         name: requiere_evaluacion
+        type: boolean
+      - description: Filtrar solo servicios visibles para pacientes nuevos
+        example: true
+        in: query
+        name: paciente_nuevo
         type: boolean
       produces:
       - application/json
@@ -4084,6 +4093,62 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Actualizar servicio
+      tags:
+      - Servicios BD
+  /bd/servicios/{id}/local/{local_id}/paciente-nuevo:
+    patch:
+      consumes:
+      - application/json
+      description: 'Actualiza si un servicio es visible para pacientes nuevos en una
+        sucursal específica. Param: id (requerido, path) id del servicio, local_id
+        (requerido, path) id del local. Body: visible_paciente_nuevo (requerido, bool).
+        Response: mensaje string.'
+      parameters:
+      - description: ID del servicio
+        example: 8
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ID del local
+        example: 1
+        in: path
+        name: local_id
+        required: true
+        type: integer
+      - description: 'visible_paciente_nuevo: true/false'
+        in: body
+        name: payload
+        required: true
+        schema:
+          additionalProperties:
+            type: boolean
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id/local_id invalido, campo requerido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Relación servicio-local no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Actualizar visibilidad para pacientes nuevos
       tags:
       - Servicios BD
   /bd/servicios/local/{id}:

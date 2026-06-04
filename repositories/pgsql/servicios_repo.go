@@ -31,7 +31,8 @@ func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
 			s.sesiones,
 			COALESCE(l.nombre, '')      AS local,
 			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios,
-			s.requiere_evaluacion
+			s.requiere_evaluacion,
+			COALESCE(sl.visible_paciente_nuevo, FALSE) AS visible_paciente_nuevo
 		FROM servicios s
 		LEFT JOIN categorias c      ON c.id = s.categoria_id
 		LEFT JOIN servicio_local sl ON sl.servicio_id = s.id
@@ -58,6 +59,7 @@ func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
 			&item.Local,
 			&item.TipoEspacio,
 			&item.RequiereEvaluacion,
+			&item.VisiblePacienteNuevo,
 		); err != nil {
 			log.Println("SCAN ERROR:", err)
 			continue
@@ -79,7 +81,8 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 			s.sesiones,
 			COALESCE(l.nombre, '')      AS local,
 			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios,
-			s.requiere_evaluacion
+			s.requiere_evaluacion,
+			COALESCE(sl.visible_paciente_nuevo, FALSE) AS visible_paciente_nuevo
 		FROM servicios s
 		LEFT JOIN categorias c      ON c.id = s.categoria_id
 		LEFT JOIN servicio_local sl ON sl.servicio_id = s.id
@@ -100,6 +103,7 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 		&item.Local,
 		&item.TipoEspacio,
 		&item.RequiereEvaluacion,
+		&item.VisiblePacienteNuevo,
 	)
 
 	if err != nil {
@@ -478,6 +482,23 @@ func nullFloat(f float64) interface{} {
 		return nil
 	}
 	return f
+}
+
+func (r *ServiciosRepo) SetVisiblePacienteNuevoEnLocal(servicioID, localID int, visible bool) error {
+	res, err := r.db.Exec(`
+		UPDATE servicio_local
+		SET visible_paciente_nuevo = $3
+		WHERE servicio_id = $1 AND local_id = $2
+	`, servicioID, localID, visible)
+	if err != nil {
+		return fmt.Errorf("error al actualizar visibilidad: %w", err)
+	}
+
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("relación servicio_local no encontrada")
+	}
+
+	return nil
 }
 
 func (r *ServiciosRepo) DeleteServicio(id int) error {

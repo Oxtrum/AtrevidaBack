@@ -32,5 +32,6 @@ type ServiciosRepository interface {
 	CreateServicio(input CrearServicioInput) (int, error)
 	UpdateServicio(input ActualizarServicioInput) error
 	AddServicioInLocal(servicioID int, localNombre string) error
+	SetVisiblePacienteNuevoEnLocal(servicioID, localID int, visible bool) error
 	DeleteServicio(id int) error
 }

@@ -3201,7 +3201,7 @@
         },
         "/bd/servicios": {
             "get": {
-                "description": "Devuelve servicios desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).",
+                "description": "Devuelve servicios desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional), paciente_nuevo true/false (opcional) filtrar solo servicios visibles para nuevos pacientes. Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion, paciente_nuevo), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion, visible_paciente_nuevo).",
                 "produces": [
                     "application/json"
                 ],
@@ -3247,6 +3247,13 @@
                         "example": true,
                         "description": "Filtrar por servicios que requieren evaluacion",
                         "name": "requiere_evaluacion",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": true,
+                        "description": "Filtrar solo servicios visibles para pacientes nuevos",
+                        "name": "paciente_nuevo",
                         "in": "query"
                     }
                 ],
@@ -3581,6 +3588,89 @@
                     },
                     "404": {
                         "description": "Servicio no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/servicios/{id}/local/{local_id}/paciente-nuevo": {
+            "patch": {
+                "description": "Actualiza si un servicio es visible para pacientes nuevos en una sucursal específica. Param: id (requerido, path) id del servicio, local_id (requerido, path) id del local. Body: visible_paciente_nuevo (requerido, bool). Response: mensaje string.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Servicios BD"
+                ],
+                "summary": "Actualizar visibilidad para pacientes nuevos",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 8,
+                        "description": "ID del servicio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del local",
+                        "name": "local_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "visible_paciente_nuevo: true/false",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id/local_id invalido, campo requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Relación servicio-local no encontrada",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -6133,6 +6223,10 @@
                 "tipoEspacio": {
                     "type": "string",
                     "example": "M"
+                },
+                "visible_paciente_nuevo": {
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },

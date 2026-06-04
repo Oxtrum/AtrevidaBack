@@ -14,7 +14,7 @@ import (
 
 // GetServiciosPG godoc
 // @Summary Listar servicios desde base de datos
-// @Description Devuelve servicios desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).
+// @Description Devuelve servicios desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional), paciente_nuevo true/false (opcional) filtrar solo servicios visibles para nuevos pacientes. Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion, paciente_nuevo), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion, visible_paciente_nuevo).
 // @Tags Servicios BD
 // @Produce json
 // @Param nombre query string false "Busqueda parcial por nombre" example(depila)
@@ -22,6 +22,7 @@ import (
 // @Param local query string false "Local" Enums(SAN MARTIN,PASEO ARANJUEZ) example(SAN MARTIN)
 // @Param sesiones query int false "Numero exacto de sesiones" example(6)
 // @Param requiere_evaluacion query bool false "Filtrar por servicios que requieren evaluacion" example(true)
+// @Param paciente_nuevo query bool false "Filtrar solo servicios visibles para pacientes nuevos" example(true)
 // @Success 200 {object} utils.APIResponse{data=servicioListResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: sesiones debe ser entero positivo, local invalido, requiere_evaluacion debe ser true/false"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
@@ -49,6 +50,17 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 		requiereEvaluacion = &v
 	}
 
+	var pacienteNuevo *bool
+	if raw := strings.TrimSpace(c.Query("paciente_nuevo")); raw != "" {
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest,
+				"paciente_nuevo debe ser true o false")
+			return
+		}
+		pacienteNuevo = &v
+	}
+
 	local := strings.ToUpper(strings.TrimSpace(c.Query("local")))
 	if local != "" && local != "SAN MARTIN" && local != "PASEO ARANJUEZ" {
 		utils.RespondError(c, http.StatusBadRequest,
@@ -62,6 +74,7 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 		Local:              local,
 		Sesiones:           sesiones,
 		RequiereEvaluacion: requiereEvaluacion,
+		PacienteNuevo:      pacienteNuevo,
 	}
 
 	resultado := h.ServiciosPG.GetServiciosFiltrados(filtro)
@@ -353,4 +366,56 @@ func (h *Container) DeleteServicio(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "servicio eliminado correctamente"})
+}
+
+// PatchServicioVisiblePacienteNuevoLocal godoc
+// @Summary Actualizar visibilidad para pacientes nuevos
+// @Description Actualiza si un servicio es visible para pacientes nuevos en una sucursal específica. Param: id (requerido, path) id del servicio, local_id (requerido, path) id del local. Body: visible_paciente_nuevo (requerido, bool). Response: mensaje string.
+// @Tags Servicios BD
+// @Accept json
+// @Produce json
+// @Param id path int true "ID del servicio" example(8)
+// @Param local_id path int true "ID del local" example(1)
+// @Param payload body map[string]bool true "visible_paciente_nuevo: true/false"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id/local_id invalido, campo requerido"
+// @Failure 404 {object} utils.APIResponse "Relación servicio-local no encontrada"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/servicios/{id}/local/{local_id}/paciente-nuevo [patch]
+func (h *Container) PatchServicioVisiblePacienteNuevoLocal(c *gin.Context) {
+	servicioID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "id inválido")
+		return
+	}
+
+	localID, err := strconv.Atoi(c.Param("local_id"))
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "local_id inválido")
+		return
+	}
+
+	var req map[string]bool
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body debe incluir visible_paciente_nuevo")
+		return
+	}
+
+	visible, exists := req["visible_paciente_nuevo"]
+	if !exists {
+		utils.RespondError(c, http.StatusBadRequest, "campo visible_paciente_nuevo requerido")
+		return
+	}
+
+	err = h.ServiciosPG.SetVisiblePacienteNuevoEnLocal(servicioID, localID, visible)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "no encontrada") {
+			status = http.StatusNotFound
+		}
+		utils.RespondError(c, status, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "visibilidad actualizada correctamente"})
 }

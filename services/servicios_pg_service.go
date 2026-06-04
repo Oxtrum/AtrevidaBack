@@ -112,6 +112,10 @@ func (s *ServiciosPGService) ActivarServicioEnLocal(servicioID int, localNombre 
 	return s.repo.AddServicioInLocal(servicioID, strings.TrimSpace(localNombre))
 }
 
+func (s *ServiciosPGService) SetVisiblePacienteNuevoEnLocal(servicioID, localID int, visible bool) error {
+	return s.repo.SetVisiblePacienteNuevoEnLocal(servicioID, localID, visible)
+}
+
 func (s *ServiciosPGService) DeleteServicio(id int) error {
 	return s.repo.DeleteServicio(id)
 }

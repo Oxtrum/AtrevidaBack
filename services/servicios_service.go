@@ -13,6 +13,7 @@ type FiltroServicios struct {
 	Local              string // "ARANJUEZ", "CENTRO" — exacto, case-insensitive
 	Sesiones           int    // 0 = sin filtro; >0 = exacto
 	RequiereEvaluacion *bool  // nil = sin filtro
+	PacienteNuevo      *bool  // nil = sin filtro; true = solo servicios visibles para nuevos
 }
 
 type ServiciosService struct {
@@ -43,6 +44,9 @@ func (s *ServiciosService) GetServiciosFiltrados(f FiltroServicios) []models.Ser
 			continue
 		}
 		if f.RequiereEvaluacion != nil && item.RequiereEvaluacion != *f.RequiereEvaluacion {
+			continue
+		}
+		if f.PacienteNuevo != nil && *f.PacienteNuevo && !item.VisiblePacienteNuevo {
 			continue
 		}
 		resultado = append(resultado, item)

@@ -110,6 +110,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/servicios/:id", h.UpdateServicio)
 		bd.DELETE("/servicios/:id", h.DeleteServicio)
 		bd.POST("/servicios/local/:id", h.ActivarServicioEnLocal)
+		bd.PATCH("/servicios/:id/local/:local_id/paciente-nuevo", h.AuthRequired, h.PatchServicioVisiblePacienteNuevoLocal)
 
 		bd.GET("/combos", h.GetCombosPG)
 		//bd.GET("/combos/:id", h.GetComboById)
