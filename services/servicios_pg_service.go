@@ -37,6 +37,9 @@ func (s *ServiciosPGService) GetServiciosFiltrados(f FiltroServicios) []models.S
 		if f.RequiereEvaluacion != nil && item.RequiereEvaluacion != *f.RequiereEvaluacion {
 			continue
 		}
+		if f.PacienteNuevo != nil && *f.PacienteNuevo && !item.VisiblePacienteNuevo {
+			continue
+		}
 		resultado = append(resultado, item)
 	}
 	return resultado
