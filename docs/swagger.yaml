@@ -1203,7 +1203,7 @@ definitions:
         example: depilacion
         type: string
       paciente_nuevo:
-        description: 'Filtro aplicado: si el servicio es visible para pacientes nuevos'
+        description: 'Filtro aplicado: solo servicios visibles para pacientes nuevos'
         example: true
         type: boolean
       requiere_evaluacion:

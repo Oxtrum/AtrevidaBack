@@ -5847,7 +5847,7 @@ const docTemplate = `{
                     "example": "depilacion"
                 },
                 "paciente_nuevo": {
-                    "description": "Filtro aplicado: si el servicio es visible para pacientes nuevos",
+                    "description": "Filtro aplicado: solo servicios visibles para pacientes nuevos",
                     "type": "boolean",
                     "example": true
                 },
