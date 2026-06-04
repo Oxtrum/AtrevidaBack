@@ -57,12 +57,17 @@ type UsuarioPG struct {
 	Password      string    `db:"password" json:"-"`
 	Activo        bool      `db:"activo" json:"activo" example:"true"`
 	FechaRegistro time.Time `db:"fecha_registro" json:"fecha_registro" example:"2026-05-28T14:30:00Z"`
+	RolID         int       `db:"rol_id" json:"rol_id" example:"1"`
+	RolCodigo     string    `db:"rol_codigo" json:"rol_codigo" example:"admin_sys"`
+	RolNombre     string    `db:"rol_nombre" json:"rol_nombre" example:"Administrador de sistema"`
 }
 
 type UsuarioResumenPG struct {
 	Username      string    `db:"username" json:"username" example:"admin"`
 	Activo        bool      `db:"activo" json:"activo" example:"true"`
 	FechaRegistro time.Time `db:"fecha_registro" json:"fecha_registro" example:"2026-05-28T14:30:00Z"`
+	RolCodigo     string    `db:"rol_codigo" json:"rol_codigo" example:"admin_sys"`
+	RolNombre     string    `db:"rol_nombre" json:"rol_nombre" example:"Administrador de sistema"`
 }
 
 // Servicios

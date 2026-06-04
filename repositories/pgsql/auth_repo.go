@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -22,15 +23,20 @@ func NewAuthRepo(db *sqlx.DB) *AuthRepo {
 	return &AuthRepo{db: db}
 }
 
-func (r *AuthRepo) CreateUsuario(username, passwordHash string) (int, error) {
+func (r *AuthRepo) CreateUsuario(username, passwordHash, rolCodigo string) (int, error) {
 	var usuarioID int
 
 	err := r.db.QueryRowx(`
-		INSERT INTO usuarios (username, password, activo)
-		VALUES ($1, $2, TRUE)
+		INSERT INTO usuarios (username, password, activo, rol_id)
+		SELECT $1, $2, TRUE, id
+		FROM roles
+		WHERE LOWER(codigo) = LOWER($3)
 		RETURNING id
-	`, username, passwordHash).Scan(&usuarioID)
+	`, username, passwordHash, rolCodigo).Scan(&usuarioID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, fmt.Errorf("rol no encontrado")
+		}
 		if esUniqueUsuariosError(err) {
 			return 0, fmt.Errorf("usuario ya existe")
 		}
@@ -44,10 +50,18 @@ func (r *AuthRepo) GetUsuarioByUsername(username string) (*models.UsuarioPG, err
 	var usuario models.UsuarioPG
 
 	err := r.db.Get(&usuario, `
-		SELECT id, username, password, activo, fecha_registro
-		FROM usuarios
-		WHERE LOWER(username) = LOWER($1)
-		  AND activo = TRUE
+		SELECT u.id,
+		       u.username,
+		       u.password,
+		       u.activo,
+		       u.fecha_registro,
+		       u.rol_id,
+		       r.codigo AS rol_codigo,
+		       r.nombre_rol AS rol_nombre
+		FROM usuarios u
+		JOIN roles r ON r.id = u.rol_id
+		WHERE LOWER(u.username) = LOWER($1)
+		  AND u.activo = TRUE
 	`, username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -63,9 +77,14 @@ func (r *AuthRepo) GetUsuarios() ([]models.UsuarioResumenPG, error) {
 	var usuarios []models.UsuarioResumenPG
 
 	err := r.db.Select(&usuarios, `
-		SELECT username, activo, fecha_registro
-		FROM usuarios
-		ORDER BY fecha_registro DESC, username
+		SELECT u.username,
+		       u.activo,
+		       u.fecha_registro,
+		       r.codigo AS rol_codigo,
+		       r.nombre_rol AS rol_nombre
+		FROM usuarios u
+		JOIN roles r ON r.id = u.rol_id
+		ORDER BY u.fecha_registro DESC, u.username
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("no se pudieron obtener los usuarios")
@@ -97,11 +116,54 @@ func (r *AuthRepo) UpdatePassword(id int, passwordHash string) error {
 }
 
 func (r *AuthRepo) UpdateActivo(username string, activo bool) error {
-	res, err := r.db.Exec(`
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("no se pudo actualizar el estado del usuario")
+	}
+	defer tx.Rollback()
+
+	var usuario struct {
+		ID        int    `db:"id"`
+		Activo    bool   `db:"activo"`
+		RolCodigo string `db:"rol_codigo"`
+	}
+	err = tx.Get(&usuario, `
+		SELECT u.id,
+		       u.activo,
+		       r.codigo AS rol_codigo
+		FROM usuarios u
+		JOIN roles r ON r.id = u.rol_id
+		WHERE LOWER(u.username) = LOWER($1)
+	`, username)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("usuario no encontrado")
+		}
+		return fmt.Errorf("no se pudo actualizar el estado del usuario")
+	}
+
+	if usuario.Activo && !activo && strings.EqualFold(usuario.RolCodigo, "admin_sys") {
+		var adminsActivos int
+		err = tx.Get(&adminsActivos, `
+			SELECT COUNT(*)
+			FROM usuarios u
+			JOIN roles r ON r.id = u.rol_id
+			WHERE u.activo = TRUE
+			  AND LOWER(r.codigo) = LOWER('admin_sys')
+		`)
+		if err != nil {
+			return fmt.Errorf("no se pudo actualizar el estado del usuario")
+		}
+		if adminsActivos <= 1 {
+			return fmt.Errorf("no puedes desactivar al unico usuario admin_sys activo")
+		}
+	}
+
+	res, err := tx.Exec(`
 		UPDATE usuarios
 		SET activo = $1
-		WHERE LOWER(username) = LOWER($2)
-	`, activo, username)
+		WHERE id = $2
+	`, activo, usuario.ID)
 	if err != nil {
 		if esUniqueUsuariosError(err) {
 			return fmt.Errorf("usuario ya existe")
@@ -117,7 +179,7 @@ func (r *AuthRepo) UpdateActivo(username string, activo bool) error {
 		return fmt.Errorf("usuario no encontrado")
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 func esUniqueUsuariosError(err error) bool {

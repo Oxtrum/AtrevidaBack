@@ -13,16 +13,26 @@ import (
 )
 
 type authRequest struct {
-	// Nombre de usuario para registrar o iniciar sesion.
+	// Nombre de usuario para iniciar sesion.
 	Username string `json:"username" binding:"required" example:"admin"`
+	// Password en texto plano enviada por el cliente.
+	Password string `json:"password" binding:"required" example:"Secreto123"`
+}
+
+type registrarUsuarioRequest struct {
+	// Nombre de usuario a registrar.
+	Username string `json:"username" binding:"required" example:"operador"`
 	// Password en texto plano enviada por el cliente; se guarda encriptada con bcrypt.
 	Password string `json:"password" binding:"required" example:"Secreto123"`
+	// Codigo del rol a asignar al usuario.
+	RolCodigo string `json:"rol_codigo" binding:"required" example:"gerencia"`
 }
 
 type loginResponse struct {
 	Token     string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 	TokenType string `json:"token_type" example:"Bearer"`
 	Username  string `json:"username" example:"admin"`
+	RolCodigo string `json:"rol_codigo" example:"admin_sys"`
 	ExpiresIn int    `json:"expires_in" example:"3600"`
 }
 
@@ -45,12 +55,13 @@ type actualizarUsuarioActivoRequest struct {
 
 // GetUsuarios godoc
 // @Summary Listar usuarios
-// @Description Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro).
+// @Description Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro, rol_codigo y rol_nombre).
 // @Tags Auth
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Success 200 {object} utils.APIResponse{data=usuariosListResponse}
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /auth/usuarios [get]
 func (h *Container) GetUsuarios(c *gin.Context) {
@@ -68,28 +79,31 @@ func (h *Container) GetUsuarios(c *gin.Context) {
 
 // RegisterUsuario godoc
 // @Summary Registrar usuario
-// @Description Crea un usuario activo sin validacion de rol. Requiere token Bearer emitido por login. Body: username y password requeridos. La password se encripta con bcrypt antes de guardarse. Response: id (int ID del usuario creado).
+// @Description Crea un usuario activo y le asigna un rol por codigo. Requiere token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos. La password se encripta con bcrypt antes de guardarse. Response: id (int ID del usuario creado).
 // @Tags Auth
 // @Accept json
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
-// @Param payload body authRequest true "Credenciales del usuario"
+// @Param payload body registrarUsuarioRequest true "Datos del usuario"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, username y password son obligatorios"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, username/password/rol_codigo son obligatorios"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Rol no encontrado"
 // @Failure 409 {object} utils.APIResponse "Conflicto: usuario ya existe"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /auth/register [post]
 func (h *Container) RegisterUsuario(c *gin.Context) {
-	var req authRequest
+	var req registrarUsuarioRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
 		return
 	}
 
 	id, err := h.Auth.RegistrarUsuario(services.RegistrarUsuarioInput{
-		Username: req.Username,
-		Password: req.Password,
+		Username:  req.Username,
+		Password:  req.Password,
+		RolCodigo: req.RolCodigo,
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -98,6 +112,12 @@ func (h *Container) RegisterUsuario(c *gin.Context) {
 		}
 		if errors.Is(err, services.ErrCredencialesObligatorias) {
 			status = http.StatusBadRequest
+		}
+		if errors.Is(err, services.ErrRolObligatorio) {
+			status = http.StatusBadRequest
+		}
+		if errors.Is(err, services.ErrRolNoEncontrado) {
+			status = http.StatusNotFound
 		}
 		utils.RespondError(c, status, err.Error())
 		return
@@ -156,7 +176,7 @@ func (h *Container) CambiarPassword(c *gin.Context) {
 
 // ActualizarUsuarioActivo godoc
 // @Summary Activar o desactivar usuario
-// @Description Actualiza el estado activo de otro usuario. Requiere token Bearer. No permite modificar el estado del usuario autenticado. Body: username y activo requeridos; activo=false desactiva, activo=true reactiva.
+// @Description Actualiza el estado activo de otro usuario. Requiere token Bearer con rol admin_sys. No permite modificar el estado del usuario autenticado ni desactivar al unico usuario admin_sys activo. Body: username y activo requeridos; activo=false desactiva, activo=true reactiva.
 // @Tags Auth
 // @Accept json
 // @Produce json
@@ -165,9 +185,9 @@ func (h *Container) CambiarPassword(c *gin.Context) {
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, username requerido, activo requerido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
-// @Failure 403 {object} utils.APIResponse "No autorizado: no puedes modificar tu propio estado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Usuario no encontrado"
-// @Failure 409 {object} utils.APIResponse "Conflicto: ya existe un usuario activo con ese nombre"
+// @Failure 409 {object} utils.APIResponse "Conflicto: ya existe un usuario activo con ese nombre o se intenta desactivar al unico admin_sys activo"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /auth/deactivate [patch]
 func (h *Container) ActualizarUsuarioActivo(c *gin.Context) {
@@ -198,17 +218,21 @@ func (h *Container) ActualizarUsuarioActivo(c *gin.Context) {
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
+		message := err.Error()
 		switch {
 		case err.Error() == "username es requerido":
 			status = http.StatusBadRequest
 		case errors.Is(err, services.ErrNoModificarPropioEstado):
 			status = http.StatusForbidden
+			message = services.ErrNoAutorizado.Error()
 		case errors.Is(err, services.ErrUsuarioNoEncontrado):
 			status = http.StatusNotFound
 		case errors.Is(err, services.ErrUsuarioYaExiste):
 			status = http.StatusConflict
+		case errors.Is(err, services.ErrUltimoAdminSysActivo):
+			status = http.StatusConflict
 		}
-		utils.RespondError(c, status, err.Error())
+		utils.RespondError(c, status, message)
 		return
 	}
 
@@ -222,7 +246,7 @@ func (h *Container) ActualizarUsuarioActivo(c *gin.Context) {
 
 // Login godoc
 // @Summary Iniciar sesion
-// @Description Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer para acceder a endpoints protegidos.
+// @Description Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer con el codigo de rol para acceder a endpoints protegidos.
 // @Tags Auth
 // @Accept json
 // @Produce json
@@ -262,6 +286,7 @@ func (h *Container) Login(c *gin.Context) {
 		Token:     result.Token,
 		TokenType: "Bearer",
 		Username:  result.Username,
+		RolCodigo: result.RolCodigo,
 		ExpiresIn: result.ExpiresIn,
 	})
 }
@@ -297,6 +322,18 @@ func (h *Container) AuthRequired(c *gin.Context) {
 
 	c.Set("auth_user_id", tokenData.UserID)
 	c.Set("auth_username", tokenData.Username)
+	c.Set("auth_rol_codigo", tokenData.RolCodigo)
+	c.Next()
+}
+
+func (h *Container) AdminSysRequired(c *gin.Context) {
+	rolCodigo, ok := authenticatedRolCodigo(c)
+	if !ok || !strings.EqualFold(rolCodigo, "admin_sys") {
+		utils.RespondError(c, http.StatusForbidden, services.ErrNoAutorizado.Error())
+		c.Abort()
+		return
+	}
+
 	c.Next()
 }
 
@@ -326,4 +363,18 @@ func authenticatedUsername(c *gin.Context) (string, bool) {
 	}
 
 	return username, true
+}
+
+func authenticatedRolCodigo(c *gin.Context) (string, bool) {
+	value, exists := c.Get("auth_rol_codigo")
+	if !exists {
+		return "", false
+	}
+
+	rolCodigo, ok := value.(string)
+	if !ok || strings.TrimSpace(rolCodigo) == "" {
+		return "", false
+	}
+
+	return rolCodigo, true
 }

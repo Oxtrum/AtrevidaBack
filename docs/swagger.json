@@ -132,7 +132,7 @@
         },
         "/auth/deactivate": {
             "patch": {
-                "description": "Actualiza el estado activo de otro usuario. Requiere token Bearer. No permite modificar el estado del usuario autenticado. Body: username y activo requeridos; activo=false desactiva, activo=true reactiva.",
+                "description": "Actualiza el estado activo de otro usuario. Requiere token Bearer con rol admin_sys. No permite modificar el estado del usuario autenticado ni desactivar al unico usuario admin_sys activo. Body: username y activo requeridos; activo=false desactiva, activo=true reactiva.",
                 "consumes": [
                     "application/json"
                 ],
@@ -194,7 +194,7 @@
                         }
                     },
                     "403": {
-                        "description": "No autorizado: no puedes modificar tu propio estado",
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -206,7 +206,7 @@
                         }
                     },
                     "409": {
-                        "description": "Conflicto: ya existe un usuario activo con ese nombre",
+                        "description": "Conflicto: ya existe un usuario activo con ese nombre o se intenta desactivar al unico admin_sys activo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -222,7 +222,7 @@
         },
         "/auth/login": {
             "post": {
-                "description": "Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer para acceder a endpoints protegidos.",
+                "description": "Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer con el codigo de rol para acceder a endpoints protegidos.",
                 "consumes": [
                     "application/json"
                 ],
@@ -292,7 +292,7 @@
         },
         "/auth/register": {
             "post": {
-                "description": "Crea un usuario activo sin validacion de rol. Requiere token Bearer emitido por login. Body: username y password requeridos. La password se encripta con bcrypt antes de guardarse. Response: id (int ID del usuario creado).",
+                "description": "Crea un usuario activo y le asigna un rol por codigo. Requiere token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos. La password se encripta con bcrypt antes de guardarse. Response: id (int ID del usuario creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -313,12 +313,12 @@
                         "required": true
                     },
                     {
-                        "description": "Credenciales del usuario",
+                        "description": "Datos del usuario",
                         "name": "payload",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.authRequest"
+                            "$ref": "#/definitions/handlers.registrarUsuarioRequest"
                         }
                     }
                 ],
@@ -342,13 +342,25 @@
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: body invalido, username y password son obligatorios",
+                        "description": "Error de validacion: body invalido, username/password/rol_codigo son obligatorios",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Rol no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -370,7 +382,7 @@
         },
         "/auth/usuarios": {
             "get": {
-                "description": "Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro).",
+                "description": "Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro, rol_codigo y rol_nombre).",
                 "produces": [
                     "application/json"
                 ],
@@ -409,6 +421,12 @@
                     },
                     "401": {
                         "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3616,6 +3634,14 @@
                 "summary": "Actualizar visibilidad para pacientes nuevos",
                 "parameters": [
                     {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
                         "type": "integer",
                         "example": 8,
                         "description": "ID del servicio",
@@ -3665,6 +3691,12 @@
                     },
                     "400": {
                         "description": "Error de validacion: id/local_id invalido, campo requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -4547,12 +4579,12 @@
             ],
             "properties": {
                 "password": {
-                    "description": "Password en texto plano enviada por el cliente; se guarda encriptada con bcrypt.",
+                    "description": "Password en texto plano enviada por el cliente.",
                     "type": "string",
                     "example": "Secreto123"
                 },
                 "username": {
-                    "description": "Nombre de usuario para registrar o iniciar sesion.",
+                    "description": "Nombre de usuario para iniciar sesion.",
                     "type": "string",
                     "example": "admin"
                 }
@@ -5282,6 +5314,10 @@
                     "type": "integer",
                     "example": 3600
                 },
+                "rol_codigo": {
+                    "type": "string",
+                    "example": "admin_sys"
+                },
                 "token": {
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -5421,6 +5457,31 @@
                     "description": "Total de pagos encontrados",
                     "type": "integer",
                     "example": 3
+                }
+            }
+        },
+        "handlers.registrarUsuarioRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "rol_codigo",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "description": "Password en texto plano enviada por el cliente; se guarda encriptada con bcrypt.",
+                    "type": "string",
+                    "example": "Secreto123"
+                },
+                "rol_codigo": {
+                    "description": "Codigo del rol a asignar al usuario.",
+                    "type": "string",
+                    "example": "gerencia"
+                },
+                "username": {
+                    "description": "Nombre de usuario a registrar.",
+                    "type": "string",
+                    "example": "operador"
                 }
             }
         },
@@ -5651,6 +5712,11 @@
                     "description": "Filtro aplicado: nombre del servicio",
                     "type": "string",
                     "example": "depilacion"
+                },
+                "paciente_nuevo": {
+                    "description": "Filtro aplicado: si el servicio es visible para pacientes nuevos",
+                    "type": "boolean",
+                    "example": true
                 },
                 "requiere_evaluacion": {
                     "description": "Filtro aplicado: si requiere evaluación (true/false)",
@@ -6253,6 +6319,14 @@
                 "fecha_registro": {
                     "type": "string",
                     "example": "2026-05-28T14:30:00Z"
+                },
+                "rol_codigo": {
+                    "type": "string",
+                    "example": "admin_sys"
+                },
+                "rol_nombre": {
+                    "type": "string",
+                    "example": "Administrador de sistema"
                 },
                 "username": {
                     "type": "string",

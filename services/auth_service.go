@@ -22,8 +22,11 @@ var (
 	ErrUsuarioNoEncontrado      = errors.New("usuario no encontrado")
 	ErrPasswordIncorrecta       = errors.New("contrasena incorrecta")
 	ErrUsuarioYaExiste          = errors.New("usuario ya existe")
-	ErrNoAutorizado             = errors.New("no autorizado")
+	ErrRolObligatorio           = errors.New("rol_codigo es obligatorio")
+	ErrRolNoEncontrado          = errors.New("rol no encontrado")
+	ErrNoAutorizado             = errors.New("Usuario no autorizado")
 	ErrNoModificarPropioEstado  = errors.New("no puedes modificar tu propio estado")
+	ErrUltimoAdminSysActivo     = errors.New("no puedes desactivar al unico usuario admin_sys activo")
 )
 
 type AuthService struct {
@@ -48,16 +51,21 @@ func NewAuthService(repo repository.AuthRepository, tokenSecret string, tokenTTL
 }
 
 type RegistrarUsuarioInput struct {
-	Username string
-	Password string
+	Username  string
+	Password  string
+	RolCodigo string
 }
 
 func (s *AuthService) RegistrarUsuario(input RegistrarUsuarioInput) (int, error) {
 	username := strings.TrimSpace(input.Username)
 	password := input.Password
+	rolCodigo := strings.TrimSpace(input.RolCodigo)
 
 	if username == "" || strings.TrimSpace(password) == "" {
 		return 0, ErrCredencialesObligatorias
+	}
+	if rolCodigo == "" {
+		return 0, ErrRolObligatorio
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -65,10 +73,13 @@ func (s *AuthService) RegistrarUsuario(input RegistrarUsuarioInput) (int, error)
 		return 0, errors.New("no se pudo encriptar la password")
 	}
 
-	id, err := s.repo.CreateUsuario(username, string(hash))
+	id, err := s.repo.CreateUsuario(username, string(hash), rolCodigo)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "ya existe") {
 			return 0, ErrUsuarioYaExiste
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "rol no encontrado") {
+			return 0, ErrRolNoEncontrado
 		}
 		return 0, err
 	}
@@ -137,6 +148,9 @@ func (s *AuthService) ActualizarUsuarioActivo(input ActualizarUsuarioActivoInput
 		if strings.Contains(strings.ToLower(err.Error()), "ya existe") {
 			return ErrUsuarioYaExiste
 		}
+		if strings.Contains(strings.ToLower(err.Error()), "unico usuario admin_sys activo") {
+			return ErrUltimoAdminSysActivo
+		}
 		return err
 	}
 
@@ -151,6 +165,7 @@ type LoginInput struct {
 type LoginResult struct {
 	Token     string
 	Username  string
+	RolCodigo string
 	ExpiresIn int
 }
 
@@ -174,7 +189,7 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, error) {
 		return nil, ErrPasswordIncorrecta
 	}
 
-	token, err := s.generarToken(usuario.ID, usuario.Username)
+	token, err := s.generarToken(usuario.ID, usuario.Username, usuario.RolCodigo)
 	if err != nil {
 		return nil, err
 	}
@@ -182,13 +197,15 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, error) {
 	return &LoginResult{
 		Token:     token,
 		Username:  usuario.Username,
+		RolCodigo: usuario.RolCodigo,
 		ExpiresIn: int(s.tokenTTL.Seconds()),
 	}, nil
 }
 
 type TokenData struct {
-	UserID   int
-	Username string
+	UserID    int
+	Username  string
+	RolCodigo string
 }
 
 func (s *AuthService) ValidarToken(token string) (*TokenData, error) {
@@ -207,8 +224,9 @@ func (s *AuthService) ValidarToken(token string) (*TokenData, error) {
 	}
 
 	return &TokenData{
-		UserID:   userID,
-		Username: claims.Username,
+		UserID:    userID,
+		Username:  claims.Username,
+		RolCodigo: claims.RolCodigo,
 	}, nil
 }
 
@@ -220,11 +238,12 @@ type tokenHeader struct {
 type tokenClaims struct {
 	Subject   string `json:"sub"`
 	Username  string `json:"username"`
+	RolCodigo string `json:"rol_codigo"`
 	IssuedAt  int64  `json:"iat"`
 	ExpiresAt int64  `json:"exp"`
 }
 
-func (s *AuthService) generarToken(usuarioID int, username string) (string, error) {
+func (s *AuthService) generarToken(usuarioID int, username, rolCodigo string) (string, error) {
 	now := time.Now()
 	header := tokenHeader{
 		Algorithm: "HS256",
@@ -233,6 +252,7 @@ func (s *AuthService) generarToken(usuarioID int, username string) (string, erro
 	claims := tokenClaims{
 		Subject:   fmt.Sprintf("%d", usuarioID),
 		Username:  username,
+		RolCodigo: rolCodigo,
 		IssuedAt:  now.Unix(),
 		ExpiresAt: now.Add(s.tokenTTL).Unix(),
 	}

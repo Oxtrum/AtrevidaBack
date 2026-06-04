@@ -90,6 +90,7 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 			Local:              filtro.Local,
 			Sesiones:           filtro.Sesiones,
 			RequiereEvaluacion: filtro.RequiereEvaluacion,
+			PacienteNuevo:      filtro.PacienteNuevo,
 		},
 		Servicios: resultado,
 	})
@@ -374,11 +375,13 @@ func (h *Container) DeleteServicio(c *gin.Context) {
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param id path int true "ID del servicio" example(8)
 // @Param local_id path int true "ID del local" example(1)
 // @Param payload body map[string]bool true "visible_paciente_nuevo: true/false"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: id/local_id invalido, campo requerido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Relación servicio-local no encontrada"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios/{id}/local/{local_id}/paciente-nuevo [patch]
