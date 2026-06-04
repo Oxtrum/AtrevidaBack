@@ -1180,6 +1180,10 @@ definitions:
         description: 'Filtro aplicado: nombre del servicio'
         example: depilacion
         type: string
+      paciente_nuevo:
+        description: 'Filtro aplicado: solo servicios visibles para pacientes nuevos'
+        example: true
+        type: boolean
       requiere_evaluacion:
         description: 'Filtro aplicado: si requiere evaluación (true/false)'
         example: true

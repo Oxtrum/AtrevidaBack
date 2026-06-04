@@ -18,6 +18,8 @@ type servicioFiltrosResponse struct {
 	Sesiones int `json:"sesiones" example:"6"`
 	// Filtro aplicado: si requiere evaluación (true/false)
 	RequiereEvaluacion *bool `json:"requiere_evaluacion" example:"true"`
+	// Filtro aplicado: solo servicios visibles para pacientes nuevos
+	PacienteNuevo *bool `json:"paciente_nuevo" example:"true"`
 }
 
 type comboFiltrosResponse struct {

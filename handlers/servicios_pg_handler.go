@@ -90,6 +90,7 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 			Local:              filtro.Local,
 			Sesiones:           filtro.Sesiones,
 			RequiereEvaluacion: filtro.RequiereEvaluacion,
+			PacienteNuevo:      filtro.PacienteNuevo,
 		},
 		Servicios: resultado,
 	})

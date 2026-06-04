@@ -5655,6 +5655,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "depilacion"
                 },
+                "paciente_nuevo": {
+                    "description": "Filtro aplicado: solo servicios visibles para pacientes nuevos",
+                    "type": "boolean",
+                    "example": true
+                },
                 "requiere_evaluacion": {
                     "description": "Filtro aplicado: si requiere evaluación (true/false)",
                     "type": "boolean",
