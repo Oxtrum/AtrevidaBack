@@ -130,6 +130,10 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/locales/:id", h.PatchLocal)
 		bd.DELETE("/locales/:id", h.DeleteLocal)
 
+		bd.GET("/notificaciones/reservas", h.GetNotificacionesReservasPG)
+		bd.PATCH("/notificaciones/reservas/leer", h.PatchNotificacionesReservasLeidasPG)
+		bd.PATCH("/notificaciones/reservas/:id/leer", h.PatchNotificacionReservaLeidaPG)
+
 		bd.GET("/reservas", h.GetReservasSimplePG)
 		bd.GET("/reservas/resumen", h.GetReservasResumenPG)
 		bd.GET("/reservas/:id", h.GetReservaPGByID)

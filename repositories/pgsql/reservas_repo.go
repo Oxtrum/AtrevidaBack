@@ -407,6 +407,25 @@ func (r *ReservasRepo) UpdateReservaNotificado(id int, notificado bool) error {
 	return nil
 }
 
+func (r *ReservasRepo) UpdateReservasNotificado(ids []int, notificado bool) (int, error) {
+	query, args, err := sqlx.In(
+		`UPDATE reservas SET notificado = ?, actualizado_en = NOW() WHERE activo = TRUE AND id IN (?)`,
+		notificado,
+		ids,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("error al preparar actualizacion masiva de notificaciones: %w", err)
+	}
+
+	res, err := r.db.Exec(r.db.Rebind(query), args...)
+	if err != nil {
+		return 0, fmt.Errorf("error al actualizar notificaciones de reservas: %w", err)
+	}
+
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
 func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoInput) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
