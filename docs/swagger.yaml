@@ -199,6 +199,10 @@ definitions:
         description: Nuevo subtotal del pago (opcional).
         example: 500
         type: number
+      tipo_pago:
+        description: 'Nuevo tipo de pago (opcional): efectivo o qr.'
+        example: qr
+        type: string
       total_final:
         description: Nuevo total final del pago (opcional).
         example: 450
@@ -667,6 +671,10 @@ definitions:
         description: Subtotal del pago.
         example: 500
         type: number
+      tipo_pago:
+        description: 'Tipo de pago utilizado: efectivo o qr.'
+        example: efectivo
+        type: string
       total_final:
         description: Total final del pago.
         example: 450
@@ -991,6 +999,10 @@ definitions:
       local_nombre:
         description: 'Filtro aplicado: nombre del local'
         example: SAN MARTIN
+        type: string
+      tipo_pago:
+        description: 'Filtro aplicado: tipo de pago'
+        example: efectivo
         type: string
     type: object
   handlers.pagoItemResponse:
@@ -1463,6 +1475,10 @@ definitions:
         description: Subtotal del pago antes del descuento.
         example: 500
         type: number
+      tipo_pago:
+        description: Tipo de pago utilizado.
+        example: efectivo
+        type: string
       total_final:
         description: Total final del pago.
         example: 450
@@ -1518,6 +1534,10 @@ definitions:
         description: Subtotal del pago antes del descuento.
         example: 500
         type: number
+      tipo_pago:
+        description: Tipo de pago utilizado.
+        example: efectivo
+        type: string
       total_final:
         description: Total final del pago.
         example: 450
@@ -3207,8 +3227,9 @@ paths:
       description: 'Devuelve pagos activos de BD con filtros opcionales. Requiere
         token Bearer. Solo retorna la informacion base del pago, sin detalle. Filtros:
         codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id,
-        cliente_nit busqueda parcial, cliente_nombre busqueda parcial, estado PAGADO/BORRADOR/PENDIENTE
-        y activo true/false. Si activo no se envia, lista solo pagos activos.'
+        cliente_nit busqueda parcial, cliente_nombre busqueda parcial, tipo_pago efectivo/qr,
+        estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia,
+        lista solo pagos activos.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -3246,6 +3267,14 @@ paths:
         in: query
         name: cliente_nombre
         type: string
+      - description: Tipo de pago
+        enum:
+        - efectivo
+        - qr
+        example: efectivo
+        in: query
+        name: tipo_pago
+        type: string
       - description: Estado del pago
         enum:
         - PAGADO
@@ -3274,7 +3303,8 @@ paths:
               type: object
         "400":
           description: 'Error de validacion: local_id invalido, cliente_id invalido,
-            activo invalido, estado invalido'
+            activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo
+            y QR, estado invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "401":
@@ -3294,10 +3324,11 @@ paths:
       description: 'Crea un pago independiente junto con su detalle en una sola transaccion.
         Requiere token Bearer. Todos los campos de cabecera deben venir en el body
         excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en
-        BD. subtotal y total_final son opcionales: si no se envian, se calculan desde
-        la suma de subtotales del detalle y el descuento. cliente_id puede venir como
-        null. Cada item de detalle debe incluir servicio_id (puede ser null), servicio,
-        precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.'
+        BD. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final
+        son opcionales: si no se envian, se calculan desde la suma de subtotales del
+        detalle y el descuento. cliente_id puede venir como null. Cada item de detalle
+        debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad
+        y subtotal. Response: codigo_pago generado incrementalmente.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -3325,7 +3356,8 @@ paths:
               type: object
         "400":
           description: 'Error de validacion: body invalido, campos requeridos, importes
-            invalidos, estado invalido'
+            invalidos, Tipo de pago invalido. Solo se aceptan pagos en efectivo y
+            QR, estado invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "401":
@@ -3444,7 +3476,8 @@ paths:
       - application/json
       description: 'Actualiza parcialmente la cabecera de un pago activo por codigo_pago
         y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar
-        pagos cuyo estado actual no sea PAGADO. Si se envia detalle, la lista representa
+        pagos cuyo estado actual no sea PAGADO. tipo_pago es opcional, pero si se
+        envia solo acepta efectivo o qr. Si se envia detalle, la lista representa
         el estado final: ids presentes se conservan, ids ausentes se eliminan y items
         sin id se crean. Si se envia detalle y no se envia subtotal o total_final,
         esos campos se recalculan automaticamente desde los subtotales del detalle
@@ -3482,7 +3515,8 @@ paths:
               type: object
         "400":
           description: 'Error de validacion: codigo_pago requerido, body invalido,
-            sin cambios, campos invalidos, estado invalido'
+            sin cambios, campos invalidos, Tipo de pago invalido. Solo se aceptan
+            pagos en efectivo y QR, estado invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "401":

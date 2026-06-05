@@ -102,6 +102,8 @@ type pagoFiltrosResponse struct {
 	ClienteNIT string `json:"cliente_nit" example:"1234567"`
 	// Filtro aplicado: nombre del cliente
 	ClienteNombre string `json:"cliente_nombre" example:"Maria"`
+	// Filtro aplicado: tipo de pago
+	TipoPago string `json:"tipo_pago" example:"efectivo"`
 	// Filtro aplicado: estado del pago
 	Estado string `json:"estado" example:"PENDIENTE"`
 	// Filtro aplicado: estado activo

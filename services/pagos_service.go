@@ -24,12 +24,17 @@ type FiltroPagos struct {
 	ClienteID     *int
 	ClienteNIT    string
 	ClienteNombre string
+	TipoPago      string
 	Estado        string
 	Activo        *bool
 }
 
 func (s *PagosService) GetPagos(filtro FiltroPagos) ([]models.PagoPG, error) {
 	estado, err := normalizarEstadoPagoOpcional(filtro.Estado)
+	if err != nil {
+		return nil, err
+	}
+	tipoPago, err := normalizarTipoPagoOpcional(filtro.TipoPago)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +46,7 @@ func (s *PagosService) GetPagos(filtro FiltroPagos) ([]models.PagoPG, error) {
 		ClienteID:     filtro.ClienteID,
 		ClienteNIT:    strings.TrimSpace(filtro.ClienteNIT),
 		ClienteNombre: strings.TrimSpace(filtro.ClienteNombre),
+		TipoPago:      tipoPago,
 		Estado:        estado,
 		Activo:        filtro.Activo,
 	})
@@ -64,6 +70,7 @@ type CrearPagoInput struct {
 	Subtotal      *float64
 	Descuento     *float64
 	TotalFinal    *float64
+	TipoPago      string
 	Estado        string
 	Activo        bool
 	Detalle       []CrearDetallePagoInput
@@ -79,6 +86,10 @@ type CrearDetallePagoInput struct {
 
 func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 	estado, err := NormalizarEstadoPago(input.Estado)
+	if err != nil {
+		return "", err
+	}
+	tipoPago, err := NormalizarTipoPago(input.TipoPago)
 	if err != nil {
 		return "", err
 	}
@@ -121,6 +132,7 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 		Subtotal:      &subtotal,
 		Descuento:     &descuento,
 		TotalFinal:    &totalFinal,
+		TipoPago:      tipoPago,
 		Estado:        estado,
 		Activo:        input.Activo,
 		Detalle:       detalle,
@@ -138,6 +150,7 @@ type ActualizarPagoInput struct {
 	Subtotal      *float64
 	Descuento     *float64
 	TotalFinal    *float64
+	TipoPago      *string
 	Estado        *string
 	Activo        *bool
 	Detalle       *[]ActualizarDetallePagoInput
@@ -226,6 +239,14 @@ func (s *PagosService) UpdatePago(input ActualizarPagoInput) error {
 		}
 		estado = &normalizado
 	}
+	var tipoPago *string
+	if input.TipoPago != nil {
+		normalizado, err := NormalizarTipoPago(*input.TipoPago)
+		if err != nil {
+			return err
+		}
+		tipoPago = &normalizado
+	}
 
 	return s.repo.UpdatePago(repository.ActualizarPagoInput{
 		CodigoPago:    codigoPago,
@@ -238,6 +259,7 @@ func (s *PagosService) UpdatePago(input ActualizarPagoInput) error {
 		Subtotal:      input.Subtotal,
 		Descuento:     input.Descuento,
 		TotalFinal:    input.TotalFinal,
+		TipoPago:      tipoPago,
 		Estado:        estado,
 		Activo:        input.Activo,
 		Detalle:       detalle,
@@ -266,11 +288,28 @@ func NormalizarEstadoPago(raw string) (string, error) {
 	}
 }
 
+func NormalizarTipoPago(raw string) (string, error) {
+	tipoPago := strings.ToLower(strings.TrimSpace(raw))
+	switch tipoPago {
+	case "efectivo", "qr":
+		return tipoPago, nil
+	default:
+		return "", fmt.Errorf("Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR")
+	}
+}
+
 func normalizarEstadoPagoOpcional(raw string) (string, error) {
 	if strings.TrimSpace(raw) == "" {
 		return "", nil
 	}
 	return NormalizarEstadoPago(raw)
+}
+
+func normalizarTipoPagoOpcional(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", nil
+	}
+	return NormalizarTipoPago(raw)
 }
 
 func validarPagoBase(localID int, localNombre string, clienteID *int, clienteNIT, clienteNombre string, subtotal, descuento, totalFinal *float64) error {

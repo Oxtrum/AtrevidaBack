@@ -9,6 +9,7 @@ type FiltroPagos struct {
 	ClienteID     *int
 	ClienteNIT    string
 	ClienteNombre string
+	TipoPago      string
 	Estado        string
 	Activo        *bool
 }
@@ -22,6 +23,7 @@ type CrearPagoInput struct {
 	Subtotal      *float64
 	Descuento     *float64
 	TotalFinal    *float64
+	TipoPago      string
 	Estado        string
 	Activo        bool
 	Detalle       []CrearDetallePagoInput
@@ -46,6 +48,7 @@ type ActualizarPagoInput struct {
 	Subtotal      *float64
 	Descuento     *float64
 	TotalFinal    *float64
+	TipoPago      *string
 	Estado        *string
 	Activo        *bool
 	Detalle       *[]ActualizarDetallePagoInput

@@ -206,6 +206,8 @@ type PagoPG struct {
 	Descuento float64 `db:"descuento" json:"descuento" example:"50"`
 	// Total final del pago.
 	TotalFinal float64 `db:"total_final" json:"total_final" example:"450"`
+	// Tipo de pago utilizado.
+	TipoPago string `db:"tipo_pago" json:"tipo_pago" example:"efectivo"`
 	// Estado informativo del pago.
 	Estado string `db:"estado" json:"estado" example:"PENDIENTE"`
 	// Estado activo para borrado logico.

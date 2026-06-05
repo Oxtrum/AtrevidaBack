@@ -42,6 +42,8 @@ type crearPagoRequest struct {
 	Descuento *float64 `json:"descuento" example:"50"`
 	// Total final del pago.
 	TotalFinal *float64 `json:"total_final" example:"450"`
+	// Tipo de pago utilizado: efectivo o qr.
+	TipoPago *string `json:"tipo_pago" example:"efectivo"`
 	// Estado inicial del pago.
 	Estado *string `json:"estado" example:"PENDIENTE"`
 	// Estado activo inicial del pago.
@@ -67,6 +69,8 @@ type actualizarPagoRequest struct {
 	Descuento *float64 `json:"descuento" example:"50"`
 	// Nuevo total final del pago (opcional).
 	TotalFinal *float64 `json:"total_final" example:"450"`
+	// Nuevo tipo de pago (opcional): efectivo o qr.
+	TipoPago *string `json:"tipo_pago" example:"qr"`
 	// Nuevo estado del pago (opcional).
 	Estado *string `json:"estado" example:"PAGADO"`
 	// Nuevo estado activo (opcional).
@@ -92,7 +96,7 @@ type actualizarDetallePagoRequest struct {
 
 // GetPagos godoc
 // @Summary Listar pagos
-// @Description Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia, lista solo pagos activos.
+// @Description Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, tipo_pago efectivo/qr, estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia, lista solo pagos activos.
 // @Tags Pagos
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -102,10 +106,11 @@ type actualizarDetallePagoRequest struct {
 // @Param cliente_id query int false "ID del cliente" example(12)
 // @Param cliente_nit query string false "Busqueda parcial por NIT del cliente" example(1234567)
 // @Param cliente_nombre query string false "Busqueda parcial por nombre del cliente" example(Maria)
+// @Param tipo_pago query string false "Tipo de pago" Enums(efectivo,qr) example(efectivo)
 // @Param estado query string false "Estado del pago" Enums(PAGADO,BORRADOR,PENDIENTE) example(PENDIENTE)
 // @Param activo query bool false "Filtrar por activo; default true" example(true)
 // @Success 200 {object} utils.APIResponse{data=pagoListResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, activo invalido, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos [get]
@@ -130,17 +135,14 @@ func (h *Container) GetPagos(c *gin.Context) {
 		ClienteID:     clienteID,
 		ClienteNIT:    c.Query("cliente_nit"),
 		ClienteNombre: c.Query("cliente_nombre"),
+		TipoPago:      c.Query("tipo_pago"),
 		Estado:        c.Query("estado"),
 		Activo:        activo,
 	}
 
 	pagos, err := h.PagosPG.GetPagos(filtro)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if strings.Contains(strings.ToLower(err.Error()), "estado invalido") {
-			status = http.StatusBadRequest
-		}
-		utils.RespondError(c, status, err.Error())
+		utils.RespondError(c, statusPagoError(err), err.Error())
 		return
 	}
 
@@ -153,6 +155,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 			ClienteID:     clienteID,
 			ClienteNIT:    strings.TrimSpace(c.Query("cliente_nit")),
 			ClienteNombre: strings.TrimSpace(c.Query("cliente_nombre")),
+			TipoPago:      strings.ToLower(strings.TrimSpace(c.Query("tipo_pago"))),
 			Estado:        strings.TrimSpace(c.Query("estado")),
 			Activo:        activo,
 		},
@@ -191,14 +194,14 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 
 // CreatePago godoc
 // @Summary Crear pago
-// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Todos los campos de cabecera deben venir en el body excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. cliente_id puede venir como null. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
+// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Todos los campos de cabecera deben venir en el body excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. cliente_id puede venir como null. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
 // @Tags Pagos
 // @Accept json
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param payload body crearPagoRequest true "Datos completos del pago y su detalle"
 // @Success 201 {object} utils.APIResponse{data=pagoCreatedResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Referencia no encontrada: local, cliente o servicio invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
@@ -229,6 +232,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 		Subtotal:      req.Subtotal,
 		Descuento:     req.Descuento,
 		TotalFinal:    req.TotalFinal,
+		TipoPago:      stringValueRequired(req.TipoPago),
 		Estado:        stringValueRequired(req.Estado),
 		Activo:        boolValueRequired(req.Activo),
 		Detalle:       detalle,
@@ -246,7 +250,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 
 // PatchPago godoc
 // @Summary Actualizar pago
-// @Description Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id puede enviarse como null para limpiar la referencia.
+// @Description Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. tipo_pago es opcional, pero si se envia solo acepta efectivo o qr. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id puede enviarse como null para limpiar la referencia.
 // @Tags Pagos
 // @Accept json
 // @Produce json
@@ -254,7 +258,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 // @Param codigo_pago path string true "Codigo publico del pago" example(PAGO-000001)
 // @Param payload body actualizarPagoRequest true "Campos base a actualizar y/o detalle a sincronizar"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Pago no encontrado"
 // @Failure 409 {object} utils.APIResponse "Conflicto: no se puede modificar un pago en estado PAGADO"
@@ -308,6 +312,7 @@ func (h *Container) PatchPago(c *gin.Context) {
 		Subtotal:      req.Subtotal,
 		Descuento:     req.Descuento,
 		TotalFinal:    req.TotalFinal,
+		TipoPago:      req.TipoPago,
 		Estado:        req.Estado,
 		Activo:        req.Activo,
 		Detalle:       detalle,
@@ -362,7 +367,7 @@ func parseCrearPagoRequest(c *gin.Context) (crearPagoRequest, bool) {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
 		return req, false
 	}
-	for _, field := range []string{"local_id", "local_nombre", "cliente_id", "cliente_nit", "cliente_nombre", "descuento", "estado", "activo", "detalle"} {
+	for _, field := range []string{"local_id", "local_nombre", "cliente_id", "cliente_nit", "cliente_nombre", "descuento", "tipo_pago", "estado", "activo", "detalle"} {
 		if _, exists := body[field]; !exists {
 			utils.RespondError(c, http.StatusBadRequest, field+" es requerido")
 			return req, false
@@ -389,7 +394,7 @@ func parseCrearPagoRequest(c *gin.Context) (crearPagoRequest, bool) {
 	}
 
 	if req.LocalID == nil || req.LocalNombre == nil || req.ClienteNIT == nil || req.ClienteNombre == nil ||
-		req.Descuento == nil || req.Estado == nil || req.Activo == nil {
+		req.Descuento == nil || req.TipoPago == nil || req.Estado == nil || req.Activo == nil {
 		utils.RespondError(c, http.StatusBadRequest, "campos requeridos no pueden ser null")
 		return req, false
 	}
@@ -423,6 +428,10 @@ func parseActualizarPagoRequest(c *gin.Context) (actualizarPagoRequest, bool, bo
 
 	if rawDetalle, exists := body["detalle"]; exists && strings.TrimSpace(string(rawDetalle)) == "null" {
 		utils.RespondError(c, http.StatusBadRequest, "detalle debe ser una lista")
+		return req, false, false, false
+	}
+	if rawTipoPago, exists := body["tipo_pago"]; exists && strings.TrimSpace(string(rawTipoPago)) == "null" {
+		utils.RespondError(c, http.StatusBadRequest, "tipo_pago no puede ser null")
 		return req, false, false, false
 	}
 

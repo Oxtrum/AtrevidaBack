@@ -58,6 +58,11 @@ func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, er
 		args = append(args, "%"+filtro.ClienteNombre+"%")
 		idx++
 	}
+	if filtro.TipoPago != "" {
+		conditions = append(conditions, fmt.Sprintf("p.tipo_pago = $%d", idx))
+		args = append(args, filtro.TipoPago)
+		idx++
+	}
 	if filtro.Estado != "" {
 		conditions = append(conditions, fmt.Sprintf("p.estado = $%d", idx))
 		args = append(args, filtro.Estado)
@@ -120,9 +125,9 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 	err = tx.QueryRowx(`
 		INSERT INTO pagos (
 			local_id, local_nombre, cliente_id, cliente_nit, cliente_nombre,
-			subtotal, descuento, total_final, estado, activo
+			subtotal, descuento, total_final, tipo_pago, estado, activo
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		RETURNING id, codigo_pago
 	`,
 		input.LocalID,
@@ -133,6 +138,7 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 		*input.Subtotal,
 		*input.Descuento,
 		*input.TotalFinal,
+		input.TipoPago,
 		input.Estado,
 		input.Activo,
 	).Scan(&pagoID, &codigoPago)
@@ -263,6 +269,11 @@ func (r *PagosRepo) UpdatePago(input repository.ActualizarPagoInput) error {
 	if input.TotalFinal != nil {
 		sets = append(sets, fmt.Sprintf("total_final = $%d", idx))
 		args = append(args, *input.TotalFinal)
+		idx++
+	}
+	if input.TipoPago != nil {
+		sets = append(sets, fmt.Sprintf("tipo_pago = $%d", idx))
+		args = append(args, *input.TipoPago)
 		idx++
 	}
 	if input.Estado != nil {
@@ -423,6 +434,7 @@ func pagoSelectColumns() string {
 		p.subtotal,
 		p.descuento,
 		p.total_final,
+		p.tipo_pago,
 		p.estado,
 		p.activo,
 		p.fecha_creacion,
