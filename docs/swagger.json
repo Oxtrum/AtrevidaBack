@@ -2439,6 +2439,89 @@
                 }
             }
         },
+        "/bd/pagos/resumen": {
+            "get": {
+                "description": "Devuelve un resumen de ventas basado en pagos activos y PAGADOS dentro del periodo. Requiere token Bearer. Query: fecha_desde y fecha_hasta son requeridos en formato YYYY-MM-DD; local es opcional y filtra por nombre exacto case-insensitive. Si local no se envia, reporte.tipo_reporte es \"general\" y detalle_reportes incluye un reporte por cada local. Si local se envia, reporte.tipo_reporte es \"Local: \u003cnombre local\u003e\" y detalle_reportes viene vacio. Incluye total_periodo, subtotal, descuentos, cantidad_pagos, cantidad_servicios_vendidos, ticket_promedio, servicio_mas_comprado, servicio_mas_dinero_genera y ventas_por_tipo_pago.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Obtener resumen de pagos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-01-01",
+                        "description": "Fecha inicial del reporte en formato YYYY-MM-DD",
+                        "name": "fecha_desde",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-01-31",
+                        "description": "Fecha final del reporte en formato YYYY-MM-DD",
+                        "name": "fecha_hasta",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "SAN MARTIN",
+                        "description": "Nombre exacto del local",
+                        "name": "local",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.pagoResumenResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha_desde requerido, fecha_hasta requerido, fecha con formato invalido o rango invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/pagos/{codigo_pago}": {
             "get": {
                 "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera y detalle_pagos).",
@@ -5616,6 +5699,34 @@
                 }
             }
         },
+        "handlers.pagoResumenResponse": {
+            "type": "object",
+            "properties": {
+                "detalle_reportes": {
+                    "description": "Reportes por local; vacio cuando se filtra por un local",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.PagoResumenReporte"
+                    }
+                },
+                "filtros": {
+                    "description": "Filtros aplicados al reporte",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.PagoResumenFiltros"
+                        }
+                    ]
+                },
+                "reporte": {
+                    "description": "Reporte general o reporte del local filtrado",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.PagoResumenReporte"
+                        }
+                    ]
+                }
+            }
+        },
         "handlers.registrarUsuarioRequest": {
             "type": "object",
             "required": [
@@ -6497,6 +6608,134 @@
                 "username": {
                     "type": "string",
                     "example": "admin"
+                }
+            }
+        },
+        "services.PagoResumenFiltros": {
+            "type": "object",
+            "properties": {
+                "fecha_desde": {
+                    "description": "Fecha inicial del reporte en formato YYYY-MM-DD.",
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "fecha_hasta": {
+                    "description": "Fecha final del reporte en formato YYYY-MM-DD.",
+                    "type": "string",
+                    "example": "2026-01-31"
+                },
+                "local": {
+                    "description": "Local filtrado; vacio cuando el reporte es general.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                }
+            }
+        },
+        "services.PagoResumenReporte": {
+            "type": "object",
+            "properties": {
+                "cantidad_pagos": {
+                    "description": "Cantidad de pagos considerados.",
+                    "type": "integer",
+                    "example": 32
+                },
+                "cantidad_servicios_vendidos": {
+                    "description": "Cantidad total de servicios vendidos segun el detalle de pagos.",
+                    "type": "integer",
+                    "example": 45
+                },
+                "descuentos": {
+                    "description": "Descuentos acumulados en el periodo.",
+                    "type": "number",
+                    "example": 143
+                },
+                "local": {
+                    "description": "Nombre del local del reporte; vacio para reporte general.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "servicio_mas_comprado": {
+                    "description": "Servicio con mayor cantidad vendida.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.PagoResumenServicio"
+                        }
+                    ]
+                },
+                "servicio_mas_dinero_genera": {
+                    "description": "Servicio con mayor monto generado.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.PagoResumenServicio"
+                        }
+                    ]
+                },
+                "subtotal": {
+                    "description": "Subtotal acumulado antes de descuentos.",
+                    "type": "number",
+                    "example": 85000
+                },
+                "ticket_promedio": {
+                    "description": "Promedio de venta por pago.",
+                    "type": "number",
+                    "example": 2651.78
+                },
+                "tipo_reporte": {
+                    "description": "Tipo de reporte: general o Local: \u003cnombre local\u003e.",
+                    "type": "string",
+                    "example": "general"
+                },
+                "total_periodo": {
+                    "description": "Total final vendido en el periodo.",
+                    "type": "number",
+                    "example": 84857
+                },
+                "ventas_por_tipo_pago": {
+                    "description": "Totales agrupados por tipo de pago.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.PagoResumenTipoPago"
+                    }
+                }
+            }
+        },
+        "services.PagoResumenServicio": {
+            "type": "object",
+            "properties": {
+                "cantidad": {
+                    "description": "Cantidad total vendida del servicio.",
+                    "type": "integer",
+                    "example": 12
+                },
+                "monto_total": {
+                    "description": "Monto total generado por el servicio.",
+                    "type": "number",
+                    "example": 1200
+                },
+                "servicio": {
+                    "description": "Nombre del servicio cobrado.",
+                    "type": "string",
+                    "example": "Limpieza facial"
+                }
+            }
+        },
+        "services.PagoResumenTipoPago": {
+            "type": "object",
+            "properties": {
+                "cantidad_pagos": {
+                    "description": "Cantidad de pagos registrados con este tipo.",
+                    "type": "integer",
+                    "example": 8
+                },
+                "tipo_pago": {
+                    "description": "Tipo de pago utilizado.",
+                    "type": "string",
+                    "example": "efectivo"
+                },
+                "total": {
+                    "description": "Total final acumulado para este tipo de pago.",
+                    "type": "number",
+                    "example": 2500
                 }
             }
         },

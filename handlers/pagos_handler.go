@@ -94,6 +94,38 @@ type actualizarDetallePagoRequest struct {
 	Subtotal *float64 `json:"subtotal" example:"500"`
 }
 
+// GetResumenPagos godoc
+// @Summary Obtener resumen de pagos
+// @Description Devuelve un resumen de ventas basado en pagos activos y PAGADOS dentro del periodo. Requiere token Bearer. Query: fecha_desde y fecha_hasta son requeridos en formato YYYY-MM-DD; local es opcional y filtra por nombre exacto case-insensitive. Si local no se envia, reporte.tipo_reporte es "general" y detalle_reportes incluye un reporte por cada local. Si local se envia, reporte.tipo_reporte es "Local: <nombre local>" y detalle_reportes viene vacio. Incluye total_periodo, subtotal, descuentos, cantidad_pagos, cantidad_servicios_vendidos, ticket_promedio, servicio_mas_comprado, servicio_mas_dinero_genera y ventas_por_tipo_pago.
+// @Tags Pagos
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param fecha_desde query string true "Fecha inicial del reporte en formato YYYY-MM-DD" example(2026-01-01)
+// @Param fecha_hasta query string true "Fecha final del reporte en formato YYYY-MM-DD" example(2026-01-31)
+// @Param local query string false "Nombre exacto del local" example(SAN MARTIN)
+// @Success 200 {object} utils.APIResponse{data=pagoResumenResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: fecha_desde requerido, fecha_hasta requerido, fecha con formato invalido o rango invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/pagos/resumen [get]
+func (h *Container) GetResumenPagos(c *gin.Context) {
+	resumen, err := h.PagosPG.GetResumenPagos(services.ResumenPagosInput{
+		FechaDesde: c.Query("fecha_desde"),
+		FechaHasta: c.Query("fecha_hasta"),
+		Local:      c.Query("local"),
+	})
+	if err != nil {
+		utils.RespondError(c, statusPagoError(err), err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, pagoResumenResponse{
+		Filtros:         resumen.Filtros,
+		Reporte:         resumen.Reporte,
+		DetalleReportes: resumen.DetalleReportes,
+	})
+}
+
 // GetPagos godoc
 // @Summary Listar pagos
 // @Description Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, tipo_pago efectivo/qr, estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia, lista solo pagos activos.
@@ -488,6 +520,8 @@ func statusPagoError(err error) int {
 		return http.StatusNotFound
 	case strings.Contains(lower, "invalido"),
 		strings.Contains(lower, "inválido"),
+		strings.Contains(lower, "formato"),
+		strings.Contains(lower, "anterior"),
 		strings.Contains(lower, "requerido"),
 		strings.Contains(lower, "negativo"),
 		strings.Contains(lower, "mayor"),

@@ -212,6 +212,15 @@ type pagoListResponse struct {
 	Pagos []models.PagoPG `json:"pagos"`
 }
 
+type pagoResumenResponse struct {
+	// Filtros aplicados al reporte
+	Filtros services.PagoResumenFiltros `json:"filtros"`
+	// Reporte general o reporte del local filtrado
+	Reporte services.PagoResumenReporte `json:"reporte"`
+	// Reportes por local; vacio cuando se filtra por un local
+	DetalleReportes []services.PagoResumenReporte `json:"detalle_reportes"`
+}
+
 // ─── Single Item Responses ───
 
 type clienteItemResponse struct {

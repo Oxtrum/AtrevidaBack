@@ -1029,6 +1029,22 @@ definitions:
         example: 3
         type: integer
     type: object
+  handlers.pagoResumenResponse:
+    properties:
+      detalle_reportes:
+        description: Reportes por local; vacio cuando se filtra por un local
+        items:
+          $ref: '#/definitions/services.PagoResumenReporte'
+        type: array
+      filtros:
+        allOf:
+        - $ref: '#/definitions/services.PagoResumenFiltros'
+        description: Filtros aplicados al reporte
+      reporte:
+        allOf:
+        - $ref: '#/definitions/services.PagoResumenReporte'
+        description: Reporte general o reporte del local filtrado
+    type: object
   handlers.registrarUsuarioRequest:
     properties:
       password:
@@ -1673,6 +1689,99 @@ definitions:
       username:
         example: admin
         type: string
+    type: object
+  services.PagoResumenFiltros:
+    properties:
+      fecha_desde:
+        description: Fecha inicial del reporte en formato YYYY-MM-DD.
+        example: "2026-01-01"
+        type: string
+      fecha_hasta:
+        description: Fecha final del reporte en formato YYYY-MM-DD.
+        example: "2026-01-31"
+        type: string
+      local:
+        description: Local filtrado; vacio cuando el reporte es general.
+        example: SAN MARTIN
+        type: string
+    type: object
+  services.PagoResumenReporte:
+    properties:
+      cantidad_pagos:
+        description: Cantidad de pagos considerados.
+        example: 32
+        type: integer
+      cantidad_servicios_vendidos:
+        description: Cantidad total de servicios vendidos segun el detalle de pagos.
+        example: 45
+        type: integer
+      descuentos:
+        description: Descuentos acumulados en el periodo.
+        example: 143
+        type: number
+      local:
+        description: Nombre del local del reporte; vacio para reporte general.
+        example: SAN MARTIN
+        type: string
+      servicio_mas_comprado:
+        allOf:
+        - $ref: '#/definitions/services.PagoResumenServicio'
+        description: Servicio con mayor cantidad vendida.
+      servicio_mas_dinero_genera:
+        allOf:
+        - $ref: '#/definitions/services.PagoResumenServicio'
+        description: Servicio con mayor monto generado.
+      subtotal:
+        description: Subtotal acumulado antes de descuentos.
+        example: 85000
+        type: number
+      ticket_promedio:
+        description: Promedio de venta por pago.
+        example: 2651.78
+        type: number
+      tipo_reporte:
+        description: 'Tipo de reporte: general o Local: <nombre local>.'
+        example: general
+        type: string
+      total_periodo:
+        description: Total final vendido en el periodo.
+        example: 84857
+        type: number
+      ventas_por_tipo_pago:
+        description: Totales agrupados por tipo de pago.
+        items:
+          $ref: '#/definitions/services.PagoResumenTipoPago'
+        type: array
+    type: object
+  services.PagoResumenServicio:
+    properties:
+      cantidad:
+        description: Cantidad total vendida del servicio.
+        example: 12
+        type: integer
+      monto_total:
+        description: Monto total generado por el servicio.
+        example: 1200
+        type: number
+      servicio:
+        description: Nombre del servicio cobrado.
+        example: Limpieza facial
+        type: string
+    type: object
+  services.PagoResumenTipoPago:
+    properties:
+      cantidad_pagos:
+        description: Cantidad de pagos registrados con este tipo.
+        example: 8
+        type: integer
+      tipo_pago:
+        description: Tipo de pago utilizado.
+        example: efectivo
+        type: string
+      total:
+        description: Total final acumulado para este tipo de pago.
+        example: 2500
+        type: number
     type: object
   services.ReservaSimple:
     properties:
@@ -3539,6 +3648,68 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Actualizar pago
+      tags:
+      - Pagos
+  /bd/pagos/resumen:
+    get:
+      description: 'Devuelve un resumen de ventas basado en pagos activos y PAGADOS
+        dentro del periodo. Requiere token Bearer. Query: fecha_desde y fecha_hasta
+        son requeridos en formato YYYY-MM-DD; local es opcional y filtra por nombre
+        exacto case-insensitive. Si local no se envia, reporte.tipo_reporte es "general"
+        y detalle_reportes incluye un reporte por cada local. Si local se envia, reporte.tipo_reporte
+        es "Local: <nombre local>" y detalle_reportes viene vacio. Incluye total_periodo,
+        subtotal, descuentos, cantidad_pagos, cantidad_servicios_vendidos, ticket_promedio,
+        servicio_mas_comprado, servicio_mas_dinero_genera y ventas_por_tipo_pago.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Fecha inicial del reporte en formato YYYY-MM-DD
+        example: "2026-01-01"
+        in: query
+        name: fecha_desde
+        required: true
+        type: string
+      - description: Fecha final del reporte en formato YYYY-MM-DD
+        example: "2026-01-31"
+        in: query
+        name: fecha_hasta
+        required: true
+        type: string
+      - description: Nombre exacto del local
+        example: SAN MARTIN
+        in: query
+        name: local
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.pagoResumenResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: fecha_desde requerido, fecha_hasta requerido,
+            fecha con formato invalido o rango invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Obtener resumen de pagos
       tags:
       - Pagos
   /bd/reservas:

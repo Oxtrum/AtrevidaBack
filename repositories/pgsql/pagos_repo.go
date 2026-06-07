@@ -338,6 +338,47 @@ func (r *PagosRepo) DeletePago(codigoPago string) error {
 	return nil
 }
 
+func (r *PagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) ([]repository.PagoResumenRow, error) {
+	conditions := []string{
+		"p.activo = TRUE",
+		"p.estado = 'PAGADO'",
+		"p.fecha_creacion::date >= $1::date",
+		"p.fecha_creacion::date <= $2::date",
+	}
+	args := []interface{}{filtro.FechaDesde, filtro.FechaHasta}
+	idx := 3
+
+	if filtro.Local != "" {
+		conditions = append(conditions, fmt.Sprintf("UPPER(p.local_nombre) = UPPER($%d)", idx))
+		args = append(args, filtro.Local)
+		idx++
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			p.id AS pago_id,
+			p.local_nombre,
+			p.tipo_pago,
+			p.subtotal,
+			p.descuento,
+			p.total_final,
+			dp.servicio,
+			dp.cantidad,
+			dp.subtotal AS detalle_subtotal
+		FROM pagos p
+		LEFT JOIN detalle_pagos dp ON dp.pago_id = p.id
+		WHERE %s
+		ORDER BY p.local_nombre, p.id, dp.id
+	`, strings.Join(conditions, " AND "))
+
+	var rows []repository.PagoResumenRow
+	if err := r.db.Select(&rows, query, args...); err != nil {
+		return nil, fmt.Errorf("no se pudo obtener el resumen de pagos")
+	}
+
+	return rows, nil
+}
+
 func (r *PagosRepo) getDetallePago(pagoID int) ([]models.DetallePagoPG, error) {
 	var detalle []models.DetallePagoPG
 	err := r.db.Select(&detalle, `
