@@ -196,7 +196,7 @@ type PagoPG struct {
 	LocalNombre string `db:"local_nombre" json:"local_nombre" example:"SAN MARTIN"`
 	// ID opcional del cliente registrado.
 	ClienteID *int `db:"cliente_id" json:"cliente_id,omitempty" example:"12"`
-	// NIT del cliente.
+	// NIT opcional del cliente; vacio si no se registro.
 	ClienteNIT string `db:"cliente_nit" json:"cliente_nit" example:"1234567"`
 	// Nombre del cliente al momento de registrar el pago.
 	ClienteNombre string `db:"cliente_nombre" json:"cliente_nombre" example:"Maria Lopez"`

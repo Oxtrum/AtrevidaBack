@@ -2366,7 +2366,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Todos los campos de cabecera deben venir en el body excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. cliente_id puede venir como null. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
+                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2588,7 +2588,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. tipo_pago es opcional, pero si se envia solo acepta efectivo o qr. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id puede enviarse como null para limpiar la referencia.",
+                "description": "Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. tipo_pago es opcional, pero si se envia solo acepta efectivo o qr. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id y cliente_nit pueden enviarse como null para limpiar la referencia o el valor.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4466,7 +4466,7 @@ const docTemplate = `{
                     "example": 12
                 },
                 "cliente_nit": {
-                    "description": "Nuevo NIT del cliente (opcional).",
+                    "description": "Nuevo NIT del cliente; puede enviarse null o vacio para limpiar el valor.",
                     "type": "string",
                     "example": "1234567"
                 },
@@ -5101,7 +5101,7 @@ const docTemplate = `{
                     "example": 12
                 },
                 "cliente_nit": {
-                    "description": "NIT del cliente.",
+                    "description": "NIT opcional del cliente.",
                     "type": "string",
                     "example": "1234567"
                 },
@@ -6178,7 +6178,7 @@ const docTemplate = `{
                     "example": 12
                 },
                 "cliente_nit": {
-                    "description": "NIT del cliente.",
+                    "description": "NIT opcional del cliente; vacio si no se registro.",
                     "type": "string",
                     "example": "1234567"
                 },
@@ -6260,7 +6260,7 @@ const docTemplate = `{
                     "example": 12
                 },
                 "cliente_nit": {
-                    "description": "NIT del cliente.",
+                    "description": "NIT opcional del cliente; vacio si no se registro.",
                     "type": "string",
                     "example": "1234567"
                 },

@@ -32,8 +32,8 @@ type crearPagoRequest struct {
 	LocalNombre *string `json:"local_nombre" example:"SAN MARTIN"`
 	// ID opcional del cliente registrado; puede enviarse null.
 	ClienteID *int `json:"cliente_id" example:"12"`
-	// NIT del cliente.
-	ClienteNIT *string `json:"cliente_nit" example:"1234567"`
+	// NIT opcional del cliente.
+	ClienteNIT *string `json:"cliente_nit,omitempty" example:"1234567"`
 	// Nombre del cliente.
 	ClienteNombre *string `json:"cliente_nombre" example:"Maria Lopez"`
 	// Subtotal del pago.
@@ -59,8 +59,8 @@ type actualizarPagoRequest struct {
 	LocalNombre *string `json:"local_nombre" example:"SAN MARTIN"`
 	// Nuevo ID del cliente; puede enviarse null para limpiar la referencia.
 	ClienteID *int `json:"cliente_id" example:"12"`
-	// Nuevo NIT del cliente (opcional).
-	ClienteNIT *string `json:"cliente_nit" example:"1234567"`
+	// Nuevo NIT del cliente; puede enviarse null o vacio para limpiar el valor.
+	ClienteNIT *string `json:"cliente_nit,omitempty" example:"1234567"`
 	// Nuevo nombre del cliente (opcional).
 	ClienteNombre *string `json:"cliente_nombre" example:"Maria Lopez"`
 	// Nuevo subtotal del pago (opcional).
@@ -194,7 +194,7 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 
 // CreatePago godoc
 // @Summary Crear pago
-// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Todos los campos de cabecera deben venir en el body excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. cliente_id puede venir como null. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
+// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
 // @Tags Pagos
 // @Accept json
 // @Produce json
@@ -227,7 +227,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 		LocalID:       intValueRequired(req.LocalID),
 		LocalNombre:   stringValueRequired(req.LocalNombre),
 		ClienteID:     req.ClienteID,
-		ClienteNIT:    stringValueRequired(req.ClienteNIT),
+		ClienteNIT:    req.ClienteNIT,
 		ClienteNombre: stringValueRequired(req.ClienteNombre),
 		Subtotal:      req.Subtotal,
 		Descuento:     req.Descuento,
@@ -250,7 +250,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 
 // PatchPago godoc
 // @Summary Actualizar pago
-// @Description Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. tipo_pago es opcional, pero si se envia solo acepta efectivo o qr. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id puede enviarse como null para limpiar la referencia.
+// @Description Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. tipo_pago es opcional, pero si se envia solo acepta efectivo o qr. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id y cliente_nit pueden enviarse como null para limpiar la referencia o el valor.
 // @Tags Pagos
 // @Accept json
 // @Produce json
@@ -271,7 +271,7 @@ func (h *Container) PatchPago(c *gin.Context) {
 		return
 	}
 
-	req, clienteIDSet, detalleSet, ok := parseActualizarPagoRequest(c)
+	req, clienteIDSet, clienteNITSet, detalleSet, ok := parseActualizarPagoRequest(c)
 	if !ok {
 		return
 	}
@@ -308,6 +308,7 @@ func (h *Container) PatchPago(c *gin.Context) {
 		ClienteID:     req.ClienteID,
 		ClienteIDSet:  clienteIDSet,
 		ClienteNIT:    req.ClienteNIT,
+		ClienteNITSet: clienteNITSet,
 		ClienteNombre: req.ClienteNombre,
 		Subtotal:      req.Subtotal,
 		Descuento:     req.Descuento,
@@ -367,7 +368,7 @@ func parseCrearPagoRequest(c *gin.Context) (crearPagoRequest, bool) {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
 		return req, false
 	}
-	for _, field := range []string{"local_id", "local_nombre", "cliente_id", "cliente_nit", "cliente_nombre", "descuento", "tipo_pago", "estado", "activo", "detalle"} {
+	for _, field := range []string{"local_id", "local_nombre", "cliente_id", "cliente_nombre", "descuento", "tipo_pago", "estado", "activo", "detalle"} {
 		if _, exists := body[field]; !exists {
 			utils.RespondError(c, http.StatusBadRequest, field+" es requerido")
 			return req, false
@@ -393,7 +394,7 @@ func parseCrearPagoRequest(c *gin.Context) (crearPagoRequest, bool) {
 		return req, false
 	}
 
-	if req.LocalID == nil || req.LocalNombre == nil || req.ClienteNIT == nil || req.ClienteNombre == nil ||
+	if req.LocalID == nil || req.LocalNombre == nil || req.ClienteNombre == nil ||
 		req.Descuento == nil || req.TipoPago == nil || req.Estado == nil || req.Activo == nil {
 		utils.RespondError(c, http.StatusBadRequest, "campos requeridos no pueden ser null")
 		return req, false
@@ -408,41 +409,42 @@ func parseCrearPagoRequest(c *gin.Context) (crearPagoRequest, bool) {
 	return req, true
 }
 
-func parseActualizarPagoRequest(c *gin.Context) (actualizarPagoRequest, bool, bool, bool) {
+func parseActualizarPagoRequest(c *gin.Context) (actualizarPagoRequest, bool, bool, bool, bool) {
 	var req actualizarPagoRequest
 	raw, err := c.GetRawData()
 	if err != nil {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
-		return req, false, false, false
+		return req, false, false, false, false
 	}
 
 	var body map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &body); err != nil {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
-		return req, false, false, false
+		return req, false, false, false, false
 	}
 	if len(body) == 0 {
 		utils.RespondError(c, http.StatusBadRequest, "debe enviar al menos un campo para actualizar")
-		return req, false, false, false
+		return req, false, false, false, false
 	}
 
 	if rawDetalle, exists := body["detalle"]; exists && strings.TrimSpace(string(rawDetalle)) == "null" {
 		utils.RespondError(c, http.StatusBadRequest, "detalle debe ser una lista")
-		return req, false, false, false
+		return req, false, false, false, false
 	}
 	if rawTipoPago, exists := body["tipo_pago"]; exists && strings.TrimSpace(string(rawTipoPago)) == "null" {
 		utils.RespondError(c, http.StatusBadRequest, "tipo_pago no puede ser null")
-		return req, false, false, false
+		return req, false, false, false, false
 	}
 
 	if err := json.Unmarshal(raw, &req); err != nil {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
-		return req, false, false, false
+		return req, false, false, false, false
 	}
 
 	_, clienteIDSet := body["cliente_id"]
+	_, clienteNITSet := body["cliente_nit"]
 	_, detalleSet := body["detalle"]
-	return req, clienteIDSet, detalleSet, true
+	return req, clienteIDSet, clienteNITSet, detalleSet, true
 }
 
 func optionalPositiveIntQuery(c *gin.Context, name string) (*int, bool) {

@@ -65,7 +65,7 @@ type CrearPagoInput struct {
 	LocalID       int
 	LocalNombre   string
 	ClienteID     *int
-	ClienteNIT    string
+	ClienteNIT    *string
 	ClienteNombre string
 	Subtotal      *float64
 	Descuento     *float64
@@ -119,7 +119,9 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 		return "", err
 	}
 
-	if err := validarPagoBase(input.LocalID, input.LocalNombre, input.ClienteID, input.ClienteNIT, input.ClienteNombre, &subtotal, &descuento, &totalFinal); err != nil {
+	clienteNIT := trimOptionalStringPtr(input.ClienteNIT)
+
+	if err := validarPagoBase(input.LocalID, input.LocalNombre, input.ClienteID, input.ClienteNombre, &subtotal, &descuento, &totalFinal); err != nil {
 		return "", err
 	}
 
@@ -127,7 +129,7 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 		LocalID:       input.LocalID,
 		LocalNombre:   strings.TrimSpace(input.LocalNombre),
 		ClienteID:     input.ClienteID,
-		ClienteNIT:    strings.TrimSpace(input.ClienteNIT),
+		ClienteNIT:    clienteNIT,
 		ClienteNombre: strings.TrimSpace(input.ClienteNombre),
 		Subtotal:      &subtotal,
 		Descuento:     &descuento,
@@ -146,6 +148,7 @@ type ActualizarPagoInput struct {
 	ClienteID     *int
 	ClienteIDSet  bool
 	ClienteNIT    *string
+	ClienteNITSet bool
 	ClienteNombre *string
 	Subtotal      *float64
 	Descuento     *float64
@@ -172,7 +175,7 @@ func (s *PagosService) UpdatePago(input ActualizarPagoInput) error {
 	}
 
 	localNombre := trimStringPtr(input.LocalNombre)
-	clienteNIT := trimStringPtr(input.ClienteNIT)
+	clienteNIT := trimOptionalStringPtr(input.ClienteNIT)
 	clienteNombre := trimStringPtr(input.ClienteNombre)
 
 	if input.LocalID != nil && *input.LocalID <= 0 {
@@ -183,9 +186,6 @@ func (s *PagosService) UpdatePago(input ActualizarPagoInput) error {
 	}
 	if input.ClienteID != nil && *input.ClienteID <= 0 {
 		return errors.New("cliente_id invalido")
-	}
-	if clienteNIT != nil && *clienteNIT == "" {
-		return errors.New("cliente_nit no puede estar vacio")
 	}
 	if clienteNombre != nil && *clienteNombre == "" {
 		return errors.New("cliente_nombre no puede estar vacio")
@@ -255,6 +255,7 @@ func (s *PagosService) UpdatePago(input ActualizarPagoInput) error {
 		ClienteID:     input.ClienteID,
 		ClienteIDSet:  input.ClienteIDSet,
 		ClienteNIT:    clienteNIT,
+		ClienteNITSet: input.ClienteNITSet,
 		ClienteNombre: clienteNombre,
 		Subtotal:      input.Subtotal,
 		Descuento:     input.Descuento,
@@ -312,7 +313,7 @@ func normalizarTipoPagoOpcional(raw string) (string, error) {
 	return NormalizarTipoPago(raw)
 }
 
-func validarPagoBase(localID int, localNombre string, clienteID *int, clienteNIT, clienteNombre string, subtotal, descuento, totalFinal *float64) error {
+func validarPagoBase(localID int, localNombre string, clienteID *int, clienteNombre string, subtotal, descuento, totalFinal *float64) error {
 	if localID <= 0 {
 		return errors.New("local_id invalido")
 	}
@@ -321,9 +322,6 @@ func validarPagoBase(localID int, localNombre string, clienteID *int, clienteNIT
 	}
 	if clienteID != nil && *clienteID <= 0 {
 		return errors.New("cliente_id invalido")
-	}
-	if strings.TrimSpace(clienteNIT) == "" {
-		return errors.New("cliente_nit es requerido")
 	}
 	if strings.TrimSpace(clienteNombre) == "" {
 		return errors.New("cliente_nombre es requerido")
@@ -404,5 +402,16 @@ func trimStringPtr(value *string) *string {
 		return nil
 	}
 	trimmed := strings.TrimSpace(*value)
+	return &trimmed
+}
+
+func trimOptionalStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
 	return &trimmed
 }

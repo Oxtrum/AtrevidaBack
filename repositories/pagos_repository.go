@@ -18,7 +18,7 @@ type CrearPagoInput struct {
 	LocalID       int
 	LocalNombre   string
 	ClienteID     *int
-	ClienteNIT    string
+	ClienteNIT    *string
 	ClienteNombre string
 	Subtotal      *float64
 	Descuento     *float64
@@ -44,6 +44,7 @@ type ActualizarPagoInput struct {
 	ClienteID     *int
 	ClienteIDSet  bool
 	ClienteNIT    *string
+	ClienteNITSet bool
 	ClienteNombre *string
 	Subtotal      *float64
 	Descuento     *float64

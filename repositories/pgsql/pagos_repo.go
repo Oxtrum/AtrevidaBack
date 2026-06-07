@@ -246,9 +246,9 @@ func (r *PagosRepo) UpdatePago(input repository.ActualizarPagoInput) error {
 		args = append(args, input.ClienteID)
 		idx++
 	}
-	if input.ClienteNIT != nil {
+	if input.ClienteNITSet {
 		sets = append(sets, fmt.Sprintf("cliente_nit = $%d", idx))
-		args = append(args, *input.ClienteNIT)
+		args = append(args, input.ClienteNIT)
 		idx++
 	}
 	if input.ClienteNombre != nil {
@@ -429,7 +429,7 @@ func pagoSelectColumns() string {
 		p.local_id,
 		p.local_nombre,
 		p.cliente_id,
-		p.cliente_nit,
+		COALESCE(p.cliente_nit, '') AS cliente_nit,
 		p.cliente_nombre,
 		p.subtotal,
 		p.descuento,
