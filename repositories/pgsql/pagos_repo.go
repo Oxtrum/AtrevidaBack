@@ -73,6 +73,36 @@ func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, er
 		args = append(args, *filtro.Activo)
 		idx++
 	}
+	if filtro.IDCajero != nil {
+		conditions = append(conditions, fmt.Sprintf("p.id_cajero = $%d", idx))
+		args = append(args, *filtro.IDCajero)
+		idx++
+	}
+	if filtro.NombreCajero != "" {
+		conditions = append(conditions, fmt.Sprintf("p.nombre_cajero ILIKE $%d", idx))
+		args = append(args, "%"+filtro.NombreCajero+"%")
+		idx++
+	}
+	if filtro.UsernameCajero != "" {
+		conditions = append(conditions, fmt.Sprintf("p.username_cajero ILIKE $%d", idx))
+		args = append(args, "%"+filtro.UsernameCajero+"%")
+		idx++
+	}
+	if filtro.IDCajeroModificacion != nil {
+		conditions = append(conditions, fmt.Sprintf("p.id_cajero_modificacion = $%d", idx))
+		args = append(args, *filtro.IDCajeroModificacion)
+		idx++
+	}
+	if filtro.NombreCajeroModificacion != "" {
+		conditions = append(conditions, fmt.Sprintf("p.nombre_cajero_modificacion ILIKE $%d", idx))
+		args = append(args, "%"+filtro.NombreCajeroModificacion+"%")
+		idx++
+	}
+	if filtro.UsernameCajeroModificacion != "" {
+		conditions = append(conditions, fmt.Sprintf("p.username_cajero_modificacion ILIKE $%d", idx))
+		args = append(args, "%"+filtro.UsernameCajeroModificacion+"%")
+		idx++
+	}
 
 	query := fmt.Sprintf(`
 		SELECT %s
@@ -125,9 +155,10 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 	err = tx.QueryRowx(`
 		INSERT INTO pagos (
 			local_id, local_nombre, cliente_id, cliente_nit, cliente_nombre,
-			subtotal, descuento, total_final, tipo_pago, estado, activo
+			subtotal, descuento, total_final, tipo_pago, estado, activo,
+			id_cajero, nombre_cajero, username_cajero
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 		RETURNING id, codigo_pago
 	`,
 		input.LocalID,
@@ -141,6 +172,9 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 		input.TipoPago,
 		input.Estado,
 		input.Activo,
+		input.Cajero.ID,
+		input.Cajero.Nombre,
+		input.Cajero.Username,
 	).Scan(&pagoID, &codigoPago)
 	if err != nil {
 		return "", pagoInsertError(err)
@@ -290,6 +324,15 @@ func (r *PagosRepo) UpdatePago(input repository.ActualizarPagoInput) error {
 	if len(sets) == 1 {
 		return fmt.Errorf("debe enviar al menos un campo para actualizar")
 	}
+	sets = append(sets, fmt.Sprintf("id_cajero_modificacion = $%d", idx))
+	args = append(args, input.Cajero.ID)
+	idx++
+	sets = append(sets, fmt.Sprintf("nombre_cajero_modificacion = $%d", idx))
+	args = append(args, input.Cajero.Nombre)
+	idx++
+	sets = append(sets, fmt.Sprintf("username_cajero_modificacion = $%d", idx))
+	args = append(args, input.Cajero.Username)
+	idx++
 
 	args = append(args, input.CodigoPago)
 	query := fmt.Sprintf(`
@@ -478,6 +521,12 @@ func pagoSelectColumns() string {
 		p.tipo_pago,
 		p.estado,
 		p.activo,
+		p.id_cajero,
+		COALESCE(p.nombre_cajero, '') AS nombre_cajero,
+		p.username_cajero,
+		p.id_cajero_modificacion,
+		p.nombre_cajero_modificacion,
+		p.username_cajero_modificacion,
 		p.fecha_creacion,
 		p.fecha_modificacion
 	`

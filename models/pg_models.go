@@ -212,6 +212,18 @@ type PagoPG struct {
 	Estado string `db:"estado" json:"estado" example:"PENDIENTE"`
 	// Estado activo para borrado logico.
 	Activo bool `db:"activo" json:"activo" example:"true"`
+	// ID opcional del cajero que registro el pago.
+	IDCajero *int `db:"id_cajero" json:"id_cajero,omitempty" example:"1"`
+	// Nombre completo del cajero que registro el pago.
+	NombreCajero string `db:"nombre_cajero" json:"nombre_cajero" example:"admin"`
+	// Username opcional del cajero que registro el pago.
+	UsernameCajero *string `db:"username_cajero" json:"username_cajero,omitempty" example:"admin"`
+	// ID opcional del cajero que modifico el pago por ultima vez.
+	IDCajeroModificacion *int `db:"id_cajero_modificacion" json:"id_cajero_modificacion,omitempty" example:"2"`
+	// Nombre completo opcional del cajero que modifico el pago por ultima vez.
+	NombreCajeroModificacion *string `db:"nombre_cajero_modificacion" json:"nombre_cajero_modificacion,omitempty" example:"Ana Perez"`
+	// Username opcional del cajero que modifico el pago por ultima vez.
+	UsernameCajeroModificacion *string `db:"username_cajero_modificacion" json:"username_cajero_modificacion,omitempty" example:"ana"`
 	// Fecha de creacion del pago.
 	FechaCreacion time.Time `db:"fecha_creacion" json:"fecha_creacion" example:"2026-06-03T10:00:00Z"`
 	// Fecha de ultima modificacion del pago.

@@ -2236,7 +2236,7 @@ const docTemplate = `{
         },
         "/bd/pagos": {
             "get": {
-                "description": "Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, tipo_pago efectivo/qr, estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia, lista solo pagos activos.",
+                "description": "Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Incluye auditoria de creacion y modificacion: fecha_creacion, fecha_modificacion, id_cajero, nombre_cajero, username_cajero, id_cajero_modificacion, nombre_cajero_modificacion y username_cajero_modificacion. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, tipo_pago efectivo/qr, estado PAGADO/BORRADOR/PENDIENTE, activo true/false, cajero de creacion y cajero de modificacion. Si activo no se envia, lista solo pagos activos.",
                 "produces": [
                     "application/json"
                 ],
@@ -2324,6 +2324,48 @@ const docTemplate = `{
                         "description": "Filtrar por activo; default true",
                         "name": "activo",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del cajero que registro el pago",
+                        "name": "id_cajero",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "Juan",
+                        "description": "Busqueda parcial por nombre del cajero que registro el pago",
+                        "name": "nombre_cajero",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "juan",
+                        "description": "Busqueda parcial por username del cajero que registro el pago",
+                        "name": "username_cajero",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 2,
+                        "description": "ID del cajero que modifico el pago por ultima vez",
+                        "name": "id_cajero_modificacion",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "Ana",
+                        "description": "Busqueda parcial por nombre del cajero que modifico el pago por ultima vez",
+                        "name": "nombre_cajero_modificacion",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "ana",
+                        "description": "Busqueda parcial por username del cajero que modifico el pago por ultima vez",
+                        "name": "username_cajero_modificacion",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2346,7 +2388,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: local_id invalido, cliente_id invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2366,7 +2408,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
+                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2416,7 +2458,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: body invalido, campos requeridos, importes invalidos, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2527,7 +2569,7 @@ const docTemplate = `{
         },
         "/bd/pagos/{codigo_pago}": {
             "get": {
-                "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera y detalle_pagos).",
+                "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).",
                 "produces": [
                     "application/json"
                 ],
@@ -2671,7 +2713,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. tipo_pago es opcional, pero si se envia solo acepta efectivo o qr. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id y cliente_nit pueden enviarse como null para limpiar la referencia o el valor.",
+                "description": "Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. Puede enviarse nombre para guardar el nombre completo del cajero que edita; si se omite o viene vacio se usa el username del token. id_cajero_modificacion y username_cajero_modificacion se toman del token y los campos de auditoria no son editables. tipo_pago es opcional, pero si se envia solo acepta efectivo o qr. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id y cliente_nit pueden enviarse como null para limpiar la referencia o el valor.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2729,7 +2771,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -4585,6 +4627,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
+                "nombre": {
+                    "description": "Nombre completo del cajero actual; si se omite o viene vacio se usa el username del token.",
+                    "type": "string",
+                    "example": "Ana Perez"
+                },
                 "subtotal": {
                     "description": "Nuevo subtotal del pago (opcional).",
                     "type": "number",
@@ -5220,6 +5267,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
+                "nombre": {
+                    "description": "Nombre completo del cajero actual; si se omite o viene vacio se usa el username del token.",
+                    "type": "string",
+                    "example": "Juan Perez"
+                },
                 "subtotal": {
                     "description": "Subtotal del pago.",
                     "type": "number",
@@ -5647,6 +5699,16 @@ const docTemplate = `{
                     "type": "string",
                     "example": "PENDIENTE"
                 },
+                "id_cajero": {
+                    "description": "Filtro aplicado: ID del cajero que registro el pago",
+                    "type": "integer",
+                    "example": 1
+                },
+                "id_cajero_modificacion": {
+                    "description": "Filtro aplicado: ID del cajero que modifico el pago por ultima vez",
+                    "type": "integer",
+                    "example": 2
+                },
                 "local_id": {
                     "description": "Filtro aplicado: ID del local",
                     "type": "integer",
@@ -5657,10 +5719,30 @@ const docTemplate = `{
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
+                "nombre_cajero": {
+                    "description": "Filtro aplicado: nombre del cajero que registro el pago",
+                    "type": "string",
+                    "example": "Juan"
+                },
+                "nombre_cajero_modificacion": {
+                    "description": "Filtro aplicado: nombre del cajero que modifico el pago por ultima vez",
+                    "type": "string",
+                    "example": "Ana"
+                },
                 "tipo_pago": {
                     "description": "Filtro aplicado: tipo de pago",
                     "type": "string",
                     "example": "efectivo"
+                },
+                "username_cajero": {
+                    "description": "Filtro aplicado: username del cajero que registro el pago",
+                    "type": "string",
+                    "example": "juan"
+                },
+                "username_cajero_modificacion": {
+                    "description": "Filtro aplicado: username del cajero que modifico el pago por ultima vez",
+                    "type": "string",
+                    "example": "ana"
                 }
             }
         },
@@ -6330,6 +6412,16 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2026-06-03T10:30:00Z"
                 },
+                "id_cajero": {
+                    "description": "ID opcional del cajero que registro el pago.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "id_cajero_modificacion": {
+                    "description": "ID opcional del cajero que modifico el pago por ultima vez.",
+                    "type": "integer",
+                    "example": 2
+                },
                 "local_id": {
                     "description": "ID del local donde se registra el pago.",
                     "type": "integer",
@@ -6339,6 +6431,16 @@ const docTemplate = `{
                     "description": "Nombre del local al momento de registrar el pago.",
                     "type": "string",
                     "example": "SAN MARTIN"
+                },
+                "nombre_cajero": {
+                    "description": "Nombre completo del cajero que registro el pago.",
+                    "type": "string",
+                    "example": "admin"
+                },
+                "nombre_cajero_modificacion": {
+                    "description": "Nombre completo opcional del cajero que modifico el pago por ultima vez.",
+                    "type": "string",
+                    "example": "Ana Perez"
                 },
                 "subtotal": {
                     "description": "Subtotal del pago antes del descuento.",
@@ -6354,6 +6456,16 @@ const docTemplate = `{
                     "description": "Total final del pago.",
                     "type": "number",
                     "example": 450
+                },
+                "username_cajero": {
+                    "description": "Username opcional del cajero que registro el pago.",
+                    "type": "string",
+                    "example": "admin"
+                },
+                "username_cajero_modificacion": {
+                    "description": "Username opcional del cajero que modifico el pago por ultima vez.",
+                    "type": "string",
+                    "example": "ana"
                 }
             }
         },
@@ -6405,6 +6517,16 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2026-06-03T10:30:00Z"
                 },
+                "id_cajero": {
+                    "description": "ID opcional del cajero que registro el pago.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "id_cajero_modificacion": {
+                    "description": "ID opcional del cajero que modifico el pago por ultima vez.",
+                    "type": "integer",
+                    "example": 2
+                },
                 "local_id": {
                     "description": "ID del local donde se registra el pago.",
                     "type": "integer",
@@ -6414,6 +6536,16 @@ const docTemplate = `{
                     "description": "Nombre del local al momento de registrar el pago.",
                     "type": "string",
                     "example": "SAN MARTIN"
+                },
+                "nombre_cajero": {
+                    "description": "Nombre completo del cajero que registro el pago.",
+                    "type": "string",
+                    "example": "admin"
+                },
+                "nombre_cajero_modificacion": {
+                    "description": "Nombre completo opcional del cajero que modifico el pago por ultima vez.",
+                    "type": "string",
+                    "example": "Ana Perez"
                 },
                 "subtotal": {
                     "description": "Subtotal del pago antes del descuento.",
@@ -6429,6 +6561,16 @@ const docTemplate = `{
                     "description": "Total final del pago.",
                     "type": "number",
                     "example": 450
+                },
+                "username_cajero": {
+                    "description": "Username opcional del cajero que registro el pago.",
+                    "type": "string",
+                    "example": "admin"
+                },
+                "username_cajero_modificacion": {
+                    "description": "Username opcional del cajero que modifico el pago por ultima vez.",
+                    "type": "string",
+                    "example": "ana"
                 }
             }
         },

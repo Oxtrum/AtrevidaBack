@@ -108,6 +108,18 @@ type pagoFiltrosResponse struct {
 	Estado string `json:"estado" example:"PENDIENTE"`
 	// Filtro aplicado: estado activo
 	Activo *bool `json:"activo,omitempty" example:"true"`
+	// Filtro aplicado: ID del cajero que registro el pago
+	IDCajero *int `json:"id_cajero,omitempty" example:"1"`
+	// Filtro aplicado: nombre del cajero que registro el pago
+	NombreCajero string `json:"nombre_cajero" example:"Juan"`
+	// Filtro aplicado: username del cajero que registro el pago
+	UsernameCajero string `json:"username_cajero" example:"juan"`
+	// Filtro aplicado: ID del cajero que modifico el pago por ultima vez
+	IDCajeroModificacion *int `json:"id_cajero_modificacion,omitempty" example:"2"`
+	// Filtro aplicado: nombre del cajero que modifico el pago por ultima vez
+	NombreCajeroModificacion string `json:"nombre_cajero_modificacion" example:"Ana"`
+	// Filtro aplicado: username del cajero que modifico el pago por ultima vez
+	UsernameCajeroModificacion string `json:"username_cajero_modificacion" example:"ana"`
 }
 
 // ─── List Responses ───

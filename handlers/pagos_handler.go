@@ -48,6 +48,8 @@ type crearPagoRequest struct {
 	Estado *string `json:"estado" example:"PENDIENTE"`
 	// Estado activo inicial del pago.
 	Activo *bool `json:"activo" example:"true"`
+	// Nombre completo del cajero actual; si se omite o viene vacio se usa el username del token.
+	Nombre *string `json:"nombre,omitempty" example:"Juan Perez"`
 	// Detalle de servicios cobrados.
 	Detalle []crearDetallePagoRequest `json:"detalle"`
 }
@@ -75,6 +77,8 @@ type actualizarPagoRequest struct {
 	Estado *string `json:"estado" example:"PAGADO"`
 	// Nuevo estado activo (opcional).
 	Activo *bool `json:"activo" example:"true"`
+	// Nombre completo del cajero actual; si se omite o viene vacio se usa el username del token.
+	Nombre *string `json:"nombre,omitempty" example:"Ana Perez"`
 	// Detalle completo deseado para sincronizar; ids presentes se conservan, ids ausentes se eliminan y items sin id se crean.
 	Detalle []actualizarDetallePagoRequest `json:"detalle"`
 }
@@ -128,7 +132,7 @@ func (h *Container) GetResumenPagos(c *gin.Context) {
 
 // GetPagos godoc
 // @Summary Listar pagos
-// @Description Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, tipo_pago efectivo/qr, estado PAGADO/BORRADOR/PENDIENTE y activo true/false. Si activo no se envia, lista solo pagos activos.
+// @Description Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Incluye auditoria de creacion y modificacion: fecha_creacion, fecha_modificacion, id_cajero, nombre_cajero, username_cajero, id_cajero_modificacion, nombre_cajero_modificacion y username_cajero_modificacion. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, tipo_pago efectivo/qr, estado PAGADO/BORRADOR/PENDIENTE, activo true/false, cajero de creacion y cajero de modificacion. Si activo no se envia, lista solo pagos activos.
 // @Tags Pagos
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -141,8 +145,14 @@ func (h *Container) GetResumenPagos(c *gin.Context) {
 // @Param tipo_pago query string false "Tipo de pago" Enums(efectivo,qr) example(efectivo)
 // @Param estado query string false "Estado del pago" Enums(PAGADO,BORRADOR,PENDIENTE) example(PENDIENTE)
 // @Param activo query bool false "Filtrar por activo; default true" example(true)
+// @Param id_cajero query int false "ID del cajero que registro el pago" example(1)
+// @Param nombre_cajero query string false "Busqueda parcial por nombre del cajero que registro el pago" example(Juan)
+// @Param username_cajero query string false "Busqueda parcial por username del cajero que registro el pago" example(juan)
+// @Param id_cajero_modificacion query int false "ID del cajero que modifico el pago por ultima vez" example(2)
+// @Param nombre_cajero_modificacion query string false "Busqueda parcial por nombre del cajero que modifico el pago por ultima vez" example(Ana)
+// @Param username_cajero_modificacion query string false "Busqueda parcial por username del cajero que modifico el pago por ultima vez" example(ana)
 // @Success 200 {object} utils.APIResponse{data=pagoListResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos [get]
@@ -155,21 +165,35 @@ func (h *Container) GetPagos(c *gin.Context) {
 	if !ok {
 		return
 	}
+	idCajero, ok := optionalPositiveIntQuery(c, "id_cajero")
+	if !ok {
+		return
+	}
+	idCajeroModificacion, ok := optionalPositiveIntQuery(c, "id_cajero_modificacion")
+	if !ok {
+		return
+	}
 	activo, ok := optionalBoolQuery(c, "activo", true)
 	if !ok {
 		return
 	}
 
 	filtro := services.FiltroPagos{
-		CodigoPago:    c.Query("codigo_pago"),
-		LocalID:       localID,
-		LocalNombre:   c.Query("local_nombre"),
-		ClienteID:     clienteID,
-		ClienteNIT:    c.Query("cliente_nit"),
-		ClienteNombre: c.Query("cliente_nombre"),
-		TipoPago:      c.Query("tipo_pago"),
-		Estado:        c.Query("estado"),
-		Activo:        activo,
+		CodigoPago:                 c.Query("codigo_pago"),
+		LocalID:                    localID,
+		LocalNombre:                c.Query("local_nombre"),
+		ClienteID:                  clienteID,
+		ClienteNIT:                 c.Query("cliente_nit"),
+		ClienteNombre:              c.Query("cliente_nombre"),
+		TipoPago:                   c.Query("tipo_pago"),
+		Estado:                     c.Query("estado"),
+		Activo:                     activo,
+		IDCajero:                   idCajero,
+		NombreCajero:               c.Query("nombre_cajero"),
+		UsernameCajero:             c.Query("username_cajero"),
+		IDCajeroModificacion:       idCajeroModificacion,
+		NombreCajeroModificacion:   c.Query("nombre_cajero_modificacion"),
+		UsernameCajeroModificacion: c.Query("username_cajero_modificacion"),
 	}
 
 	pagos, err := h.PagosPG.GetPagos(filtro)
@@ -181,15 +205,21 @@ func (h *Container) GetPagos(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, pagoListResponse{
 		Total: len(pagos),
 		Filtros: pagoFiltrosResponse{
-			CodigoPago:    strings.TrimSpace(c.Query("codigo_pago")),
-			LocalID:       localID,
-			LocalNombre:   strings.TrimSpace(c.Query("local_nombre")),
-			ClienteID:     clienteID,
-			ClienteNIT:    strings.TrimSpace(c.Query("cliente_nit")),
-			ClienteNombre: strings.TrimSpace(c.Query("cliente_nombre")),
-			TipoPago:      strings.ToLower(strings.TrimSpace(c.Query("tipo_pago"))),
-			Estado:        strings.TrimSpace(c.Query("estado")),
-			Activo:        activo,
+			CodigoPago:                 strings.TrimSpace(c.Query("codigo_pago")),
+			LocalID:                    localID,
+			LocalNombre:                strings.TrimSpace(c.Query("local_nombre")),
+			ClienteID:                  clienteID,
+			ClienteNIT:                 strings.TrimSpace(c.Query("cliente_nit")),
+			ClienteNombre:              strings.TrimSpace(c.Query("cliente_nombre")),
+			TipoPago:                   strings.ToLower(strings.TrimSpace(c.Query("tipo_pago"))),
+			Estado:                     strings.TrimSpace(c.Query("estado")),
+			Activo:                     activo,
+			IDCajero:                   idCajero,
+			NombreCajero:               strings.TrimSpace(c.Query("nombre_cajero")),
+			UsernameCajero:             strings.TrimSpace(c.Query("username_cajero")),
+			IDCajeroModificacion:       idCajeroModificacion,
+			NombreCajeroModificacion:   strings.TrimSpace(c.Query("nombre_cajero_modificacion")),
+			UsernameCajeroModificacion: strings.TrimSpace(c.Query("username_cajero_modificacion")),
 		},
 		Pagos: pagos,
 	})
@@ -197,7 +227,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 
 // GetPagoByCodigo godoc
 // @Summary Obtener pago por codigo
-// @Description Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera y detalle_pagos).
+// @Description Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).
 // @Tags Pagos
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -226,20 +256,24 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 
 // CreatePago godoc
 // @Summary Crear pago
-// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion y fecha_modificacion, que se generan en BD. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
+// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
 // @Tags Pagos
 // @Accept json
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param payload body crearPagoRequest true "Datos completos del pago y su detalle"
 // @Success 201 {object} utils.APIResponse{data=pagoCreatedResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Referencia no encontrada: local, cliente o servicio invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos [post]
 func (h *Container) CreatePago(c *gin.Context) {
 	req, ok := parseCrearPagoRequest(c)
+	if !ok {
+		return
+	}
+	cajero, ok := cajeroAuditoriaFromRequest(c, req.Nombre)
 	if !ok {
 		return
 	}
@@ -267,6 +301,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 		TipoPago:      stringValueRequired(req.TipoPago),
 		Estado:        stringValueRequired(req.Estado),
 		Activo:        boolValueRequired(req.Activo),
+		Cajero:        cajero,
 		Detalle:       detalle,
 	})
 	if err != nil {
@@ -282,7 +317,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 
 // PatchPago godoc
 // @Summary Actualizar pago
-// @Description Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. tipo_pago es opcional, pero si se envia solo acepta efectivo o qr. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id y cliente_nit pueden enviarse como null para limpiar la referencia o el valor.
+// @Description Actualiza parcialmente la cabecera de un pago activo por codigo_pago y puede sincronizar detalle_pagos. Requiere token Bearer. Solo permite modificar pagos cuyo estado actual no sea PAGADO. Puede enviarse nombre para guardar el nombre completo del cajero que edita; si se omite o viene vacio se usa el username del token. id_cajero_modificacion y username_cajero_modificacion se toman del token y los campos de auditoria no son editables. tipo_pago es opcional, pero si se envia solo acepta efectivo o qr. Si se envia detalle, la lista representa el estado final: ids presentes se conservan, ids ausentes se eliminan y items sin id se crean. Si se envia detalle y no se envia subtotal o total_final, esos campos se recalculan automaticamente desde los subtotales del detalle final. cliente_id y cliente_nit pueden enviarse como null para limpiar la referencia o el valor.
 // @Tags Pagos
 // @Accept json
 // @Produce json
@@ -290,7 +325,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 // @Param codigo_pago path string true "Codigo publico del pago" example(PAGO-000001)
 // @Param payload body actualizarPagoRequest true "Campos base a actualizar y/o detalle a sincronizar"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Pago no encontrado"
 // @Failure 409 {object} utils.APIResponse "Conflicto: no se puede modificar un pago en estado PAGADO"
@@ -304,6 +339,10 @@ func (h *Container) PatchPago(c *gin.Context) {
 	}
 
 	req, clienteIDSet, clienteNITSet, detalleSet, ok := parseActualizarPagoRequest(c)
+	if !ok {
+		return
+	}
+	cajero, ok := cajeroAuditoriaFromRequest(c, req.Nombre)
 	if !ok {
 		return
 	}
@@ -348,6 +387,7 @@ func (h *Container) PatchPago(c *gin.Context) {
 		TipoPago:      req.TipoPago,
 		Estado:        req.Estado,
 		Activo:        req.Activo,
+		Cajero:        cajero,
 		Detalle:       detalle,
 	})
 	if err != nil {
@@ -398,6 +438,9 @@ func parseCrearPagoRequest(c *gin.Context) (crearPagoRequest, bool) {
 	var body map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &body); err != nil {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return req, false
+	}
+	if !validarCamposAuditoriaPagoNoEditables(c, body) {
 		return req, false
 	}
 	for _, field := range []string{"local_id", "local_nombre", "cliente_id", "cliente_nombre", "descuento", "tipo_pago", "estado", "activo", "detalle"} {
@@ -452,6 +495,9 @@ func parseActualizarPagoRequest(c *gin.Context) (actualizarPagoRequest, bool, bo
 	var body map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &body); err != nil {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return req, false, false, false, false
+	}
+	if !validarCamposAuditoriaPagoNoEditables(c, body) {
 		return req, false, false, false, false
 	}
 	if len(body) == 0 {
@@ -558,4 +604,56 @@ func intValueRequired(value *int) int {
 
 func boolValueRequired(value *bool) bool {
 	return value != nil && *value
+}
+
+func cajeroAuditoriaFromRequest(c *gin.Context, nombre *string) (services.CajeroAuditoriaInput, bool) {
+	nombreCajero := strings.TrimSpace(stringValueRequired(nombre))
+	username, usernameOK := authenticatedUsername(c)
+	if nombreCajero == "" && usernameOK {
+		nombreCajero = strings.TrimSpace(username)
+	}
+	if nombreCajero == "" {
+		utils.RespondError(c, http.StatusBadRequest, "nombre del cajero es requerido")
+		return services.CajeroAuditoriaInput{}, false
+	}
+
+	var idCajero *int
+	if userID, ok := authenticatedUserID(c); ok {
+		id := userID
+		idCajero = &id
+	}
+
+	var usernameCajero *string
+	if usernameOK {
+		trimmed := strings.TrimSpace(username)
+		if trimmed != "" {
+			usernameCajero = &trimmed
+		}
+	}
+
+	return services.CajeroAuditoriaInput{
+		ID:       idCajero,
+		Nombre:   nombreCajero,
+		Username: usernameCajero,
+	}, true
+}
+
+func validarCamposAuditoriaPagoNoEditables(c *gin.Context, body map[string]json.RawMessage) bool {
+	for _, field := range []string{
+		"id_cajero",
+		"nombre_cajero",
+		"username_cajero",
+		"id_cajero_modificacion",
+		"nombre_cajero_modificacion",
+		"username_cajero_modificacion",
+		"fecha_creacion",
+		"fecha_modificacion",
+	} {
+		if _, exists := body[field]; exists {
+			utils.RespondError(c, http.StatusBadRequest, field+" no es editable")
+			return false
+		}
+	}
+
+	return true
 }

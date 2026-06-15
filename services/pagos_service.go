@@ -27,6 +27,13 @@ type FiltroPagos struct {
 	TipoPago      string
 	Estado        string
 	Activo        *bool
+
+	IDCajero                   *int
+	NombreCajero               string
+	UsernameCajero             string
+	IDCajeroModificacion       *int
+	NombreCajeroModificacion   string
+	UsernameCajeroModificacion string
 }
 
 func (s *PagosService) GetPagos(filtro FiltroPagos) ([]models.PagoPG, error) {
@@ -38,17 +45,29 @@ func (s *PagosService) GetPagos(filtro FiltroPagos) ([]models.PagoPG, error) {
 	if err != nil {
 		return nil, err
 	}
+	if filtro.IDCajero != nil && *filtro.IDCajero <= 0 {
+		return nil, errors.New("id_cajero invalido")
+	}
+	if filtro.IDCajeroModificacion != nil && *filtro.IDCajeroModificacion <= 0 {
+		return nil, errors.New("id_cajero_modificacion invalido")
+	}
 
 	return s.repo.GetPagos(repository.FiltroPagos{
-		CodigoPago:    strings.TrimSpace(filtro.CodigoPago),
-		LocalID:       filtro.LocalID,
-		LocalNombre:   strings.TrimSpace(filtro.LocalNombre),
-		ClienteID:     filtro.ClienteID,
-		ClienteNIT:    strings.TrimSpace(filtro.ClienteNIT),
-		ClienteNombre: strings.TrimSpace(filtro.ClienteNombre),
-		TipoPago:      tipoPago,
-		Estado:        estado,
-		Activo:        filtro.Activo,
+		CodigoPago:                 strings.TrimSpace(filtro.CodigoPago),
+		LocalID:                    filtro.LocalID,
+		LocalNombre:                strings.TrimSpace(filtro.LocalNombre),
+		ClienteID:                  filtro.ClienteID,
+		ClienteNIT:                 strings.TrimSpace(filtro.ClienteNIT),
+		ClienteNombre:              strings.TrimSpace(filtro.ClienteNombre),
+		TipoPago:                   tipoPago,
+		Estado:                     estado,
+		Activo:                     filtro.Activo,
+		IDCajero:                   filtro.IDCajero,
+		NombreCajero:               strings.TrimSpace(filtro.NombreCajero),
+		UsernameCajero:             strings.TrimSpace(filtro.UsernameCajero),
+		IDCajeroModificacion:       filtro.IDCajeroModificacion,
+		NombreCajeroModificacion:   strings.TrimSpace(filtro.NombreCajeroModificacion),
+		UsernameCajeroModificacion: strings.TrimSpace(filtro.UsernameCajeroModificacion),
 	})
 }
 
@@ -73,7 +92,14 @@ type CrearPagoInput struct {
 	TipoPago      string
 	Estado        string
 	Activo        bool
+	Cajero        CajeroAuditoriaInput
 	Detalle       []CrearDetallePagoInput
+}
+
+type CajeroAuditoriaInput struct {
+	ID       *int
+	Nombre   string
+	Username *string
 }
 
 type CrearDetallePagoInput struct {
@@ -124,6 +150,10 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 	if err := validarPagoBase(input.LocalID, input.LocalNombre, input.ClienteID, input.ClienteNombre, &subtotal, &descuento, &totalFinal); err != nil {
 		return "", err
 	}
+	cajero, err := normalizarCajeroAuditoria(input.Cajero)
+	if err != nil {
+		return "", err
+	}
 
 	return s.repo.CreatePago(repository.CrearPagoInput{
 		LocalID:       input.LocalID,
@@ -137,6 +167,7 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 		TipoPago:      tipoPago,
 		Estado:        estado,
 		Activo:        input.Activo,
+		Cajero:        cajero,
 		Detalle:       detalle,
 	})
 }
@@ -156,6 +187,7 @@ type ActualizarPagoInput struct {
 	TipoPago      *string
 	Estado        *string
 	Activo        *bool
+	Cajero        CajeroAuditoriaInput
 	Detalle       *[]ActualizarDetallePagoInput
 }
 
@@ -172,6 +204,11 @@ func (s *PagosService) UpdatePago(input ActualizarPagoInput) error {
 	codigoPago := strings.TrimSpace(input.CodigoPago)
 	if codigoPago == "" {
 		return errors.New("codigo_pago es requerido")
+	}
+
+	cajero, err := normalizarCajeroAuditoria(input.Cajero)
+	if err != nil {
+		return err
 	}
 
 	localNombre := trimStringPtr(input.LocalNombre)
@@ -263,6 +300,7 @@ func (s *PagosService) UpdatePago(input ActualizarPagoInput) error {
 		TipoPago:      tipoPago,
 		Estado:        estado,
 		Activo:        input.Activo,
+		Cajero:        cajero,
 		Detalle:       detalle,
 
 		RecalcularSubtotal:   input.Detalle != nil && input.Subtotal == nil,
@@ -414,4 +452,21 @@ func trimOptionalStringPtr(value *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func normalizarCajeroAuditoria(input CajeroAuditoriaInput) (repository.CajeroAuditoriaInput, error) {
+	if input.ID != nil && *input.ID <= 0 {
+		return repository.CajeroAuditoriaInput{}, errors.New("id_cajero invalido")
+	}
+
+	nombre := strings.TrimSpace(input.Nombre)
+	if nombre == "" {
+		return repository.CajeroAuditoriaInput{}, errors.New("nombre del cajero es requerido")
+	}
+
+	return repository.CajeroAuditoriaInput{
+		ID:       input.ID,
+		Nombre:   nombre,
+		Username: trimOptionalStringPtr(input.Username),
+	}, nil
 }

@@ -17,6 +17,13 @@ type FiltroPagos struct {
 	TipoPago      string
 	Estado        string
 	Activo        *bool
+
+	IDCajero                   *int
+	NombreCajero               string
+	UsernameCajero             string
+	IDCajeroModificacion       *int
+	NombreCajeroModificacion   string
+	UsernameCajeroModificacion string
 }
 
 type CrearPagoInput struct {
@@ -31,7 +38,14 @@ type CrearPagoInput struct {
 	TipoPago      string
 	Estado        string
 	Activo        bool
+	Cajero        CajeroAuditoriaInput
 	Detalle       []CrearDetallePagoInput
+}
+
+type CajeroAuditoriaInput struct {
+	ID       *int
+	Nombre   string
+	Username *string
 }
 
 type CrearDetallePagoInput struct {
@@ -57,6 +71,7 @@ type ActualizarPagoInput struct {
 	TipoPago      *string
 	Estado        *string
 	Activo        *bool
+	Cajero        CajeroAuditoriaInput
 	Detalle       *[]ActualizarDetallePagoInput
 
 	RecalcularSubtotal   bool
