@@ -701,7 +701,7 @@ func (s *ReservasPGService) ActualizarNotificacionReservas(ids []int, notificado
 func (s *ReservasPGService) GetResumenReservas(fecha time.Time) (*ResumenReservas, error) {
 	fecha = fecha.Truncate(24 * time.Hour)
 	if fecha.Weekday() == time.Sunday {
-		return nil, fmt.Errorf("no se admiten domingos para el resumen")
+		fecha = fecha.AddDate(0, 0, -1)
 	}
 
 	reservasDia, err := s.repo.GetReservas(repository.FiltroReservasPG{

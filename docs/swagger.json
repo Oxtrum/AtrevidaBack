@@ -3313,7 +3313,7 @@
         },
         "/bd/reservas/resumen": {
             "get": {
-                "description": "Devuelve resumen de reservas del dia. Param: fecha YYYY-MM-DD (requerido, query, no acepta domingos). Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia).",
+                "description": "Devuelve resumen de reservas del dia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).",
                 "produces": [
                     "application/json"
                 ],
@@ -3324,8 +3324,8 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "example": "2026-05-23",
-                        "description": "Fecha a consultar YYYY-MM-DD (no acepta domingos)",
+                        "example": "2026-05-24",
+                        "description": "Fecha a consultar YYYY-MM-DD; si es domingo se usa el sabado anterior",
                         "name": "fecha",
                         "in": "query",
                         "required": true
@@ -3351,7 +3351,7 @@
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: fecha requerida, formato invalido, domingo no permitido",
+                        "description": "Error de validacion: fecha requerida o formato invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }

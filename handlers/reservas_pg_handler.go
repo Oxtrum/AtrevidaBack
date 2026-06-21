@@ -299,12 +299,12 @@ func normalizarTelefono(raw string) (string, error) {
 
 // GetReservasResumenPG godoc
 // @Summary Obtener resumen numerico de reservas
-// @Description Devuelve resumen de reservas del dia. Param: fecha YYYY-MM-DD (requerido, query, no acepta domingos). Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia).
+// @Description Devuelve resumen de reservas del dia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).
 // @Tags Reservas BD
 // @Produce json
-// @Param fecha query string true "Fecha a consultar YYYY-MM-DD (no acepta domingos)" example(2026-05-23)
+// @Param fecha query string true "Fecha a consultar YYYY-MM-DD; si es domingo se usa el sabado anterior" example(2026-05-24)
 // @Success 200 {object} utils.APIResponse{data=reservaResumenResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: fecha requerida, formato invalido, domingo no permitido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: fecha requerida o formato invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/resumen [get]
 func (h *Container) GetReservasResumenPG(c *gin.Context) {
@@ -322,10 +322,6 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 
 	resumen, err := h.ReservasPG.GetResumenReservas(fecha)
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "domingo") {
-			utils.RespondError(c, http.StatusBadRequest, err.Error())
-			return
-		}
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -338,6 +334,10 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 }
 
 func buildReservaResumenSemanaResponse(fecha time.Time, semana services.ResumenReservasSemana) reservaResumenSemanaResponse {
+	if fecha.Weekday() == time.Sunday {
+		fecha = fecha.AddDate(0, 0, -1)
+	}
+
 	resp := reservaResumenSemanaResponse{
 		TotalReservas: semana.TotalReservas,
 		Lunes:         intPtr(semana.Lunes),
