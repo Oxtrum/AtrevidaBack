@@ -4530,11 +4530,11 @@ paths:
       - application/json
       description: 'Actualiza un servicio existente. Solo se actualizan los campos
         enviados. Si se cambia categoria y el servicio ya esta asociado a locales,
-        la nueva categoria debe estar asociada a esos locales en categorias_locales.
-        Param: id (requerido, path). Body: nombre (opcional), categoria (opcional),
-        tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido
-        M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false
-        (opcional). Response: mensaje string.'
+        la nueva categoria se asocia automaticamente a esos locales en categorias_locales
+        dentro de la misma transaccion. Param: id (requerido, path). Body: nombre
+        (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional),
+        sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion
+        true/false (opcional), activo true/false (opcional). Response: mensaje string.'
       parameters:
       - description: ID del servicio
         example: 8
@@ -4561,8 +4561,8 @@ paths:
                   $ref: '#/definitions/handlers.messageResponse'
               type: object
         "400":
-          description: 'Error de validacion: id invalido, tipo_espacio_requerido invalido,
-            categoria no disponible para locales del servicio, sin campos a modificar'
+          description: 'Error de validacion: id invalido, tipo_espacio_requerido invalido
+            o sin campos a modificar'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":

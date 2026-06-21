@@ -225,14 +225,14 @@ type actualizarServicioRequest struct {
 
 // UpdateServicio godoc
 // @Summary Actualizar servicio
-// @Description Actualiza un servicio existente. Solo se actualizan los campos enviados. Si se cambia categoria y el servicio ya esta asociado a locales, la nueva categoria debe estar asociada a esos locales en categorias_locales. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.
+// @Description Actualiza un servicio existente. Solo se actualizan los campos enviados. Si se cambia categoria y el servicio ya esta asociado a locales, la nueva categoria se asocia automaticamente a esos locales en categorias_locales dentro de la misma transaccion. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
 // @Param id path int true "ID del servicio" example(8)
 // @Param payload body actualizarServicioRequest true "Campos a actualizar (todos opcionales, al menos uno requerido)"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, tipo_espacio_requerido invalido, categoria no disponible para locales del servicio, sin campos a modificar"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, tipo_espacio_requerido invalido o sin campos a modificar"
 // @Failure 404 {object} utils.APIResponse "Servicio no encontrado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios/{id} [patch]

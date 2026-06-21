@@ -238,7 +238,7 @@ func (r *ServiciosRepo) UpdateServicio(input repository.ActualizarServicioInput)
 		if err != nil {
 			return fmt.Errorf("categoría '%s' no encontrada", *input.CategoriaNombre)
 		}
-		if err := validarCategoriaParaLocalesDelServicio(tx, input.ID, catID); err != nil {
+		if err := asociarCategoriaALocalesDelServicio(tx, input.ID, catID); err != nil {
 			return err
 		}
 		sets = append(sets, fmt.Sprintf("categoria_id = $%d", idx))
@@ -443,28 +443,18 @@ func validarCategoriaDisponibleEnLocalID(tx *sqlx.Tx, categoriaID, localID int, 
 	return nil
 }
 
-func validarCategoriaParaLocalesDelServicio(tx *sqlx.Tx, servicioID, categoriaID int) error {
-	type localServicio struct {
-		ID     int    `db:"id"`
-		Nombre string `db:"nombre"`
-	}
-
-	var locales []localServicio
-	err := tx.Select(&locales, `
-		SELECT l.id, l.nombre
+func asociarCategoriaALocalesDelServicio(tx *sqlx.Tx, servicioID, categoriaID int) error {
+	_, err := tx.Exec(`
+		INSERT INTO categorias_locales (categoria_id, local_id)
+		SELECT $2, sl.local_id
 		FROM servicio_local sl
 		JOIN locales l ON l.id = sl.local_id
 		WHERE sl.servicio_id = $1
 		  AND l.activo = TRUE
-	`, servicioID)
+		ON CONFLICT DO NOTHING
+	`, servicioID, categoriaID)
 	if err != nil {
-		return fmt.Errorf("error al validar locales del servicio: %w", err)
-	}
-
-	for _, local := range locales {
-		if err := validarCategoriaDisponibleEnLocalID(tx, categoriaID, local.ID, local.Nombre); err != nil {
-			return err
-		}
+		return fmt.Errorf("error al asociar la categoria con los locales del servicio: %w", err)
 	}
 
 	return nil
