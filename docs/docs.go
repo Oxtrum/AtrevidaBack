@@ -345,7 +345,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: body invalido, username/password/rol_codigo son obligatorios",
+                        "description": "Error de validacion: JSON invalido, username/password obligatorios o rol_codigo obligatorio",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }

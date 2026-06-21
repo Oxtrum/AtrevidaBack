@@ -10,6 +10,7 @@ import (
 	"atrevida-agenda-api/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 type authRequest struct {
@@ -86,7 +87,7 @@ func (h *Container) GetUsuarios(c *gin.Context) {
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param payload body registrarUsuarioRequest true "Datos del usuario"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, username/password/rol_codigo son obligatorios"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: JSON invalido, username/password obligatorios o rol_codigo obligatorio"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Rol no encontrado"
@@ -96,7 +97,7 @@ func (h *Container) GetUsuarios(c *gin.Context) {
 func (h *Container) RegisterUsuario(c *gin.Context) {
 	var req registrarUsuarioRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		utils.RespondError(c, http.StatusBadRequest, registrarUsuarioValidationMessage(err))
 		return
 	}
 
@@ -124,6 +125,21 @@ func (h *Container) RegisterUsuario(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, idResponse{ID: id})
+}
+
+func registrarUsuarioValidationMessage(err error) string {
+	var validationErrors validator.ValidationErrors
+	if !errors.As(err, &validationErrors) {
+		return "body JSON invalido"
+	}
+
+	for _, validationError := range validationErrors {
+		if validationError.Field() == "Username" || validationError.Field() == "Password" {
+			return services.ErrCredencialesObligatorias.Error()
+		}
+	}
+
+	return services.ErrRolObligatorio.Error()
 }
 
 // CambiarPassword godoc
