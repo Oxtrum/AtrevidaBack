@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
@@ -277,7 +277,7 @@ func (r *LocalesHorariosRepo) validarSolapamiento(localID, diaSemana int, horaDe
 }
 
 func esUniqueHorarioError(err error) bool {
-	var pqErr *pq.Error
+	var pqErr *pgconn.PgError
 	return errors.As(err, &pqErr) && pqErr.Code == "23505"
 }
 

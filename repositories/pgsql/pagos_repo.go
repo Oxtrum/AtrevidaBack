@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
@@ -452,7 +452,7 @@ func (r *PagosRepo) syncDetallePago(tx *sqlx.Tx, pagoID int, detalle []repositor
 			FROM detalle_pagos
 			WHERE pago_id = $1
 			  AND id = ANY($2)
-		`, pagoID, pq.Array(ids)).Scan(&existentes)
+		`, pagoID, ids).Scan(&existentes)
 		if err != nil {
 			return fmt.Errorf("no se pudo validar el detalle del pago")
 		}
@@ -464,7 +464,7 @@ func (r *PagosRepo) syncDetallePago(tx *sqlx.Tx, pagoID int, detalle []repositor
 			DELETE FROM detalle_pagos
 			WHERE pago_id = $1
 			  AND NOT (id = ANY($2))
-		`, pagoID, pq.Array(ids)); err != nil {
+		`, pagoID, ids); err != nil {
 			return fmt.Errorf("no se pudo sincronizar el detalle del pago")
 		}
 	} else {
@@ -533,7 +533,7 @@ func pagoSelectColumns() string {
 }
 
 func pagoInsertError(err error) error {
-	var pqErr *pq.Error
+	var pqErr *pgconn.PgError
 	if errors.As(err, &pqErr) {
 		switch pqErr.Code {
 		case "23503":
