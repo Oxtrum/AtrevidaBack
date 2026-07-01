@@ -893,9 +893,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		if estadoRecibido == "RECHAZADO" || estadoRecibido == "COMPLETADO" {
 			return 0, errors.New("estado inicial inválido para una reserva nueva")
 		}
-		if estadoRecibido == "AGENDADO" && requiereEvaluacion {
-			return 0, errors.New("solo los servicios que no requieren evaluación pueden iniciar en estado AGENDADO")
-		}
+		estadoFinal = estadoRecibido
 	}
 
 	/*if err := s.validarDisponibilidad(input.Local, &fecha, input.HoraDesde, horaHasta, input.Tipo, nil); err != nil {
