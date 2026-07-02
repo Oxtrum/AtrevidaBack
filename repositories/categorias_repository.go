@@ -6,6 +6,9 @@ type CategoriasRepository interface {
 	GetAllCategorias() ([]models.CategoriaPG, error)
 	GetCategoriasByLocal(localNombre string, localID *int) ([]models.CategoriaPG, error)
 	CreateCategoria(nombre string, localID *int) (int, error)
+	UpdateCategoria(id int, nombre string) error
+	DeleteCategoria(id int) error
+	GetLocalesByCategoria(categoriaID int) ([]models.LocalPG, error)
 	CreateCategoriaLocal(categoriaID, localID int) error
 	DeleteCategoriaLocal(categoriaID, localID int) error
 }

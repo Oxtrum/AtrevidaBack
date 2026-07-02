@@ -95,6 +95,9 @@ func Setup(h *handlers.Container) *gin.Engine {
 	{
 		bd.GET("/categorias", h.GetCategorias)
 		bd.POST("/categorias", h.AuthRequired, h.AdminSysRequired, h.CreateCategoria)
+		bd.PUT("/categorias/:id", h.AuthRequired, h.AdminSysRequired, h.UpdateCategoria)
+		bd.DELETE("/categorias/:id", h.AuthRequired, h.AdminSysRequired, h.DeleteCategoria)
+		bd.GET("/categorias/:id/locales", h.GetCategoriaLocales)
 		bd.POST("/categorias/locales", h.AuthRequired, h.AdminSysRequired, h.CreateCategoriaLocal)
 		bd.DELETE("/categorias/locales", h.AuthRequired, h.AdminSysRequired, h.DeleteCategoriaLocal)
 

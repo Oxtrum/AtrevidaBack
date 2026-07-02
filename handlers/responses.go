@@ -131,6 +131,11 @@ type categoriaListResponse struct {
 	Categorias []models.CategoriaPG `json:"categorias"`
 }
 
+type categoriaLocalesResponse struct {
+	// Locales asociados a la categoría
+	Locales []models.LocalPG `json:"locales"`
+}
+
 type clienteListResponse struct {
 	// Total de clientes encontrados
 	Total int `json:"total" example:"1"`
