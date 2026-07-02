@@ -222,7 +222,7 @@
         },
         "/auth/login": {
             "post": {
-                "description": "Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer con el codigo de rol para acceder a endpoints protegidos.",
+                "description": "Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer con el codigo de rol, local_id y nombre_local cuando el usuario tiene local asignado. Los usuarios admin_sys no incluyen local para poder consultar todos los locales.",
                 "consumes": [
                     "application/json"
                 ],
@@ -292,7 +292,7 @@
         },
         "/auth/register": {
             "post": {
-                "description": "Crea un usuario activo y le asigna un rol por codigo. Requiere token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos. La password se encripta con bcrypt antes de guardarse. Response: id (int ID del usuario creado).",
+                "description": "Crea un usuario activo y le asigna un rol por codigo. Requiere token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos; local_id es requerido solo para roles no admin. nombre_local no se recibe del cliente: se obtiene desde locales por local_id y se guarda desnormalizado. Si el rol es admin_sys, local_id y nombre_local quedan vacios. Response: id (int ID del usuario creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -342,7 +342,7 @@
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: JSON invalido, username/password obligatorios o rol_codigo obligatorio",
+                        "description": "Error de validacion: JSON invalido, username/password obligatorios, rol_codigo obligatorio, local_id obligatorio para usuarios no admin o local_id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -360,7 +360,7 @@
                         }
                     },
                     "404": {
-                        "description": "Rol no encontrado",
+                        "description": "Rol o local no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -382,7 +382,7 @@
         },
         "/auth/usuarios": {
             "get": {
-                "description": "Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro, rol_codigo y rol_nombre).",
+                "description": "Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro, rol_codigo, rol_nombre, local_id y nombre_local).",
                 "produces": [
                     "application/json"
                 ],
@@ -5597,22 +5597,37 @@
             "type": "object",
             "properties": {
                 "expires_in": {
+                    "description": "Duracion del token en segundos.",
                     "type": "integer",
                     "example": 3600
                 },
+                "local_id": {
+                    "description": "ID del local asignado al usuario; se omite para admin_sys.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "nombre_local": {
+                    "description": "Nombre del local asignado al usuario; se omite para admin_sys.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
                 "rol_codigo": {
+                    "description": "Codigo del rol del usuario autenticado.",
                     "type": "string",
                     "example": "admin_sys"
                 },
                 "token": {
+                    "description": "Token Bearer firmado para usar en endpoints protegidos.",
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 },
                 "token_type": {
+                    "description": "Tipo de token devuelto.",
                     "type": "string",
                     "example": "Bearer"
                 },
                 "username": {
+                    "description": "Nombre de usuario autenticado.",
                     "type": "string",
                     "example": "admin"
                 }
@@ -5817,6 +5832,11 @@
                 "username"
             ],
             "properties": {
+                "local_id": {
+                    "description": "ID del local asignado al usuario. Requerido para roles no admin; se ignora para admin_sys.",
+                    "type": "integer",
+                    "example": 1
+                },
                 "password": {
                     "description": "Password en texto plano enviada por el cliente; se guarda encriptada con bcrypt.",
                     "type": "string",
@@ -6121,10 +6141,12 @@
             "type": "object",
             "properties": {
                 "total": {
+                    "description": "Cantidad total de usuarios devueltos.",
                     "type": "integer",
                     "example": 2
                 },
                 "usuarios": {
+                    "description": "Usuarios registrados con rol y local asignado cuando corresponda.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.UsuarioResumenPG"
@@ -6732,22 +6754,37 @@
             "type": "object",
             "properties": {
                 "activo": {
+                    "description": "Estado activo del usuario.",
                     "type": "boolean",
                     "example": true
                 },
                 "fecha_registro": {
+                    "description": "Fecha de registro del usuario.",
                     "type": "string",
                     "example": "2026-05-28T14:30:00Z"
                 },
+                "local_id": {
+                    "description": "ID del local asignado al usuario; null para administradores.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "nombre_local": {
+                    "description": "Nombre del local asignado al usuario; null para administradores.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
                 "rol_codigo": {
+                    "description": "Codigo del rol asignado.",
                     "type": "string",
                     "example": "admin_sys"
                 },
                 "rol_nombre": {
+                    "description": "Nombre descriptivo del rol asignado.",
                     "type": "string",
                     "example": "Administrador de sistema"
                 },
                 "username": {
+                    "description": "Nombre de usuario.",
                     "type": "string",
                     "example": "admin"
                 }

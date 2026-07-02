@@ -929,18 +929,31 @@ definitions:
   handlers.loginResponse:
     properties:
       expires_in:
+        description: Duracion del token en segundos.
         example: 3600
         type: integer
+      local_id:
+        description: ID del local asignado al usuario; se omite para admin_sys.
+        example: 1
+        type: integer
+      nombre_local:
+        description: Nombre del local asignado al usuario; se omite para admin_sys.
+        example: SAN MARTIN
+        type: string
       rol_codigo:
+        description: Codigo del rol del usuario autenticado.
         example: admin_sys
         type: string
       token:
+        description: Token Bearer firmado para usar en endpoints protegidos.
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
       token_type:
+        description: Tipo de token devuelto.
         example: Bearer
         type: string
       username:
+        description: Nombre de usuario autenticado.
         example: admin
         type: string
     type: object
@@ -1083,6 +1096,11 @@ definitions:
     type: object
   handlers.registrarUsuarioRequest:
     properties:
+      local_id:
+        description: ID del local asignado al usuario. Requerido para roles no admin;
+          se ignora para admin_sys.
+        example: 1
+        type: integer
       password:
         description: Password en texto plano enviada por el cliente; se guarda encriptada
           con bcrypt.
@@ -1306,9 +1324,11 @@ definitions:
   handlers.usuariosListResponse:
     properties:
       total:
+        description: Cantidad total de usuarios devueltos.
         example: 2
         type: integer
       usuarios:
+        description: Usuarios registrados con rol y local asignado cuando corresponda.
         items:
           $ref: '#/definitions/models.UsuarioResumenPG'
         type: array
@@ -1763,18 +1783,31 @@ definitions:
   models.UsuarioResumenPG:
     properties:
       activo:
+        description: Estado activo del usuario.
         example: true
         type: boolean
       fecha_registro:
+        description: Fecha de registro del usuario.
         example: "2026-05-28T14:30:00Z"
         type: string
+      local_id:
+        description: ID del local asignado al usuario; null para administradores.
+        example: 1
+        type: integer
+      nombre_local:
+        description: Nombre del local asignado al usuario; null para administradores.
+        example: SAN MARTIN
+        type: string
       rol_codigo:
+        description: Codigo del rol asignado.
         example: admin_sys
         type: string
       rol_nombre:
+        description: Nombre descriptivo del rol asignado.
         example: Administrador de sistema
         type: string
       username:
+        description: Nombre de usuario.
         example: admin
         type: string
     type: object
@@ -2093,7 +2126,9 @@ paths:
       - application/json
       description: Valida username y password contra un usuario activo. La password
         recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas
-        responde un token Bearer con el codigo de rol para acceder a endpoints protegidos.
+        responde un token Bearer con el codigo de rol, local_id y nombre_local cuando
+        el usuario tiene local asignado. Los usuarios admin_sys no incluyen local
+        para poder consultar todos los locales.
       parameters:
       - description: Credenciales de acceso
         in: body
@@ -2138,9 +2173,11 @@ paths:
       consumes:
       - application/json
       description: 'Crea un usuario activo y le asigna un rol por codigo. Requiere
-        token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos.
-        La password se encripta con bcrypt antes de guardarse. Response: id (int ID
-        del usuario creado).'
+        token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos;
+        local_id es requerido solo para roles no admin. nombre_local no se recibe
+        del cliente: se obtiene desde locales por local_id y se guarda desnormalizado.
+        Si el rol es admin_sys, local_id y nombre_local quedan vacios. Response: id
+        (int ID del usuario creado).'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -2167,8 +2204,9 @@ paths:
                   $ref: '#/definitions/handlers.idResponse'
               type: object
         "400":
-          description: 'Error de validacion: JSON invalido, username/password obligatorios
-            o rol_codigo obligatorio'
+          description: 'Error de validacion: JSON invalido, username/password obligatorios,
+            rol_codigo obligatorio, local_id obligatorio para usuarios no admin o
+            local_id invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "401":
@@ -2180,7 +2218,7 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
-          description: Rol no encontrado
+          description: Rol o local no encontrado
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
@@ -2198,7 +2236,7 @@ paths:
     get:
       description: 'Devuelve todos los usuarios registrados sin filtros. Requiere
         token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG
-        con username, activo, fecha_registro, rol_codigo y rol_nombre).'
+        con username, activo, fecha_registro, rol_codigo, rol_nombre, local_id y nombre_local).'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
