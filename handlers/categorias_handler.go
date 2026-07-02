@@ -96,6 +96,116 @@ func (h *Container) CreateCategoria(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, idResponse{ID: id})
 }
 
+type actualizarCategoriaRequest struct {
+	// Nuevo nombre de la categoria
+	Nombre string `json:"nombre" binding:"required" example:"Depilacion Laser"`
+}
+
+// UpdateCategoria godoc
+// @Summary Editar categoria
+// @Description Actualiza el nombre de una categoria. Requiere token Bearer con rol admin_sys.
+// @Tags Categorias
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID de la categoria"
+// @Param payload body actualizarCategoriaRequest true "Nuevo nombre"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Categoria no encontrada"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/categorias/{id} [put]
+func (h *Container) UpdateCategoria(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "id invalido")
+		return
+	}
+
+	var req actualizarCategoriaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	err = h.CategoriasPG.UpdateCategoria(services.ActualizarCategoriaInput{
+		ID:     id,
+		Nombre: req.Nombre,
+	})
+	if err != nil {
+		utils.RespondError(c, categoriaLocalStatus(err), err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "categoria actualizada correctamente"})
+}
+
+// DeleteCategoria godoc
+// @Summary Eliminar categoria
+// @Description Elimina una categoria y sus asociaciones con locales. Requiere token Bearer con rol admin_sys. Falla si la categoria esta en uso por servicios o combos.
+// @Tags Categorias
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID de la categoria"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "id invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Categoria no encontrada"
+// @Failure 409 {object} utils.APIResponse "Categoria en uso por servicios o combos"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/categorias/{id} [delete]
+func (h *Container) DeleteCategoria(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "id invalido")
+		return
+	}
+
+	if err := h.CategoriasPG.DeleteCategoria(id); err != nil {
+		status := http.StatusInternalServerError
+		lower := strings.ToLower(err.Error())
+		switch {
+		case strings.Contains(lower, "no encontrada"):
+			status = http.StatusNotFound
+		case strings.Contains(lower, "en uso"):
+			status = http.StatusConflict
+		}
+		utils.RespondError(c, status, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "categoria eliminada correctamente"})
+}
+
+// GetCategoriaLocales godoc
+// @Summary Listar locales de una categoria
+// @Description Devuelve los locales asociados a una categoria mediante categorias_locales. Response: locales ([]LocalPG).
+// @Tags Categorias
+// @Produce json
+// @Param id path int true "ID de la categoria"
+// @Success 200 {object} utils.APIResponse{data=categoriaLocalesResponse}
+// @Failure 400 {object} utils.APIResponse "id invalido"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/categorias/{id}/locales [get]
+func (h *Container) GetCategoriaLocales(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "id invalido")
+		return
+	}
+
+	locales, err := h.CategoriasPG.GetLocalesByCategoria(id)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, categoriaLocalesResponse{Locales: locales})
+}
+
 // CreateCategoriaLocal godoc
 // @Summary Asociar categoria con local
 // @Description Crea una relacion en categorias_locales. Requiere token Bearer con rol admin_sys. Body: categoria_id y local_id requeridos. Si la relacion ya existe, la operacion es idempotente.

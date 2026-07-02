@@ -47,6 +47,39 @@ func (s *CategoriasService) CreateCategoria(input CrearCategoriaInput) (int, err
 	return s.repo.CreateCategoria(strings.TrimSpace(input.Nombre), input.LocalID)
 }
 
+type ActualizarCategoriaInput struct {
+	ID     int
+	Nombre string
+}
+
+func (s *CategoriasService) UpdateCategoria(input ActualizarCategoriaInput) error {
+	if input.ID < 1 {
+		return errors.New("id debe ser un entero positivo")
+	}
+	nombre := strings.TrimSpace(input.Nombre)
+	if nombre == "" {
+		return errors.New("nombre es requerido")
+	}
+
+	return s.repo.UpdateCategoria(input.ID, nombre)
+}
+
+func (s *CategoriasService) DeleteCategoria(id int) error {
+	if id < 1 {
+		return errors.New("id debe ser un entero positivo")
+	}
+
+	return s.repo.DeleteCategoria(id)
+}
+
+func (s *CategoriasService) GetLocalesByCategoria(categoriaID int) ([]models.LocalPG, error) {
+	if categoriaID < 1 {
+		return nil, errors.New("id debe ser un entero positivo")
+	}
+
+	return s.repo.GetLocalesByCategoria(categoriaID)
+}
+
 type CategoriaLocalInput struct {
 	CategoriaID int
 	LocalID     int

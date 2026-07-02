@@ -1,9 +1,11 @@
 package pgsql
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
@@ -104,6 +106,60 @@ func (r *CategoriasRepo) CreateCategoria(nombre string, localID *int) (int, erro
 	}
 
 	return categoriaID, tx.Commit()
+}
+
+func (r *CategoriasRepo) UpdateCategoria(id int, nombre string) error {
+	res, err := r.db.Exec(`
+		UPDATE categorias
+		SET nombre = $1
+		WHERE id = $2
+	`, nombre, id)
+	if err != nil {
+		return fmt.Errorf("error al actualizar categoria: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("categoria con id %d no encontrada", id)
+	}
+
+	return nil
+}
+
+func (r *CategoriasRepo) DeleteCategoria(id int) error {
+	res, err := r.db.Exec(`
+		DELETE FROM categorias
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		var pqErr *pgconn.PgError
+		if errors.As(err, &pqErr) && pqErr.Code == "23503" {
+			return fmt.Errorf("la categoria esta en uso por servicios o combos y no puede eliminarse")
+		}
+		return fmt.Errorf("error al eliminar categoria: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("categoria con id %d no encontrada", id)
+	}
+
+	return nil
+}
+
+func (r *CategoriasRepo) GetLocalesByCategoria(categoriaID int) ([]models.LocalPG, error) {
+	var locales []models.LocalPG
+	err := r.db.Select(&locales, `
+		SELECT l.id, l.nombre, l.activo
+		FROM locales l
+		JOIN categorias_locales cl ON cl.local_id = l.id
+		WHERE cl.categoria_id = $1
+		ORDER BY l.nombre
+	`, categoriaID)
+	if err != nil {
+		return nil, fmt.Errorf("error al consultar locales de la categoria: %w", err)
+	}
+	if locales == nil {
+		locales = []models.LocalPG{}
+	}
+
+	return locales, nil
 }
 
 func (r *CategoriasRepo) CreateCategoriaLocal(categoriaID, localID int) error {
