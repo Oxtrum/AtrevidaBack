@@ -71,13 +71,21 @@ func (s *PagosService) GetPagos(filtro FiltroPagos) ([]models.PagoPG, error) {
 	})
 }
 
-func (s *PagosService) GetPagoByCodigo(codigoPago string) (*models.PagoCompletoPG, error) {
+func (s *PagosService) GetPagoByCodigo(codigoPago string, localID *int) (*models.PagoCompletoPG, error) {
 	codigoPago = strings.TrimSpace(codigoPago)
 	if codigoPago == "" {
 		return nil, errors.New("codigo_pago es requerido")
 	}
 
-	return s.repo.GetPagoByCodigo(codigoPago)
+	pago, err := s.repo.GetPagoByCodigo(codigoPago)
+	if err != nil {
+		return nil, err
+	}
+	if localID != nil && pago.LocalID != *localID {
+		return nil, errors.New("pago no encontrado")
+	}
+
+	return pago, nil
 }
 
 type CrearPagoInput struct {

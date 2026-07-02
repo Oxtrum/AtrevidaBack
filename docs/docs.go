@@ -2065,7 +2065,7 @@ const docTemplate = `{
         },
         "/bd/notificaciones/reservas": {
             "get": {
-                "description": "Devuelve reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos de la reserva agendada pendiente).",
+                "description": "Devuelve reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Requiere token Bearer. Los usuarios con local asignado solo ven notificaciones de su local; admin_sys ve todas. Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos de la reserva agendada pendiente).",
                 "produces": [
                     "application/json"
                 ],
@@ -2074,6 +2074,14 @@ const docTemplate = `{
                 ],
                 "summary": "Listar notificaciones de reservas",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "integer",
                         "example": 20,
@@ -2103,6 +2111,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Error de validacion: limit invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2569,7 +2589,7 @@ const docTemplate = `{
         },
         "/bd/pagos/{codigo_pago}": {
             "get": {
-                "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).",
+                "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Los usuarios con local asignado solo pueden consultar pagos de su local; admin_sys puede consultar cualquiera. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).",
                 "produces": [
                     "application/json"
                 ],
@@ -2622,6 +2642,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3316,7 +3342,7 @@ const docTemplate = `{
         },
         "/bd/reservas/resumen": {
             "get": {
-                "description": "Devuelve resumen de reservas del dia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).",
+                "description": "Devuelve resumen de reservas del dia. Requiere token Bearer. Los usuarios con local asignado solo consultan su local; admin_sys consulta todos. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).",
                 "produces": [
                     "application/json"
                 ],
@@ -3325,6 +3351,14 @@ const docTemplate = `{
                 ],
                 "summary": "Obtener resumen numerico de reservas",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "example": "2026-05-24",
@@ -3359,6 +3393,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "500": {
                         "description": "Error interno del servidor",
                         "schema": {
@@ -3370,7 +3416,7 @@ const docTemplate = `{
         },
         "/bd/reservas/{id}": {
             "get": {
-                "description": "Devuelve una reserva por su ID. Param: id (requerido, path). Response: reserva (ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
+                "description": "Devuelve una reserva por su ID. Requiere token Bearer. Los usuarios con local asignado solo pueden consultar reservas de su local; admin_sys puede consultar cualquiera. Param: id (requerido, path). Response: reserva (ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
                 "produces": [
                     "application/json"
                 ],
@@ -3379,6 +3425,14 @@ const docTemplate = `{
                 ],
                 "summary": "Obtener reserva por ID",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "integer",
                         "example": 44,
@@ -3409,6 +3463,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }

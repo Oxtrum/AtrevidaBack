@@ -227,7 +227,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 
 // GetPagoByCodigo godoc
 // @Summary Obtener pago por codigo
-// @Description Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).
+// @Description Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Los usuarios con local asignado solo pueden consultar pagos de su local; admin_sys puede consultar cualquiera. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).
 // @Tags Pagos
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -235,6 +235,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 // @Success 200 {object} utils.APIResponse{data=pagoItemResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Pago no encontrado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos/{codigo_pago} [get]
@@ -245,7 +246,13 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 		return
 	}
 
-	pago, err := h.PagosPG.GetPagoByCodigo(codigoPago)
+	scope, ok := authenticatedLocalScopeFromToken(c)
+	if !ok {
+		utils.RespondError(c, http.StatusForbidden, services.ErrNoAutorizado.Error())
+		return
+	}
+
+	pago, err := h.PagosPG.GetPagoByCodigo(codigoPago, scope.LocalID)
 	if err != nil {
 		utils.RespondError(c, statusPagoError(err), err.Error())
 		return

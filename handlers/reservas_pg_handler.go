@@ -299,12 +299,15 @@ func normalizarTelefono(raw string) (string, error) {
 
 // GetReservasResumenPG godoc
 // @Summary Obtener resumen numerico de reservas
-// @Description Devuelve resumen de reservas del dia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).
+// @Description Devuelve resumen de reservas del dia. Requiere token Bearer. Los usuarios con local asignado solo consultan su local; admin_sys consulta todos. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).
 // @Tags Reservas BD
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param fecha query string true "Fecha a consultar YYYY-MM-DD; si es domingo se usa el sabado anterior" example(2026-05-24)
 // @Success 200 {object} utils.APIResponse{data=reservaResumenResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: fecha requerida o formato invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/resumen [get]
 func (h *Container) GetReservasResumenPG(c *gin.Context) {
@@ -320,7 +323,13 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 		return
 	}
 
-	resumen, err := h.ReservasPG.GetResumenReservas(fecha)
+	scope, ok := authenticatedLocalScopeFromToken(c)
+	if !ok {
+		utils.RespondError(c, http.StatusForbidden, services.ErrNoAutorizado.Error())
+		return
+	}
+
+	resumen, err := h.ReservasPG.GetResumenReservas(fecha, scope.NombreLocal)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
@@ -437,12 +446,15 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 
 // GetReservaPGByID godoc
 // @Summary Obtener reserva por ID
-// @Description Devuelve una reserva por su ID. Param: id (requerido, path). Response: reserva (ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).
+// @Description Devuelve una reserva por su ID. Requiere token Bearer. Los usuarios con local asignado solo pueden consultar reservas de su local; admin_sys puede consultar cualquiera. Param: id (requerido, path). Response: reserva (ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).
 // @Tags Reservas BD
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param id path int true "ID de la reserva" example(44)
 // @Success 200 {object} utils.APIResponse{data=reservaItemResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/{id} [get]
@@ -454,9 +466,16 @@ func (h *Container) GetReservaPGByID(c *gin.Context) {
 		return
 	}
 
-	reserva, err := h.ReservasPG.GetReservaByID(id)
+	scope, ok := authenticatedLocalScopeFromToken(c)
+	if !ok {
+		utils.RespondError(c, http.StatusForbidden, services.ErrNoAutorizado.Error())
+		return
+	}
+
+	reserva, err := h.ReservasPG.GetReservaByID(id, scope.LocalID)
 	if err != nil {
-		if strings.Contains(err.Error(), "no rows") {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "no rows") || strings.Contains(errLower, "no encontrad") {
 			utils.RespondError(c, http.StatusNotFound, "reserva no encontrada")
 			return
 		}
@@ -670,12 +689,15 @@ func (h *Container) PatchReservaNotificadoPG(c *gin.Context) {
 
 // GetNotificacionesReservasPG godoc
 // @Summary Listar notificaciones de reservas
-// @Description Devuelve reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos de la reserva agendada pendiente).
+// @Description Devuelve reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Requiere token Bearer. Los usuarios con local asignado solo ven notificaciones de su local; admin_sys ve todas. Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos de la reserva agendada pendiente).
 // @Tags Notificaciones
 // @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param limit query int false "Cantidad maxima de notificaciones a devolver (default 20, maximo 100)" example(20)
 // @Success 200 {object} utils.APIResponse{data=reservaNotificacionListResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: limit invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/notificaciones/reservas [get]
 func (h *Container) GetNotificacionesReservasPG(c *gin.Context) {
@@ -689,7 +711,13 @@ func (h *Container) GetNotificacionesReservasPG(c *gin.Context) {
 		limit = parsed
 	}
 
-	reservas, err := h.ReservasPG.GetReservasAgendadasNoNotificadas(limit)
+	scope, ok := authenticatedLocalScopeFromToken(c)
+	if !ok {
+		utils.RespondError(c, http.StatusForbidden, services.ErrNoAutorizado.Error())
+		return
+	}
+
+	reservas, err := h.ReservasPG.GetReservasAgendadasNoNotificadas(limit, scope.NombreLocal)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
