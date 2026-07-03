@@ -380,6 +380,20 @@ definitions:
     - activo
     - username
     type: object
+  handlers.actualizarUsuarioLocalRequest:
+    properties:
+      local_id:
+        description: ID del local activo a asignar al usuario.
+        example: 1
+        type: integer
+      username:
+        description: Nombre de usuario a modificar.
+        example: operador
+        type: string
+    required:
+    - local_id
+    - username
+    type: object
   handlers.authRequest:
     properties:
       password:
@@ -2347,6 +2361,66 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Listar usuarios
+      tags:
+      - Auth
+  /auth/usuarios/local:
+    patch:
+      consumes:
+      - application/json
+      description: Actualiza el local asignado a un usuario. Requiere token Bearer
+        con rol admin_sys. El body recibe username y local_id; el local debe existir
+        y estar activo. Un admin puede cambiar su propio local o el local de un usuario
+        no admin, pero no puede cambiar el local de otro admin. Al actualizar se guardan
+        usuarios.local_id y usuarios.nombre_local usando el nombre actual de la tabla
+        locales.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Usuario y local a asignar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarUsuarioLocalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: body invalido, username requerido o local_id
+            invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado o solo un administrador puede asignarse
+            un local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Usuario o local no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Cambiar local de usuario
       tags:
       - Auth
   /bd/categorias:

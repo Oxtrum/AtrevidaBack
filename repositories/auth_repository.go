@@ -8,4 +8,5 @@ type AuthRepository interface {
 	GetUsuarios() ([]models.UsuarioResumenPG, error)
 	UpdatePassword(id int, passwordHash string) error
 	UpdateActivo(username string, activo bool) error
+	UpdateLocal(username, tokenUsername string, localID int) error
 }

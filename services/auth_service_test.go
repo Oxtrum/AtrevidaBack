@@ -11,9 +11,11 @@ import (
 )
 
 type fakeAuthRepo struct {
-	usuario      *models.UsuarioPG
-	createErr    error
-	createCalled bool
+	usuario           *models.UsuarioPG
+	createErr         error
+	createCalled      bool
+	updateLocalErr    error
+	updateLocalCalled bool
 }
 
 func (f *fakeAuthRepo) CreateUsuario(username, passwordHash, rolCodigo string, localID *int) (int, error) {
@@ -41,6 +43,11 @@ func (f *fakeAuthRepo) UpdatePassword(id int, passwordHash string) error {
 
 func (f *fakeAuthRepo) UpdateActivo(username string, activo bool) error {
 	return nil
+}
+
+func (f *fakeAuthRepo) UpdateLocal(username, tokenUsername string, localID int) error {
+	f.updateLocalCalled = true
+	return f.updateLocalErr
 }
 
 func TestAuthServiceLoginIncluyeLocalEnRespuestaYToken(t *testing.T) {
@@ -140,6 +147,62 @@ func TestAuthServiceRegistrarUsuarioMapeaErroresDeLocal(t *testing.T) {
 			})
 			if !errors.Is(err, tt.want) {
 				t.Fatalf("RegistrarUsuario() error = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAuthServiceActualizarUsuarioLocalValidaLocalInvalido(t *testing.T) {
+	repo := &fakeAuthRepo{}
+	service := NewAuthService(repo, "test-secret", time.Hour)
+
+	err := service.ActualizarUsuarioLocal(ActualizarUsuarioLocalInput{
+		Username:      "operador",
+		TokenUsername: "admin",
+		LocalID:       0,
+	})
+	if !errors.Is(err, ErrLocalInvalido) {
+		t.Fatalf("ActualizarUsuarioLocal() error = %v, want %v", err, ErrLocalInvalido)
+	}
+	if repo.updateLocalCalled {
+		t.Fatal("ActualizarUsuarioLocal() called repo with invalid local_id")
+	}
+}
+
+func TestAuthServiceActualizarUsuarioLocalMapeaErrores(t *testing.T) {
+	tests := []struct {
+		name      string
+		updateErr error
+		want      error
+	}{
+		{
+			name:      "usuario no encontrado",
+			updateErr: errors.New("usuario no encontrado"),
+			want:      ErrUsuarioNoEncontrado,
+		},
+		{
+			name:      "local no encontrado",
+			updateErr: errors.New("local no encontrado"),
+			want:      ErrLocalNoEncontrado,
+		},
+		{
+			name:      "otro admin",
+			updateErr: errors.New("solo un administrador puede asignarse un local"),
+			want:      ErrSoloAdminAsignarseLocal,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := NewAuthService(&fakeAuthRepo{updateLocalErr: tt.updateErr}, "test-secret", time.Hour)
+
+			err := service.ActualizarUsuarioLocal(ActualizarUsuarioLocalInput{
+				Username:      "operador",
+				TokenUsername: "admin",
+				LocalID:       1,
+			})
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("ActualizarUsuarioLocal() error = %v, want %v", err, tt.want)
 			}
 		})
 	}

@@ -440,6 +440,90 @@
                 }
             }
         },
+        "/auth/usuarios/local": {
+            "patch": {
+                "description": "Actualiza el local asignado a un usuario. Requiere token Bearer con rol admin_sys. El body recibe username y local_id; el local debe existir y estar activo. Un admin puede cambiar su propio local o el local de un usuario no admin, pero no puede cambiar el local de otro admin. Al actualizar se guardan usuarios.local_id y usuarios.nombre_local usando el nombre actual de la tabla locales.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Cambiar local de usuario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Usuario y local a asignar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarUsuarioLocalRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: body invalido, username requerido o local_id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado o solo un administrador puede asignarse un local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Usuario o local no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/categorias": {
             "get": {
                 "description": "Devuelve categorias registradas en BD. Sin filtros devuelve todas. Si se envia local o local_id, devuelve solo categorias asociadas a ese local mediante categorias_locales. Response: total (int), categorias ([]CategoriaPG con: id, nombre).",
@@ -5161,6 +5245,25 @@
                 },
                 "username": {
                     "description": "Nombre de usuario a activar o desactivar.",
+                    "type": "string",
+                    "example": "operador"
+                }
+            }
+        },
+        "handlers.actualizarUsuarioLocalRequest": {
+            "type": "object",
+            "required": [
+                "local_id",
+                "username"
+            ],
+            "properties": {
+                "local_id": {
+                    "description": "ID del local activo a asignar al usuario.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "username": {
+                    "description": "Nombre de usuario a modificar.",
                     "type": "string",
                     "example": "operador"
                 }

@@ -30,6 +30,7 @@ var (
 	ErrNoAutorizado             = errors.New("Usuario no autorizado")
 	ErrNoModificarPropioEstado  = errors.New("no puedes modificar tu propio estado")
 	ErrUltimoAdminSysActivo     = errors.New("no puedes desactivar al unico usuario admin_sys activo")
+	ErrSoloAdminAsignarseLocal  = errors.New("solo un administrador puede asignarse un local")
 )
 
 type AuthService struct {
@@ -163,6 +164,43 @@ func (s *AuthService) ActualizarUsuarioActivo(input ActualizarUsuarioActivoInput
 		}
 		if strings.Contains(strings.ToLower(err.Error()), "unico usuario admin_sys activo") {
 			return ErrUltimoAdminSysActivo
+		}
+		return err
+	}
+
+	return nil
+}
+
+type ActualizarUsuarioLocalInput struct {
+	Username      string
+	TokenUsername string
+	LocalID       int
+}
+
+func (s *AuthService) ActualizarUsuarioLocal(input ActualizarUsuarioLocalInput) error {
+	username := strings.TrimSpace(input.Username)
+	tokenUsername := strings.TrimSpace(input.TokenUsername)
+	if username == "" {
+		return errors.New("username es requerido")
+	}
+	if tokenUsername == "" {
+		return errors.New("token invalido")
+	}
+	if input.LocalID <= 0 {
+		return ErrLocalInvalido
+	}
+
+	err := s.repo.UpdateLocal(username, tokenUsername, input.LocalID)
+	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "usuario no encontrado") {
+			return ErrUsuarioNoEncontrado
+		}
+		if strings.Contains(errMsg, "local no encontrado") {
+			return ErrLocalNoEncontrado
+		}
+		if strings.Contains(errMsg, "solo un administrador puede asignarse un local") {
+			return ErrSoloAdminAsignarseLocal
 		}
 		return err
 	}

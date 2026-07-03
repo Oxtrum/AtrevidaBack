@@ -67,6 +67,13 @@ type actualizarUsuarioActivoRequest struct {
 	Activo *bool `json:"activo" binding:"required" example:"true"`
 }
 
+type actualizarUsuarioLocalRequest struct {
+	// Nombre de usuario a modificar.
+	Username string `json:"username" binding:"required" example:"operador"`
+	// ID del local activo a asignar al usuario.
+	LocalID *int `json:"local_id" binding:"required" example:"1"`
+}
+
 // GetUsuarios godoc
 // @Summary Listar usuarios
 // @Description Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro, rol_codigo, rol_nombre, local_id y nombre_local).
@@ -281,6 +288,70 @@ func (h *Container) ActualizarUsuarioActivo(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: mensaje})
+}
+
+// ActualizarUsuarioLocal godoc
+// @Summary Cambiar local de usuario
+// @Description Actualiza el local asignado a un usuario. Requiere token Bearer con rol admin_sys. El body recibe username y local_id; el local debe existir y estar activo. Un admin puede cambiar su propio local o el local de un usuario no admin, pero no puede cambiar el local de otro admin. Al actualizar se guardan usuarios.local_id y usuarios.nombre_local usando el nombre actual de la tabla locales.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param payload body actualizarUsuarioLocalRequest true "Usuario y local a asignar"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, username requerido o local_id invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado o solo un administrador puede asignarse un local"
+// @Failure 404 {object} utils.APIResponse "Usuario o local no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /auth/usuarios/local [patch]
+func (h *Container) ActualizarUsuarioLocal(c *gin.Context) {
+	var req actualizarUsuarioLocalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+	username := strings.TrimSpace(req.Username)
+	if username == "" {
+		utils.RespondError(c, http.StatusBadRequest, "username es requerido")
+		return
+	}
+	if req.LocalID == nil {
+		utils.RespondError(c, http.StatusBadRequest, "local_id es requerido")
+		return
+	}
+	tokenUsername, ok := authenticatedUsername(c)
+	if !ok {
+		utils.RespondError(c, http.StatusUnauthorized, "token invalido")
+		return
+	}
+
+	err := h.Auth.ActualizarUsuarioLocal(services.ActualizarUsuarioLocalInput{
+		Username:      username,
+		TokenUsername: tokenUsername,
+		LocalID:       *req.LocalID,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case err.Error() == "username es requerido":
+			status = http.StatusBadRequest
+		case err.Error() == "token invalido":
+			status = http.StatusUnauthorized
+		case errors.Is(err, services.ErrLocalInvalido):
+			status = http.StatusBadRequest
+		case errors.Is(err, services.ErrSoloAdminAsignarseLocal):
+			status = http.StatusForbidden
+		case errors.Is(err, services.ErrUsuarioNoEncontrado):
+			status = http.StatusNotFound
+		case errors.Is(err, services.ErrLocalNoEncontrado):
+			status = http.StatusNotFound
+		}
+		utils.RespondError(c, status, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "local de usuario actualizado correctamente"})
 }
 
 // Login godoc

@@ -67,6 +67,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		auth.POST("/login", h.Login)
 		auth.PATCH("/change-password", h.AuthRequired, h.CambiarPassword)
 		auth.PATCH("/deactivate", h.AuthRequired, h.AdminSysRequired, h.ActualizarUsuarioActivo)
+		auth.PATCH("/usuarios/local", h.AuthRequired, h.AdminSysRequired, h.ActualizarUsuarioLocal)
 	}
 
 	// Debug - Sheets

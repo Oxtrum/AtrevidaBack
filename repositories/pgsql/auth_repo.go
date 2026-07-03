@@ -232,6 +232,74 @@ func (r *AuthRepo) UpdateActivo(username string, activo bool) error {
 	return tx.Commit()
 }
 
+func (r *AuthRepo) UpdateLocal(username, tokenUsername string, localID int) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("no se pudo actualizar el local del usuario")
+	}
+	defer tx.Rollback()
+
+	var usuario struct {
+		ID        int    `db:"id"`
+		RolCodigo string `db:"rol_codigo"`
+	}
+	err = tx.Get(&usuario, `
+		SELECT u.id,
+		       r.codigo AS rol_codigo
+		FROM usuarios u
+		JOIN roles r ON r.id = u.rol_id
+		WHERE LOWER(u.username) = LOWER($1)
+	`, username)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("usuario no encontrado")
+		}
+		return fmt.Errorf("no se pudo actualizar el local del usuario")
+	}
+
+	if esRolAdminSys(usuario.RolCodigo) && !strings.EqualFold(username, tokenUsername) {
+		return fmt.Errorf("solo un administrador puede asignarse un local")
+	}
+
+	var nombreLocal string
+	err = tx.Get(&nombreLocal, `
+		SELECT nombre
+		FROM locales
+		WHERE id = $1
+		  AND activo = TRUE
+	`, localID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("local no encontrado")
+		}
+		return fmt.Errorf("no se pudo actualizar el local del usuario")
+	}
+
+	res, err := tx.Exec(`
+		UPDATE usuarios
+		SET local_id = $1,
+		    nombre_local = $2
+		WHERE id = $3
+	`, localID, nombreLocal, usuario.ID)
+	if err != nil {
+		return fmt.Errorf("no se pudo actualizar el local del usuario")
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("no se pudo actualizar el local del usuario")
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("usuario no encontrado")
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("no se pudo actualizar el local del usuario")
+	}
+
+	return nil
+}
+
 func esUniqueUsuariosError(err error) bool {
 	var pqErr *pgconn.PgError
 	return errors.As(err, &pqErr) && pqErr.Code == "23505"
