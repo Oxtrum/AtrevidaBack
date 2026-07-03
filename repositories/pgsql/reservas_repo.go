@@ -172,6 +172,49 @@ func (r *ReservasRepo) GetLocalIDByNombre(nombre string) (int, error) {
 	return localID, nil
 }
 
+func (r *ReservasRepo) GetResumenPagosReservas(f repository.FiltroResumenPagosReservas) (repository.ResumenPagosReservas, error) {
+	conditions := []string{
+		"p.activo = TRUE",
+		"p.estado = 'PAGADO'",
+		"p.fecha_creacion::date >= $1::date",
+		"p.fecha_creacion::date <= $2::date",
+	}
+	args := []interface{}{f.FechaDesde, f.FechaHasta, f.Fecha}
+	idx := 4
+
+	if f.LocalID != nil {
+		conditions = append(conditions, fmt.Sprintf("p.local_id = $%d", idx))
+		args = append(args, *f.LocalID)
+		idx++
+	}
+	if f.LocalNombre != "" {
+		conditions = append(conditions, fmt.Sprintf("UPPER(p.local_nombre) = UPPER($%d)", idx))
+		args = append(args, f.LocalNombre)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(SUM(p.total_final) FILTER (WHERE p.fecha_creacion::date = $3::date), 0) AS ingresos_dia,
+			COALESCE(SUM(p.total_final), 0) AS ingresos_semana,
+			COALESCE(SUM(p.total_final) FILTER (WHERE EXTRACT(ISODOW FROM p.fecha_creacion::date) = 1), 0) AS ingresos_lunes,
+			COALESCE(SUM(p.total_final) FILTER (WHERE EXTRACT(ISODOW FROM p.fecha_creacion::date) = 2), 0) AS ingresos_martes,
+			COALESCE(SUM(p.total_final) FILTER (WHERE EXTRACT(ISODOW FROM p.fecha_creacion::date) = 3), 0) AS ingresos_miercoles,
+			COALESCE(SUM(p.total_final) FILTER (WHERE EXTRACT(ISODOW FROM p.fecha_creacion::date) = 4), 0) AS ingresos_jueves,
+			COALESCE(SUM(p.total_final) FILTER (WHERE EXTRACT(ISODOW FROM p.fecha_creacion::date) = 5), 0) AS ingresos_viernes,
+			COALESCE(SUM(p.total_final) FILTER (WHERE EXTRACT(ISODOW FROM p.fecha_creacion::date) = 6), 0) AS ingresos_sabado,
+			COUNT(*) FILTER (WHERE p.fecha_creacion::date = $3::date) AS cancelaciones_dia
+		FROM pagos p
+		WHERE %s
+	`, strings.Join(conditions, " AND "))
+
+	var resumen repository.ResumenPagosReservas
+	if err := r.db.Get(&resumen, query, args...); err != nil {
+		return resumen, fmt.Errorf("no se pudo obtener el resumen de pagos para reservas")
+	}
+
+	return resumen, nil
+}
+
 func (r *ReservasRepo) getDetalleReserva(reservaID int) ([]models.DetalleReservaPG, error) {
 	var detalle []models.DetalleReservaPG
 	err := r.db.Select(&detalle, `

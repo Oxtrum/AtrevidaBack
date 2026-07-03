@@ -9,9 +9,11 @@ import (
 )
 
 type reservasResumenRepo struct {
-	calls   []repository.FiltroReservasPG
-	reserva *models.ReservaPGCompleta
-	localID int
+	calls        []repository.FiltroReservasPG
+	paymentCalls []repository.FiltroResumenPagosReservas
+	pagosResumen repository.ResumenPagosReservas
+	reserva      *models.ReservaPGCompleta
+	localID      int
 }
 
 func (r *reservasResumenRepo) GetReservas(f repository.FiltroReservasPG) ([]models.ReservaPGCompleta, error) {
@@ -32,6 +34,11 @@ func (r *reservasResumenRepo) GetLocalIDByNombre(nombre string) (int, error) {
 
 func (r *reservasResumenRepo) GetCapacidades(localNombre string) ([]repository.CapacidadLocal, error) {
 	return nil, nil
+}
+
+func (r *reservasResumenRepo) GetResumenPagosReservas(f repository.FiltroResumenPagosReservas) (repository.ResumenPagosReservas, error) {
+	r.paymentCalls = append(r.paymentCalls, f)
+	return r.pagosResumen, nil
 }
 
 func (r *reservasResumenRepo) CreateReserva(input repository.CreateReservaInput) (int, error) {
@@ -73,6 +80,12 @@ func TestGetResumenReservasDomingoUsaSabadoAnterior(t *testing.T) {
 	assertDate(t, repo.calls[0].Fecha, "2026-05-23", "fecha del dia")
 	assertDate(t, repo.calls[1].FechaDesde, "2026-05-18", "inicio de semana")
 	assertDate(t, repo.calls[1].FechaHasta, "2026-05-23", "fin de semana")
+	if len(repo.paymentCalls) != 1 {
+		t.Fatalf("GetResumenPagosReservas calls = %d, want 1", len(repo.paymentCalls))
+	}
+	assertDateValue(t, repo.paymentCalls[0].Fecha, "2026-05-23", "fecha de pagos")
+	assertDateValue(t, repo.paymentCalls[0].FechaDesde, "2026-05-18", "inicio pagos")
+	assertDateValue(t, repo.paymentCalls[0].FechaHasta, "2026-05-23", "fin pagos")
 }
 
 func TestGetResumenReservasResuelveLocalNombreAID(t *testing.T) {
@@ -98,6 +111,15 @@ func TestGetResumenReservasResuelveLocalNombreAID(t *testing.T) {
 	}
 	if repo.calls[1].LocalNombre != "" {
 		t.Fatalf("semana LocalNombre = %q, want empty", repo.calls[1].LocalNombre)
+	}
+	if len(repo.paymentCalls) != 1 {
+		t.Fatalf("GetResumenPagosReservas calls = %d, want 1", len(repo.paymentCalls))
+	}
+	if repo.paymentCalls[0].LocalID == nil || *repo.paymentCalls[0].LocalID != 2 {
+		t.Fatalf("pagos LocalID = %v, want 2", repo.paymentCalls[0].LocalID)
+	}
+	if repo.paymentCalls[0].LocalNombre != "" {
+		t.Fatalf("pagos LocalNombre = %q, want empty", repo.paymentCalls[0].LocalNombre)
 	}
 }
 
@@ -125,6 +147,56 @@ func TestGetResumenReservasAplicaLocalID(t *testing.T) {
 	}
 	if repo.calls[1].LocalNombre != "" {
 		t.Fatalf("semana LocalNombre = %q, want empty", repo.calls[1].LocalNombre)
+	}
+	if len(repo.paymentCalls) != 1 {
+		t.Fatalf("GetResumenPagosReservas calls = %d, want 1", len(repo.paymentCalls))
+	}
+	if repo.paymentCalls[0].LocalID == nil || *repo.paymentCalls[0].LocalID != localID {
+		t.Fatalf("pagos LocalID = %v, want %d", repo.paymentCalls[0].LocalID, localID)
+	}
+	if repo.paymentCalls[0].LocalNombre != "" {
+		t.Fatalf("pagos LocalNombre = %q, want empty", repo.paymentCalls[0].LocalNombre)
+	}
+}
+
+func TestGetResumenReservasIncluyeResumenPagos(t *testing.T) {
+	repo := &reservasResumenRepo{
+		pagosResumen: repository.ResumenPagosReservas{
+			IngresosDia:       1250.50,
+			IngresosSemana:    8450.75,
+			IngresosLunes:     1000,
+			IngresosMartes:    1200,
+			IngresosMiercoles: 1300,
+			IngresosJueves:    1500,
+			IngresosViernes:   3450.75,
+			CancelacionesDia:  6,
+		},
+	}
+	service := NewReservasPGService(repo, nil)
+	fecha := time.Date(2026, time.May, 22, 0, 0, 0, 0, time.UTC)
+
+	resumen, err := service.GetResumenReservas(fecha, "", nil)
+	if err != nil {
+		t.Fatalf("GetResumenReservas() error = %v", err)
+	}
+
+	if resumen.IngresosDia != 1250.50 {
+		t.Fatalf("IngresosDia = %v, want 1250.50", resumen.IngresosDia)
+	}
+	if resumen.IngresosSemana != 8450.75 {
+		t.Fatalf("IngresosSemana = %v, want 8450.75", resumen.IngresosSemana)
+	}
+	if resumen.CancelacionesDia != 6 {
+		t.Fatalf("CancelacionesDia = %d, want 6", resumen.CancelacionesDia)
+	}
+	if resumen.Ingresos.TotalIngresos != 8450.75 {
+		t.Fatalf("Ingresos.TotalIngresos = %v, want 8450.75", resumen.Ingresos.TotalIngresos)
+	}
+	if resumen.Ingresos.Lunes != 1000 {
+		t.Fatalf("Ingresos.Lunes = %v, want 1000", resumen.Ingresos.Lunes)
+	}
+	if resumen.Ingresos.Viernes != 3450.75 {
+		t.Fatalf("Ingresos.Viernes = %v, want 3450.75", resumen.Ingresos.Viernes)
 	}
 }
 
@@ -161,6 +233,11 @@ func assertDate(t *testing.T, got *time.Time, want string, label string) {
 	if got == nil {
 		t.Fatalf("%s = nil, want %s", label, want)
 	}
+	assertDateValue(t, *got, want, label)
+}
+
+func assertDateValue(t *testing.T, got time.Time, want string, label string) {
+	t.Helper()
 	if got.Format("2006-01-02") != want {
 		t.Fatalf("%s = %s, want %s", label, got.Format("2006-01-02"), want)
 	}

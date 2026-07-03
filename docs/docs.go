@@ -3569,7 +3569,7 @@ const docTemplate = `{
         },
         "/bd/reservas/resumen": {
             "get": {
-                "description": "Devuelve resumen de reservas del dia. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).",
+                "description": "Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).",
                 "produces": [
                     "application/json"
                 ],
@@ -6318,9 +6318,72 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.reservaResumenIngresosSemanaResponse": {
+            "type": "object",
+            "properties": {
+                "jueves": {
+                    "description": "Ingresos del dia jueves (incluido si la fecha es jueves o posterior)",
+                    "type": "number",
+                    "example": 2100
+                },
+                "lunes": {
+                    "description": "Ingresos del dia lunes (incluido si la fecha es lunes o posterior)",
+                    "type": "number",
+                    "example": 1250.5
+                },
+                "martes": {
+                    "description": "Ingresos del dia martes (incluido si la fecha es martes o posterior)",
+                    "type": "number",
+                    "example": 980
+                },
+                "miercoles": {
+                    "description": "Ingresos del dia miercoles (incluido si la fecha es miercoles o posterior)",
+                    "type": "number",
+                    "example": 1420.25
+                },
+                "sabado": {
+                    "description": "Ingresos del dia sabado (incluido si la fecha es sabado o posterior)",
+                    "type": "number",
+                    "example": 850
+                },
+                "total_ingresos": {
+                    "description": "Total de ingresos en la semana (lunes a la fecha consultada)",
+                    "type": "number",
+                    "example": 8450.75
+                },
+                "viernes": {
+                    "description": "Ingresos del dia viernes (incluido si la fecha es viernes o posterior)",
+                    "type": "number",
+                    "example": 1850
+                }
+            }
+        },
         "handlers.reservaResumenResponse": {
             "type": "object",
             "properties": {
+                "cancelaciones_hoy": {
+                    "description": "Cantidad de pagos activos y PAGADOS en el dia consultado",
+                    "type": "integer",
+                    "example": 6
+                },
+                "ingresos": {
+                    "description": "Desglose de ingresos por dia desde el lunes hasta la fecha consultada",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handlers.reservaResumenIngresosSemanaResponse"
+                        }
+                    ]
+                },
+                "ingresos_hoy": {
+                    "description": "Ingresos de pagos activos y PAGADOS en el dia consultado",
+                    "type": "number",
+                    "example": 1250.5
+                },
+                "ingresos_semana": {
+                    "description": "Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada",
+                    "type": "number",
+                    "example": 8450.75
+                },
                 "reservas_agendadas_dia": {
                     "description": "Cantidad de reservas agendadas para el dia consultado",
                     "type": "integer",

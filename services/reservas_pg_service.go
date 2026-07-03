@@ -507,10 +507,24 @@ type ResumenReservasSemana struct {
 	Sabado        int
 }
 
+type ResumenIngresosSemana struct {
+	TotalIngresos float64
+	Lunes         float64
+	Martes        float64
+	Miercoles     float64
+	Jueves        float64
+	Viernes       float64
+	Sabado        float64
+}
+
 type ResumenReservas struct {
 	ReservasAgendadasDia    int
 	ServiciosCompletadosDia int
+	IngresosDia             float64
+	IngresosSemana          float64
+	CancelacionesDia        int
 	Semana                  ResumenReservasSemana
+	Ingresos                ResumenIngresosSemana
 }
 
 type FiltroReservasSimple struct {
@@ -741,7 +755,31 @@ func (s *ReservasPGService) GetResumenReservas(fecha time.Time, localNombre stri
 		return nil, err
 	}
 
+	resumenPagos, err := s.repo.GetResumenPagosReservas(repository.FiltroResumenPagosReservas{
+		LocalID:     localID,
+		LocalNombre: localNombre,
+		Fecha:       fecha,
+		FechaDesde:  lunes,
+		FechaHasta:  fecha,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	resumen := &ResumenReservas{}
+	resumen.IngresosDia = resumenPagos.IngresosDia
+	resumen.IngresosSemana = resumenPagos.IngresosSemana
+	resumen.CancelacionesDia = resumenPagos.CancelacionesDia
+	resumen.Ingresos = ResumenIngresosSemana{
+		TotalIngresos: resumenPagos.IngresosSemana,
+		Lunes:         resumenPagos.IngresosLunes,
+		Martes:        resumenPagos.IngresosMartes,
+		Miercoles:     resumenPagos.IngresosMiercoles,
+		Jueves:        resumenPagos.IngresosJueves,
+		Viernes:       resumenPagos.IngresosViernes,
+		Sabado:        resumenPagos.IngresosSabado,
+	}
+
 	for _, rv := range reservasDia {
 		estado := strings.TrimSpace(stringValue(rv.Estado))
 		switch {

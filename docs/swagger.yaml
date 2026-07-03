@@ -1229,8 +1229,57 @@ definitions:
         example: mesa
         type: string
     type: object
+  handlers.reservaResumenIngresosSemanaResponse:
+    properties:
+      jueves:
+        description: Ingresos del dia jueves (incluido si la fecha es jueves o posterior)
+        example: 2100
+        type: number
+      lunes:
+        description: Ingresos del dia lunes (incluido si la fecha es lunes o posterior)
+        example: 1250.5
+        type: number
+      martes:
+        description: Ingresos del dia martes (incluido si la fecha es martes o posterior)
+        example: 980
+        type: number
+      miercoles:
+        description: Ingresos del dia miercoles (incluido si la fecha es miercoles
+          o posterior)
+        example: 1420.25
+        type: number
+      sabado:
+        description: Ingresos del dia sabado (incluido si la fecha es sabado o posterior)
+        example: 850
+        type: number
+      total_ingresos:
+        description: Total de ingresos en la semana (lunes a la fecha consultada)
+        example: 8450.75
+        type: number
+      viernes:
+        description: Ingresos del dia viernes (incluido si la fecha es viernes o posterior)
+        example: 1850
+        type: number
+    type: object
   handlers.reservaResumenResponse:
     properties:
+      cancelaciones_hoy:
+        description: Cantidad de pagos activos y PAGADOS en el dia consultado
+        example: 6
+        type: integer
+      ingresos:
+        allOf:
+        - $ref: '#/definitions/handlers.reservaResumenIngresosSemanaResponse'
+        description: Desglose de ingresos por dia desde el lunes hasta la fecha consultada
+      ingresos_hoy:
+        description: Ingresos de pagos activos y PAGADOS en el dia consultado
+        example: 1250.5
+        type: number
+      ingresos_semana:
+        description: Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha
+          consultada
+        example: 8450.75
+        type: number
       reservas_agendadas_dia:
         description: Cantidad de reservas agendadas para el dia consultado
         example: 15
@@ -4555,14 +4604,18 @@ paths:
       - Reservas BD
   /bd/reservas/resumen:
     get:
-      description: 'Devuelve resumen de reservas del dia. Requiere token Bearer. Los
-        usuarios con local asignado solo consultan su local desde el token; si el
-        token no tiene local, puede filtrar por el query local o consultar todos si
-        no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo,
-        calcula el resumen con el sabado anterior para devolver la semana que finaliza.
-        Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana
-        (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales
-        segun el dia efectivo).'
+      description: 'Devuelve resumen de reservas del dia y pagos del periodo. Requiere
+        token Bearer. Los usuarios con local asignado solo consultan su local desde
+        el token; si el token no tiene local, puede filtrar por el query local o consultar
+        todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha
+        es domingo, calcula el resumen con el sabado anterior para devolver la semana
+        que finaliza. Los pagos consideran registros activos con estado PAGADO en
+        la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Response:
+        reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy
+        (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse
+        con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo),
+        ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number,
+        lunes..sabado number opcionales segun el dia efectivo).'
       parameters:
       - default: Bearer <token>
         description: Token Bearer

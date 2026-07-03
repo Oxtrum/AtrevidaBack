@@ -28,6 +28,23 @@ func TestBuildReservaResumenSemanaResponseDomingoIncluyeSabado(t *testing.T) {
 	}
 }
 
+func TestBuildReservaResumenIngresosSemanaResponseDomingoIncluyeSabado(t *testing.T) {
+	fechaDomingo := time.Date(2026, time.May, 24, 0, 0, 0, 0, time.UTC)
+	resp := buildReservaResumenIngresosSemanaResponse(fechaDomingo, services.ResumenIngresosSemana{
+		TotalIngresos: 2100,
+		Lunes:         100,
+		Martes:        200,
+		Miercoles:     300,
+		Jueves:        400,
+		Viernes:       500,
+		Sabado:        600,
+	})
+
+	if resp.Sabado == nil || *resp.Sabado != 600 {
+		t.Fatalf("Sabado = %v, want 600", resp.Sabado)
+	}
+}
+
 func TestQueryLocalNombreDecodificaEspacios(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

@@ -77,11 +77,32 @@ type CapacidadLocal struct {
 	Capacidad   int
 }
 
+type FiltroResumenPagosReservas struct {
+	LocalID     *int
+	LocalNombre string
+	Fecha       time.Time
+	FechaDesde  time.Time
+	FechaHasta  time.Time
+}
+
+type ResumenPagosReservas struct {
+	IngresosDia       float64 `db:"ingresos_dia"`
+	IngresosSemana    float64 `db:"ingresos_semana"`
+	IngresosLunes     float64 `db:"ingresos_lunes"`
+	IngresosMartes    float64 `db:"ingresos_martes"`
+	IngresosMiercoles float64 `db:"ingresos_miercoles"`
+	IngresosJueves    float64 `db:"ingresos_jueves"`
+	IngresosViernes   float64 `db:"ingresos_viernes"`
+	IngresosSabado    float64 `db:"ingresos_sabado"`
+	CancelacionesDia  int     `db:"cancelaciones_dia"`
+}
+
 type ReservasPGRepository interface {
 	GetReservas(f FiltroReservasPG) ([]models.ReservaPGCompleta, error)
 	GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 	GetLocalIDByNombre(nombre string) (int, error)
 	GetCapacidades(localNombre string) ([]CapacidadLocal, error)
+	GetResumenPagosReservas(f FiltroResumenPagosReservas) (ResumenPagosReservas, error)
 	CreateReserva(input CreateReservaInput) (int, error)
 	UpdateReserva(input UpdateReservaInput) error
 	UpdateReservaEstado(input UpdateReservaEstadoInput) error

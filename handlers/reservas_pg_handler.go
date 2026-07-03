@@ -262,13 +262,38 @@ type reservaResumenSemanaResponse struct {
 	Sabado *int `json:"sabado,omitempty" example:"3"`
 }
 
+type reservaResumenIngresosSemanaResponse struct {
+	// Total de ingresos en la semana (lunes a la fecha consultada)
+	TotalIngresos float64 `json:"total_ingresos" example:"8450.75"`
+	// Ingresos del dia lunes (incluido si la fecha es lunes o posterior)
+	Lunes *float64 `json:"lunes,omitempty" example:"1250.5"`
+	// Ingresos del dia martes (incluido si la fecha es martes o posterior)
+	Martes *float64 `json:"martes,omitempty" example:"980"`
+	// Ingresos del dia miercoles (incluido si la fecha es miercoles o posterior)
+	Miercoles *float64 `json:"miercoles,omitempty" example:"1420.25"`
+	// Ingresos del dia jueves (incluido si la fecha es jueves o posterior)
+	Jueves *float64 `json:"jueves,omitempty" example:"2100"`
+	// Ingresos del dia viernes (incluido si la fecha es viernes o posterior)
+	Viernes *float64 `json:"viernes,omitempty" example:"1850"`
+	// Ingresos del dia sabado (incluido si la fecha es sabado o posterior)
+	Sabado *float64 `json:"sabado,omitempty" example:"850"`
+}
+
 type reservaResumenResponse struct {
 	// Cantidad de reservas agendadas para el dia consultado
 	ReservasAgendadasDia int `json:"reservas_agendadas_dia" example:"15"`
 	// Cantidad de servicios completados en el dia consultado
 	ServiciosCompletadosDia int `json:"servicios_completados_dia" example:"10"`
+	// Ingresos de pagos activos y PAGADOS en el dia consultado
+	IngresosHoy float64 `json:"ingresos_hoy" example:"1250.5"`
+	// Cantidad de pagos activos y PAGADOS en el dia consultado
+	CancelacionesHoy int `json:"cancelaciones_hoy" example:"6"`
+	// Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada
+	IngresosSemana float64 `json:"ingresos_semana" example:"8450.75"`
 	// Resumen por dia de la semana desde el lunes hasta la fecha consultada
 	Semana reservaResumenSemanaResponse `json:"semana"`
+	// Desglose de ingresos por dia desde el lunes hasta la fecha consultada
+	Ingresos reservaResumenIngresosSemanaResponse `json:"ingresos"`
 }
 
 func normalizarTelefono(raw string) (string, error) {
@@ -299,7 +324,7 @@ func normalizarTelefono(raw string) (string, error) {
 
 // GetReservasResumenPG godoc
 // @Summary Obtener resumen numerico de reservas
-// @Description Devuelve resumen de reservas del dia. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).
+// @Description Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).
 // @Tags Reservas BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -351,7 +376,11 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, reservaResumenResponse{
 		ReservasAgendadasDia:    resumen.ReservasAgendadasDia,
 		ServiciosCompletadosDia: resumen.ServiciosCompletadosDia,
+		IngresosHoy:             resumen.IngresosDia,
+		CancelacionesHoy:        resumen.CancelacionesDia,
+		IngresosSemana:          resumen.IngresosSemana,
 		Semana:                  buildReservaResumenSemanaResponse(fecha, resumen.Semana),
+		Ingresos:                buildReservaResumenIngresosSemanaResponse(fecha, resumen.Ingresos),
 	})
 }
 
@@ -398,6 +427,48 @@ func buildReservaResumenSemanaResponse(fecha time.Time, semana services.ResumenR
 }
 
 func intPtr(v int) *int {
+	return &v
+}
+
+func buildReservaResumenIngresosSemanaResponse(fecha time.Time, ingresos services.ResumenIngresosSemana) reservaResumenIngresosSemanaResponse {
+	if fecha.Weekday() == time.Sunday {
+		fecha = fecha.AddDate(0, 0, -1)
+	}
+
+	resp := reservaResumenIngresosSemanaResponse{
+		TotalIngresos: ingresos.TotalIngresos,
+		Lunes:         float64Ptr(ingresos.Lunes),
+	}
+
+	switch fecha.Weekday() {
+	case time.Monday:
+		return resp
+	case time.Tuesday:
+		resp.Martes = float64Ptr(ingresos.Martes)
+	case time.Wednesday:
+		resp.Martes = float64Ptr(ingresos.Martes)
+		resp.Miercoles = float64Ptr(ingresos.Miercoles)
+	case time.Thursday:
+		resp.Martes = float64Ptr(ingresos.Martes)
+		resp.Miercoles = float64Ptr(ingresos.Miercoles)
+		resp.Jueves = float64Ptr(ingresos.Jueves)
+	case time.Friday:
+		resp.Martes = float64Ptr(ingresos.Martes)
+		resp.Miercoles = float64Ptr(ingresos.Miercoles)
+		resp.Jueves = float64Ptr(ingresos.Jueves)
+		resp.Viernes = float64Ptr(ingresos.Viernes)
+	case time.Saturday:
+		resp.Martes = float64Ptr(ingresos.Martes)
+		resp.Miercoles = float64Ptr(ingresos.Miercoles)
+		resp.Jueves = float64Ptr(ingresos.Jueves)
+		resp.Viernes = float64Ptr(ingresos.Viernes)
+		resp.Sabado = float64Ptr(ingresos.Sabado)
+	}
+
+	return resp
+}
+
+func float64Ptr(v float64) *float64 {
 	return &v
 }
 
