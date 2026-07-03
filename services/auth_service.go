@@ -24,6 +24,9 @@ var (
 	ErrUsuarioYaExiste          = errors.New("usuario ya existe")
 	ErrRolObligatorio           = errors.New("rol_codigo es obligatorio")
 	ErrRolNoEncontrado          = errors.New("rol no encontrado")
+	ErrLocalObligatorio         = errors.New("local_id es obligatorio para usuarios no admin")
+	ErrLocalInvalido            = errors.New("local_id debe ser un entero positivo")
+	ErrLocalNoEncontrado        = errors.New("local no encontrado")
 	ErrNoAutorizado             = errors.New("Usuario no autorizado")
 	ErrNoModificarPropioEstado  = errors.New("no puedes modificar tu propio estado")
 	ErrUltimoAdminSysActivo     = errors.New("no puedes desactivar al unico usuario admin_sys activo")
@@ -54,6 +57,7 @@ type RegistrarUsuarioInput struct {
 	Username  string
 	Password  string
 	RolCodigo string
+	LocalID   *int
 }
 
 func (s *AuthService) RegistrarUsuario(input RegistrarUsuarioInput) (int, error) {
@@ -67,19 +71,28 @@ func (s *AuthService) RegistrarUsuario(input RegistrarUsuarioInput) (int, error)
 	if rolCodigo == "" {
 		return 0, ErrRolObligatorio
 	}
+	if input.LocalID != nil && *input.LocalID <= 0 {
+		return 0, ErrLocalInvalido
+	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return 0, errors.New("no se pudo encriptar la password")
 	}
 
-	id, err := s.repo.CreateUsuario(username, string(hash), rolCodigo)
+	id, err := s.repo.CreateUsuario(username, string(hash), rolCodigo, input.LocalID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "ya existe") {
 			return 0, ErrUsuarioYaExiste
 		}
 		if strings.Contains(strings.ToLower(err.Error()), "rol no encontrado") {
 			return 0, ErrRolNoEncontrado
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "local_id es obligatorio") {
+			return 0, ErrLocalObligatorio
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "local no encontrado") {
+			return 0, ErrLocalNoEncontrado
 		}
 		return 0, err
 	}
@@ -163,10 +176,12 @@ type LoginInput struct {
 }
 
 type LoginResult struct {
-	Token     string
-	Username  string
-	RolCodigo string
-	ExpiresIn int
+	Token       string
+	Username    string
+	RolCodigo   string
+	LocalID     *int
+	NombreLocal *string
+	ExpiresIn   int
 }
 
 func (s *AuthService) Login(input LoginInput) (*LoginResult, error) {
@@ -189,23 +204,27 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, error) {
 		return nil, ErrPasswordIncorrecta
 	}
 
-	token, err := s.generarToken(usuario.ID, usuario.Username, usuario.RolCodigo)
+	token, err := s.generarToken(usuario.ID, usuario.Username, usuario.RolCodigo, usuario.LocalID, usuario.NombreLocal)
 	if err != nil {
 		return nil, err
 	}
 
 	return &LoginResult{
-		Token:     token,
-		Username:  usuario.Username,
-		RolCodigo: usuario.RolCodigo,
-		ExpiresIn: int(s.tokenTTL.Seconds()),
+		Token:       token,
+		Username:    usuario.Username,
+		RolCodigo:   usuario.RolCodigo,
+		LocalID:     usuario.LocalID,
+		NombreLocal: usuario.NombreLocal,
+		ExpiresIn:   int(s.tokenTTL.Seconds()),
 	}, nil
 }
 
 type TokenData struct {
-	UserID    int
-	Username  string
-	RolCodigo string
+	UserID      int
+	Username    string
+	RolCodigo   string
+	LocalID     *int
+	NombreLocal *string
 }
 
 func (s *AuthService) ValidarToken(token string) (*TokenData, error) {
@@ -224,9 +243,11 @@ func (s *AuthService) ValidarToken(token string) (*TokenData, error) {
 	}
 
 	return &TokenData{
-		UserID:    userID,
-		Username:  claims.Username,
-		RolCodigo: claims.RolCodigo,
+		UserID:      userID,
+		Username:    claims.Username,
+		RolCodigo:   claims.RolCodigo,
+		LocalID:     claims.LocalID,
+		NombreLocal: claims.NombreLocal,
 	}, nil
 }
 
@@ -236,25 +257,29 @@ type tokenHeader struct {
 }
 
 type tokenClaims struct {
-	Subject   string `json:"sub"`
-	Username  string `json:"username"`
-	RolCodigo string `json:"rol_codigo"`
-	IssuedAt  int64  `json:"iat"`
-	ExpiresAt int64  `json:"exp"`
+	Subject     string  `json:"sub"`
+	Username    string  `json:"username"`
+	RolCodigo   string  `json:"rol_codigo"`
+	LocalID     *int    `json:"local_id,omitempty"`
+	NombreLocal *string `json:"nombre_local,omitempty"`
+	IssuedAt    int64   `json:"iat"`
+	ExpiresAt   int64   `json:"exp"`
 }
 
-func (s *AuthService) generarToken(usuarioID int, username, rolCodigo string) (string, error) {
+func (s *AuthService) generarToken(usuarioID int, username, rolCodigo string, localID *int, nombreLocal *string) (string, error) {
 	now := time.Now()
 	header := tokenHeader{
 		Algorithm: "HS256",
 		Type:      "JWT",
 	}
 	claims := tokenClaims{
-		Subject:   fmt.Sprintf("%d", usuarioID),
-		Username:  username,
-		RolCodigo: rolCodigo,
-		IssuedAt:  now.Unix(),
-		ExpiresAt: now.Add(s.tokenTTL).Unix(),
+		Subject:     fmt.Sprintf("%d", usuarioID),
+		Username:    username,
+		RolCodigo:   rolCodigo,
+		LocalID:     localID,
+		NombreLocal: nombreLocal,
+		IssuedAt:    now.Unix(),
+		ExpiresAt:   now.Add(s.tokenTTL).Unix(),
 	}
 
 	headerPart, err := encodeTokenPart(header)

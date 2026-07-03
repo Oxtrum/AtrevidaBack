@@ -526,9 +526,10 @@ type FiltroReservasSimple struct {
 	Tipo               string
 }
 
-func (s *ReservasPGService) GetReservasAgendadasNoNotificadas(limit int) ([]ReservaSimple, error) {
+func (s *ReservasPGService) GetReservasAgendadasNoNotificadas(limit int, localNombre string) ([]ReservaSimple, error) {
 	filtro := FiltroReservasSimple{
 		Estado: "AGENDADO",
+		Local:  strings.TrimSpace(localNombre),
 	}
 
 	reservas, err := s.GetReservasSimple(filtro)
@@ -625,10 +626,13 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 	return resultado, nil
 }
 
-func (s *ReservasPGService) GetReservaByID(id int) (*ReservaSimple, error) {
+func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple, error) {
 	rv, err := s.repo.GetReservaByID(id)
 	if err != nil {
 		return nil, err
+	}
+	if localID != nil && (rv.LocalID == nil || *rv.LocalID != *localID) {
+		return nil, errors.New("reserva no encontrada")
 	}
 
 	return &ReservaSimple{
@@ -698,13 +702,26 @@ func (s *ReservasPGService) ActualizarNotificacionReservas(ids []int, notificado
 	return actualizadas, nil
 }
 
-func (s *ReservasPGService) GetResumenReservas(fecha time.Time) (*ResumenReservas, error) {
+func (s *ReservasPGService) GetResumenReservas(fecha time.Time, localNombre string, localID *int) (*ResumenReservas, error) {
 	fecha = fecha.Truncate(24 * time.Hour)
 	if fecha.Weekday() == time.Sunday {
 		fecha = fecha.AddDate(0, 0, -1)
 	}
+	localNombre = strings.TrimSpace(localNombre)
+	if localID != nil {
+		localNombre = ""
+	} else if localNombre != "" {
+		resolvedLocalID, err := s.repo.GetLocalIDByNombre(localNombre)
+		if err != nil {
+			return nil, err
+		}
+		localID = &resolvedLocalID
+		localNombre = ""
+	}
 
 	reservasDia, err := s.repo.GetReservas(repository.FiltroReservasPG{
+		LocalID:     localID,
+		LocalNombre: localNombre,
 		Fecha:       &fecha,
 		SoloActivas: true,
 	})
@@ -714,6 +731,8 @@ func (s *ReservasPGService) GetResumenReservas(fecha time.Time) (*ResumenReserva
 
 	lunes := inicioSemana(fecha)
 	reservasSemana, err := s.repo.GetReservas(repository.FiltroReservasPG{
+		LocalID:     localID,
+		LocalNombre: localNombre,
 		FechaDesde:  &lunes,
 		FechaHasta:  &fecha,
 		SoloActivas: true,

@@ -52,22 +52,43 @@ type ClientePG struct {
 // Usuarios
 
 type UsuarioPG struct {
-	ID            int       `db:"id" json:"id" example:"1"`
-	Username      string    `db:"username" json:"username" example:"admin"`
-	Password      string    `db:"password" json:"-"`
-	Activo        bool      `db:"activo" json:"activo" example:"true"`
+	// ID interno del usuario.
+	ID int `db:"id" json:"id" example:"1"`
+	// Nombre de usuario.
+	Username string `db:"username" json:"username" example:"admin"`
+	// Password hasheada; no se expone en respuestas JSON.
+	Password string `db:"password" json:"-"`
+	// Estado activo del usuario.
+	Activo bool `db:"activo" json:"activo" example:"true"`
+	// Fecha de registro del usuario.
 	FechaRegistro time.Time `db:"fecha_registro" json:"fecha_registro" example:"2026-05-28T14:30:00Z"`
-	RolID         int       `db:"rol_id" json:"rol_id" example:"1"`
-	RolCodigo     string    `db:"rol_codigo" json:"rol_codigo" example:"admin_sys"`
-	RolNombre     string    `db:"rol_nombre" json:"rol_nombre" example:"Administrador de sistema"`
+	// ID interno del rol asignado.
+	RolID int `db:"rol_id" json:"rol_id" example:"1"`
+	// Codigo del rol asignado.
+	RolCodigo string `db:"rol_codigo" json:"rol_codigo" example:"admin_sys"`
+	// Nombre descriptivo del rol asignado.
+	RolNombre string `db:"rol_nombre" json:"rol_nombre" example:"Administrador de sistema"`
+	// ID del local asignado al usuario; null para administradores.
+	LocalID *int `db:"local_id" json:"local_id,omitempty" example:"1"`
+	// Nombre del local asignado al usuario; null para administradores.
+	NombreLocal *string `db:"nombre_local" json:"nombre_local,omitempty" example:"SAN MARTIN"`
 }
 
 type UsuarioResumenPG struct {
-	Username      string    `db:"username" json:"username" example:"admin"`
-	Activo        bool      `db:"activo" json:"activo" example:"true"`
+	// Nombre de usuario.
+	Username string `db:"username" json:"username" example:"admin"`
+	// Estado activo del usuario.
+	Activo bool `db:"activo" json:"activo" example:"true"`
+	// Fecha de registro del usuario.
 	FechaRegistro time.Time `db:"fecha_registro" json:"fecha_registro" example:"2026-05-28T14:30:00Z"`
-	RolCodigo     string    `db:"rol_codigo" json:"rol_codigo" example:"admin_sys"`
-	RolNombre     string    `db:"rol_nombre" json:"rol_nombre" example:"Administrador de sistema"`
+	// Codigo del rol asignado.
+	RolCodigo string `db:"rol_codigo" json:"rol_codigo" example:"admin_sys"`
+	// Nombre descriptivo del rol asignado.
+	RolNombre string `db:"rol_nombre" json:"rol_nombre" example:"Administrador de sistema"`
+	// ID del local asignado al usuario; null para administradores.
+	LocalID *int `db:"local_id" json:"local_id,omitempty" example:"1"`
+	// Nombre del local asignado al usuario; null para administradores.
+	NombreLocal *string `db:"nombre_local" json:"nombre_local,omitempty" example:"SAN MARTIN"`
 }
 
 // Servicios

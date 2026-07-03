@@ -27,18 +27,31 @@ type registrarUsuarioRequest struct {
 	Password string `json:"password" binding:"required" example:"Secreto123"`
 	// Codigo del rol a asignar al usuario.
 	RolCodigo string `json:"rol_codigo" binding:"required" example:"gerencia"`
+	// ID del local asignado al usuario. Requerido para roles no admin; se ignora para admin_sys.
+	LocalID *int `json:"local_id,omitempty" example:"1"`
 }
 
 type loginResponse struct {
-	Token     string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	// Token Bearer firmado para usar en endpoints protegidos.
+	Token string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	// Tipo de token devuelto.
 	TokenType string `json:"token_type" example:"Bearer"`
-	Username  string `json:"username" example:"admin"`
+	// Nombre de usuario autenticado.
+	Username string `json:"username" example:"admin"`
+	// Codigo del rol del usuario autenticado.
 	RolCodigo string `json:"rol_codigo" example:"admin_sys"`
-	ExpiresIn int    `json:"expires_in" example:"3600"`
+	// ID del local asignado al usuario; se omite para admin_sys.
+	LocalID *int `json:"local_id,omitempty" example:"1"`
+	// Nombre del local asignado al usuario; se omite para admin_sys.
+	NombreLocal *string `json:"nombre_local,omitempty" example:"SAN MARTIN"`
+	// Duracion del token en segundos.
+	ExpiresIn int `json:"expires_in" example:"3600"`
 }
 
 type usuariosListResponse struct {
-	Total    int                       `json:"total" example:"2"`
+	// Cantidad total de usuarios devueltos.
+	Total int `json:"total" example:"2"`
+	// Usuarios registrados con rol y local asignado cuando corresponda.
 	Usuarios []models.UsuarioResumenPG `json:"usuarios"`
 }
 
@@ -56,7 +69,7 @@ type actualizarUsuarioActivoRequest struct {
 
 // GetUsuarios godoc
 // @Summary Listar usuarios
-// @Description Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro, rol_codigo y rol_nombre).
+// @Description Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro, rol_codigo, rol_nombre, local_id y nombre_local).
 // @Tags Auth
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -80,17 +93,17 @@ func (h *Container) GetUsuarios(c *gin.Context) {
 
 // RegisterUsuario godoc
 // @Summary Registrar usuario
-// @Description Crea un usuario activo y le asigna un rol por codigo. Requiere token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos. La password se encripta con bcrypt antes de guardarse. Response: id (int ID del usuario creado).
+// @Description Crea un usuario activo y le asigna un rol por codigo. Requiere token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos; local_id es requerido solo para roles no admin. nombre_local no se recibe del cliente: se obtiene desde locales por local_id y se guarda desnormalizado. Si el rol es admin_sys, local_id y nombre_local quedan vacios. Response: id (int ID del usuario creado).
 // @Tags Auth
 // @Accept json
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param payload body registrarUsuarioRequest true "Datos del usuario"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: JSON invalido, username/password obligatorios o rol_codigo obligatorio"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: JSON invalido, username/password obligatorios, rol_codigo obligatorio, local_id obligatorio para usuarios no admin o local_id invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
-// @Failure 404 {object} utils.APIResponse "Rol no encontrado"
+// @Failure 404 {object} utils.APIResponse "Rol o local no encontrado"
 // @Failure 409 {object} utils.APIResponse "Conflicto: usuario ya existe"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /auth/register [post]
@@ -105,6 +118,7 @@ func (h *Container) RegisterUsuario(c *gin.Context) {
 		Username:  req.Username,
 		Password:  req.Password,
 		RolCodigo: req.RolCodigo,
+		LocalID:   req.LocalID,
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -117,7 +131,16 @@ func (h *Container) RegisterUsuario(c *gin.Context) {
 		if errors.Is(err, services.ErrRolObligatorio) {
 			status = http.StatusBadRequest
 		}
+		if errors.Is(err, services.ErrLocalObligatorio) {
+			status = http.StatusBadRequest
+		}
+		if errors.Is(err, services.ErrLocalInvalido) {
+			status = http.StatusBadRequest
+		}
 		if errors.Is(err, services.ErrRolNoEncontrado) {
+			status = http.StatusNotFound
+		}
+		if errors.Is(err, services.ErrLocalNoEncontrado) {
 			status = http.StatusNotFound
 		}
 		utils.RespondError(c, status, err.Error())
@@ -262,7 +285,7 @@ func (h *Container) ActualizarUsuarioActivo(c *gin.Context) {
 
 // Login godoc
 // @Summary Iniciar sesion
-// @Description Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer con el codigo de rol para acceder a endpoints protegidos.
+// @Description Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer con el codigo de rol, local_id y nombre_local cuando el usuario tiene local asignado. Los usuarios admin_sys no incluyen local para poder consultar todos los locales.
 // @Tags Auth
 // @Accept json
 // @Produce json
@@ -299,11 +322,13 @@ func (h *Container) Login(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, loginResponse{
-		Token:     result.Token,
-		TokenType: "Bearer",
-		Username:  result.Username,
-		RolCodigo: result.RolCodigo,
-		ExpiresIn: result.ExpiresIn,
+		Token:       result.Token,
+		TokenType:   "Bearer",
+		Username:    result.Username,
+		RolCodigo:   result.RolCodigo,
+		LocalID:     result.LocalID,
+		NombreLocal: result.NombreLocal,
+		ExpiresIn:   result.ExpiresIn,
 	})
 }
 
@@ -339,6 +364,12 @@ func (h *Container) AuthRequired(c *gin.Context) {
 	c.Set("auth_user_id", tokenData.UserID)
 	c.Set("auth_username", tokenData.Username)
 	c.Set("auth_rol_codigo", tokenData.RolCodigo)
+	if tokenData.LocalID != nil {
+		c.Set("auth_local_id", *tokenData.LocalID)
+	}
+	if tokenData.NombreLocal != nil {
+		c.Set("auth_nombre_local", *tokenData.NombreLocal)
+	}
 	c.Next()
 }
 
@@ -393,4 +424,58 @@ func authenticatedRolCodigo(c *gin.Context) (string, bool) {
 	}
 
 	return rolCodigo, true
+}
+
+type authenticatedLocalScope struct {
+	LocalID     *int
+	NombreLocal string
+}
+
+func authenticatedLocalScopeFromToken(c *gin.Context) (authenticatedLocalScope, bool) {
+	rolCodigo, ok := authenticatedRolCodigo(c)
+	if !ok {
+		return authenticatedLocalScope{}, false
+	}
+	if strings.EqualFold(rolCodigo, "admin_sys") {
+		return authenticatedLocalScope{}, true
+	}
+
+	localID, localIDOK := authenticatedLocalID(c)
+	nombreLocal, nombreLocalOK := authenticatedNombreLocal(c)
+	if !localIDOK || !nombreLocalOK {
+		return authenticatedLocalScope{}, false
+	}
+
+	return authenticatedLocalScope{
+		LocalID:     &localID,
+		NombreLocal: nombreLocal,
+	}, true
+}
+
+func authenticatedLocalID(c *gin.Context) (int, bool) {
+	value, exists := c.Get("auth_local_id")
+	if !exists {
+		return 0, false
+	}
+
+	localID, ok := value.(int)
+	if !ok || localID <= 0 {
+		return 0, false
+	}
+
+	return localID, true
+}
+
+func authenticatedNombreLocal(c *gin.Context) (string, bool) {
+	value, exists := c.Get("auth_nombre_local")
+	if !exists {
+		return "", false
+	}
+
+	nombreLocal, ok := value.(string)
+	if !ok || strings.TrimSpace(nombreLocal) == "" {
+		return "", false
+	}
+
+	return nombreLocal, true
 }

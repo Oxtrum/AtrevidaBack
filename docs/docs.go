@@ -225,7 +225,7 @@ const docTemplate = `{
         },
         "/auth/login": {
             "post": {
-                "description": "Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer con el codigo de rol para acceder a endpoints protegidos.",
+                "description": "Valida username y password contra un usuario activo. La password recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas responde un token Bearer con el codigo de rol, local_id y nombre_local cuando el usuario tiene local asignado. Los usuarios admin_sys no incluyen local para poder consultar todos los locales.",
                 "consumes": [
                     "application/json"
                 ],
@@ -295,7 +295,7 @@ const docTemplate = `{
         },
         "/auth/register": {
             "post": {
-                "description": "Crea un usuario activo y le asigna un rol por codigo. Requiere token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos. La password se encripta con bcrypt antes de guardarse. Response: id (int ID del usuario creado).",
+                "description": "Crea un usuario activo y le asigna un rol por codigo. Requiere token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos; local_id es requerido solo para roles no admin. nombre_local no se recibe del cliente: se obtiene desde locales por local_id y se guarda desnormalizado. Si el rol es admin_sys, local_id y nombre_local quedan vacios. Response: id (int ID del usuario creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -345,7 +345,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: JSON invalido, username/password obligatorios o rol_codigo obligatorio",
+                        "description": "Error de validacion: JSON invalido, username/password obligatorios, rol_codigo obligatorio, local_id obligatorio para usuarios no admin o local_id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -363,7 +363,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Rol no encontrado",
+                        "description": "Rol o local no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -385,7 +385,7 @@ const docTemplate = `{
         },
         "/auth/usuarios": {
             "get": {
-                "description": "Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro, rol_codigo y rol_nombre).",
+                "description": "Devuelve todos los usuarios registrados sin filtros. Requiere token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG con username, activo, fecha_registro, rol_codigo, rol_nombre, local_id y nombre_local).",
                 "produces": [
                     "application/json"
                 ],
@@ -738,6 +738,233 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Asociacion categoria-local no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/categorias/{id}": {
+            "put": {
+                "description": "Actualiza el nombre de una categoria. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Categorias"
+                ],
+                "summary": "Editar categoria",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID de la categoria",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Nuevo nombre",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarCategoriaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Categoria no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Elimina una categoria y sus asociaciones con locales. Requiere token Bearer con rol admin_sys. Falla si la categoria esta en uso por servicios o combos.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Categorias"
+                ],
+                "summary": "Eliminar categoria",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID de la categoria",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Categoria no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Categoria en uso por servicios o combos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/categorias/{id}/locales": {
+            "get": {
+                "description": "Devuelve los locales asociados a una categoria mediante categorias_locales. Response: locales ([]LocalPG).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Categorias"
+                ],
+                "summary": "Listar locales de una categoria",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID de la categoria",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.categoriaLocalesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2065,7 +2292,7 @@ const docTemplate = `{
         },
         "/bd/notificaciones/reservas": {
             "get": {
-                "description": "Devuelve reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos de la reserva agendada pendiente).",
+                "description": "Devuelve reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Requiere token Bearer. Los usuarios con local asignado solo ven notificaciones de su local; admin_sys ve todas. Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos de la reserva agendada pendiente).",
                 "produces": [
                     "application/json"
                 ],
@@ -2074,6 +2301,14 @@ const docTemplate = `{
                 ],
                 "summary": "Listar notificaciones de reservas",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "integer",
                         "example": 20,
@@ -2103,6 +2338,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Error de validacion: limit invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2569,7 +2816,7 @@ const docTemplate = `{
         },
         "/bd/pagos/{codigo_pago}": {
             "get": {
-                "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).",
+                "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Los usuarios con local asignado solo pueden consultar pagos de su local; admin_sys puede consultar cualquiera. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).",
                 "produces": [
                     "application/json"
                 ],
@@ -2622,6 +2869,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3316,7 +3569,7 @@ const docTemplate = `{
         },
         "/bd/reservas/resumen": {
             "get": {
-                "description": "Devuelve resumen de reservas del dia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).",
+                "description": "Devuelve resumen de reservas del dia. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).",
                 "produces": [
                     "application/json"
                 ],
@@ -3327,11 +3580,26 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "example": "2026-05-24",
                         "description": "Fecha a consultar YYYY-MM-DD; si es domingo se usa el sabado anterior",
                         "name": "fecha",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "SAN MARTIN",
+                        "description": "Nombre exacto del local a consultar cuando el token no tiene local; si se omite, consulta todos los locales",
+                        "name": "local",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3359,6 +3627,24 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Local no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "500": {
                         "description": "Error interno del servidor",
                         "schema": {
@@ -3370,7 +3656,7 @@ const docTemplate = `{
         },
         "/bd/reservas/{id}": {
             "get": {
-                "description": "Devuelve una reserva por su ID. Param: id (requerido, path). Response: reserva (ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
+                "description": "Devuelve una reserva por su ID. Requiere token Bearer. Los usuarios con local asignado solo pueden consultar reservas de su local; admin_sys puede consultar cualquiera. Param: id (requerido, path). Response: reserva (ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
                 "produces": [
                     "application/json"
                 ],
@@ -3379,6 +3665,14 @@ const docTemplate = `{
                 ],
                 "summary": "Obtener reserva por ID",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "integer",
                         "example": 44,
@@ -3409,6 +3703,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -4394,6 +4700,19 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarCategoriaRequest": {
+            "type": "object",
+            "required": [
+                "nombre"
+            ],
+            "properties": {
+                "nombre": {
+                    "description": "Nuevo nombre de la categoria",
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
         "handlers.actualizarClienteRequest": {
             "type": "object",
             "properties": {
@@ -4915,6 +5234,18 @@ const docTemplate = `{
                     "description": "ID del local a asociar con la categoria",
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "handlers.categoriaLocalesResponse": {
+            "type": "object",
+            "properties": {
+                "locales": {
+                    "description": "Locales asociados a la categoría",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LocalPG"
+                    }
                 }
             }
         },
@@ -5600,22 +5931,37 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "expires_in": {
+                    "description": "Duracion del token en segundos.",
                     "type": "integer",
                     "example": 3600
                 },
+                "local_id": {
+                    "description": "ID del local asignado al usuario; se omite para admin_sys.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "nombre_local": {
+                    "description": "Nombre del local asignado al usuario; se omite para admin_sys.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
                 "rol_codigo": {
+                    "description": "Codigo del rol del usuario autenticado.",
                     "type": "string",
                     "example": "admin_sys"
                 },
                 "token": {
+                    "description": "Token Bearer firmado para usar en endpoints protegidos.",
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 },
                 "token_type": {
+                    "description": "Tipo de token devuelto.",
                     "type": "string",
                     "example": "Bearer"
                 },
                 "username": {
+                    "description": "Nombre de usuario autenticado.",
                     "type": "string",
                     "example": "admin"
                 }
@@ -5820,6 +6166,11 @@ const docTemplate = `{
                 "username"
             ],
             "properties": {
+                "local_id": {
+                    "description": "ID del local asignado al usuario. Requerido para roles no admin; se ignora para admin_sys.",
+                    "type": "integer",
+                    "example": 1
+                },
                 "password": {
                     "description": "Password en texto plano enviada por el cliente; se guarda encriptada con bcrypt.",
                     "type": "string",
@@ -6124,10 +6475,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "total": {
+                    "description": "Cantidad total de usuarios devueltos.",
                     "type": "integer",
                     "example": 2
                 },
                 "usuarios": {
+                    "description": "Usuarios registrados con rol y local asignado cuando corresponda.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.UsuarioResumenPG"
@@ -6339,6 +6692,23 @@ const docTemplate = `{
                 "local_id": {
                     "type": "integer",
                     "example": 3
+                }
+            }
+        },
+        "models.LocalPG": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
                 }
             }
         },
@@ -6735,22 +7105,37 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "activo": {
+                    "description": "Estado activo del usuario.",
                     "type": "boolean",
                     "example": true
                 },
                 "fecha_registro": {
+                    "description": "Fecha de registro del usuario.",
                     "type": "string",
                     "example": "2026-05-28T14:30:00Z"
                 },
+                "local_id": {
+                    "description": "ID del local asignado al usuario; null para administradores.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "nombre_local": {
+                    "description": "Nombre del local asignado al usuario; null para administradores.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
                 "rol_codigo": {
+                    "description": "Codigo del rol asignado.",
                     "type": "string",
                     "example": "admin_sys"
                 },
                 "rol_nombre": {
+                    "description": "Nombre descriptivo del rol asignado.",
                     "type": "string",
                     "example": "Administrador de sistema"
                 },
                 "username": {
+                    "description": "Nombre de usuario.",
                     "type": "string",
                     "example": "admin"
                 }

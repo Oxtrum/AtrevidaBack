@@ -16,6 +16,15 @@ definitions:
         example: 3
         type: integer
     type: object
+  handlers.actualizarCategoriaRequest:
+    properties:
+      nombre:
+        description: Nuevo nombre de la categoria
+        example: Depilacion Laser
+        type: string
+    required:
+    - nombre
+    type: object
   handlers.actualizarClienteRequest:
     properties:
       apellido:
@@ -419,6 +428,14 @@ definitions:
     required:
     - categoria_id
     - local_id
+    type: object
+  handlers.categoriaLocalesResponse:
+    properties:
+      locales:
+        description: Locales asociados a la categoría
+        items:
+          $ref: '#/definitions/models.LocalPG'
+        type: array
     type: object
   handlers.clienteFiltrosResponse:
     properties:
@@ -929,18 +946,31 @@ definitions:
   handlers.loginResponse:
     properties:
       expires_in:
+        description: Duracion del token en segundos.
         example: 3600
         type: integer
+      local_id:
+        description: ID del local asignado al usuario; se omite para admin_sys.
+        example: 1
+        type: integer
+      nombre_local:
+        description: Nombre del local asignado al usuario; se omite para admin_sys.
+        example: SAN MARTIN
+        type: string
       rol_codigo:
+        description: Codigo del rol del usuario autenticado.
         example: admin_sys
         type: string
       token:
+        description: Token Bearer firmado para usar en endpoints protegidos.
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
       token_type:
+        description: Tipo de token devuelto.
         example: Bearer
         type: string
       username:
+        description: Nombre de usuario autenticado.
         example: admin
         type: string
     type: object
@@ -1083,6 +1113,11 @@ definitions:
     type: object
   handlers.registrarUsuarioRequest:
     properties:
+      local_id:
+        description: ID del local asignado al usuario. Requerido para roles no admin;
+          se ignora para admin_sys.
+        example: 1
+        type: integer
       password:
         description: Password en texto plano enviada por el cliente; se guarda encriptada
           con bcrypt.
@@ -1306,9 +1341,11 @@ definitions:
   handlers.usuariosListResponse:
     properties:
       total:
+        description: Cantidad total de usuarios devueltos.
         example: 2
         type: integer
       usuarios:
+        description: Usuarios registrados con rol y local asignado cuando corresponda.
         items:
           $ref: '#/definitions/models.UsuarioResumenPG'
         type: array
@@ -1462,6 +1499,18 @@ definitions:
       local_id:
         example: 3
         type: integer
+    type: object
+  models.LocalPG:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      id:
+        example: 3
+        type: integer
+      nombre:
+        example: SAN MARTIN
+        type: string
     type: object
   models.LocalReservas:
     properties:
@@ -1763,18 +1812,31 @@ definitions:
   models.UsuarioResumenPG:
     properties:
       activo:
+        description: Estado activo del usuario.
         example: true
         type: boolean
       fecha_registro:
+        description: Fecha de registro del usuario.
         example: "2026-05-28T14:30:00Z"
         type: string
+      local_id:
+        description: ID del local asignado al usuario; null para administradores.
+        example: 1
+        type: integer
+      nombre_local:
+        description: Nombre del local asignado al usuario; null para administradores.
+        example: SAN MARTIN
+        type: string
       rol_codigo:
+        description: Codigo del rol asignado.
         example: admin_sys
         type: string
       rol_nombre:
+        description: Nombre descriptivo del rol asignado.
         example: Administrador de sistema
         type: string
       username:
+        description: Nombre de usuario.
         example: admin
         type: string
     type: object
@@ -2093,7 +2155,9 @@ paths:
       - application/json
       description: Valida username y password contra un usuario activo. La password
         recibida se compara con el hash bcrypt guardado en BD. Ante credenciales validas
-        responde un token Bearer con el codigo de rol para acceder a endpoints protegidos.
+        responde un token Bearer con el codigo de rol, local_id y nombre_local cuando
+        el usuario tiene local asignado. Los usuarios admin_sys no incluyen local
+        para poder consultar todos los locales.
       parameters:
       - description: Credenciales de acceso
         in: body
@@ -2138,9 +2202,11 @@ paths:
       consumes:
       - application/json
       description: 'Crea un usuario activo y le asigna un rol por codigo. Requiere
-        token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos.
-        La password se encripta con bcrypt antes de guardarse. Response: id (int ID
-        del usuario creado).'
+        token Bearer con rol admin_sys. Body: username, password y rol_codigo requeridos;
+        local_id es requerido solo para roles no admin. nombre_local no se recibe
+        del cliente: se obtiene desde locales por local_id y se guarda desnormalizado.
+        Si el rol es admin_sys, local_id y nombre_local quedan vacios. Response: id
+        (int ID del usuario creado).'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -2167,8 +2233,9 @@ paths:
                   $ref: '#/definitions/handlers.idResponse'
               type: object
         "400":
-          description: 'Error de validacion: JSON invalido, username/password obligatorios
-            o rol_codigo obligatorio'
+          description: 'Error de validacion: JSON invalido, username/password obligatorios,
+            rol_codigo obligatorio, local_id obligatorio para usuarios no admin o
+            local_id invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "401":
@@ -2180,7 +2247,7 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
-          description: Rol no encontrado
+          description: Rol o local no encontrado
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
@@ -2198,7 +2265,7 @@ paths:
     get:
       description: 'Devuelve todos los usuarios registrados sin filtros. Requiere
         token Bearer con rol admin_sys. Response: total (int), usuarios ([]UsuarioResumenPG
-        con username, activo, fecha_registro, rol_codigo y rol_nombre).'
+        con username, activo, fecha_registro, rol_codigo, rol_nombre, local_id y nombre_local).'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -2326,6 +2393,153 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Crear categoria
+      tags:
+      - Categorias
+  /bd/categorias/{id}:
+    delete:
+      description: Elimina una categoria y sus asociaciones con locales. Requiere
+        token Bearer con rol admin_sys. Falla si la categoria esta en uso por servicios
+        o combos.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la categoria
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: id invalido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Categoria en uso por servicios o combos
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Eliminar categoria
+      tags:
+      - Categorias
+    put:
+      consumes:
+      - application/json
+      description: Actualiza el nombre de una categoria. Requiere token Bearer con
+        rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la categoria
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Nuevo nombre
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarCategoriaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: Error de validacion
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Editar categoria
+      tags:
+      - Categorias
+  /bd/categorias/{id}/locales:
+    get:
+      description: 'Devuelve los locales asociados a una categoria mediante categorias_locales.
+        Response: locales ([]LocalPG).'
+      parameters:
+      - description: ID de la categoria
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.categoriaLocalesResponse'
+              type: object
+        "400":
+          description: id invalido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar locales de una categoria
       tags:
       - Categorias
   /bd/categorias/locales:
@@ -3310,11 +3524,19 @@ paths:
     get:
       description: 'Devuelve reservas activas en estado AGENDADO que aun no fueron
         marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas
-        recientes primero). Este endpoint esta pensado para polling de la campanita
-        del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad
-        maxima a devolver (opcional, default 20, maximo 100). Response: total (int),
-        reservas ([]ReservaSimple con datos de la reserva agendada pendiente).'
+        recientes primero). Requiere token Bearer. Los usuarios con local asignado
+        solo ven notificaciones de su local; admin_sys ve todas. Este endpoint esta
+        pensado para polling de la campanita del frontend; se puede consultar cada
+        5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default
+        20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos
+        de la reserva agendada pendiente).'
       parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
       - description: Cantidad maxima de notificaciones a devolver (default 20, maximo
           100)
         example: 20
@@ -3335,6 +3557,14 @@ paths:
               type: object
         "400":
           description: 'Error de validacion: limit invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
@@ -3664,8 +3894,10 @@ paths:
       - Pagos
     get:
       description: 'Devuelve un pago activo por codigo_pago junto con su detalle.
-        Requiere token Bearer. Param: codigo_pago (requerido, path). Response: pago
-        (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).'
+        Requiere token Bearer. Los usuarios con local asignado solo pueden consultar
+        pagos de su local; admin_sys puede consultar cualquiera. Param: codigo_pago
+        (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria
+        de creacion/modificacion y detalle_pagos).'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -3697,6 +3929,10 @@ paths:
             $ref: '#/definitions/utils.APIResponse'
         "401":
           description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
@@ -4078,11 +4314,19 @@ paths:
       tags:
       - Reservas BD
     get:
-      description: 'Devuelve una reserva por su ID. Param: id (requerido, path). Response:
-        reserva (ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta,
-        cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado,
-        precio, notas, notificado, creado_en, actualizado_en).'
+      description: 'Devuelve una reserva por su ID. Requiere token Bearer. Los usuarios
+        con local asignado solo pueden consultar reservas de su local; admin_sys puede
+        consultar cualquiera. Param: id (requerido, path). Response: reserva (ReservaSimple
+        con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado,
+        numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio,
+        notas, notificado, creado_en, actualizado_en).'
       parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
       - description: ID de la reserva
         example: 44
         in: path
@@ -4103,6 +4347,14 @@ paths:
               type: object
         "400":
           description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
@@ -4303,18 +4555,33 @@ paths:
       - Reservas BD
   /bd/reservas/resumen:
     get:
-      description: 'Devuelve resumen de reservas del dia. Param: fecha YYYY-MM-DD
-        (requerido, query). Si fecha es domingo, calcula el resumen con el sabado
-        anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia
-        (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse
-        con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).'
+      description: 'Devuelve resumen de reservas del dia. Requiere token Bearer. Los
+        usuarios con local asignado solo consultan su local desde el token; si el
+        token no tiene local, puede filtrar por el query local o consultar todos si
+        no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo,
+        calcula el resumen con el sabado anterior para devolver la semana que finaliza.
+        Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana
+        (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales
+        segun el dia efectivo).'
       parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
       - description: Fecha a consultar YYYY-MM-DD; si es domingo se usa el sabado
           anterior
         example: "2026-05-24"
         in: query
         name: fecha
         required: true
+        type: string
+      - description: Nombre exacto del local a consultar cuando el token no tiene
+          local; si se omite, consulta todos los locales
+        example: SAN MARTIN
+        in: query
+        name: local
         type: string
       produces:
       - application/json
@@ -4330,6 +4597,18 @@ paths:
               type: object
         "400":
           description: 'Error de validacion: fecha requerida o formato invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Local no encontrado
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
