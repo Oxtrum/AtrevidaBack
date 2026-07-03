@@ -7,6 +7,7 @@ import (
 )
 
 type FiltroReservasPG struct {
+	LocalID            *int
 	LocalNombre        string
 	Fecha              *time.Time
 	FechaDesde         *time.Time
@@ -79,6 +80,7 @@ type CapacidadLocal struct {
 type ReservasPGRepository interface {
 	GetReservas(f FiltroReservasPG) ([]models.ReservaPGCompleta, error)
 	GetReservaByID(id int) (*models.ReservaPGCompleta, error)
+	GetLocalIDByNombre(nombre string) (int, error)
 	GetCapacidades(localNombre string) ([]CapacidadLocal, error)
 	CreateReserva(input CreateReservaInput) (int, error)
 	UpdateReserva(input UpdateReservaInput) error

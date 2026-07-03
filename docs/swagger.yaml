@@ -16,6 +16,15 @@ definitions:
         example: 3
         type: integer
     type: object
+  handlers.actualizarCategoriaRequest:
+    properties:
+      nombre:
+        description: Nuevo nombre de la categoria
+        example: Depilacion Laser
+        type: string
+    required:
+    - nombre
+    type: object
   handlers.actualizarClienteRequest:
     properties:
       apellido:
@@ -419,6 +428,14 @@ definitions:
     required:
     - categoria_id
     - local_id
+    type: object
+  handlers.categoriaLocalesResponse:
+    properties:
+      locales:
+        description: Locales asociados a la categoría
+        items:
+          $ref: '#/definitions/models.LocalPG'
+        type: array
     type: object
   handlers.clienteFiltrosResponse:
     properties:
@@ -1483,6 +1500,18 @@ definitions:
         example: 3
         type: integer
     type: object
+  models.LocalPG:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      id:
+        example: 3
+        type: integer
+      nombre:
+        example: SAN MARTIN
+        type: string
+    type: object
   models.LocalReservas:
     properties:
       local:
@@ -2364,6 +2393,153 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Crear categoria
+      tags:
+      - Categorias
+  /bd/categorias/{id}:
+    delete:
+      description: Elimina una categoria y sus asociaciones con locales. Requiere
+        token Bearer con rol admin_sys. Falla si la categoria esta en uso por servicios
+        o combos.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la categoria
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: id invalido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Categoria en uso por servicios o combos
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Eliminar categoria
+      tags:
+      - Categorias
+    put:
+      consumes:
+      - application/json
+      description: Actualiza el nombre de una categoria. Requiere token Bearer con
+        rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la categoria
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Nuevo nombre
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarCategoriaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: Error de validacion
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Editar categoria
+      tags:
+      - Categorias
+  /bd/categorias/{id}/locales:
+    get:
+      description: 'Devuelve los locales asociados a una categoria mediante categorias_locales.
+        Response: locales ([]LocalPG).'
+      parameters:
+      - description: ID de la categoria
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.categoriaLocalesResponse'
+              type: object
+        "400":
+          description: id invalido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar locales de una categoria
       tags:
       - Categorias
   /bd/categorias/locales:
@@ -4380,11 +4556,13 @@ paths:
   /bd/reservas/resumen:
     get:
       description: 'Devuelve resumen de reservas del dia. Requiere token Bearer. Los
-        usuarios con local asignado solo consultan su local; admin_sys consulta todos.
-        Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el
-        resumen con el sabado anterior para devolver la semana que finaliza. Response:
-        reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse
-        con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).'
+        usuarios con local asignado solo consultan su local desde el token; si el
+        token no tiene local, puede filtrar por el query local o consultar todos si
+        no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo,
+        calcula el resumen con el sabado anterior para devolver la semana que finaliza.
+        Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana
+        (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales
+        segun el dia efectivo).'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -4398,6 +4576,12 @@ paths:
         in: query
         name: fecha
         required: true
+        type: string
+      - description: Nombre exacto del local a consultar cuando el token no tiene
+          local; si se omite, consulta todos los locales
+        example: SAN MARTIN
+        in: query
+        name: local
         type: string
       produces:
       - application/json
@@ -4421,6 +4605,10 @@ paths:
             $ref: '#/definitions/utils.APIResponse'
         "403":
           description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Local no encontrado
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":

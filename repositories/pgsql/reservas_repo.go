@@ -29,6 +29,11 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 	args := []interface{}{}
 	idx := 1
 
+	if f.LocalID != nil {
+		conditions = append(conditions, fmt.Sprintf("r.local_id = $%d", idx))
+		args = append(args, *f.LocalID)
+		idx++
+	}
 	if f.LocalNombre != "" {
 		conditions = append(conditions, fmt.Sprintf("UPPER(r.local_nombre) = UPPER($%d)", idx))
 		args = append(args, f.LocalNombre)
@@ -147,6 +152,24 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 
 	rv.Detalle, _ = r.getDetalleReserva(rv.ID)
 	return &rv, nil
+}
+
+func (r *ReservasRepo) GetLocalIDByNombre(nombre string) (int, error) {
+	var localID int
+	err := r.db.Get(&localID, `
+		SELECT id
+		FROM locales
+		WHERE UPPER(nombre) = UPPER($1)
+		  AND activo = TRUE
+	`, strings.TrimSpace(nombre))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("local no encontrado")
+		}
+		return 0, fmt.Errorf("error al obtener local: %w", err)
+	}
+
+	return localID, nil
 }
 
 func (r *ReservasRepo) getDetalleReserva(reservaID int) ([]models.DetalleReservaPG, error) {

@@ -11,6 +11,7 @@ import (
 type reservasResumenRepo struct {
 	calls   []repository.FiltroReservasPG
 	reserva *models.ReservaPGCompleta
+	localID int
 }
 
 func (r *reservasResumenRepo) GetReservas(f repository.FiltroReservasPG) ([]models.ReservaPGCompleta, error) {
@@ -20,6 +21,13 @@ func (r *reservasResumenRepo) GetReservas(f repository.FiltroReservasPG) ([]mode
 
 func (r *reservasResumenRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error) {
 	return r.reserva, nil
+}
+
+func (r *reservasResumenRepo) GetLocalIDByNombre(nombre string) (int, error) {
+	if r.localID != 0 {
+		return r.localID, nil
+	}
+	return 1, nil
 }
 
 func (r *reservasResumenRepo) GetCapacidades(localNombre string) ([]repository.CapacidadLocal, error) {
@@ -55,7 +63,7 @@ func TestGetResumenReservasDomingoUsaSabadoAnterior(t *testing.T) {
 	service := NewReservasPGService(repo, nil)
 	fechaDomingo := time.Date(2026, time.May, 24, 0, 0, 0, 0, time.UTC)
 
-	if _, err := service.GetResumenReservas(fechaDomingo, ""); err != nil {
+	if _, err := service.GetResumenReservas(fechaDomingo, "", nil); err != nil {
 		t.Fatalf("GetResumenReservas() error = %v", err)
 	}
 	if len(repo.calls) != 2 {
@@ -67,23 +75,56 @@ func TestGetResumenReservasDomingoUsaSabadoAnterior(t *testing.T) {
 	assertDate(t, repo.calls[1].FechaHasta, "2026-05-23", "fin de semana")
 }
 
-func TestGetResumenReservasAplicaLocal(t *testing.T) {
-	repo := &reservasResumenRepo{}
+func TestGetResumenReservasResuelveLocalNombreAID(t *testing.T) {
+	repo := &reservasResumenRepo{localID: 2}
 	service := NewReservasPGService(repo, nil)
 	fecha := time.Date(2026, time.May, 23, 0, 0, 0, 0, time.UTC)
 
-	if _, err := service.GetResumenReservas(fecha, "SAN MARTIN"); err != nil {
+	if _, err := service.GetResumenReservas(fecha, "PASEO ARANJUEZ", nil); err != nil {
 		t.Fatalf("GetResumenReservas() error = %v", err)
 	}
 
 	if len(repo.calls) != 2 {
 		t.Fatalf("GetReservas calls = %d, want 2", len(repo.calls))
 	}
-	if repo.calls[0].LocalNombre != "SAN MARTIN" {
-		t.Fatalf("dia LocalNombre = %q, want SAN MARTIN", repo.calls[0].LocalNombre)
+	if repo.calls[0].LocalID == nil || *repo.calls[0].LocalID != 2 {
+		t.Fatalf("dia LocalID = %v, want 2", repo.calls[0].LocalID)
 	}
-	if repo.calls[1].LocalNombre != "SAN MARTIN" {
-		t.Fatalf("semana LocalNombre = %q, want SAN MARTIN", repo.calls[1].LocalNombre)
+	if repo.calls[0].LocalNombre != "" {
+		t.Fatalf("dia LocalNombre = %q, want empty", repo.calls[0].LocalNombre)
+	}
+	if repo.calls[1].LocalID == nil || *repo.calls[1].LocalID != 2 {
+		t.Fatalf("semana LocalID = %v, want 2", repo.calls[1].LocalID)
+	}
+	if repo.calls[1].LocalNombre != "" {
+		t.Fatalf("semana LocalNombre = %q, want empty", repo.calls[1].LocalNombre)
+	}
+}
+
+func TestGetResumenReservasAplicaLocalID(t *testing.T) {
+	repo := &reservasResumenRepo{}
+	service := NewReservasPGService(repo, nil)
+	fecha := time.Date(2026, time.May, 23, 0, 0, 0, 0, time.UTC)
+	localID := 2
+
+	if _, err := service.GetResumenReservas(fecha, "SAN MARTIN", &localID); err != nil {
+		t.Fatalf("GetResumenReservas() error = %v", err)
+	}
+
+	if len(repo.calls) != 2 {
+		t.Fatalf("GetReservas calls = %d, want 2", len(repo.calls))
+	}
+	if repo.calls[0].LocalID == nil || *repo.calls[0].LocalID != localID {
+		t.Fatalf("dia LocalID = %v, want %d", repo.calls[0].LocalID, localID)
+	}
+	if repo.calls[1].LocalID == nil || *repo.calls[1].LocalID != localID {
+		t.Fatalf("semana LocalID = %v, want %d", repo.calls[1].LocalID, localID)
+	}
+	if repo.calls[0].LocalNombre != "" {
+		t.Fatalf("dia LocalNombre = %q, want empty", repo.calls[0].LocalNombre)
+	}
+	if repo.calls[1].LocalNombre != "" {
+		t.Fatalf("semana LocalNombre = %q, want empty", repo.calls[1].LocalNombre)
 	}
 }
 

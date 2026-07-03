@@ -299,15 +299,17 @@ func normalizarTelefono(raw string) (string, error) {
 
 // GetReservasResumenPG godoc
 // @Summary Obtener resumen numerico de reservas
-// @Description Devuelve resumen de reservas del dia. Requiere token Bearer. Los usuarios con local asignado solo consultan su local; admin_sys consulta todos. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).
+// @Description Devuelve resumen de reservas del dia. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, calcula el resumen con el sabado anterior para devolver la semana que finaliza. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo).
 // @Tags Reservas BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param fecha query string true "Fecha a consultar YYYY-MM-DD; si es domingo se usa el sabado anterior" example(2026-05-24)
+// @Param local query string false "Nombre exacto del local a consultar cuando el token no tiene local; si se omite, consulta todos los locales" example(SAN MARTIN)
 // @Success 200 {object} utils.APIResponse{data=reservaResumenResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: fecha requerida o formato invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Local no encontrado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/resumen [get]
 func (h *Container) GetReservasResumenPG(c *gin.Context) {
@@ -329,8 +331,19 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 		return
 	}
 
-	resumen, err := h.ReservasPG.GetResumenReservas(fecha, scope.NombreLocal)
+	localNombre := scope.NombreLocal
+	localID := scope.LocalID
+	if strings.TrimSpace(localNombre) == "" {
+		localNombre = queryLocalNombre(c)
+		localID = nil
+	}
+
+	resumen, err := h.ReservasPG.GetResumenReservas(fecha, localNombre, localID)
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "local no encontrado") {
+			utils.RespondError(c, http.StatusNotFound, err.Error())
+			return
+		}
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -340,6 +353,10 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 		ServiciosCompletadosDia: resumen.ServiciosCompletadosDia,
 		Semana:                  buildReservaResumenSemanaResponse(fecha, resumen.Semana),
 	})
+}
+
+func queryLocalNombre(c *gin.Context) string {
+	return strings.TrimSpace(c.Query("local"))
 }
 
 func buildReservaResumenSemanaResponse(fecha time.Time, semana services.ResumenReservasSemana) reservaResumenSemanaResponse {
