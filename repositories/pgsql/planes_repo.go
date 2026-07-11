@@ -133,6 +133,157 @@ func (r *PlanesRepo) GetPlanByID(id int) (*models.PlanCompletoPG, error) {
 	return &plan, nil
 }
 
+func (r *PlanesRepo) CreatePlan(input repository.CrearPlanInput) (int, error) {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return 0, fmt.Errorf("error al iniciar transaccion de plan: %w", err)
+	}
+	defer tx.Rollback()
+
+	var clienteNombre string
+	if err := tx.Get(&clienteNombre, `
+		SELECT COALESCE(NULLIF(BTRIM(CONCAT(nombre, ' ', COALESCE(apellido, ''))), ''), 'SIN NOMBRE')
+		FROM clientes WHERE id = $1
+	`, input.ClienteID); err != nil {
+		return 0, fmt.Errorf("cliente con id %d no encontrado: %w", input.ClienteID, repository.ErrPlanDatosInvalidos)
+	}
+
+	var localNombre string
+	if err := tx.Get(&localNombre, `SELECT nombre FROM locales WHERE id = $1 AND activo = TRUE`, input.LocalID); err != nil {
+		return 0, fmt.Errorf("local con id %d no encontrado o inactivo: %w", input.LocalID, repository.ErrPlanDatosInvalidos)
+	}
+
+	var planID int
+	err = tx.QueryRowx(`
+		INSERT INTO planes (
+			cliente, local_id, cliente_id, cliente_nombre_snapshot,
+			local_nombre_snapshot, combo_id_origen, combo_nombre_snapshot,
+			fecha_inicio, fecha_fin, estado, tipo_pago,
+			subtotal, descuento, precio_total, moneda, notas, activo, creado_por
+		) VALUES (
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,TRUE,$17
+		) RETURNING id
+	`,
+		clienteNombre, input.LocalID, input.ClienteID, clienteNombre,
+		localNombre, input.ComboIDOrigen, input.ComboNombreSnapshot,
+		input.FechaInicio, input.FechaFin, input.Estado, input.TipoPago,
+		input.Subtotal, input.Descuento, input.PrecioTotal, input.Moneda,
+		nullStr(pointerString(input.Notas)), input.CreadoPor,
+	).Scan(&planID)
+	if err != nil {
+		return 0, fmt.Errorf("error al crear plan: %w", err)
+	}
+
+	for _, s := range input.Servicios {
+		if _, err := tx.Exec(`
+			INSERT INTO plan_servicios (
+				plan_id, servicio_id_origen, nombre_snapshot, tiempo_snapshot,
+				precio_unitario_snapshot, sesiones_contratadas, orden
+			) VALUES ($1,$2,$3,$4,$5,$6,$7)
+		`, planID, s.ServicioIDOrigen, s.NombreSnapshot, pointerString(s.TiempoSnapshot),
+			s.PrecioUnitarioSnapshot, s.SesionesContratadas, s.Orden); err != nil {
+			return 0, fmt.Errorf("error al insertar servicio del plan: %w", err)
+		}
+	}
+
+	for _, c := range input.Cuotas {
+		if _, err := tx.Exec(`
+			INSERT INTO plan_cuotas (plan_id, numero, vencimiento, monto, estado)
+			VALUES ($1,$2,$3,$4,'PENDIENTE')
+		`, planID, c.Numero, nullStr(pointerString(c.Vencimiento)), c.Monto); err != nil {
+			return 0, fmt.Errorf("error al insertar cuota del plan: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("error al confirmar plan: %w", err)
+	}
+	return planID, nil
+}
+
+func (r *PlanesRepo) UpdatePlan(input repository.ActualizarPlanInput) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var estado string
+	if err := tx.Get(&estado, `SELECT estado FROM planes WHERE id = $1`, input.ID); err != nil {
+		return fmt.Errorf("%w: plan con id %d", repository.ErrPlanNoEncontrado, input.ID)
+	}
+	if estado != "BORRADOR" {
+		return fmt.Errorf("%w: solo se puede modificar un plan en BORRADOR", repository.ErrPlanEstadoBloqueado)
+	}
+
+	sets := []string{"actualizado_en = NOW()"}
+	args := []interface{}{}
+	index := 1
+	add := func(column string, value interface{}) {
+		sets = append(sets, fmt.Sprintf("%s = $%d", column, index))
+		args = append(args, value)
+		index++
+	}
+
+	if input.Notas != nil {
+		add("notas", nullStr(*input.Notas))
+	}
+	if input.FechaInicio != nil {
+		add("fecha_inicio", *input.FechaInicio)
+	}
+	if input.FechaFin != nil {
+		add("fecha_fin", *input.FechaFin)
+	}
+
+	args = append(args, input.ID)
+	query := fmt.Sprintf("UPDATE planes SET %s WHERE id = $%d", strings.Join(sets, ", "), index)
+	if _, err := tx.Exec(query, args...); err != nil {
+		return fmt.Errorf("error al actualizar plan: %w", err)
+	}
+	return tx.Commit()
+}
+
+func (r *PlanesRepo) UpdatePlanEstado(id int, estado string, estadoCobranza string, usuarioID *int) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var actual struct {
+		Estado string `db:"estado"`
+	}
+	if err := tx.Get(&actual, `SELECT estado FROM planes WHERE id = $1`, id); err != nil {
+		return fmt.Errorf("%w: plan con id %d", repository.ErrPlanNoEncontrado, id)
+	}
+
+	if !esTransicionValida(actual.Estado, estado) {
+		return fmt.Errorf("%w: de %s a %s", repository.ErrPlanTransicionInvalida, actual.Estado, estado)
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE planes SET estado = $1, estado_cobranza = $2, actualizado_por = $3, actualizado_en = NOW()
+		WHERE id = $4
+	`, estado, estadoCobranza, usuarioID, id); err != nil {
+		return fmt.Errorf("error al actualizar estado del plan: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+func esTransicionValida(actual, nuevo string) bool {
+	switch actual {
+	case "BORRADOR":
+		return nuevo == "ACTIVO" || nuevo == "CANCELADO"
+	case "ACTIVO":
+		return nuevo == "COMPLETADO" || nuevo == "CANCELADO"
+	case "COMPLETADO", "CANCELADO", "VENCIDO":
+		return false
+	default:
+		return false
+	}
+}
+
 func (r *PlanesRepo) cargarServicios(planID int) ([]models.PlanServicioPG, error) {
 	var servicios []models.PlanServicioPG
 	if err := r.db.Select(&servicios, `

@@ -158,6 +158,9 @@ func Setup(h *handlers.Container) *gin.Engine {
 
 		bd.GET("/planes", h.AuthRequired, h.GetPlanes)
 		bd.GET("/planes/:id", h.AuthRequired, h.GetPlanByID)
+		bd.POST("/planes", h.AuthRequired, h.AdminSysRequired, h.CreatePlan)
+		bd.PATCH("/planes/:id", h.AuthRequired, h.AdminSysRequired, h.PatchPlan)
+		bd.PATCH("/planes/:id/estado", h.AuthRequired, h.AdminSysRequired, h.PatchPlanEstado)
 
 	}
 

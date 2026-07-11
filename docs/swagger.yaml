@@ -223,6 +223,18 @@ definitions:
         example: 450
         type: number
     type: object
+  handlers.actualizarPlanRequest:
+    properties:
+      fecha_fin:
+        example: "2026-08-19"
+        type: string
+      fecha_inicio:
+        example: "2026-07-20"
+        type: string
+      notas:
+        example: Actualizar notas del plan
+        type: string
+    type: object
   handlers.actualizarReservaPGRequest:
     properties:
       id:
@@ -407,6 +419,12 @@ definitions:
     required:
     - password
     - username
+    type: object
+  handlers.cambiarEstadoPlanRequest:
+    properties:
+      estado:
+        example: ACTIVO
+        type: string
     type: object
   handlers.cambiarPasswordRequest:
     properties:
@@ -742,6 +760,40 @@ definitions:
         description: Total final del pago.
         example: 450
         type: number
+    type: object
+  handlers.crearPlanRequest:
+    properties:
+      cantidad_cuotas:
+        example: 3
+        type: integer
+      cliente_id:
+        example: 12
+        type: integer
+      combo_id:
+        example: 12
+        type: integer
+      descuento:
+        example: 50
+        type: number
+      fecha_fin:
+        example: "2026-08-14"
+        type: string
+      fecha_inicio:
+        example: "2026-07-15"
+        type: string
+      local_id:
+        example: 1
+        type: integer
+      notas:
+        example: Pago contado
+        type: string
+      servicios:
+        items:
+          $ref: '#/definitions/handlers.planServicioManualRequest'
+        type: array
+      tipo_pago:
+        example: UNICO
+        type: string
     type: object
   handlers.crearReservaPGRequest:
     properties:
@@ -1186,6 +1238,27 @@ definitions:
       total:
         example: 5
         type: integer
+    type: object
+  handlers.planServicioManualRequest:
+    properties:
+      nombre_snapshot:
+        example: Masaje relajante
+        type: string
+      orden:
+        example: 0
+        type: integer
+      precio_unitario_snapshot:
+        example: 200
+        type: number
+      servicio_id_origen:
+        example: 8
+        type: integer
+      sesiones_contratadas:
+        example: 2
+        type: integer
+      tiempo_snapshot:
+        example: "01:00"
+        type: string
     type: object
   handlers.reemplazarLocalesComboRequest:
     properties:
@@ -4759,6 +4832,61 @@ paths:
       summary: Listar planes
       tags:
       - Planes BD
+    post:
+      consumes:
+      - application/json
+      description: 'Crea un plan contractual para un cliente. Dos origenes mutuamente
+        excluyentes: combo_id (copia snapshot del catalogo) o servicios (composicion
+        manual). Calcula subtotal, descuento y precio total en backend. Crea cuotas
+        segun tipo_pago. Requiere token Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos del plan a crear
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearPlanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: datos del plan invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Cliente, local o combo no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Crear plan desde combo o manual
+      tags:
+      - Planes BD
   /bd/planes/{id}:
     get:
       description: 'Devuelve el detalle completo de un plan: cabecera, servicios contratados
@@ -4810,6 +4938,134 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Obtener plan por ID
+      tags:
+      - Planes BD
+    patch:
+      consumes:
+      - application/json
+      description: Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido
+        cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del plan
+        example: 21
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos del plan a modificar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarPlanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id o campos invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Plan no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: El plan no permite modificaciones en su estado actual
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Actualizar campos editables de un plan
+      tags:
+      - Planes BD
+  /bd/planes/{id}/estado:
+    patch:
+      consumes:
+      - application/json
+      description: 'Transicion de estado del plan. Transiciones validas: BORRADOR
+        -> ACTIVO, ACTIVO -> COMPLETADO, ACTIVO -> CANCELADO. Requiere token Bearer
+        con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del plan
+        example: 21
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Nuevo estado del plan
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.cambiarEstadoPlanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: estado invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Plan no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Transicion de estado no permitida
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Cambiar estado de un plan
       tags:
       - Planes BD
   /bd/reservas:

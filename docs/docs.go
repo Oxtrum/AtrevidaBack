@@ -3431,6 +3431,88 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "post": {
+                "description": "Crea un plan contractual para un cliente. Dos origenes mutuamente excluyentes: combo_id (copia snapshot del catalogo) o servicios (composicion manual). Calcula subtotal, descuento y precio total en backend. Crea cuotas segun tipo_pago. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Planes BD"
+                ],
+                "summary": "Crear plan desde combo o manual",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del plan a crear",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearPlanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.idResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: datos del plan invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente, local o combo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
             }
         },
         "/bd/planes/{id}": {
@@ -3500,6 +3582,200 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Plan no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Planes BD"
+                ],
+                "summary": "Actualizar campos editables de un plan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 21,
+                        "description": "ID del plan",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos del plan a modificar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarPlanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id o campos invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Plan no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "El plan no permite modificaciones en su estado actual",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/planes/{id}/estado": {
+            "patch": {
+                "description": "Transicion de estado del plan. Transiciones validas: BORRADOR -\u003e ACTIVO, ACTIVO -\u003e COMPLETADO, ACTIVO -\u003e CANCELADO. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Planes BD"
+                ],
+                "summary": "Cambiar estado de un plan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 21,
+                        "description": "ID del plan",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Nuevo estado del plan",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.cambiarEstadoPlanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: estado invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Plan no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Transicion de estado no permitida",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5425,6 +5701,23 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarPlanRequest": {
+            "type": "object",
+            "properties": {
+                "fecha_fin": {
+                    "type": "string",
+                    "example": "2026-08-19"
+                },
+                "fecha_inicio": {
+                    "type": "string",
+                    "example": "2026-07-20"
+                },
+                "notas": {
+                    "type": "string",
+                    "example": "Actualizar notas del plan"
+                }
+            }
+        },
         "handlers.actualizarReservaPGRequest": {
             "type": "object",
             "required": [
@@ -5661,6 +5954,15 @@ const docTemplate = `{
                     "description": "Nombre de usuario para iniciar sesion.",
                     "type": "string",
                     "example": "admin"
+                }
+            }
+        },
+        "handlers.cambiarEstadoPlanRequest": {
+            "type": "object",
+            "properties": {
+                "estado": {
+                    "type": "string",
+                    "example": "ACTIVO"
                 }
             }
         },
@@ -6116,6 +6418,53 @@ const docTemplate = `{
                     "description": "Total final del pago.",
                     "type": "number",
                     "example": 450
+                }
+            }
+        },
+        "handlers.crearPlanRequest": {
+            "type": "object",
+            "properties": {
+                "cantidad_cuotas": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "cliente_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "combo_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "descuento": {
+                    "type": "number",
+                    "example": 50
+                },
+                "fecha_fin": {
+                    "type": "string",
+                    "example": "2026-08-14"
+                },
+                "fecha_inicio": {
+                    "type": "string",
+                    "example": "2026-07-15"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "notas": {
+                    "type": "string",
+                    "example": "Pago contado"
+                },
+                "servicios": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.planServicioManualRequest"
+                    }
+                },
+                "tipo_pago": {
+                    "type": "string",
+                    "example": "UNICO"
                 }
             }
         },
@@ -6713,6 +7062,35 @@ const docTemplate = `{
                 "total": {
                     "type": "integer",
                     "example": 5
+                }
+            }
+        },
+        "handlers.planServicioManualRequest": {
+            "type": "object",
+            "properties": {
+                "nombre_snapshot": {
+                    "type": "string",
+                    "example": "Masaje relajante"
+                },
+                "orden": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "precio_unitario_snapshot": {
+                    "type": "number",
+                    "example": 200
+                },
+                "servicio_id_origen": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "sesiones_contratadas": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "tiempo_snapshot": {
+                    "type": "string",
+                    "example": "01:00"
                 }
             }
         },

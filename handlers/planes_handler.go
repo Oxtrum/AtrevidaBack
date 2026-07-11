@@ -24,13 +24,45 @@ type planFiltrosResponse struct {
 }
 
 type planListResponse struct {
-	Total   int            `json:"total" example:"5"`
+	Total   int                  `json:"total" example:"5"`
 	Filtros planFiltrosResponse `json:"filtros"`
-	Planes  []models.PlanPG `json:"planes"`
+	Planes  []models.PlanPG     `json:"planes"`
 }
 
 type planItemResponse struct {
 	Plan *models.PlanCompletoPG `json:"plan"`
+}
+
+type planServicioManualRequest struct {
+	ServicioIDOrigen       *int     `json:"servicio_id_origen,omitempty" example:"8"`
+	NombreSnapshot         string   `json:"nombre_snapshot" example:"Masaje relajante"`
+	TiempoSnapshot         *string  `json:"tiempo_snapshot,omitempty" example:"01:00"`
+	PrecioUnitarioSnapshot *float64 `json:"precio_unitario_snapshot,omitempty" example:"200"`
+	SesionesContratadas    int      `json:"sesiones_contratadas" example:"2"`
+	Orden                  int      `json:"orden" example:"0"`
+}
+
+type crearPlanRequest struct {
+	ClienteID      int                          `json:"cliente_id" example:"12"`
+	LocalID        int                          `json:"local_id" example:"1"`
+	ComboID        *int                         `json:"combo_id,omitempty" example:"12"`
+	Servicios      []planServicioManualRequest   `json:"servicios,omitempty"`
+	FechaInicio    *string                      `json:"fecha_inicio,omitempty" example:"2026-07-15"`
+	FechaFin       *string                      `json:"fecha_fin,omitempty" example:"2026-08-14"`
+	TipoPago       string                       `json:"tipo_pago" example:"UNICO"`
+	CantidadCuotas int                          `json:"cantidad_cuotas,omitempty" example:"3"`
+	Descuento      *float64                     `json:"descuento,omitempty" example:"50"`
+	Notas          *string                      `json:"notas,omitempty" example:"Pago contado"`
+}
+
+type actualizarPlanRequest struct {
+	Notas       *string `json:"notas,omitempty" example:"Actualizar notas del plan"`
+	FechaInicio *string `json:"fecha_inicio,omitempty" example:"2026-07-20"`
+	FechaFin    *string `json:"fecha_fin,omitempty" example:"2026-08-19"`
+}
+
+type cambiarEstadoPlanRequest struct {
+	Estado string `json:"estado" example:"ACTIVO"`
 }
 
 // GetPlanes godoc
@@ -157,13 +189,200 @@ func (h *Container) GetPlanByID(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, planItemResponse{Plan: plan})
 }
 
+// CreatePlan godoc
+// @Summary Crear plan desde combo o manual
+// @Description Crea un plan contractual para un cliente. Dos origenes mutuamente excluyentes: combo_id (copia snapshot del catalogo) o servicios (composicion manual). Calcula subtotal, descuento y precio total en backend. Crea cuotas segun tipo_pago. Requiere token Bearer con rol admin_sys.
+// @Tags Planes BD
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param payload body crearPlanRequest true "Datos del plan a crear"
+// @Success 201 {object} utils.APIResponse{data=idResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: datos del plan invalidos"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Cliente, local o combo no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/planes [post]
+func (h *Container) CreatePlan(c *gin.Context) {
+	var req crearPlanRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+
+	userID, _ := authenticatedUserID(c)
+
+	var fechaInicio, fechaFin *time.Time
+	if req.FechaInicio != nil {
+		t, err := time.Parse("2006-01-02", *req.FechaInicio)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "fecha_inicio debe tener formato YYYY-MM-DD")
+			return
+		}
+		fechaInicio = &t
+	}
+	if req.FechaFin != nil {
+		t, err := time.Parse("2006-01-02", *req.FechaFin)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "fecha_fin debe tener formato YYYY-MM-DD")
+			return
+		}
+		fechaFin = &t
+	}
+
+	descuento := 0.0
+	if req.Descuento != nil {
+		descuento = *req.Descuento
+	}
+
+	var servicios []services.PlanServicioInput
+	if req.Servicios != nil {
+		for _, s := range req.Servicios {
+			servicios = append(servicios, services.PlanServicioInput{
+				ServicioIDOrigen:       s.ServicioIDOrigen,
+				NombreSnapshot:         s.NombreSnapshot,
+				TiempoSnapshot:         s.TiempoSnapshot,
+				PrecioUnitarioSnapshot: s.PrecioUnitarioSnapshot,
+				SesionesContratadas:    s.SesionesContratadas,
+				Orden:                  s.Orden,
+			})
+		}
+	}
+
+	id, err := h.PlanesPG.CrearPlan(services.CrearPlanInput{
+		ClienteID:      req.ClienteID,
+		LocalID:        req.LocalID,
+		ComboID:        req.ComboID,
+		Servicios:      servicios,
+		FechaInicio:    fechaInicio,
+		FechaFin:       fechaFin,
+		TipoPago:       strings.ToUpper(strings.TrimSpace(req.TipoPago)),
+		CantidadCuotas: req.CantidadCuotas,
+		Descuento:      descuento,
+		Notas:          req.Notas,
+		CreadoPor:      &userID,
+	})
+	if err != nil {
+		responderErrorPlan(c, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusCreated, idResponse{ID: id})
+}
+
+// PatchPlan godoc
+// @Summary Actualizar campos editables de un plan
+// @Description Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol admin_sys.
+// @Tags Planes BD
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del plan" example(21)
+// @Param payload body actualizarPlanRequest true "Campos del plan a modificar"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id o campos invalidos"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Plan no encontrado"
+// @Failure 409 {object} utils.APIResponse "El plan no permite modificaciones en su estado actual"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/planes/{id} [patch]
+func (h *Container) PatchPlan(c *gin.Context) {
+	id, err := requiredPositiveParam(c, "id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req actualizarPlanRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+
+	var fechaInicio, fechaFin *time.Time
+	if req.FechaInicio != nil {
+		t, err := time.Parse("2006-01-02", *req.FechaInicio)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "fecha_inicio debe tener formato YYYY-MM-DD")
+			return
+		}
+		fechaInicio = &t
+	}
+	if req.FechaFin != nil {
+		t, err := time.Parse("2006-01-02", *req.FechaFin)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "fecha_fin debe tener formato YYYY-MM-DD")
+			return
+		}
+		fechaFin = &t
+	}
+
+	err = h.PlanesPG.ActualizarPlan(services.ActualizarPlanInput{
+		ID: id, Notas: req.Notas,
+		FechaInicio: fechaInicio, FechaFin: fechaFin,
+	})
+	if err != nil {
+		responderErrorPlan(c, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "plan actualizado correctamente"})
+}
+
+// PatchPlanEstado godoc
+// @Summary Cambiar estado de un plan
+// @Description Transicion de estado del plan. Transiciones validas: BORRADOR -> ACTIVO, ACTIVO -> COMPLETADO, ACTIVO -> CANCELADO. Requiere token Bearer con rol admin_sys.
+// @Tags Planes BD
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del plan" example(21)
+// @Param payload body cambiarEstadoPlanRequest true "Nuevo estado del plan"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: estado invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Plan no encontrado"
+// @Failure 409 {object} utils.APIResponse "Transicion de estado no permitida"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/planes/{id}/estado [patch]
+func (h *Container) PatchPlanEstado(c *gin.Context) {
+	id, err := requiredPositiveParam(c, "id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req cambiarEstadoPlanRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+
+	userID, _ := authenticatedUserID(c)
+
+	err = h.PlanesPG.CambiarEstado(services.CambiarEstadoInput{
+		ID: id, Estado: req.Estado, UsuarioID: &userID,
+	})
+	if err != nil {
+		responderErrorPlan(c, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "estado del plan actualizado correctamente"})
+}
+
 func responderErrorPlan(c *gin.Context, err error) {
 	status := http.StatusInternalServerError
 	switch {
-	case errors.Is(err, services.ErrPlanInvalido):
+	case errors.Is(err, services.ErrPlanInvalido) || errors.Is(err, services.ErrPlanOrigenInvalido):
 		status = http.StatusBadRequest
 	case errors.Is(err, services.ErrPlanNoEncontrado):
 		status = http.StatusNotFound
+	case errors.Is(err, services.ErrPlanTransicionInvalida):
+		status = http.StatusConflict
 	}
 	utils.RespondError(c, status, err.Error())
 }

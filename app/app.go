@@ -47,7 +47,7 @@ func Build() (*gin.Engine, error) {
 	reservasPGService := services.NewReservasPGService(reservasPGRepo, serviciosPGRepo)
 	localesPGService := services.NewLocalesService(localesPGRepo)
 	pagosPGService := services.NewPagosService(pagosPGRepo)
-	planesPGService := services.NewPlanesService(planesPGRepo)
+	planesPGService := services.NewPlanesService(planesPGRepo, combosPGRepo)
 
 	h := handlers.NewContainer(
 		authService,
