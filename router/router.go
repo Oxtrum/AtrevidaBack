@@ -117,12 +117,12 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/servicios/:id/local/:local_id/paciente-nuevo", h.AuthRequired, h.PatchServicioVisiblePacienteNuevoLocal)
 
 		bd.GET("/combos", h.GetCombosPG)
-		//bd.GET("/combos/:id", h.GetComboById)
-		bd.GET("/combos/:combo_id/servicios", h.GetComboServiciosByCombo)
-		bd.POST("/combos/servicios", h.CreateComboServicio)
-		bd.GET("/combos/servicios/:id", h.GetComboServicioByID)
-		bd.PATCH("/combos/servicios/:id", h.PatchComboServicio)
-		bd.DELETE("/combos/servicios/:id", h.DeleteComboServicio)
+		bd.GET("/combos/:id", h.GetComboPGByID)
+		bd.POST("/combos", h.AuthRequired, h.AdminSysRequired, h.CreateComboPG)
+		bd.PATCH("/combos/:id", h.AuthRequired, h.AdminSysRequired, h.PatchComboPG)
+		bd.DELETE("/combos/:id", h.AuthRequired, h.AdminSysRequired, h.DeleteComboPG)
+		bd.PUT("/combos/:id/locales", h.AuthRequired, h.AdminSysRequired, h.PutComboLocalesPG)
+		bd.PUT("/combos/:id/servicios", h.AuthRequired, h.AdminSysRequired, h.PutComboServiciosPG)
 
 		bd.GET("/locales", h.GetLocales)
 		bd.GET("/locales/:id", h.GetLocalById)

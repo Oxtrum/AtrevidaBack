@@ -101,7 +101,13 @@ La regla importante es simple: si una IA cambia la API, tambien debe actualizar 
 |---|---|---|
 | GET | `/bd/servicios` | Lista servicios desde BD |
 | GET | `/bd/servicios/:id` | Obtiene un servicio por ID |
-| GET | `/bd/combos` | Lista combos desde BD |
+| GET | `/bd/combos` | Lista promociones activas del catalogo, con filtros |
+| GET | `/bd/combos/:id` | Obtiene una promocion con sus locales y servicios snapshot |
+| POST | `/bd/combos` | Crea una promocion completa (requiere `admin_sys`) |
+| PATCH | `/bd/combos/:id` | Actualiza metadatos y politica de precio (requiere `admin_sys`) |
+| DELETE | `/bd/combos/:id` | Desactiva lógicamente una promoción (requiere `admin_sys`) |
+| PUT | `/bd/combos/:id/locales` | Reemplaza locales disponibles (requiere `admin_sys`) |
+| PUT | `/bd/combos/:id/servicios` | Reemplaza lineas y recalcula totales (requiere `admin_sys`) |
 | GET | `/bd/locales` | Lista locales |
 | GET | `/bd/locales/:id` | Obtiene un local por ID |
 | GET | `/bd/reservas` | Lista simple de reservas |

@@ -40,31 +40,31 @@ definitions:
         example: "+59170011224"
         type: string
     type: object
-  handlers.actualizarComboServicioRequest:
+  handlers.actualizarComboCatalogoRequest:
     properties:
-      costo:
-        description: Costo del servicio (opcional)
-        example: 250
-        type: number
-      orden:
-        description: Orden de aparición (opcional)
-        example: 1
+      categoria_id:
+        description: Nueva categoria opcional.
+        example: 3
         type: integer
-      servicio_id:
-        description: ID del servicio en BD (opcional)
-        example: 8
-        type: integer
-      servicio_texto:
-        description: Nombre del servicio personalizado (opcional)
-        example: Masaje relajante personalizado
+      descripcion:
+        description: Nueva descripcion opcional; una cadena vacia la limpia.
+        example: Masaje y drenaje personalizado
         type: string
-      sesiones:
-        description: Cantidad de sesiones (opcional)
-        example: 2
-        type: integer
-      tiempo:
-        description: Duración del servicio HH:MM (opcional)
-        example: "01:00"
+      moneda:
+        description: Nueva moneda ISO de tres letras.
+        example: BOB
+        type: string
+      nombre:
+        description: Nuevo nombre comercial opcional.
+        example: Combo Relax Premium
+        type: string
+      precio_paquete:
+        description: Nuevo precio final de paquete cuando corresponda.
+        example: 750
+        type: number
+      tipo_precio:
+        description: 'Nueva regla de precio opcional: POR_ITEMS o PRECIO_PAQUETE.'
+        example: POR_ITEMS
         type: string
     type: object
   handlers.actualizarDetallePagoRequest:
@@ -489,63 +489,77 @@ definitions:
         example: 1
         type: integer
     type: object
-  handlers.comboFiltrosResponse:
+  handlers.comboCatalogoFiltrosResponse:
     properties:
       categoria:
-        description: 'Filtro aplicado: categoría del combo'
+        description: 'Filtro aplicado: categoría parcial del combo.'
         example: Corporal
         type: string
       local:
-        description: 'Filtro aplicado: nombre del local'
-        example: ARANJUEZ
+        description: 'Filtro aplicado: nombre parcial del local.'
+        example: SAN MARTIN
         type: string
+      local_id:
+        description: 'Filtro aplicado: ID exacto del local.'
+        example: 1
+        type: integer
       nombre:
-        description: 'Filtro aplicado: nombre del combo'
+        description: 'Filtro aplicado: nombre parcial del combo.'
         example: relax
         type: string
-      sesiones:
-        description: 'Filtro aplicado: cantidad de sesiones'
-        example: 4
-        type: integer
     type: object
-  handlers.comboListResponse:
+  handlers.comboCatalogoItemResponse:
+    properties:
+      combo:
+        allOf:
+        - $ref: '#/definitions/models.ComboCatalogoPG'
+        description: Datos completos de la promocion, incluidos locales y servicios
+          snapshot.
+    type: object
+  handlers.comboCatalogoListResponse:
     properties:
       combos:
-        description: Lista de combos
+        description: Lista de promociones activas del catalogo.
         items:
-          $ref: '#/definitions/models.ComboItem'
+          $ref: '#/definitions/models.ComboCatalogoPG'
         type: array
       filtros:
         allOf:
-        - $ref: '#/definitions/handlers.comboFiltrosResponse'
-        description: Filtros aplicados en la búsqueda
+        - $ref: '#/definitions/handlers.comboCatalogoFiltrosResponse'
+        description: Filtros aplicados en la búsqueda.
       total:
-        description: Total de combos encontrados
+        description: Cantidad total de promociones que coinciden con los filtros aplicados.
         example: 3
         type: integer
     type: object
-  handlers.comboServicioItemResponse:
+  handlers.comboServicioCatalogoRequest:
     properties:
-      servicio:
-        allOf:
-        - $ref: '#/definitions/models.ComboServicioDetallePG'
-        description: Datos del servicio de combo
-    type: object
-  handlers.comboServicioListResponse:
-    properties:
-      combo_id:
-        description: ID del combo padre
-        example: 12
+      costo:
+        description: Precio unitario snapshot de cada sesion.
+        example: 250
+        type: number
+      orden:
+        description: Posicion unica de la linea dentro del combo, iniciando en cero.
+        example: 0
         type: integer
-      servicios:
-        description: Lista de servicios del combo
-        items:
-          $ref: '#/definitions/models.ComboServicioDetallePG'
-        type: array
-      total:
-        description: Total de servicios del combo
-        example: 3
+      servicio_id:
+        description: ID opcional del servicio de catalogo usado como origen.
+        example: 8
         type: integer
+      servicio_texto:
+        description: Nombre snapshot manual; si se omite y hay servicio_id, se copia
+          del servicio origen.
+        example: Masaje relajante personalizado
+        type: string
+      sesiones:
+        description: Cantidad de sesiones incluidas en esta linea.
+        example: 2
+        type: integer
+      tiempo:
+        description: Duracion snapshot del servicio en formato libre, por ejemplo
+          HH:MM.
+        example: "01:00"
+        type: string
     type: object
   handlers.crearCategoriaRequest:
     properties:
@@ -576,38 +590,45 @@ definitions:
         example: "+59170011223"
         type: string
     type: object
-  handlers.crearComboServicioRequest:
+  handlers.crearComboCatalogoRequest:
     properties:
-      combo_id:
-        description: ID del combo padre
-        example: 12
+      categoria_id:
+        description: ID opcional de la categoria del catalogo.
+        example: 3
         type: integer
-      costo:
-        description: Costo del servicio
-        example: 250
+      descripcion:
+        description: Descripcion opcional mostrada en catalogo.
+        example: Masaje y drenaje para cuatro sesiones
+        type: string
+      local_ids:
+        description: IDs de los locales activos donde se publica el combo.
+        example:
+        - 1
+        - 2
+        items:
+          type: integer
+        type: array
+      moneda:
+        description: Moneda ISO de tres letras; BOB por defecto.
+        example: BOB
+        type: string
+      nombre:
+        description: Nombre comercial de la promocion.
+        example: Combo Relax
+        type: string
+      precio_paquete:
+        description: Precio final requerido solo cuando tipo_precio es PRECIO_PAQUETE.
+        example: 700
         type: number
-      orden:
-        description: Orden de aparición dentro del combo
-        example: 1
-        type: integer
-      servicio_id:
-        description: ID del servicio en BD (opcional si se envía servicio_texto)
-        example: 8
-        type: integer
-      servicio_texto:
-        description: Nombre del servicio personalizado (opcional si se envía servicio_id)
-        example: Masaje relajante personalizado
+      servicios:
+        description: Lineas que componen la promocion.
+        items:
+          $ref: '#/definitions/handlers.comboServicioCatalogoRequest'
+        type: array
+      tipo_precio:
+        description: 'Regla de precio: POR_ITEMS o PRECIO_PAQUETE.'
+        example: PRECIO_PAQUETE
         type: string
-      sesiones:
-        description: Cantidad de sesiones
-        example: 2
-        type: integer
-      tiempo:
-        description: Duración del servicio (HH:MM)
-        example: "01:00"
-        type: string
-    required:
-    - combo_id
     type: object
   handlers.crearDetallePagoRequest:
     properties:
@@ -1125,6 +1146,27 @@ definitions:
         - $ref: '#/definitions/services.PagoResumenReporte'
         description: Reporte general o reporte del local filtrado
     type: object
+  handlers.reemplazarLocalesComboRequest:
+    properties:
+      local_ids:
+        description: Lista completa de locales activos donde estara disponible el
+          combo.
+        example:
+        - 1
+        - 2
+        items:
+          type: integer
+        type: array
+    type: object
+  handlers.reemplazarServiciosComboRequest:
+    properties:
+      servicios:
+        description: Lista completa que reemplaza las lineas activas actuales del
+          combo.
+        items:
+          $ref: '#/definitions/handlers.comboServicioCatalogoRequest'
+        type: array
+    type: object
   handlers.registrarUsuarioRequest:
     properties:
       local_id:
@@ -1437,33 +1479,64 @@ definitions:
         example: "+59170011223"
         type: string
     type: object
-  models.ComboItem:
+  models.ComboCatalogoPG:
     properties:
+      activo:
+        example: true
+        type: boolean
+      actualizado_en:
+        example: "2026-07-11T10:00:00Z"
+        type: string
       categoria:
         example: Corporal
         type: string
-      costo_total:
-        example: "1200"
+      categoria_id:
+        example: 3
+        type: integer
+      creado_en:
+        example: "2026-07-11T10:00:00Z"
+        type: string
+      descripcion:
+        example: Promocion corporal de cuatro sesiones
         type: string
       id:
         example: 12
         type: integer
-      local:
-        example: ARANJUEZ
+      locales:
+        items:
+          $ref: '#/definitions/models.LocalPG'
+        type: array
+      moneda:
+        example: BOB
         type: string
       nombre:
-        example: Relax Total
+        example: Combo Relax
         type: string
-      servicios_incluidos:
+      precio_final:
+        example: 700
+        type: number
+      precio_items:
+        example: 800
+        type: number
+      precio_paquete:
+        example: 700
+        type: number
+      servicios:
         items:
-          $ref: '#/definitions/models.ServicioIncluido'
+          $ref: '#/definitions/models.ComboServicioDetallePG'
         type: array
       sesiones_totales:
         example: 4
         type: integer
+      tipo_precio:
+        example: PRECIO_PAQUETE
+        type: string
     type: object
   models.ComboServicioDetallePG:
     properties:
+      activo:
+        example: true
+        type: boolean
       combo_id:
         example: 12
         type: integer
@@ -1813,21 +1886,6 @@ definitions:
         type: array
       titulo:
         example: Semana 22
-        type: string
-    type: object
-  models.ServicioIncluido:
-    properties:
-      costo:
-        example: "350"
-        type: string
-      nombre:
-        example: Depilacion Laser Piernas
-        type: string
-      sesiones:
-        example: 6
-        type: integer
-      tiempo:
-        example: "01:00"
         type: string
     type: object
   models.ServicioItem:
@@ -2982,12 +3040,10 @@ paths:
       - Clientes
   /bd/combos:
     get:
-      description: 'Devuelve combos desde PostgreSQL con filtros. Filtros: nombre
-        busqueda parcial (opcional), categoria busqueda parcial (opcional), local
-        SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional). Response:
-        total (int), filtros (objeto con nombre, categoria, local, sesiones), combos
-        ([]ComboItem con: nombre, categoria, local, costo_total, sesiones_totales,
-        servicios_incluidos []ServicioIncluido con nombre, tiempo HH:MM, costo, sesiones).'
+      description: Devuelve todas las promociones activas que cumplan los filtros.
+        Un combo no es una compra ni contiene pagos, reservas o progreso de cliente.
+        Los filtros se aplican en PostgreSQL y la respuesta incluye los locales y
+        lineas snapshot.
       parameters:
       - description: Busqueda parcial por nombre
         example: relax
@@ -2999,18 +3055,15 @@ paths:
         in: query
         name: categoria
         type: string
-      - description: Local
-        enum:
-        - SAN MARTIN
-        - PASEO ARANJUEZ
-        example: PASEO ARANJUEZ
+      - description: Busqueda parcial por nombre de local
+        example: SAN MARTIN
         in: query
         name: local
         type: string
-      - description: Numero exacto de sesiones
-        example: 4
+      - description: ID exacto de local
+        example: 1
         in: query
-        name: sesiones
+        name: local_id
         type: integer
       produces:
       - application/json
@@ -3022,81 +3075,45 @@ paths:
             - $ref: '#/definitions/utils.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/handlers.comboListResponse'
+                  $ref: '#/definitions/handlers.comboCatalogoListResponse'
               type: object
         "400":
-          description: 'Error de validacion: sesiones debe ser entero positivo, local
-            invalido'
+          description: 'Error de validacion: local_id invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
           description: Error interno del servidor
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar combos desde base de datos
+      summary: Listar combos de catalogo
       tags:
       - Combos BD
-  /bd/combos/{combo_id}/servicios:
-    get:
-      description: 'Devuelve los items de combo_servicios asociados a un combo activo.
-        Param: combo_id (requerido, path). Response: total (int), combo_id (int),
-        servicios ([]ComboServicioDetallePG con: id, combo_id, combo_nombre, servicio_id,
-        servicio_texto, servicio_nombre, tiempo HH:MM, costo, sesiones, orden).'
-      parameters:
-      - description: ID del combo
-        example: 12
-        in: path
-        name: combo_id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/utils.APIResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/handlers.comboServicioListResponse'
-              type: object
-        "400":
-          description: 'Error de validacion: combo_id invalido'
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "404":
-          description: Combo no encontrado o inactivo
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "500":
-          description: Error interno del servidor
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      summary: Listar servicios de un combo
-      tags:
-      - Combo Servicios BD
-  /bd/combos/servicios:
     post:
       consumes:
       - application/json
-      description: 'Crea un item dentro de combo_servicios. Body: combo_id ID del
-        combo padre (requerido), servicio_id (opcional si se envia servicio_texto),
-        servicio_texto (opcional si se envia servicio_id), tiempo HH:MM (opcional),
-        costo (opcional), sesiones entero positivo default 1 (opcional), orden posicion
-        (opcional). Response: id (int ID del item creado).'
+      description: 'Crea una promocion reutilizable con locales y lineas en una unica
+        transaccion. Requiere token Bearer con rol admin_sys. tipo_precio POR_ITEMS
+        calcula el total desde las lineas; PRECIO_PAQUETE exige precio_paquete. servicio_id
+        es solo trazabilidad: el nombre, tiempo y costo se guardan como snapshot en
+        el combo.'
       parameters:
-      - description: Datos del servicio del combo
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos completos del combo
         in: body
         name: payload
         required: true
         schema:
-          $ref: '#/definitions/handlers.crearComboServicioRequest'
+          $ref: '#/definitions/handlers.crearComboCatalogoRequest'
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
             allOf:
             - $ref: '#/definitions/utils.APIResponse'
@@ -3105,8 +3122,110 @@ paths:
                   $ref: '#/definitions/handlers.idResponse'
               type: object
         "400":
-          description: 'Error de validacion: combo_id requerido, sesiones debe ser
-            positivo, debe enviar servicio_id o servicio_texto'
+          description: 'Error de validacion: datos de combo, locales, precios o servicios
+            invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria, local o servicio no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflicto al crear el combo
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Crear combo de catalogo
+      tags:
+      - Combos BD
+  /bd/combos/{id}:
+    delete:
+      description: 'Realiza el borrado lógico de una promoción de catálogo: la marca
+        inactiva, deja de aparecer en el catálogo público y conserva sus snapshots
+        históricos. Requiere token Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del combo
+        example: 12
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Combo no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Desactivar combo
+      tags:
+      - Combos BD
+    get:
+      description: Devuelve una promocion activa con sus locales y lineas snapshot.
+        No devuelve planes adquiridos ni saldos de clientes.
+      parameters:
+      - description: ID del combo
+        example: 12
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.comboCatalogoItemResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
@@ -3117,106 +3236,34 @@ paths:
           description: Error interno del servidor
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Crear servicio de combo
+      summary: Obtener combo de catalogo por ID
       tags:
-      - Combo Servicios BD
-  /bd/combos/servicios/{id}:
-    delete:
-      description: 'Elimina un item de combo_servicios por su ID. Param: id (requerido,
-        path). Response: mensaje string.'
-      parameters:
-      - description: ID del item combo_servicios
-        example: 15
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/utils.APIResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/handlers.messageResponse'
-              type: object
-        "400":
-          description: 'Error de validacion: id invalido'
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "404":
-          description: Item no encontrado
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "500":
-          description: Error interno del servidor
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      summary: Eliminar servicio de combo
-      tags:
-      - Combo Servicios BD
-    get:
-      description: 'Devuelve un item de combo_servicios por su ID. Param: id (requerido,
-        path). Response: servicio (ComboServicioDetallePG con: id, combo_id, combo_nombre,
-        servicio_id, servicio_texto, servicio_nombre, tiempo HH:MM, costo, sesiones,
-        orden).'
-      parameters:
-      - description: ID del item combo_servicios
-        example: 15
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/utils.APIResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/handlers.comboServicioItemResponse'
-              type: object
-        "400":
-          description: 'Error de validacion: id invalido'
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "404":
-          description: Item no encontrado
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "500":
-          description: Error interno del servidor
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      summary: Obtener servicio de combo por ID
-      tags:
-      - Combo Servicios BD
+      - Combos BD
     patch:
       consumes:
       - application/json
-      description: 'Actualiza campos de un item de combo_servicios. No permite cambiar
-        el combo padre. Param: id (requerido, path). Body: servicio_id (opcional),
-        servicio_texto (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones
-        (opcional), orden (opcional). Response: mensaje string.'
+      description: Actualiza metadatos financieros y comerciales del catalogo. No
+        modifica planes adquiridos. Requiere token Bearer con rol admin_sys. Para
+        reemplazar locales o lineas use las rutas dedicadas.
       parameters:
-      - description: ID del item combo_servicios
-        example: 15
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del combo
+        example: 12
         in: path
         name: id
         required: true
         type: integer
-      - description: Campos a actualizar (todos opcionales, al menos uno requerido)
+      - description: Campos del combo a modificar
         in: body
         name: payload
         required: true
         schema:
-          $ref: '#/definitions/handlers.actualizarComboServicioRequest'
+          $ref: '#/definitions/handlers.actualizarComboCatalogoRequest'
       produces:
       - application/json
       responses:
@@ -3230,21 +3277,151 @@ paths:
                   $ref: '#/definitions/handlers.messageResponse'
               type: object
         "400":
-          description: 'Error de validacion: id invalido, sin campos a modificar,
-            sesiones debe ser positivo'
+          description: 'Error de validacion: id o campos invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
-          description: Item no encontrado
+          description: Combo o categoria no encontrado
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
           description: Error interno del servidor
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Actualizar servicio de combo
+      summary: Actualizar metadatos de combo
       tags:
-      - Combo Servicios BD
+      - Combos BD
+  /bd/combos/{id}/locales:
+    put:
+      consumes:
+      - application/json
+      description: Reemplaza la disponibilidad de una promocion por una lista completa
+        de locales activos. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del combo
+        example: 12
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Locales finales del combo
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.reemplazarLocalesComboRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: locales invalidos o duplicados'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Combo o local no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Reemplazar locales de combo
+      tags:
+      - Combos BD
+  /bd/combos/{id}/servicios:
+    put:
+      consumes:
+      - application/json
+      description: Reemplaza en una transaccion las lineas activas de una promocion.
+        Las lineas anteriores se desactivan para conservar historia de catalogo. Requiere
+        token Bearer con rol admin_sys. Esta operacion recalcula sesiones y precio
+        final sin afectar planes adquiridos.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del combo
+        example: 12
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Servicios finales del combo
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.reemplazarServiciosComboRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: servicios, ordenes, sesiones o costos
+            invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Combo o servicio no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Reemplazar servicios de combo
+      tags:
+      - Combos BD
   /bd/locales:
     get:
       description: 'Devuelve todos los locales registrados en BD. Sin filtros. Response:

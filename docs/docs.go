@@ -1381,14 +1381,14 @@ const docTemplate = `{
         },
         "/bd/combos": {
             "get": {
-                "description": "Devuelve combos desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones), combos ([]ComboItem con: nombre, categoria, local, costo_total, sesiones_totales, servicios_incluidos []ServicioIncluido con nombre, tiempo HH:MM, costo, sesiones).",
+                "description": "Devuelve todas las promociones activas que cumplan los filtros. Un combo no es una compra ni contiene pagos, reservas o progreso de cliente. Los filtros se aplican en PostgreSQL y la respuesta incluye los locales y lineas snapshot.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Combos BD"
                 ],
-                "summary": "Listar combos desde base de datos",
+                "summary": "Listar combos de catalogo",
                 "parameters": [
                     {
                         "type": "string",
@@ -1405,21 +1405,17 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "enum": [
-                            "SAN MARTIN",
-                            "PASEO ARANJUEZ"
-                        ],
                         "type": "string",
-                        "example": "PASEO ARANJUEZ",
-                        "description": "Local",
+                        "example": "SAN MARTIN",
+                        "description": "Busqueda parcial por nombre de local",
                         "name": "local",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "example": 4,
-                        "description": "Numero exacto de sesiones",
-                        "name": "sesiones",
+                        "example": 1,
+                        "description": "ID exacto de local",
+                        "name": "local_id",
                         "in": "query"
                     }
                 ],
@@ -1435,7 +1431,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handlers.comboListResponse"
+                                            "$ref": "#/definitions/handlers.comboCatalogoListResponse"
                                         }
                                     }
                                 }
@@ -1443,7 +1439,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: sesiones debe ser entero positivo, local invalido",
+                        "description": "Error de validacion: local_id invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1455,11 +1451,9 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/bd/combos/servicios": {
+            },
             "post": {
-                "description": "Crea un item dentro de combo_servicios. Body: combo_id ID del combo padre (requerido), servicio_id (opcional si se envia servicio_texto), servicio_texto (opcional si se envia servicio_id), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), orden posicion (opcional). Response: id (int ID del item creado).",
+                "description": "Crea una promocion reutilizable con locales y lineas en una unica transaccion. Requiere token Bearer con rol admin_sys. tipo_precio POR_ITEMS calcula el total desde las lineas; PRECIO_PAQUETE exige precio_paquete. servicio_id es solo trazabilidad: el nombre, tiempo y costo se guardan como snapshot en el combo.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1467,23 +1461,31 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Combo Servicios BD"
+                    "Combos BD"
                 ],
-                "summary": "Crear servicio de combo",
+                "summary": "Crear combo de catalogo",
                 "parameters": [
                     {
-                        "description": "Datos del servicio del combo",
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos completos del combo",
                         "name": "payload",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.crearComboServicioRequest"
+                            "$ref": "#/definitions/handlers.crearComboCatalogoRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
                             "allOf": [
                                 {
@@ -1501,13 +1503,31 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: combo_id requerido, sesiones debe ser positivo, debe enviar servicio_id o servicio_texto",
+                        "description": "Error de validacion: datos de combo, locales, precios o servicios invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Combo no encontrado o inactivo",
+                        "description": "Categoria, local o servicio no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflicto al crear el combo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1521,21 +1541,21 @@ const docTemplate = `{
                 }
             }
         },
-        "/bd/combos/servicios/{id}": {
+        "/bd/combos/{id}": {
             "get": {
-                "description": "Devuelve un item de combo_servicios por su ID. Param: id (requerido, path). Response: servicio (ComboServicioDetallePG con: id, combo_id, combo_nombre, servicio_id, servicio_texto, servicio_nombre, tiempo HH:MM, costo, sesiones, orden).",
+                "description": "Devuelve una promocion activa con sus locales y lineas snapshot. No devuelve planes adquiridos ni saldos de clientes.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Combo Servicios BD"
+                    "Combos BD"
                 ],
-                "summary": "Obtener servicio de combo por ID",
+                "summary": "Obtener combo de catalogo por ID",
                 "parameters": [
                     {
                         "type": "integer",
-                        "example": 15,
-                        "description": "ID del item combo_servicios",
+                        "example": 12,
+                        "description": "ID del combo",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1553,7 +1573,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handlers.comboServicioItemResponse"
+                                            "$ref": "#/definitions/handlers.comboCatalogoItemResponse"
                                         }
                                     }
                                 }
@@ -1567,7 +1587,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Item no encontrado",
+                        "description": "Combo no encontrado o inactivo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1581,19 +1601,27 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Elimina un item de combo_servicios por su ID. Param: id (requerido, path). Response: mensaje string.",
+                "description": "Realiza el borrado lógico de una promoción de catálogo: la marca inactiva, deja de aparecer en el catálogo público y conserva sus snapshots históricos. Requiere token Bearer con rol admin_sys.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Combo Servicios BD"
+                    "Combos BD"
                 ],
-                "summary": "Eliminar servicio de combo",
+                "summary": "Desactivar combo",
                 "parameters": [
                     {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
                         "type": "integer",
-                        "example": 15,
-                        "description": "ID del item combo_servicios",
+                        "example": 12,
+                        "description": "ID del combo",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1624,8 +1652,20 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "404": {
-                        "description": "Item no encontrado",
+                        "description": "Combo no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1639,7 +1679,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza campos de un item de combo_servicios. No permite cambiar el combo padre. Param: id (requerido, path). Body: servicio_id (opcional), servicio_texto (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), orden (opcional). Response: mensaje string.",
+                "description": "Actualiza metadatos financieros y comerciales del catalogo. No modifica planes adquiridos. Requiere token Bearer con rol admin_sys. Para reemplazar locales o lineas use las rutas dedicadas.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1647,25 +1687,33 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Combo Servicios BD"
+                    "Combos BD"
                 ],
-                "summary": "Actualizar servicio de combo",
+                "summary": "Actualizar metadatos de combo",
                 "parameters": [
                     {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
                         "type": "integer",
-                        "example": 15,
-                        "description": "ID del item combo_servicios",
+                        "example": 12,
+                        "description": "ID del combo",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Campos a actualizar (todos opcionales, al menos uno requerido)",
+                        "description": "Campos del combo a modificar",
                         "name": "payload",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.actualizarComboServicioRequest"
+                            "$ref": "#/definitions/handlers.actualizarComboCatalogoRequest"
                         }
                     }
                 ],
@@ -1689,13 +1737,25 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: id invalido, sin campos a modificar, sesiones debe ser positivo",
+                        "description": "Error de validacion: id o campos invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Item no encontrado",
+                        "description": "Combo o categoria no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1709,24 +1769,44 @@ const docTemplate = `{
                 }
             }
         },
-        "/bd/combos/{combo_id}/servicios": {
-            "get": {
-                "description": "Devuelve los items de combo_servicios asociados a un combo activo. Param: combo_id (requerido, path). Response: total (int), combo_id (int), servicios ([]ComboServicioDetallePG con: id, combo_id, combo_nombre, servicio_id, servicio_texto, servicio_nombre, tiempo HH:MM, costo, sesiones, orden).",
+        "/bd/combos/{id}/locales": {
+            "put": {
+                "description": "Reemplaza la disponibilidad de una promocion por una lista completa de locales activos. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Combo Servicios BD"
+                    "Combos BD"
                 ],
-                "summary": "Listar servicios de un combo",
+                "summary": "Reemplazar locales de combo",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "integer",
                         "example": 12,
                         "description": "ID del combo",
-                        "name": "combo_id",
+                        "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Locales finales del combo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.reemplazarLocalesComboRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -1741,7 +1821,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handlers.comboServicioListResponse"
+                                            "$ref": "#/definitions/handlers.messageResponse"
                                         }
                                     }
                                 }
@@ -1749,13 +1829,117 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: combo_id invalido",
+                        "description": "Error de validacion: locales invalidos o duplicados",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
-                        "description": "Combo no encontrado o inactivo",
+                        "description": "Combo o local no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/combos/{id}/servicios": {
+            "put": {
+                "description": "Reemplaza en una transaccion las lineas activas de una promocion. Las lineas anteriores se desactivan para conservar historia de catalogo. Requiere token Bearer con rol admin_sys. Esta operacion recalcula sesiones y precio final sin afectar planes adquiridos.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Combos BD"
+                ],
+                "summary": "Reemplazar servicios de combo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "ID del combo",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Servicios finales del combo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.reemplazarServiciosComboRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: servicios, ordenes, sesiones o costos invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Combo o servicio no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -4817,38 +5001,38 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.actualizarComboServicioRequest": {
+        "handlers.actualizarComboCatalogoRequest": {
             "type": "object",
             "properties": {
-                "costo": {
-                    "description": "Costo del servicio (opcional)",
+                "categoria_id": {
+                    "description": "Nueva categoria opcional.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "descripcion": {
+                    "description": "Nueva descripcion opcional; una cadena vacia la limpia.",
+                    "type": "string",
+                    "example": "Masaje y drenaje personalizado"
+                },
+                "moneda": {
+                    "description": "Nueva moneda ISO de tres letras.",
+                    "type": "string",
+                    "example": "BOB"
+                },
+                "nombre": {
+                    "description": "Nuevo nombre comercial opcional.",
+                    "type": "string",
+                    "example": "Combo Relax Premium"
+                },
+                "precio_paquete": {
+                    "description": "Nuevo precio final de paquete cuando corresponda.",
                     "type": "number",
-                    "example": 250
+                    "example": 750
                 },
-                "orden": {
-                    "description": "Orden de aparición (opcional)",
-                    "type": "integer",
-                    "example": 1
-                },
-                "servicio_id": {
-                    "description": "ID del servicio en BD (opcional)",
-                    "type": "integer",
-                    "example": 8
-                },
-                "servicio_texto": {
-                    "description": "Nombre del servicio personalizado (opcional)",
+                "tipo_precio": {
+                    "description": "Nueva regla de precio opcional: POR_ITEMS o PRECIO_PAQUETE.",
                     "type": "string",
-                    "example": "Masaje relajante personalizado"
-                },
-                "sesiones": {
-                    "description": "Cantidad de sesiones (opcional)",
-                    "type": "integer",
-                    "example": 2
-                },
-                "tiempo": {
-                    "description": "Duración del servicio HH:MM (opcional)",
-                    "type": "string",
-                    "example": "01:00"
+                    "example": "POR_ITEMS"
                 }
             }
         },
@@ -5410,88 +5594,101 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.comboFiltrosResponse": {
+        "handlers.comboCatalogoFiltrosResponse": {
             "type": "object",
             "properties": {
                 "categoria": {
-                    "description": "Filtro aplicado: categoría del combo",
+                    "description": "Filtro aplicado: categoría parcial del combo.",
                     "type": "string",
                     "example": "Corporal"
                 },
                 "local": {
-                    "description": "Filtro aplicado: nombre del local",
+                    "description": "Filtro aplicado: nombre parcial del local.",
                     "type": "string",
-                    "example": "ARANJUEZ"
+                    "example": "SAN MARTIN"
+                },
+                "local_id": {
+                    "description": "Filtro aplicado: ID exacto del local.",
+                    "type": "integer",
+                    "example": 1
                 },
                 "nombre": {
-                    "description": "Filtro aplicado: nombre del combo",
+                    "description": "Filtro aplicado: nombre parcial del combo.",
                     "type": "string",
                     "example": "relax"
-                },
-                "sesiones": {
-                    "description": "Filtro aplicado: cantidad de sesiones",
-                    "type": "integer",
-                    "example": 4
                 }
             }
         },
-        "handlers.comboListResponse": {
+        "handlers.comboCatalogoItemResponse": {
+            "type": "object",
+            "properties": {
+                "combo": {
+                    "description": "Datos completos de la promocion, incluidos locales y servicios snapshot.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ComboCatalogoPG"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.comboCatalogoListResponse": {
             "type": "object",
             "properties": {
                 "combos": {
-                    "description": "Lista de combos",
+                    "description": "Lista de promociones activas del catalogo.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.ComboItem"
+                        "$ref": "#/definitions/models.ComboCatalogoPG"
                     }
                 },
                 "filtros": {
-                    "description": "Filtros aplicados en la búsqueda",
+                    "description": "Filtros aplicados en la búsqueda.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/handlers.comboFiltrosResponse"
+                            "$ref": "#/definitions/handlers.comboCatalogoFiltrosResponse"
                         }
                     ]
                 },
                 "total": {
-                    "description": "Total de combos encontrados",
+                    "description": "Cantidad total de promociones que coinciden con los filtros aplicados.",
                     "type": "integer",
                     "example": 3
                 }
             }
         },
-        "handlers.comboServicioItemResponse": {
+        "handlers.comboServicioCatalogoRequest": {
             "type": "object",
             "properties": {
-                "servicio": {
-                    "description": "Datos del servicio de combo",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.ComboServicioDetallePG"
-                        }
-                    ]
-                }
-            }
-        },
-        "handlers.comboServicioListResponse": {
-            "type": "object",
-            "properties": {
-                "combo_id": {
-                    "description": "ID del combo padre",
-                    "type": "integer",
-                    "example": 12
+                "costo": {
+                    "description": "Precio unitario snapshot de cada sesion.",
+                    "type": "number",
+                    "example": 250
                 },
-                "servicios": {
-                    "description": "Lista de servicios del combo",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ComboServicioDetallePG"
-                    }
-                },
-                "total": {
-                    "description": "Total de servicios del combo",
+                "orden": {
+                    "description": "Posicion unica de la linea dentro del combo, iniciando en cero.",
                     "type": "integer",
-                    "example": 3
+                    "example": 0
+                },
+                "servicio_id": {
+                    "description": "ID opcional del servicio de catalogo usado como origen.",
+                    "type": "integer",
+                    "example": 8
+                },
+                "servicio_texto": {
+                    "description": "Nombre snapshot manual; si se omite y hay servicio_id, se copia del servicio origen.",
+                    "type": "string",
+                    "example": "Masaje relajante personalizado"
+                },
+                "sesiones": {
+                    "description": "Cantidad de sesiones incluidas en esta linea.",
+                    "type": "integer",
+                    "example": 2
+                },
+                "tiempo": {
+                    "description": "Duracion snapshot del servicio en formato libre, por ejemplo HH:MM.",
+                    "type": "string",
+                    "example": "01:00"
                 }
             }
         },
@@ -5533,46 +5730,56 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.crearComboServicioRequest": {
+        "handlers.crearComboCatalogoRequest": {
             "type": "object",
-            "required": [
-                "combo_id"
-            ],
             "properties": {
-                "combo_id": {
-                    "description": "ID del combo padre",
+                "categoria_id": {
+                    "description": "ID opcional de la categoria del catalogo.",
                     "type": "integer",
-                    "example": 12
+                    "example": 3
                 },
-                "costo": {
-                    "description": "Costo del servicio",
+                "descripcion": {
+                    "description": "Descripcion opcional mostrada en catalogo.",
+                    "type": "string",
+                    "example": "Masaje y drenaje para cuatro sesiones"
+                },
+                "local_ids": {
+                    "description": "IDs de los locales activos donde se publica el combo.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        2
+                    ]
+                },
+                "moneda": {
+                    "description": "Moneda ISO de tres letras; BOB por defecto.",
+                    "type": "string",
+                    "example": "BOB"
+                },
+                "nombre": {
+                    "description": "Nombre comercial de la promocion.",
+                    "type": "string",
+                    "example": "Combo Relax"
+                },
+                "precio_paquete": {
+                    "description": "Precio final requerido solo cuando tipo_precio es PRECIO_PAQUETE.",
                     "type": "number",
-                    "example": 250
+                    "example": 700
                 },
-                "orden": {
-                    "description": "Orden de aparición dentro del combo",
-                    "type": "integer",
-                    "example": 1
+                "servicios": {
+                    "description": "Lineas que componen la promocion.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.comboServicioCatalogoRequest"
+                    }
                 },
-                "servicio_id": {
-                    "description": "ID del servicio en BD (opcional si se envía servicio_texto)",
-                    "type": "integer",
-                    "example": 8
-                },
-                "servicio_texto": {
-                    "description": "Nombre del servicio personalizado (opcional si se envía servicio_id)",
+                "tipo_precio": {
+                    "description": "Regla de precio: POR_ITEMS o PRECIO_PAQUETE.",
                     "type": "string",
-                    "example": "Masaje relajante personalizado"
-                },
-                "sesiones": {
-                    "description": "Cantidad de sesiones",
-                    "type": "integer",
-                    "example": 2
-                },
-                "tiempo": {
-                    "description": "Duración del servicio (HH:MM)",
-                    "type": "string",
-                    "example": "01:00"
+                    "example": "PRECIO_PAQUETE"
                 }
             }
         },
@@ -6261,6 +6468,34 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.reemplazarLocalesComboRequest": {
+            "type": "object",
+            "properties": {
+                "local_ids": {
+                    "description": "Lista completa de locales activos donde estara disponible el combo.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        2
+                    ]
+                }
+            }
+        },
+        "handlers.reemplazarServiciosComboRequest": {
+            "type": "object",
+            "properties": {
+                "servicios": {
+                    "description": "Lista completa que reemplaza las lineas activas actuales del combo.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.comboServicioCatalogoRequest"
+                    }
+                }
+            }
+        },
         "handlers.registrarUsuarioRequest": {
             "type": "object",
             "required": [
@@ -6688,44 +6923,86 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ComboItem": {
+        "models.ComboCatalogoPG": {
             "type": "object",
             "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "actualizado_en": {
+                    "type": "string",
+                    "example": "2026-07-11T10:00:00Z"
+                },
                 "categoria": {
                     "type": "string",
                     "example": "Corporal"
                 },
-                "costo_total": {
+                "categoria_id": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "creado_en": {
                     "type": "string",
-                    "example": "1200"
+                    "example": "2026-07-11T10:00:00Z"
+                },
+                "descripcion": {
+                    "type": "string",
+                    "example": "Promocion corporal de cuatro sesiones"
                 },
                 "id": {
                     "type": "integer",
                     "example": 12
                 },
-                "local": {
+                "locales": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LocalPG"
+                    }
+                },
+                "moneda": {
                     "type": "string",
-                    "example": "ARANJUEZ"
+                    "example": "BOB"
                 },
                 "nombre": {
                     "type": "string",
-                    "example": "Relax Total"
+                    "example": "Combo Relax"
                 },
-                "servicios_incluidos": {
+                "precio_final": {
+                    "type": "number",
+                    "example": 700
+                },
+                "precio_items": {
+                    "type": "number",
+                    "example": 800
+                },
+                "precio_paquete": {
+                    "type": "number",
+                    "example": 700
+                },
+                "servicios": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.ServicioIncluido"
+                        "$ref": "#/definitions/models.ComboServicioDetallePG"
                     }
                 },
                 "sesiones_totales": {
                     "type": "integer",
                     "example": 4
+                },
+                "tipo_precio": {
+                    "type": "string",
+                    "example": "PRECIO_PAQUETE"
                 }
             }
         },
         "models.ComboServicioDetallePG": {
             "type": "object",
             "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "combo_id": {
                     "type": "integer",
                     "example": 12
@@ -7185,27 +7462,6 @@ const docTemplate = `{
                 "titulo": {
                     "type": "string",
                     "example": "Semana 22"
-                }
-            }
-        },
-        "models.ServicioIncluido": {
-            "type": "object",
-            "properties": {
-                "costo": {
-                    "type": "string",
-                    "example": "350"
-                },
-                "nombre": {
-                    "type": "string",
-                    "example": "Depilacion Laser Piernas"
-                },
-                "sesiones": {
-                    "type": "integer",
-                    "example": 6
-                },
-                "tiempo": {
-                    "type": "string",
-                    "example": "01:00"
                 }
             }
         },

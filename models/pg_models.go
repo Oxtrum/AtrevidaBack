@@ -122,6 +122,27 @@ type ComboPG struct {
 	Activo          bool     `db:"activo"`
 }
 
+// ComboCatalogoPG representa una promocion reutilizable del catalogo.
+// No representa una compra ni conserva progreso de clientes.
+type ComboCatalogoPG struct {
+	ID              int                      `db:"id" json:"id" example:"12"`
+	Nombre          string                   `db:"nombre" json:"nombre" example:"Combo Relax"`
+	Descripcion     *string                  `db:"descripcion" json:"descripcion,omitempty" example:"Promocion corporal de cuatro sesiones"`
+	CategoriaID     *int                     `db:"categoria_id" json:"categoria_id,omitempty" example:"3"`
+	Categoria       string                   `db:"categoria" json:"categoria" example:"Corporal"`
+	TipoPrecio      string                   `db:"tipo_precio" json:"tipo_precio" example:"PRECIO_PAQUETE"`
+	PrecioPaquete   *float64                 `db:"precio_paquete" json:"precio_paquete,omitempty" example:"700"`
+	PrecioItems     float64                  `db:"precio_items" json:"precio_items" example:"800"`
+	PrecioFinal     float64                  `db:"precio_final" json:"precio_final" example:"700"`
+	Moneda          string                   `db:"moneda" json:"moneda" example:"BOB"`
+	SesionesTotales int                      `db:"sesiones_totales" json:"sesiones_totales" example:"4"`
+	Activo          bool                     `db:"activo" json:"activo" example:"true"`
+	CreadoEn        time.Time                `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
+	ActualizadoEn   time.Time                `db:"actualizado_en" json:"actualizado_en" example:"2026-07-11T10:00:00Z"`
+	Locales         []LocalPG                `db:"-" json:"locales"`
+	Servicios       []ComboServicioDetallePG `db:"-" json:"servicios"`
+}
+
 type ComboServicioPG struct {
 	ID             int      `db:"id" json:"id" example:"15"`
 	ComboID        int      `db:"combo_id" json:"combo_id" example:"12"`
@@ -145,6 +166,7 @@ type ComboServicioDetallePG struct {
 	Costo          *float64 `db:"costo" json:"costo,omitempty" example:"250"`
 	Sesiones       int      `db:"sesiones" json:"sesiones" example:"2"`
 	Orden          int      `db:"orden" json:"orden" example:"1"`
+	Activo         bool     `db:"activo" json:"activo" example:"true"`
 }
 
 // Planes

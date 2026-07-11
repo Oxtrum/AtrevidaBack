@@ -11,7 +11,6 @@ type Container struct {
 	LocalesHorariosPG *services.LocalesHorariosService
 	ServiciosPG       *services.ServiciosPGService
 	CombosPG          *services.CombosService
-	ComboServiciosPG  *services.ComboServiciosService
 	ReservasPG        *services.ReservasPGService
 	LocalesPG         *services.LocalesService
 	PagosPG           *services.PagosService
@@ -24,7 +23,6 @@ func NewContainer(
 	localesHorariosPG *services.LocalesHorariosService,
 	serviciosPG *services.ServiciosPGService,
 	combosPG *services.CombosService,
-	comboServiciosPG *services.ComboServiciosService,
 	reservasPG *services.ReservasPGService,
 	localesPG *services.LocalesService,
 	pagosPG *services.PagosService,
@@ -36,7 +34,6 @@ func NewContainer(
 		LocalesHorariosPG: localesHorariosPG,
 		ServiciosPG:       serviciosPG,
 		CombosPG:          combosPG,
-		ComboServiciosPG:  comboServiciosPG,
 		ReservasPG:        reservasPG,
 		LocalesPG:         localesPG,
 		PagosPG:           pagosPG,

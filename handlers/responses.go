@@ -163,6 +163,26 @@ type comboListResponse struct {
 	Combos []models.ComboItem `json:"combos"`
 }
 
+type comboCatalogoListResponse struct {
+	// Cantidad total de promociones que coinciden con los filtros aplicados.
+	Total int `json:"total" example:"3"`
+	// Filtros aplicados en la búsqueda.
+	Filtros comboCatalogoFiltrosResponse `json:"filtros"`
+	// Lista de promociones activas del catalogo.
+	Combos []models.ComboCatalogoPG `json:"combos"`
+}
+
+type comboCatalogoFiltrosResponse struct {
+	// Filtro aplicado: nombre parcial del combo.
+	Nombre string `json:"nombre" example:"relax"`
+	// Filtro aplicado: categoría parcial del combo.
+	Categoria string `json:"categoria" example:"Corporal"`
+	// Filtro aplicado: nombre parcial del local.
+	Local string `json:"local" example:"SAN MARTIN"`
+	// Filtro aplicado: ID exacto del local.
+	LocalID *int `json:"local_id,omitempty" example:"1"`
+}
+
 type comboServicioListResponse struct {
 	// Total de servicios del combo
 	Total int `json:"total" example:"3"`
@@ -258,6 +278,11 @@ type servicioItemResponse struct {
 type comboServicioItemResponse struct {
 	// Datos del servicio de combo
 	Servicio *models.ComboServicioDetallePG `json:"servicio"`
+}
+
+type comboCatalogoItemResponse struct {
+	// Datos completos de la promocion, incluidos locales y servicios snapshot.
+	Combo *models.ComboCatalogoPG `json:"combo"`
 }
 
 type localItemResponse struct {
