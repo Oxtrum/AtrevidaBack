@@ -156,6 +156,9 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/pagos/:codigo_pago", h.AuthRequired, h.PatchPago)
 		bd.DELETE("/pagos/:codigo_pago", h.AuthRequired, h.DeletePago)
 
+		bd.GET("/planes", h.AuthRequired, h.GetPlanes)
+		bd.GET("/planes/:id", h.AuthRequired, h.GetPlanByID)
+
 	}
 
 	// Admin

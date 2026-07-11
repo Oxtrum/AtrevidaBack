@@ -3324,6 +3324,195 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/planes": {
+            "get": {
+                "description": "Devuelve todos los planes que cumplan los filtros aplicados. Un plan es un contrato adquirido por un cliente; no es un combo de catalogo. Requiere token Bearer. Los usuarios no admin_sys solo ven planes de su local asignado.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Planes BD"
+                ],
+                "summary": "Listar planes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "Maria",
+                        "description": "Busqueda parcial por nombre del cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "SAN MARTIN",
+                        "description": "Busqueda parcial por nombre del local",
+                        "name": "local",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID exacto del local",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "ACTIVO",
+                        "description": "Filtrar por estado contractual: BORRADOR, ACTIVO, COMPLETADO, VENCIDO, CANCELADO",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "PENDIENTE",
+                        "description": "Filtrar por estado de cobranza: PENDIENTE, PARCIAL, PAGADO, VENCIDO",
+                        "name": "estado_cobranza",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-07-01",
+                        "description": "Fecha de creacion desde (YYYY-MM-DD)",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-07-31",
+                        "description": "Fecha de creacion hasta (YYYY-MM-DD)",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: parametros invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/planes/{id}": {
+            "get": {
+                "description": "Devuelve el detalle completo de un plan: cabecera, servicios contratados (snapshots), cuotas y pagos aplicados. Requiere token Bearer. Los usuarios no admin_sys solo pueden acceder a planes de su local asignado.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Planes BD"
+                ],
+                "summary": "Obtener plan por ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 21,
+                        "description": "ID del plan",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado para ver este plan",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Plan no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/reservas": {
             "get": {
                 "description": "Devuelve reservas en formato plano (sin agrupar por local). Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional). Response: total (int total de reservas), reservas ([]ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
@@ -6468,6 +6657,65 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.planFiltrosResponse": {
+            "type": "object",
+            "properties": {
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "estado": {
+                    "type": "string",
+                    "example": "ACTIVO"
+                },
+                "estado_cobranza": {
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "fecha_desde": {
+                    "type": "string",
+                    "example": "2026-07-01"
+                },
+                "fecha_hasta": {
+                    "type": "string",
+                    "example": "2026-07-31"
+                },
+                "local": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "handlers.planItemResponse": {
+            "type": "object",
+            "properties": {
+                "plan": {
+                    "$ref": "#/definitions/models.PlanCompletoPG"
+                }
+            }
+        },
+        "handlers.planListResponse": {
+            "type": "object",
+            "properties": {
+                "filtros": {
+                    "$ref": "#/definitions/handlers.planFiltrosResponse"
+                },
+                "planes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlanPG"
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 5
+                }
+            }
+        },
         "handlers.reemplazarLocalesComboRequest": {
             "type": "object",
             "properties": {
@@ -7384,6 +7632,361 @@ const docTemplate = `{
                     "description": "Username opcional del cajero que modifico el pago por ultima vez.",
                     "type": "string",
                     "example": "ana"
+                }
+            }
+        },
+        "models.PlanCompletoPG": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "actualizado_en": {
+                    "type": "string",
+                    "example": "2026-07-11T12:00:00Z"
+                },
+                "actualizado_por": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "cliente_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "cliente_nombre_snapshot": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "codigo": {
+                    "type": "string",
+                    "example": "PLAN-000001"
+                },
+                "combo_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "combo_id_origen": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "combo_nombre": {
+                    "type": "string",
+                    "example": "Combo Relax"
+                },
+                "combo_nombre_snapshot": {
+                    "type": "string",
+                    "example": "Combo Relax"
+                },
+                "costo_total": {
+                    "type": "number",
+                    "example": 700
+                },
+                "creado_en": {
+                    "type": "string",
+                    "example": "2026-07-11T10:00:00Z"
+                },
+                "creado_por": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "cuotas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlanCuotaPG"
+                    }
+                },
+                "descuento": {
+                    "type": "number",
+                    "example": 100
+                },
+                "estado": {
+                    "type": "string",
+                    "example": "ACTIVO"
+                },
+                "estado_cobranza": {
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "fecha_fin": {
+                    "type": "string",
+                    "example": "2026-08-14"
+                },
+                "fecha_inicio": {
+                    "type": "string",
+                    "example": "2026-07-15"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre_snapshot": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "moneda": {
+                    "type": "string",
+                    "example": "BOB"
+                },
+                "notas": {
+                    "type": "string",
+                    "example": "Cliente frecuente"
+                },
+                "pagos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlanPagoAplicacionPG"
+                    }
+                },
+                "precio_total": {
+                    "type": "number",
+                    "example": 700
+                },
+                "servicios": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlanServicioPG"
+                    }
+                },
+                "sesiones_totales": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "sesiones_usadas": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "subtotal": {
+                    "type": "number",
+                    "example": 800
+                },
+                "tipo_pago": {
+                    "type": "string",
+                    "example": "UNICO"
+                }
+            }
+        },
+        "models.PlanCuotaPG": {
+            "type": "object",
+            "properties": {
+                "creado_en": {
+                    "type": "string",
+                    "example": "2026-07-11T10:00:00Z"
+                },
+                "estado": {
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 40
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 350
+                },
+                "numero": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "plan_id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "vencimiento": {
+                    "type": "string",
+                    "example": "2026-08-15"
+                }
+            }
+        },
+        "models.PlanPG": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "actualizado_en": {
+                    "type": "string",
+                    "example": "2026-07-11T12:00:00Z"
+                },
+                "actualizado_por": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "cliente_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "cliente_nombre_snapshot": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "codigo": {
+                    "type": "string",
+                    "example": "PLAN-000001"
+                },
+                "combo_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "combo_id_origen": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "combo_nombre": {
+                    "type": "string",
+                    "example": "Combo Relax"
+                },
+                "combo_nombre_snapshot": {
+                    "type": "string",
+                    "example": "Combo Relax"
+                },
+                "costo_total": {
+                    "type": "number",
+                    "example": 700
+                },
+                "creado_en": {
+                    "type": "string",
+                    "example": "2026-07-11T10:00:00Z"
+                },
+                "creado_por": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "descuento": {
+                    "type": "number",
+                    "example": 100
+                },
+                "estado": {
+                    "type": "string",
+                    "example": "ACTIVO"
+                },
+                "estado_cobranza": {
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "fecha_fin": {
+                    "type": "string",
+                    "example": "2026-08-14"
+                },
+                "fecha_inicio": {
+                    "type": "string",
+                    "example": "2026-07-15"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre_snapshot": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "moneda": {
+                    "type": "string",
+                    "example": "BOB"
+                },
+                "notas": {
+                    "type": "string",
+                    "example": "Cliente frecuente"
+                },
+                "precio_total": {
+                    "type": "number",
+                    "example": 700
+                },
+                "sesiones_totales": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "sesiones_usadas": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "subtotal": {
+                    "type": "number",
+                    "example": 800
+                },
+                "tipo_pago": {
+                    "type": "string",
+                    "example": "UNICO"
+                }
+            }
+        },
+        "models.PlanPagoAplicacionPG": {
+            "type": "object",
+            "properties": {
+                "creado_en": {
+                    "type": "string",
+                    "example": "2026-07-11T10:00:00Z"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 60
+                },
+                "monto_aplicado": {
+                    "type": "number",
+                    "example": 350
+                },
+                "pago_id": {
+                    "type": "integer",
+                    "example": 15
+                },
+                "plan_cuota_id": {
+                    "type": "integer",
+                    "example": 40
+                }
+            }
+        },
+        "models.PlanServicioPG": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 35
+                },
+                "nombre_snapshot": {
+                    "type": "string",
+                    "example": "Masaje relajante"
+                },
+                "orden": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "plan_id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "precio_unitario_snapshot": {
+                    "type": "number",
+                    "example": 200
+                },
+                "servicio_id_origen": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "sesiones_contratadas": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "tiempo_snapshot": {
+                    "type": "string",
+                    "example": "01:00"
                 }
             }
         },

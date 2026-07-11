@@ -36,6 +36,7 @@ func Build() (*gin.Engine, error) {
 	reservasPGRepo := pgsqlrepo.NewReservasRepo(pgDB)
 	localesPGRepo := pgsqlrepo.NewLocalesRepo(pgDB)
 	pagosPGRepo := pgsqlrepo.NewPagosRepo(pgDB)
+	planesPGRepo := pgsqlrepo.NewPlanesRepo(pgDB)
 
 	authService := services.NewAuthService(authRepo, config.App.Auth.TokenSecret, config.App.Auth.TokenTTL)
 	categoriasPGService := services.NewCategoriasService(categoriasPGRepo)
@@ -46,6 +47,7 @@ func Build() (*gin.Engine, error) {
 	reservasPGService := services.NewReservasPGService(reservasPGRepo, serviciosPGRepo)
 	localesPGService := services.NewLocalesService(localesPGRepo)
 	pagosPGService := services.NewPagosService(pagosPGRepo)
+	planesPGService := services.NewPlanesService(planesPGRepo)
 
 	h := handlers.NewContainer(
 		authService,
@@ -57,6 +59,7 @@ func Build() (*gin.Engine, error) {
 		reservasPGService,
 		localesPGService,
 		pagosPGService,
+		planesPGService,
 	)
 
 	return router.Setup(h), nil

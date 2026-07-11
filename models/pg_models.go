@@ -172,17 +172,83 @@ type ComboServicioDetallePG struct {
 // Planes
 
 type PlanPG struct {
-	ID              int       `db:"id"`
-	Cliente         string    `db:"cliente"`
-	LocalID         *int      `db:"local_id"`
-	ComboID         *int      `db:"combo_id"`
-	ComboNombre     *string   `db:"combo_nombre"`
-	SesionesTotales int       `db:"sesiones_totales"`
-	SesionesUsadas  int       `db:"sesiones_usadas"`
-	CostoTotal      *float64  `db:"costo_total"`
-	Notas           *string   `db:"notas"`
-	Activo          bool      `db:"activo"`
-	CreadoEn        time.Time `db:"creado_en"`
+	ID                     int        `db:"id" json:"id" example:"21"`
+	Codigo                 string     `db:"codigo" json:"codigo" example:"PLAN-000001"`
+	Cliente                string     `db:"cliente" json:"cliente" example:"Maria Lopez"`
+	LocalID                *int       `db:"local_id" json:"local_id,omitempty" example:"1"`
+	ComboID                *int       `db:"combo_id" json:"combo_id,omitempty" example:"12"`
+	ComboNombre            *string    `db:"combo_nombre" json:"combo_nombre,omitempty" example:"Combo Relax"`
+	SesionesTotales        int        `db:"sesiones_totales" json:"sesiones_totales" example:"4"`
+	SesionesUsadas         int        `db:"sesiones_usadas" json:"sesiones_usadas" example:"2"`
+	CostoTotal             *float64   `db:"costo_total" json:"costo_total,omitempty" example:"700"`
+	Notas                  *string    `db:"notas" json:"notas,omitempty" example:"Cliente frecuente"`
+	Activo                 bool       `db:"activo" json:"activo" example:"true"`
+	CreadoEn               time.Time  `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
+	ClienteID              *int       `db:"cliente_id" json:"cliente_id,omitempty" example:"12"`
+	ClienteNombreSnapshot  string     `db:"cliente_nombre_snapshot" json:"cliente_nombre_snapshot" example:"Maria Lopez"`
+	LocalNombreSnapshot    string     `db:"local_nombre_snapshot" json:"local_nombre_snapshot" example:"SAN MARTIN"`
+	ComboIDOrigen          *int       `db:"combo_id_origen" json:"combo_id_origen,omitempty" example:"12"`
+	ComboNombreSnapshot    *string    `db:"combo_nombre_snapshot" json:"combo_nombre_snapshot,omitempty" example:"Combo Relax"`
+	FechaInicio            *time.Time `db:"fecha_inicio" json:"fecha_inicio,omitempty" example:"2026-07-15"`
+	FechaFin               *time.Time `db:"fecha_fin" json:"fecha_fin,omitempty" example:"2026-08-14"`
+	Estado                 string     `db:"estado" json:"estado" example:"ACTIVO"`
+	EstadoCobranza         string     `db:"estado_cobranza" json:"estado_cobranza" example:"PENDIENTE"`
+	TipoPago               string     `db:"tipo_pago" json:"tipo_pago" example:"UNICO"`
+	Subtotal               float64    `db:"subtotal" json:"subtotal" example:"800"`
+	Descuento              float64    `db:"descuento" json:"descuento" example:"100"`
+	PrecioTotal            float64    `db:"precio_total" json:"precio_total" example:"700"`
+	Moneda                 string     `db:"moneda" json:"moneda" example:"BOB"`
+	CreadoPor              *int       `db:"creado_por" json:"creado_por,omitempty" example:"1"`
+	ActualizadoPor         *int       `db:"actualizado_por" json:"actualizado_por,omitempty" example:"1"`
+	ActualizadoEn          *time.Time `db:"actualizado_en" json:"actualizado_en,omitempty" example:"2026-07-11T12:00:00Z"`
+}
+
+type PlanServicioPG struct {
+	ID                     int      `db:"id" json:"id" example:"35"`
+	PlanID                 int      `db:"plan_id" json:"plan_id" example:"21"`
+	ServicioIDOrigen       *int     `db:"servicio_id_origen" json:"servicio_id_origen,omitempty" example:"8"`
+	NombreSnapshot         string   `db:"nombre_snapshot" json:"nombre_snapshot" example:"Masaje relajante"`
+	TiempoSnapshot         *string  `db:"tiempo_snapshot" json:"tiempo_snapshot,omitempty" example:"01:00"`
+	PrecioUnitarioSnapshot *float64 `db:"precio_unitario_snapshot" json:"precio_unitario_snapshot,omitempty" example:"200"`
+	SesionesContratadas    int      `db:"sesiones_contratadas" json:"sesiones_contratadas" example:"2"`
+	Orden                  int      `db:"orden" json:"orden" example:"0"`
+}
+
+type PlanMovimientoPG struct {
+	ID             int       `db:"id" json:"id" example:"50"`
+	PlanServicioID int       `db:"plan_servicio_id" json:"plan_servicio_id" example:"35"`
+	ReservaID      *int      `db:"reserva_id" json:"reserva_id,omitempty" example:"100"`
+	Tipo           string    `db:"tipo" json:"tipo" example:"RESERVA"`
+	Cantidad       int       `db:"cantidad" json:"cantidad" example:"1"`
+	Motivo         *string   `db:"motivo" json:"motivo,omitempty" example:"Ajuste por promocion"`
+	UsuarioID      *int      `db:"usuario_id" json:"usuario_id,omitempty" example:"1"`
+	CreadoEn       time.Time `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
+}
+
+type PlanCuotaPG struct {
+	ID          int       `db:"id" json:"id" example:"40"`
+	PlanID      int       `db:"plan_id" json:"plan_id" example:"21"`
+	Numero      int       `db:"numero" json:"numero" example:"1"`
+	Vencimiento *string   `db:"vencimiento" json:"vencimiento,omitempty" example:"2026-08-15"`
+	Monto       float64   `db:"monto" json:"monto" example:"350"`
+	Estado      string    `db:"estado" json:"estado" example:"PENDIENTE"`
+	CreadoEn    time.Time `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
+}
+
+type PlanPagoAplicacionPG struct {
+	ID            int       `db:"id" json:"id" example:"60"`
+	PlanCuotaID   int       `db:"plan_cuota_id" json:"plan_cuota_id" example:"40"`
+	PagoID        int       `db:"pago_id" json:"pago_id" example:"15"`
+	MontoAplicado float64   `db:"monto_aplicado" json:"monto_aplicado" example:"350"`
+	CreadoEn      time.Time `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
+}
+
+// PlanCompletoPG es un plan con sus lineas, cuotas y resumen de pagos.
+type PlanCompletoPG struct {
+	PlanPG
+	Servicios []PlanServicioPG       `db:"-" json:"servicios"`
+	Cuotas    []PlanCuotaPG          `db:"-" json:"cuotas"`
+	Pagos     []PlanPagoAplicacionPG `db:"-" json:"pagos"`
 }
 
 // Reservas

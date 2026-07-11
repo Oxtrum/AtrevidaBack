@@ -1146,6 +1146,47 @@ definitions:
         - $ref: '#/definitions/services.PagoResumenReporte'
         description: Reporte general o reporte del local filtrado
     type: object
+  handlers.planFiltrosResponse:
+    properties:
+      cliente:
+        example: Maria
+        type: string
+      estado:
+        example: ACTIVO
+        type: string
+      estado_cobranza:
+        example: PENDIENTE
+        type: string
+      fecha_desde:
+        example: "2026-07-01"
+        type: string
+      fecha_hasta:
+        example: "2026-07-31"
+        type: string
+      local:
+        example: SAN MARTIN
+        type: string
+      local_id:
+        example: 1
+        type: integer
+    type: object
+  handlers.planItemResponse:
+    properties:
+      plan:
+        $ref: '#/definitions/models.PlanCompletoPG'
+    type: object
+  handlers.planListResponse:
+    properties:
+      filtros:
+        $ref: '#/definitions/handlers.planFiltrosResponse'
+      planes:
+        items:
+          $ref: '#/definitions/models.PlanPG'
+        type: array
+      total:
+        example: 5
+        type: integer
+    type: object
   handlers.reemplazarLocalesComboRequest:
     properties:
       local_ids:
@@ -1831,6 +1872,267 @@ definitions:
         description: Username opcional del cajero que modifico el pago por ultima
           vez.
         example: ana
+        type: string
+    type: object
+  models.PlanCompletoPG:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      actualizado_en:
+        example: "2026-07-11T12:00:00Z"
+        type: string
+      actualizado_por:
+        example: 1
+        type: integer
+      cliente:
+        example: Maria Lopez
+        type: string
+      cliente_id:
+        example: 12
+        type: integer
+      cliente_nombre_snapshot:
+        example: Maria Lopez
+        type: string
+      codigo:
+        example: PLAN-000001
+        type: string
+      combo_id:
+        example: 12
+        type: integer
+      combo_id_origen:
+        example: 12
+        type: integer
+      combo_nombre:
+        example: Combo Relax
+        type: string
+      combo_nombre_snapshot:
+        example: Combo Relax
+        type: string
+      costo_total:
+        example: 700
+        type: number
+      creado_en:
+        example: "2026-07-11T10:00:00Z"
+        type: string
+      creado_por:
+        example: 1
+        type: integer
+      cuotas:
+        items:
+          $ref: '#/definitions/models.PlanCuotaPG'
+        type: array
+      descuento:
+        example: 100
+        type: number
+      estado:
+        example: ACTIVO
+        type: string
+      estado_cobranza:
+        example: PENDIENTE
+        type: string
+      fecha_fin:
+        example: "2026-08-14"
+        type: string
+      fecha_inicio:
+        example: "2026-07-15"
+        type: string
+      id:
+        example: 21
+        type: integer
+      local_id:
+        example: 1
+        type: integer
+      local_nombre_snapshot:
+        example: SAN MARTIN
+        type: string
+      moneda:
+        example: BOB
+        type: string
+      notas:
+        example: Cliente frecuente
+        type: string
+      pagos:
+        items:
+          $ref: '#/definitions/models.PlanPagoAplicacionPG'
+        type: array
+      precio_total:
+        example: 700
+        type: number
+      servicios:
+        items:
+          $ref: '#/definitions/models.PlanServicioPG'
+        type: array
+      sesiones_totales:
+        example: 4
+        type: integer
+      sesiones_usadas:
+        example: 2
+        type: integer
+      subtotal:
+        example: 800
+        type: number
+      tipo_pago:
+        example: UNICO
+        type: string
+    type: object
+  models.PlanCuotaPG:
+    properties:
+      creado_en:
+        example: "2026-07-11T10:00:00Z"
+        type: string
+      estado:
+        example: PENDIENTE
+        type: string
+      id:
+        example: 40
+        type: integer
+      monto:
+        example: 350
+        type: number
+      numero:
+        example: 1
+        type: integer
+      plan_id:
+        example: 21
+        type: integer
+      vencimiento:
+        example: "2026-08-15"
+        type: string
+    type: object
+  models.PlanPG:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      actualizado_en:
+        example: "2026-07-11T12:00:00Z"
+        type: string
+      actualizado_por:
+        example: 1
+        type: integer
+      cliente:
+        example: Maria Lopez
+        type: string
+      cliente_id:
+        example: 12
+        type: integer
+      cliente_nombre_snapshot:
+        example: Maria Lopez
+        type: string
+      codigo:
+        example: PLAN-000001
+        type: string
+      combo_id:
+        example: 12
+        type: integer
+      combo_id_origen:
+        example: 12
+        type: integer
+      combo_nombre:
+        example: Combo Relax
+        type: string
+      combo_nombre_snapshot:
+        example: Combo Relax
+        type: string
+      costo_total:
+        example: 700
+        type: number
+      creado_en:
+        example: "2026-07-11T10:00:00Z"
+        type: string
+      creado_por:
+        example: 1
+        type: integer
+      descuento:
+        example: 100
+        type: number
+      estado:
+        example: ACTIVO
+        type: string
+      estado_cobranza:
+        example: PENDIENTE
+        type: string
+      fecha_fin:
+        example: "2026-08-14"
+        type: string
+      fecha_inicio:
+        example: "2026-07-15"
+        type: string
+      id:
+        example: 21
+        type: integer
+      local_id:
+        example: 1
+        type: integer
+      local_nombre_snapshot:
+        example: SAN MARTIN
+        type: string
+      moneda:
+        example: BOB
+        type: string
+      notas:
+        example: Cliente frecuente
+        type: string
+      precio_total:
+        example: 700
+        type: number
+      sesiones_totales:
+        example: 4
+        type: integer
+      sesiones_usadas:
+        example: 2
+        type: integer
+      subtotal:
+        example: 800
+        type: number
+      tipo_pago:
+        example: UNICO
+        type: string
+    type: object
+  models.PlanPagoAplicacionPG:
+    properties:
+      creado_en:
+        example: "2026-07-11T10:00:00Z"
+        type: string
+      id:
+        example: 60
+        type: integer
+      monto_aplicado:
+        example: 350
+        type: number
+      pago_id:
+        example: 15
+        type: integer
+      plan_cuota_id:
+        example: 40
+        type: integer
+    type: object
+  models.PlanServicioPG:
+    properties:
+      id:
+        example: 35
+        type: integer
+      nombre_snapshot:
+        example: Masaje relajante
+        type: string
+      orden:
+        example: 0
+        type: integer
+      plan_id:
+        example: 21
+        type: integer
+      precio_unitario_snapshot:
+        example: 200
+        type: number
+      servicio_id_origen:
+        example: 8
+        type: integer
+      sesiones_contratadas:
+        example: 2
+        type: integer
+      tiempo_snapshot:
+        example: "01:00"
         type: string
     type: object
   models.ReservaItem:
@@ -4380,6 +4682,136 @@ paths:
       summary: Obtener resumen de pagos
       tags:
       - Pagos
+  /bd/planes:
+    get:
+      description: Devuelve todos los planes que cumplan los filtros aplicados. Un
+        plan es un contrato adquirido por un cliente; no es un combo de catalogo.
+        Requiere token Bearer. Los usuarios no admin_sys solo ven planes de su local
+        asignado.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Busqueda parcial por nombre del cliente
+        example: Maria
+        in: query
+        name: cliente
+        type: string
+      - description: Busqueda parcial por nombre del local
+        example: SAN MARTIN
+        in: query
+        name: local
+        type: string
+      - description: ID exacto del local
+        example: 1
+        in: query
+        name: local_id
+        type: integer
+      - description: 'Filtrar por estado contractual: BORRADOR, ACTIVO, COMPLETADO,
+          VENCIDO, CANCELADO'
+        example: ACTIVO
+        in: query
+        name: estado
+        type: string
+      - description: 'Filtrar por estado de cobranza: PENDIENTE, PARCIAL, PAGADO,
+          VENCIDO'
+        example: PENDIENTE
+        in: query
+        name: estado_cobranza
+        type: string
+      - description: Fecha de creacion desde (YYYY-MM-DD)
+        example: "2026-07-01"
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Fecha de creacion hasta (YYYY-MM-DD)
+        example: "2026-07-31"
+        in: query
+        name: fecha_hasta
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.planListResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: parametros invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar planes
+      tags:
+      - Planes BD
+  /bd/planes/{id}:
+    get:
+      description: 'Devuelve el detalle completo de un plan: cabecera, servicios contratados
+        (snapshots), cuotas y pagos aplicados. Requiere token Bearer. Los usuarios
+        no admin_sys solo pueden acceder a planes de su local asignado.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del plan
+        example: 21
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.planItemResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado para ver este plan
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Plan no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Obtener plan por ID
+      tags:
+      - Planes BD
   /bd/reservas:
     get:
       description: 'Devuelve reservas en formato plano (sin agrupar por local). Filtros:
