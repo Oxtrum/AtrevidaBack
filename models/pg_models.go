@@ -185,10 +185,10 @@ type PlanPG struct {
 	Activo                 bool       `db:"activo" json:"activo" example:"true"`
 	CreadoEn               time.Time  `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
 	ClienteID              *int       `db:"cliente_id" json:"cliente_id,omitempty" example:"12"`
-	ClienteNombreSnapshot  string     `db:"cliente_nombre_snapshot" json:"cliente_nombre_snapshot" example:"Maria Lopez"`
-	LocalNombreSnapshot    string     `db:"local_nombre_snapshot" json:"local_nombre_snapshot" example:"SAN MARTIN"`
+	ClienteNombreTexto  string     `db:"cliente_nombre_texto" json:"cliente_nombre_texto" example:"Maria Lopez"`
+	LocalNombreTexto    string     `db:"local_nombre_texto" json:"local_nombre_texto" example:"SAN MARTIN"`
 	ComboIDOrigen          *int       `db:"combo_id_origen" json:"combo_id_origen,omitempty" example:"12"`
-	ComboNombreSnapshot    *string    `db:"combo_nombre_snapshot" json:"combo_nombre_snapshot,omitempty" example:"Combo Relax"`
+	ComboNombreTexto    *string    `db:"combo_nombre_texto" json:"combo_nombre_texto,omitempty" example:"Combo Relax"`
 	FechaInicio            *time.Time `db:"fecha_inicio" json:"fecha_inicio,omitempty" example:"2026-07-15"`
 	FechaFin               *time.Time `db:"fecha_fin" json:"fecha_fin,omitempty" example:"2026-08-14"`
 	Estado                 string     `db:"estado" json:"estado" example:"ACTIVO"`
@@ -207,9 +207,9 @@ type PlanServicioPG struct {
 	ID                     int      `db:"id" json:"id" example:"35"`
 	PlanID                 int      `db:"plan_id" json:"plan_id" example:"21"`
 	ServicioIDOrigen       *int     `db:"servicio_id_origen" json:"servicio_id_origen,omitempty" example:"8"`
-	NombreSnapshot         string   `db:"nombre_snapshot" json:"nombre_snapshot" example:"Masaje relajante"`
-	TiempoSnapshot         *string  `db:"tiempo_snapshot" json:"tiempo_snapshot,omitempty" example:"01:00"`
-	PrecioUnitarioSnapshot *float64 `db:"precio_unitario_snapshot" json:"precio_unitario_snapshot,omitempty" example:"200"`
+	NombreTexto         string   `db:"nombre_texto" json:"nombre_texto" example:"Masaje relajante"`
+	TiempoTexto         *string  `db:"tiempo_texto" json:"tiempo_texto,omitempty" example:"01:00"`
+	PrecioUnitarioTexto *float64 `db:"precio_unitario_texto" json:"precio_unitario_texto,omitempty" example:"200"`
 	SesionesContratadas    int      `db:"sesiones_contratadas" json:"sesiones_contratadas" example:"2"`
 	Orden                  int      `db:"orden" json:"orden" example:"0"`
 }

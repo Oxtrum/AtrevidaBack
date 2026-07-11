@@ -26,7 +26,7 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 	idx := 1
 
 	if f.Cliente != "" {
-		conditions = append(conditions, fmt.Sprintf("p.cliente_nombre_snapshot ILIKE $%d", idx))
+		conditions = append(conditions, fmt.Sprintf("p.cliente_nombre_texto ILIKE $%d", idx))
 		args = append(args, "%"+f.Cliente+"%")
 		idx++
 	}
@@ -41,7 +41,7 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 		idx++
 	}
 	if f.Local != "" {
-		conditions = append(conditions, fmt.Sprintf("p.local_nombre_snapshot ILIKE $%d", idx))
+		conditions = append(conditions, fmt.Sprintf("p.local_nombre_texto ILIKE $%d", idx))
 		args = append(args, "%"+f.Local+"%")
 		idx++
 	}
@@ -71,8 +71,8 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 			p.id, p.codigo, p.cliente, p.local_id, p.combo_id, p.combo_nombre,
 			p.sesiones_totales, p.sesiones_usadas, p.costo_total, p.notas,
 			p.activo, p.creado_en,
-			p.cliente_id, p.cliente_nombre_snapshot, p.local_nombre_snapshot,
-			p.combo_id_origen, p.combo_nombre_snapshot,
+			p.cliente_id, p.cliente_nombre_texto, p.local_nombre_texto,
+			p.combo_id_origen, p.combo_nombre_texto,
 			p.fecha_inicio, p.fecha_fin,
 			p.estado, p.estado_cobranza, p.tipo_pago,
 			p.subtotal, p.descuento, p.precio_total, p.moneda,
@@ -99,8 +99,8 @@ func (r *PlanesRepo) GetPlanByID(id int) (*models.PlanCompletoPG, error) {
 			p.id, p.codigo, p.cliente, p.local_id, p.combo_id, p.combo_nombre,
 			p.sesiones_totales, p.sesiones_usadas, p.costo_total, p.notas,
 			p.activo, p.creado_en,
-			p.cliente_id, p.cliente_nombre_snapshot, p.local_nombre_snapshot,
-			p.combo_id_origen, p.combo_nombre_snapshot,
+			p.cliente_id, p.cliente_nombre_texto, p.local_nombre_texto,
+			p.combo_id_origen, p.combo_nombre_texto,
 			p.fecha_inicio, p.fecha_fin,
 			p.estado, p.estado_cobranza, p.tipo_pago,
 			p.subtotal, p.descuento, p.precio_total, p.moneda,
@@ -156,8 +156,8 @@ func (r *PlanesRepo) CreatePlan(input repository.CrearPlanInput) (int, error) {
 	var planID int
 	err = tx.QueryRowx(`
 		INSERT INTO planes (
-			cliente, local_id, cliente_id, cliente_nombre_snapshot,
-			local_nombre_snapshot, combo_id_origen, combo_nombre_snapshot,
+			cliente, local_id, cliente_id, cliente_nombre_texto,
+			local_nombre_texto, combo_id_origen, combo_nombre_texto,
 			fecha_inicio, fecha_fin, estado, tipo_pago,
 			subtotal, descuento, precio_total, moneda, notas, activo, creado_por
 		) VALUES (
@@ -165,7 +165,7 @@ func (r *PlanesRepo) CreatePlan(input repository.CrearPlanInput) (int, error) {
 		) RETURNING id
 	`,
 		clienteNombre, input.LocalID, input.ClienteID, clienteNombre,
-		localNombre, input.ComboIDOrigen, input.ComboNombreSnapshot,
+		localNombre, input.ComboIDOrigen, input.ComboNombreTexto,
 		input.FechaInicio, input.FechaFin, input.Estado, input.TipoPago,
 		input.Subtotal, input.Descuento, input.PrecioTotal, input.Moneda,
 		nullStr(pointerString(input.Notas)), input.CreadoPor,
@@ -177,11 +177,11 @@ func (r *PlanesRepo) CreatePlan(input repository.CrearPlanInput) (int, error) {
 	for _, s := range input.Servicios {
 		if _, err := tx.Exec(`
 			INSERT INTO plan_servicios (
-				plan_id, servicio_id_origen, nombre_snapshot, tiempo_snapshot,
-				precio_unitario_snapshot, sesiones_contratadas, orden
+				plan_id, servicio_id_origen, nombre_texto, tiempo_texto,
+				precio_unitario_texto, sesiones_contratadas, orden
 			) VALUES ($1,$2,$3,$4,$5,$6,$7)
-		`, planID, s.ServicioIDOrigen, s.NombreSnapshot, pointerString(s.TiempoSnapshot),
-			s.PrecioUnitarioSnapshot, s.SesionesContratadas, s.Orden); err != nil {
+		`, planID, s.ServicioIDOrigen, s.NombreTexto, pointerString(s.TiempoTexto),
+			s.PrecioUnitarioTexto, s.SesionesContratadas, s.Orden); err != nil {
 			return 0, fmt.Errorf("error al insertar servicio del plan: %w", err)
 		}
 	}
@@ -287,8 +287,8 @@ func esTransicionValida(actual, nuevo string) bool {
 func (r *PlanesRepo) cargarServicios(planID int) ([]models.PlanServicioPG, error) {
 	var servicios []models.PlanServicioPG
 	if err := r.db.Select(&servicios, `
-		SELECT id, plan_id, servicio_id_origen, nombre_snapshot, tiempo_snapshot,
-			precio_unitario_snapshot, sesiones_contratadas, orden
+		SELECT id, plan_id, servicio_id_origen, nombre_texto, tiempo_texto,
+			precio_unitario_texto, sesiones_contratadas, orden
 		FROM plan_servicios
 		WHERE plan_id = $1
 		ORDER BY orden, id

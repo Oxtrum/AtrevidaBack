@@ -445,14 +445,34 @@ func (h *Container) AuthRequired(c *gin.Context) {
 }
 
 func (h *Container) AdminSysRequired(c *gin.Context) {
-	rolCodigo, ok := authenticatedRolCodigo(c)
-	if !ok || !strings.EqualFold(rolCodigo, "admin_sys") {
+	if !tieneRol(c, "admin_sys") {
 		utils.RespondError(c, http.StatusForbidden, services.ErrNoAutorizado.Error())
 		c.Abort()
 		return
 	}
-
 	c.Next()
+}
+
+func (h *Container) GerenciaRequired(c *gin.Context) {
+	if !tieneRol(c, "admin_sys", "gerencia") {
+		utils.RespondError(c, http.StatusForbidden, services.ErrNoAutorizado.Error())
+		c.Abort()
+		return
+	}
+	c.Next()
+}
+
+func tieneRol(c *gin.Context, roles ...string) bool {
+	rolCodigo, ok := authenticatedRolCodigo(c)
+	if !ok {
+		return false
+	}
+	for _, r := range roles {
+		if strings.EqualFold(rolCodigo, r) {
+			return true
+		}
+	}
+	return false
 }
 
 func authenticatedUserID(c *gin.Context) (int, bool) {

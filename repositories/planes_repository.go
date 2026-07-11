@@ -29,7 +29,7 @@ type CrearPlanInput struct {
 	ClienteID           int
 	LocalID             int
 	ComboIDOrigen       *int
-	ComboNombreSnapshot *string
+	ComboNombreTexto *string
 	FechaInicio         *time.Time
 	FechaFin            *time.Time
 	Estado              string
@@ -46,9 +46,9 @@ type CrearPlanInput struct {
 
 type CrearPlanServicioInput struct {
 	ServicioIDOrigen       *int
-	NombreSnapshot         string
-	TiempoSnapshot         *string
-	PrecioUnitarioSnapshot *float64
+	NombreTexto         string
+	TiempoTexto         *string
+	PrecioUnitarioTexto *float64
 	SesionesContratadas    int
 	Orden                  int
 }

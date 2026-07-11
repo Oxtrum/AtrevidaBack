@@ -35,9 +35,9 @@ type planItemResponse struct {
 
 type planServicioManualRequest struct {
 	ServicioIDOrigen       *int     `json:"servicio_id_origen,omitempty" example:"8"`
-	NombreSnapshot         string   `json:"nombre_snapshot" example:"Masaje relajante"`
-	TiempoSnapshot         *string  `json:"tiempo_snapshot,omitempty" example:"01:00"`
-	PrecioUnitarioSnapshot *float64 `json:"precio_unitario_snapshot,omitempty" example:"200"`
+	NombreTexto         string   `json:"nombre_snapshot" example:"Masaje relajante"`
+	TiempoTexto         *string  `json:"tiempo_snapshot,omitempty" example:"01:00"`
+	PrecioUnitarioTexto *float64 `json:"precio_unitario_snapshot,omitempty" example:"200"`
 	SesionesContratadas    int      `json:"sesiones_contratadas" example:"2"`
 	Orden                  int      `json:"orden" example:"0"`
 }
@@ -191,7 +191,7 @@ func (h *Container) GetPlanByID(c *gin.Context) {
 
 // CreatePlan godoc
 // @Summary Crear plan desde combo o manual
-// @Description Crea un plan contractual para un cliente. Dos origenes mutuamente excluyentes: combo_id (copia snapshot del catalogo) o servicios (composicion manual). Calcula subtotal, descuento y precio total en backend. Crea cuotas segun tipo_pago. Requiere token Bearer con rol admin_sys.
+// @Description Crea un plan contractual para un cliente. Dos origenes mutuamente excluyentes: combo_id (copia snapshot del catalogo) o servicios (composicion manual). Calcula subtotal, descuento y precio total en backend. Crea cuotas segun tipo_pago. Requiere token Bearer con rol gerencia o admin_sys.
 // @Tags Planes BD
 // @Accept json
 // @Produce json
@@ -241,9 +241,9 @@ func (h *Container) CreatePlan(c *gin.Context) {
 		for _, s := range req.Servicios {
 			servicios = append(servicios, services.PlanServicioInput{
 				ServicioIDOrigen:       s.ServicioIDOrigen,
-				NombreSnapshot:         s.NombreSnapshot,
-				TiempoSnapshot:         s.TiempoSnapshot,
-				PrecioUnitarioSnapshot: s.PrecioUnitarioSnapshot,
+				NombreTexto:         s.NombreTexto,
+				TiempoTexto:         s.TiempoTexto,
+				PrecioUnitarioTexto: s.PrecioUnitarioTexto,
 				SesionesContratadas:    s.SesionesContratadas,
 				Orden:                  s.Orden,
 			})
@@ -273,7 +273,7 @@ func (h *Container) CreatePlan(c *gin.Context) {
 
 // PatchPlan godoc
 // @Summary Actualizar campos editables de un plan
-// @Description Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol admin_sys.
+// @Description Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol gerencia o admin_sys.
 // @Tags Planes BD
 // @Accept json
 // @Produce json
@@ -333,7 +333,7 @@ func (h *Container) PatchPlan(c *gin.Context) {
 
 // PatchPlanEstado godoc
 // @Summary Cambiar estado de un plan
-// @Description Transicion de estado del plan. Transiciones validas: BORRADOR -> ACTIVO, ACTIVO -> COMPLETADO, ACTIVO -> CANCELADO. Requiere token Bearer con rol admin_sys.
+// @Description Transicion de estado del plan. Transiciones validas: BORRADOR -> ACTIVO, ACTIVO -> COMPLETADO, ACTIVO -> CANCELADO. Requiere token Bearer con rol gerencia o admin_sys.
 // @Tags Planes BD
 // @Accept json
 // @Produce json

@@ -4838,7 +4838,7 @@ paths:
       description: 'Crea un plan contractual para un cliente. Dos origenes mutuamente
         excluyentes: combo_id (copia snapshot del catalogo) o servicios (composicion
         manual). Calcula subtotal, descuento y precio total en backend. Crea cuotas
-        segun tipo_pago. Requiere token Bearer con rol admin_sys.'
+        segun tipo_pago. Requiere token Bearer con rol gerencia o admin_sys.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -4944,7 +4944,8 @@ paths:
       consumes:
       - application/json
       description: Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido
-        cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol admin_sys.
+        cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol gerencia
+        o admin_sys.
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -5009,7 +5010,7 @@ paths:
       - application/json
       description: 'Transicion de estado del plan. Transiciones validas: BORRADOR
         -> ACTIVO, ACTIVO -> COMPLETADO, ACTIVO -> CANCELADO. Requiere token Bearer
-        con rol admin_sys.'
+        con rol gerencia o admin_sys.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer

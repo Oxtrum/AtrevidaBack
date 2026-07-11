@@ -1,4 +1,4 @@
--- El plan es una compra viva de un cliente. Conserva snapshots contractuales de
+-- El plan es una compra viva de un cliente. Conserva textos contractuales de
 -- lo adquirido: cliente, local, servicios, sesiones, precio y moneda. Un plan
 -- puede originarse desde un combo (combo_id_origen como trazabilidad) o ser
 -- completamente manual. Los cambios posteriores del catalogo no modifican
@@ -13,10 +13,10 @@ CREATE SEQUENCE IF NOT EXISTS plan_codigo_seq;
 ALTER TABLE planes
     ADD COLUMN IF NOT EXISTS codigo VARCHAR(20) UNIQUE DEFAULT ('PLAN-' || LPAD(nextval('plan_codigo_seq')::TEXT, 6, '0')),
     ADD COLUMN IF NOT EXISTS cliente_id INT REFERENCES clientes(id) ON DELETE SET NULL,
-    ADD COLUMN IF NOT EXISTS cliente_nombre_snapshot VARCHAR(200),
-    ADD COLUMN IF NOT EXISTS local_nombre_snapshot VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS cliente_nombre_texto VARCHAR(200),
+    ADD COLUMN IF NOT EXISTS local_nombre_texto VARCHAR(100),
     ADD COLUMN IF NOT EXISTS combo_id_origen INT REFERENCES combos(id) ON DELETE SET NULL,
-    ADD COLUMN IF NOT EXISTS combo_nombre_snapshot VARCHAR(200),
+    ADD COLUMN IF NOT EXISTS combo_nombre_texto VARCHAR(200),
     ADD COLUMN IF NOT EXISTS fecha_inicio DATE,
     ADD COLUMN IF NOT EXISTS fecha_fin DATE,
     ADD COLUMN IF NOT EXISTS estado VARCHAR(20) NOT NULL DEFAULT 'BORRADOR',
@@ -32,19 +32,19 @@ ALTER TABLE planes
 
 -- Backfill seguro: copiar datos existentes a las nuevas columnas
 UPDATE planes
-SET cliente_nombre_snapshot = COALESCE(NULLIF(BTRIM(cliente), ''), 'SIN NOMBRE'),
-    local_nombre_snapshot = COALESCE((SELECT nombre FROM locales WHERE id = planes.local_id), ''),
+SET cliente_nombre_texto = COALESCE(NULLIF(BTRIM(cliente), ''), 'SIN NOMBRE'),
+    local_nombre_texto = COALESCE((SELECT nombre FROM locales WHERE id = planes.local_id), ''),
     combo_id_origen = combo_id,
-    combo_nombre_snapshot = combo_nombre,
+    combo_nombre_texto = combo_nombre,
     estado = CASE WHEN activo = TRUE THEN 'ACTIVO' ELSE 'CANCELADO' END,
     estado_cobranza = 'PAGADO',
     tipo_pago = 'UNICO',
     subtotal = costo_total,
     precio_total = costo_total
-WHERE cliente_nombre_snapshot IS NULL;
+WHERE cliente_nombre_texto IS NULL;
 
 ALTER TABLE planes
-    ALTER COLUMN cliente_nombre_snapshot SET NOT NULL,
+    ALTER COLUMN cliente_nombre_texto SET NOT NULL,
     ALTER COLUMN subtotal SET NOT NULL,
     ALTER COLUMN precio_total SET NOT NULL,
     ADD CONSTRAINT chk_planes_estado
@@ -76,13 +76,13 @@ COMMENT ON COLUMN planes.codigo IS
     'Codigo publico incremental del plan usado por la API.';
 COMMENT ON COLUMN planes.cliente_id IS
     'Referencia opcional al cliente registrado.';
-COMMENT ON COLUMN planes.cliente_nombre_snapshot IS
+COMMENT ON COLUMN planes.cliente_nombre_texto IS
     'Snapshot del nombre del cliente al momento de contratar.';
-COMMENT ON COLUMN planes.local_nombre_snapshot IS
+COMMENT ON COLUMN planes.local_nombre_texto IS
     'Snapshot del nombre del local al momento de contratar.';
 COMMENT ON COLUMN planes.combo_id_origen IS
     'Combo de catalogo que origino el plan; solo trazabilidad.';
-COMMENT ON COLUMN planes.combo_nombre_snapshot IS
+COMMENT ON COLUMN planes.combo_nombre_texto IS
     'Snapshot del nombre del combo al momento de contratar.';
 COMMENT ON COLUMN planes.fecha_inicio IS
     'Fecha opcional de inicio de vigencia.';
@@ -101,14 +101,14 @@ COMMENT ON COLUMN planes.descuento IS
 COMMENT ON COLUMN planes.precio_total IS
     'Precio final contratado (subtotal - descuento).';
 
--- Plan servicios: snapshot de cada servicio contratado dentro del plan
+-- Plan servicios: texto de cada servicio contratado dentro del plan
 CREATE TABLE IF NOT EXISTS plan_servicios (
     id                    SERIAL PRIMARY KEY,
     plan_id               INT NOT NULL REFERENCES planes(id) ON DELETE CASCADE,
     servicio_id_origen    INT REFERENCES servicios(id) ON DELETE SET NULL,
-    nombre_snapshot       VARCHAR(500) NOT NULL,
-    tiempo_snapshot       VARCHAR(50),
-    precio_unitario_snapshot NUMERIC(10,2),
+    nombre_texto       VARCHAR(500) NOT NULL,
+    tiempo_texto       VARCHAR(50),
+    precio_unitario_texto NUMERIC(10,2),
     sesiones_contratadas  INT NOT NULL,
     orden                 INT NOT NULL DEFAULT 0,
     creado_en             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS plan_servicios (
     CONSTRAINT chk_plan_servicios_sesiones_positivas
         CHECK (sesiones_contratadas > 0),
     CONSTRAINT chk_plan_servicios_precio_no_negativo
-        CHECK (precio_unitario_snapshot IS NULL OR precio_unitario_snapshot >= 0)
+        CHECK (precio_unitario_texto IS NULL OR precio_unitario_texto >= 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_plan_servicios_plan ON plan_servicios(plan_id);
@@ -126,11 +126,11 @@ COMMENT ON TABLE plan_servicios IS
     'Lineas contratadas dentro de un plan. Datos congelados al momento de la compra.';
 COMMENT ON COLUMN plan_servicios.servicio_id_origen IS
     'Referencia opcional al servicio de catalogo; solo trazabilidad.';
-COMMENT ON COLUMN plan_servicios.nombre_snapshot IS
+COMMENT ON COLUMN plan_servicios.nombre_texto IS
     'Nombre del servicio al momento de contratar.';
-COMMENT ON COLUMN plan_servicios.tiempo_snapshot IS
+COMMENT ON COLUMN plan_servicios.tiempo_texto IS
     'Duracion del servicio al momento de contratar.';
-COMMENT ON COLUMN plan_servicios.precio_unitario_snapshot IS
+COMMENT ON COLUMN plan_servicios.precio_unitario_texto IS
     'Precio unitario por sesion al momento de contratar.';
 COMMENT ON COLUMN plan_servicios.sesiones_contratadas IS
     'Cantidad de sesiones contratadas para esta linea.';

@@ -3433,7 +3433,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un plan contractual para un cliente. Dos origenes mutuamente excluyentes: combo_id (copia snapshot del catalogo) o servicios (composicion manual). Calcula subtotal, descuento y precio total en backend. Crea cuotas segun tipo_pago. Requiere token Bearer con rol admin_sys.",
+                "description": "Crea un plan contractual para un cliente. Dos origenes mutuamente excluyentes: combo_id (copia snapshot del catalogo) o servicios (composicion manual). Calcula subtotal, descuento y precio total en backend. Crea cuotas segun tipo_pago. Requiere token Bearer con rol gerencia o admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3595,7 +3595,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol admin_sys.",
+                "description": "Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol gerencia o admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3693,7 +3693,7 @@ const docTemplate = `{
         },
         "/bd/planes/{id}/estado": {
             "patch": {
-                "description": "Transicion de estado del plan. Transiciones validas: BORRADOR -\u003e ACTIVO, ACTIVO -\u003e COMPLETADO, ACTIVO -\u003e CANCELADO. Requiere token Bearer con rol admin_sys.",
+                "description": "Transicion de estado del plan. Transiciones validas: BORRADOR -\u003e ACTIVO, ACTIVO -\u003e COMPLETADO, ACTIVO -\u003e CANCELADO. Requiere token Bearer con rol gerencia o admin_sys.",
                 "consumes": [
                     "application/json"
                 ],

@@ -42,9 +42,9 @@ type FiltroPlanes struct {
 
 type PlanServicioInput struct {
 	ServicioIDOrigen       *int
-	NombreSnapshot         string
-	TiempoSnapshot         *string
-	PrecioUnitarioSnapshot *float64
+	NombreTexto         string
+	TiempoTexto         *string
+	PrecioUnitarioTexto *float64
 	SesionesContratadas    int
 	Orden                  int
 }
@@ -130,7 +130,7 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 	var (
 		servicios           []repository.CrearPlanServicioInput
 		comboIDOrigen       *int
-		comboNombreSnapshot *string
+		comboNombreTexto *string
 		subtotal            float64
 		moneda              = "BOB"
 	)
@@ -141,7 +141,7 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 			return 0, fmt.Errorf("combo no encontrado o inactivo: %w", ErrPlanInvalido)
 		}
 		comboIDOrigen = &combo.ID
-		comboNombreSnapshot = &combo.Nombre
+		comboNombreTexto = &combo.Nombre
 		moneda = combo.Moneda
 		for _, cs := range combo.Servicios {
 			pu := cs.Costo
@@ -151,9 +151,9 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 			}
 			servicios = append(servicios, repository.CrearPlanServicioInput{
 				ServicioIDOrigen:       cs.ServicioID,
-				NombreSnapshot:         cs.ServicioNombre,
-				TiempoSnapshot:         cs.Tiempo,
-				PrecioUnitarioSnapshot: pu,
+				NombreTexto:         cs.ServicioNombre,
+				TiempoTexto:         cs.Tiempo,
+				PrecioUnitarioTexto: pu,
 				SesionesContratadas:    cs.Sesiones,
 				Orden:                  cs.Orden,
 			})
@@ -162,7 +162,7 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 	} else {
 		ordenes := map[int]bool{}
 		for _, s := range input.Servicios {
-			if strings.TrimSpace(s.NombreSnapshot) == "" {
+			if strings.TrimSpace(s.NombreTexto) == "" {
 				return 0, fmt.Errorf("nombre_snapshot es requerido para cada servicio: %w", ErrPlanInvalido)
 			}
 			if s.SesionesContratadas < 1 {
@@ -171,7 +171,7 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 			if s.Orden < 0 || ordenes[s.Orden] {
 				return 0, fmt.Errorf("orden debe ser no negativo y unico: %w", ErrPlanInvalido)
 			}
-			pu := s.PrecioUnitarioSnapshot
+			pu := s.PrecioUnitarioTexto
 			if pu == nil {
 				zero := 0.0
 				pu = &zero
@@ -179,9 +179,9 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 			ordenes[s.Orden] = true
 			servicios = append(servicios, repository.CrearPlanServicioInput{
 				ServicioIDOrigen:       s.ServicioIDOrigen,
-				NombreSnapshot:         s.NombreSnapshot,
-				TiempoSnapshot:         s.TiempoSnapshot,
-				PrecioUnitarioSnapshot: pu,
+				NombreTexto:         s.NombreTexto,
+				TiempoTexto:         s.TiempoTexto,
+				PrecioUnitarioTexto: pu,
 				SesionesContratadas:    s.SesionesContratadas,
 				Orden:                  s.Orden,
 			})
@@ -222,7 +222,7 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 		ClienteID:           input.ClienteID,
 		LocalID:             input.LocalID,
 		ComboIDOrigen:       comboIDOrigen,
-		ComboNombreSnapshot: comboNombreSnapshot,
+		ComboNombreTexto: comboNombreTexto,
 		FechaInicio:         input.FechaInicio,
 		FechaFin:            input.FechaFin,
 		Estado:              EstadoPlanBorrador,
