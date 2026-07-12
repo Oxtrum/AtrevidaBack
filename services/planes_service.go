@@ -61,6 +61,7 @@ type CrearPlanInput struct {
 	Descuento      float64
 	Notas          *string
 	CreadoPor      *int
+	PagoCodigo     *string
 }
 
 type ActualizarPlanInput struct {
@@ -235,6 +236,7 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 		CreadoPor:           input.CreadoPor,
 		Servicios:           servicios,
 		Cuotas:              cuotas,
+		PagoCodigo:          input.PagoCodigo,
 	})
 	return id, traducirErrorRepositorioPlan(err)
 }
@@ -263,11 +265,7 @@ func (s *PlanesService) CambiarEstado(input CambiarEstadoInput) error {
 	if estado != EstadoPlanActivo && estado != EstadoPlanCompletado && estado != EstadoPlanCancelado {
 		return fmt.Errorf("estado debe ser ACTIVO, COMPLETADO o CANCELADO: %w", ErrPlanInvalido)
 	}
-	estadoCobranza := "PENDIENTE"
-	if estado == EstadoPlanCompletado {
-		estadoCobranza = "PAGADO"
-	}
-	return traducirErrorRepositorioPlan(s.repo.UpdatePlanEstado(input.ID, estado, estadoCobranza, input.UsuarioID))
+	return traducirErrorRepositorioPlan(s.repo.UpdatePlanEstado(input.ID, estado, input.UsuarioID))
 }
 
 func traducirErrorRepositorioPlan(err error) error {

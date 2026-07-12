@@ -6453,6 +6453,11 @@
                     "type": "string",
                     "example": "Pago contado"
                 },
+                "pago_codigo": {
+                    "description": "Codigo del pago de caja a aplicar a la cuota (UNICO); marca la cuota PAGADO.",
+                    "type": "string",
+                    "example": "PAG-000123"
+                },
                 "servicios": {
                     "type": "array",
                     "items": {
@@ -8384,6 +8389,28 @@
                     "type": "string",
                     "example": "AGENDADO"
                 },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-05-23"
+                },
+                "hora_desde": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "hora_hasta": {
+                    "type": "string",
+                    "example": "10:00"
+                },
+                "id": {
+                    "description": "ID de la reserva; permite abrir el detalle desde el calendario.",
+                    "type": "integer",
+                    "example": 100
+                },
+                "local": {
+                    "description": "Local, fecha y horario para reconstruir la reserva en el detalle.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
                 "notificado": {
                     "type": "boolean",
                     "example": false
@@ -8391,6 +8418,11 @@
                 "numero_telefono": {
                     "type": "string",
                     "example": "+59170011223"
+                },
+                "plan_id": {
+                    "description": "ID del plan asociado, si la reserva consume un paquete.",
+                    "type": "integer",
+                    "example": 5
                 },
                 "servicio": {
                     "type": "string",

@@ -195,10 +195,43 @@ func (r *PlanesRepo) CreatePlan(input repository.CrearPlanInput) (int, error) {
 		}
 	}
 
+	// Pago de contado (UNICO): vincula el pago de caja a la cuota y la marca pagada.
+	if input.PagoCodigo != nil && input.TipoPago == "UNICO" && input.PrecioTotal > 0 {
+		if err := aplicarPagoUnicoTx(tx, planID, *input.PagoCodigo, input.PrecioTotal); err != nil {
+			return 0, err
+		}
+	}
+
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("error al confirmar plan: %w", err)
 	}
 	return planID, nil
+}
+
+// aplicarPagoUnicoTx vincula un pago de caja a la única cuota del plan (numero=1),
+// la marca PAGADO y pone el plan en estado_cobranza PAGADO. Todo en la misma tx.
+func aplicarPagoUnicoTx(tx *sqlx.Tx, planID int, pagoCodigo string, monto float64) error {
+	var pagoID int
+	if err := tx.Get(&pagoID, `SELECT id FROM pagos WHERE codigo_pago = $1`, pagoCodigo); err != nil {
+		return fmt.Errorf("pago '%s' no encontrado: %w", pagoCodigo, err)
+	}
+	var cuotaID int
+	if err := tx.Get(&cuotaID, `SELECT id FROM plan_cuotas WHERE plan_id = $1 AND numero = 1`, planID); err != nil {
+		return fmt.Errorf("cuota del plan no encontrada: %w", err)
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO plan_pago_aplicaciones (plan_cuota_id, pago_id, monto_aplicado) VALUES ($1,$2,$3)`,
+		cuotaID, pagoID, monto,
+	); err != nil {
+		return fmt.Errorf("error al aplicar pago a la cuota: %w", err)
+	}
+	if _, err := tx.Exec(`UPDATE plan_cuotas SET estado = 'PAGADO' WHERE id = $1`, cuotaID); err != nil {
+		return fmt.Errorf("error al marcar cuota pagada: %w", err)
+	}
+	if _, err := tx.Exec(`UPDATE planes SET estado_cobranza = 'PAGADO' WHERE id = $1`, planID); err != nil {
+		return fmt.Errorf("error al actualizar cobranza del plan: %w", err)
+	}
+	return nil
 }
 
 func (r *PlanesRepo) UpdatePlan(input repository.ActualizarPlanInput) error {
@@ -243,7 +276,7 @@ func (r *PlanesRepo) UpdatePlan(input repository.ActualizarPlanInput) error {
 	return tx.Commit()
 }
 
-func (r *PlanesRepo) UpdatePlanEstado(id int, estado string, estadoCobranza string, usuarioID *int) error {
+func (r *PlanesRepo) UpdatePlanEstado(id int, estado string, usuarioID *int) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
@@ -261,6 +294,12 @@ func (r *PlanesRepo) UpdatePlanEstado(id int, estado string, estadoCobranza stri
 		return fmt.Errorf("%w: de %s a %s", repository.ErrPlanTransicionInvalida, actual.Estado, estado)
 	}
 
+	// La cobranza se deriva de las cuotas (fuente de verdad), no del estado del plan.
+	estadoCobranza, err := recomputarCobranzaTx(tx, id)
+	if err != nil {
+		return err
+	}
+
 	if _, err := tx.Exec(`
 		UPDATE planes SET estado = $1, estado_cobranza = $2, actualizado_por = $3, actualizado_en = NOW()
 		WHERE id = $4
@@ -269,6 +308,26 @@ func (r *PlanesRepo) UpdatePlanEstado(id int, estado string, estadoCobranza stri
 	}
 
 	return tx.Commit()
+}
+
+// recomputarCobranzaTx deriva el estado_cobranza del plan a partir de sus cuotas:
+// sin cuotas pagadas → PENDIENTE, todas pagadas → PAGADO, algunas → PARCIAL.
+func recomputarCobranzaTx(tx *sqlx.Tx, planID int) (string, error) {
+	var total, pagadas int
+	if err := tx.QueryRowx(
+		`SELECT COUNT(*), COUNT(*) FILTER (WHERE estado = 'PAGADO') FROM plan_cuotas WHERE plan_id = $1`,
+		planID,
+	).Scan(&total, &pagadas); err != nil {
+		return "", fmt.Errorf("error al calcular cobranza del plan: %w", err)
+	}
+	switch {
+	case total == 0 || pagadas == 0:
+		return "PENDIENTE", nil
+	case pagadas == total:
+		return "PAGADO", nil
+	default:
+		return "PARCIAL", nil
+	}
 }
 
 func esTransicionValida(actual, nuevo string) bool {

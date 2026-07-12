@@ -53,6 +53,8 @@ type crearPlanRequest struct {
 	CantidadCuotas int                          `json:"cantidad_cuotas,omitempty" example:"3"`
 	Descuento      *float64                     `json:"descuento,omitempty" example:"50"`
 	Notas          *string                      `json:"notas,omitempty" example:"Pago contado"`
+	// Codigo del pago de caja a aplicar a la cuota (UNICO); marca la cuota PAGADO.
+	PagoCodigo     *string                      `json:"pago_codigo,omitempty" example:"PAG-000123"`
 }
 
 type actualizarPlanRequest struct {
@@ -262,6 +264,7 @@ func (h *Container) CreatePlan(c *gin.Context) {
 		Descuento:      descuento,
 		Notas:          req.Notas,
 		CreadoPor:      &userID,
+		PagoCodigo:     req.PagoCodigo,
 	})
 	if err != nil {
 		responderErrorPlan(c, err)

@@ -787,6 +787,11 @@ definitions:
       notas:
         example: Pago contado
         type: string
+      pago_codigo:
+        description: Codigo del pago de caja a aplicar a la cuota (UNICO); marca la
+          cuota PAGADO.
+        example: PAG-000123
+        type: string
       servicios:
         items:
           $ref: '#/definitions/handlers.planServicioManualRequest'
@@ -2222,12 +2227,33 @@ definitions:
       estado:
         example: AGENDADO
         type: string
+      fecha:
+        example: "2026-05-23"
+        type: string
+      hora_desde:
+        example: "09:00"
+        type: string
+      hora_hasta:
+        example: "10:00"
+        type: string
+      id:
+        description: ID de la reserva; permite abrir el detalle desde el calendario.
+        example: 100
+        type: integer
+      local:
+        description: Local, fecha y horario para reconstruir la reserva en el detalle.
+        example: SAN MARTIN
+        type: string
       notificado:
         example: false
         type: boolean
       numero_telefono:
         example: "+59170011223"
         type: string
+      plan_id:
+        description: ID del plan asociado, si la reserva consume un paquete.
+        example: 5
+        type: integer
       servicio:
         example: Depilacion Laser
         type: string

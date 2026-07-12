@@ -42,6 +42,7 @@ type CrearPlanInput struct {
 	CreadoPor           *int
 	Servicios           []CrearPlanServicioInput
 	Cuotas              []CrearPlanCuotaInput
+	PagoCodigo          *string
 }
 
 type CrearPlanServicioInput struct {
@@ -71,5 +72,5 @@ type PlanesRepository interface {
 	GetPlanByID(id int) (*models.PlanCompletoPG, error)
 	CreatePlan(input CrearPlanInput) (int, error)
 	UpdatePlan(input ActualizarPlanInput) error
-	UpdatePlanEstado(id int, estado string, estadoCobranza string, usuarioID *int) error
+	UpdatePlanEstado(id int, estado string, usuarioID *int) error
 }
