@@ -30,24 +30,28 @@ type FiltroCombos struct {
 }
 
 type CrearComboCatalogoInput struct {
-	Nombre        string
-	Descripcion   *string
-	CategoriaID   *int
-	TipoPrecio    string
-	PrecioPaquete *float64
-	Moneda        string
-	LocalIDs      []int
-	Servicios     []repository.ComboServicioCatalogoInput
+	Nombre          string
+	Descripcion     *string
+	CategoriaID     *int
+	TipoPrecio      string
+	PrecioPaquete   *float64
+	Moneda          string
+	SesionesTotales int
+	DuracionMin     *int
+	LocalIDs        []int
+	Servicios       []repository.ComboServicioCatalogoInput
 }
 
 type ActualizarComboCatalogoInput struct {
-	ID            int
-	Nombre        *string
-	Descripcion   *string
-	CategoriaID   *int
-	TipoPrecio    *string
-	PrecioPaquete *float64
-	Moneda        *string
+	ID              int
+	Nombre          *string
+	Descripcion     *string
+	CategoriaID     *int
+	TipoPrecio      *string
+	PrecioPaquete   *float64
+	Moneda          *string
+	SesionesTotales *int
+	DuracionMin     *int
 }
 
 type CombosService struct {
@@ -88,8 +92,14 @@ func (s *CombosService) ActualizarCombo(input ActualizarComboCatalogoInput) erro
 	if input.ID < 1 {
 		return fmt.Errorf("id debe ser un entero positivo: %w", ErrComboInvalido)
 	}
-	if input.Nombre == nil && input.Descripcion == nil && input.CategoriaID == nil && input.TipoPrecio == nil && input.PrecioPaquete == nil && input.Moneda == nil {
+	if input.Nombre == nil && input.Descripcion == nil && input.CategoriaID == nil && input.TipoPrecio == nil && input.PrecioPaquete == nil && input.Moneda == nil && input.SesionesTotales == nil && input.DuracionMin == nil {
 		return fmt.Errorf("debe especificarse al menos un campo a modificar: %w", ErrComboInvalido)
+	}
+	if input.SesionesTotales != nil && *input.SesionesTotales < 1 {
+		return fmt.Errorf("sesiones_totales debe ser un entero positivo: %w", ErrComboInvalido)
+	}
+	if input.DuracionMin != nil && *input.DuracionMin < 0 {
+		return fmt.Errorf("duracion_min no puede ser negativa: %w", ErrComboInvalido)
 	}
 	if input.Nombre != nil {
 		v := strings.TrimSpace(*input.Nombre)
@@ -201,6 +211,12 @@ func normalizarCrearCombo(input CrearComboCatalogoInput) (repository.CrearComboI
 	if len(moneda) != 3 {
 		return repository.CrearComboInput{}, fmt.Errorf("moneda debe tener tres caracteres: %w", ErrComboInvalido)
 	}
+	if input.SesionesTotales < 1 {
+		return repository.CrearComboInput{}, fmt.Errorf("sesiones_totales debe ser un entero positivo: %w", ErrComboInvalido)
+	}
+	if input.DuracionMin != nil && *input.DuracionMin < 0 {
+		return repository.CrearComboInput{}, fmt.Errorf("duracion_min no puede ser negativa: %w", ErrComboInvalido)
+	}
 	servicios, err := normalizarServicios(input.Servicios)
 	if err != nil {
 		return repository.CrearComboInput{}, err
@@ -210,7 +226,7 @@ func normalizarCrearCombo(input CrearComboCatalogoInput) (repository.CrearComboI
 		v := strings.TrimSpace(*input.Descripcion)
 		descripcion = &v
 	}
-	return repository.CrearComboInput{Nombre: nombre, Descripcion: descripcion, CategoriaID: input.CategoriaID, TipoPrecio: tipoPrecio, PrecioPaquete: input.PrecioPaquete, Moneda: moneda, LocalIDs: input.LocalIDs, Servicios: servicios}, nil
+	return repository.CrearComboInput{Nombre: nombre, Descripcion: descripcion, CategoriaID: input.CategoriaID, TipoPrecio: tipoPrecio, PrecioPaquete: input.PrecioPaquete, Moneda: moneda, SesionesTotales: input.SesionesTotales, DuracionMin: input.DuracionMin, LocalIDs: input.LocalIDs, Servicios: servicios}, nil
 }
 
 func normalizarServicios(servicios []repository.ComboServicioCatalogoInput) ([]repository.ComboServicioCatalogoInput, error) {
@@ -227,8 +243,9 @@ func normalizarServicios(servicios []repository.ComboServicioCatalogoInput) ([]r
 		if servicio.ServicioID == nil && servicio.ServicioTexto == "" {
 			return nil, fmt.Errorf("cada servicio requiere servicio_id o servicio_texto: %w", ErrComboServicioInvalido)
 		}
+		// Servicio como referencia: sin sesiones por línea, default 1 (constraint sesiones > 0).
 		if servicio.Sesiones < 1 {
-			return nil, fmt.Errorf("sesiones debe ser un entero positivo: %w", ErrComboServicioInvalido)
+			servicio.Sesiones = 1
 		}
 		if servicio.Orden < 0 || ordenes[servicio.Orden] {
 			return nil, fmt.Errorf("orden debe ser no negativo y unico: %w", ErrComboServicioInvalido)

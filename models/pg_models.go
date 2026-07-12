@@ -136,6 +136,7 @@ type ComboCatalogoPG struct {
 	PrecioFinal     float64                  `db:"precio_final" json:"precio_final" example:"700"`
 	Moneda          string                   `db:"moneda" json:"moneda" example:"BOB"`
 	SesionesTotales int                      `db:"sesiones_totales" json:"sesiones_totales" example:"4"`
+	DuracionMin     *int                     `db:"duracion_min" json:"duracion_min,omitempty" example:"90"`
 	Activo          bool                     `db:"activo" json:"activo" example:"true"`
 	CreadoEn        time.Time                `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
 	ActualizadoEn   time.Time                `db:"actualizado_en" json:"actualizado_en" example:"2026-07-11T10:00:00Z"`

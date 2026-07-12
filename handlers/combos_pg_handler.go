@@ -41,6 +41,10 @@ type crearComboCatalogoRequest struct {
 	PrecioPaquete *float64 `json:"precio_paquete,omitempty" example:"700"`
 	// Moneda ISO de tres letras; BOB por defecto.
 	Moneda string `json:"moneda,omitempty" example:"BOB"`
+	// Sesiones/visitas del paquete (nivel paquete, no la suma de líneas).
+	SesionesTotales int `json:"sesiones_totales" example:"4"`
+	// Duracion sugerida por sesion en minutos; opcional.
+	DuracionMin *int `json:"duracion_min,omitempty" example:"90"`
 	// IDs de los locales activos donde se publica el combo.
 	LocalIDs []int `json:"local_ids" example:"1,2"`
 	// Lineas que componen la promocion.
@@ -60,6 +64,10 @@ type actualizarComboCatalogoRequest struct {
 	PrecioPaquete *float64 `json:"precio_paquete,omitempty" example:"750"`
 	// Nueva moneda ISO de tres letras.
 	Moneda *string `json:"moneda,omitempty" example:"BOB"`
+	// Nuevas sesiones/visitas del paquete.
+	SesionesTotales *int `json:"sesiones_totales,omitempty" example:"4"`
+	// Nueva duracion sugerida por sesion en minutos.
+	DuracionMin *int `json:"duracion_min,omitempty" example:"90"`
 }
 
 type reemplazarLocalesComboRequest struct {
@@ -158,7 +166,8 @@ func (h *Container) CreateComboPG(c *gin.Context) {
 	}
 	id, err := h.CombosPG.CrearCombo(services.CrearComboCatalogoInput{
 		Nombre: req.Nombre, Descripcion: req.Descripcion, CategoriaID: req.CategoriaID, TipoPrecio: req.TipoPrecio,
-		PrecioPaquete: req.PrecioPaquete, Moneda: req.Moneda, LocalIDs: req.LocalIDs, Servicios: toComboServiciosInput(req.Servicios),
+		PrecioPaquete: req.PrecioPaquete, Moneda: req.Moneda, SesionesTotales: req.SesionesTotales, DuracionMin: req.DuracionMin,
+		LocalIDs: req.LocalIDs, Servicios: toComboServiciosInput(req.Servicios),
 	})
 	if err != nil {
 		responderErrorCombo(c, err)
@@ -194,7 +203,7 @@ func (h *Container) PatchComboPG(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
 		return
 	}
-	err = h.CombosPG.ActualizarCombo(services.ActualizarComboCatalogoInput{ID: id, Nombre: req.Nombre, Descripcion: req.Descripcion, CategoriaID: req.CategoriaID, TipoPrecio: req.TipoPrecio, PrecioPaquete: req.PrecioPaquete, Moneda: req.Moneda})
+	err = h.CombosPG.ActualizarCombo(services.ActualizarComboCatalogoInput{ID: id, Nombre: req.Nombre, Descripcion: req.Descripcion, CategoriaID: req.CategoriaID, TipoPrecio: req.TipoPrecio, PrecioPaquete: req.PrecioPaquete, Moneda: req.Moneda, SesionesTotales: req.SesionesTotales, DuracionMin: req.DuracionMin})
 	if err != nil {
 		responderErrorCombo(c, err)
 		return

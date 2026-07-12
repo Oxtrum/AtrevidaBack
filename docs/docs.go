@@ -5479,6 +5479,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Masaje y drenaje personalizado"
                 },
+                "duracion_min": {
+                    "description": "Nueva duracion sugerida por sesion en minutos.",
+                    "type": "integer",
+                    "example": 90
+                },
                 "moneda": {
                     "description": "Nueva moneda ISO de tres letras.",
                     "type": "string",
@@ -5493,6 +5498,11 @@ const docTemplate = `{
                     "description": "Nuevo precio final de paquete cuando corresponda.",
                     "type": "number",
                     "example": 750
+                },
+                "sesiones_totales": {
+                    "description": "Nuevas sesiones/visitas del paquete.",
+                    "type": "integer",
+                    "example": 4
                 },
                 "tipo_precio": {
                     "description": "Nueva regla de precio opcional: POR_ITEMS o PRECIO_PAQUETE.",
@@ -6234,6 +6244,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Masaje y drenaje para cuatro sesiones"
                 },
+                "duracion_min": {
+                    "description": "Duracion sugerida por sesion en minutos; opcional.",
+                    "type": "integer",
+                    "example": 90
+                },
                 "local_ids": {
                     "description": "IDs de los locales activos donde se publica el combo.",
                     "type": "array",
@@ -6266,6 +6281,11 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/handlers.comboServicioCatalogoRequest"
                     }
+                },
+                "sesiones_totales": {
+                    "description": "Sesiones/visitas del paquete (nivel paquete, no la suma de líneas).",
+                    "type": "integer",
+                    "example": 4
                 },
                 "tipo_precio": {
                     "description": "Regla de precio: POR_ITEMS o PRECIO_PAQUETE.",
@@ -7580,6 +7600,10 @@ const docTemplate = `{
                 "descripcion": {
                     "type": "string",
                     "example": "Promocion corporal de cuatro sesiones"
+                },
+                "duracion_min": {
+                    "type": "integer",
+                    "example": 90
                 },
                 "id": {
                     "type": "integer",

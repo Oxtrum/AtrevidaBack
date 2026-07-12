@@ -34,7 +34,7 @@ func (r *CombosRepo) ListCombos(f repository.FiltroCombos) ([]models.ComboCatalo
 				WHEN cb.tipo_precio = 'PRECIO_PAQUETE' THEN COALESCE(cb.precio_paquete, cb.costo_total, 0)
 				ELSE COALESCE((SELECT SUM(cs2.costo * cs2.sesiones) FROM combo_servicios cs2 WHERE cs2.combo_id = cb.id AND cs2.activo = TRUE), 0)
 			END AS precio_final,
-			cb.moneda, cb.sesiones_totales, cb.activo, cb.creado_en, cb.actualizado_en
+			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en
 		FROM combos cb
 		LEFT JOIN categorias c ON c.id = cb.categoria_id
 		LEFT JOIN combo_local cl ON cl.combo_id = cb.id
@@ -75,7 +75,7 @@ func (r *CombosRepo) GetComboByID(id int, incluirInactivo bool) (*models.ComboCa
 				WHEN cb.tipo_precio = 'PRECIO_PAQUETE' THEN COALESCE(cb.precio_paquete, cb.costo_total, 0)
 				ELSE COALESCE(SUM(cs.costo * cs.sesiones) FILTER (WHERE cs.activo = TRUE), 0)
 			END AS precio_final,
-			cb.moneda, cb.sesiones_totales, cb.activo, cb.creado_en, cb.actualizado_en
+			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en
 		FROM combos cb
 		LEFT JOIN categorias c ON c.id = cb.categoria_id
 		LEFT JOIN combo_servicios cs ON cs.combo_id = cb.id
@@ -112,20 +112,21 @@ func (r *CombosRepo) CreateCombo(input repository.CrearComboInput) (int, error) 
 		return 0, err
 	}
 
-	precioItems, sesiones := resumenServicios(servicios)
+	precioItems, _ := resumenServicios(servicios)
 	precioFinal := precioItems
 	if input.TipoPrecio == "PRECIO_PAQUETE" {
 		precioFinal = *input.PrecioPaquete
 	}
+	// Sesiones del paquete = input directo (nivel paquete), no la suma de líneas.
 	var comboID int
 	err = tx.QueryRowx(`
 		INSERT INTO combos (
 			nombre, descripcion, categoria_id, tipo_precio, precio_paquete,
-			moneda, costo_total, sesiones_totales, activo
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE)
+			moneda, costo_total, sesiones_totales, duracion_min, activo
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)
 		RETURNING id
 	`, input.Nombre, nullStr(pointerString(input.Descripcion)), input.CategoriaID,
-		input.TipoPrecio, input.PrecioPaquete, input.Moneda, precioFinal, sesiones).Scan(&comboID)
+		input.TipoPrecio, input.PrecioPaquete, input.Moneda, precioFinal, input.SesionesTotales, input.DuracionMin).Scan(&comboID)
 	if err != nil {
 		return 0, fmt.Errorf("error al crear combo: %w", err)
 	}
@@ -199,6 +200,12 @@ func (r *CombosRepo) UpdateCombo(input repository.ActualizarComboInput) error {
 	}
 	if input.Moneda != nil {
 		add("moneda", *input.Moneda)
+	}
+	if input.SesionesTotales != nil {
+		add("sesiones_totales", *input.SesionesTotales)
+	}
+	if input.DuracionMin != nil {
+		add("duracion_min", *input.DuracionMin)
 	}
 	if input.TipoPrecio != nil && *input.TipoPrecio == "POR_ITEMS" {
 		add("precio_paquete", nil)
@@ -439,7 +446,8 @@ func actualizarResumenTx(tx *sqlx.Tx, comboID int) error {
 		}
 		precioFinal = *resumen.PrecioPaquete
 	}
-	if _, err := tx.Exec(`UPDATE combos SET costo_total = $1, sesiones_totales = $2, actualizado_en = NOW() WHERE id = $3`, precioFinal, resumen.Sesiones, comboID); err != nil {
+	// sesiones_totales ya no se deriva de las líneas: es input del combo a nivel paquete.
+	if _, err := tx.Exec(`UPDATE combos SET costo_total = $1, actualizado_en = NOW() WHERE id = $2`, precioFinal, comboID); err != nil {
 		return fmt.Errorf("error al actualizar resumen de combo: %w", err)
 	}
 	return nil

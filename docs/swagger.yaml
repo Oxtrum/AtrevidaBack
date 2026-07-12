@@ -50,6 +50,10 @@ definitions:
         description: Nueva descripcion opcional; una cadena vacia la limpia.
         example: Masaje y drenaje personalizado
         type: string
+      duracion_min:
+        description: Nueva duracion sugerida por sesion en minutos.
+        example: 90
+        type: integer
       moneda:
         description: Nueva moneda ISO de tres letras.
         example: BOB
@@ -62,6 +66,10 @@ definitions:
         description: Nuevo precio final de paquete cuando corresponda.
         example: 750
         type: number
+      sesiones_totales:
+        description: Nuevas sesiones/visitas del paquete.
+        example: 4
+        type: integer
       tipo_precio:
         description: 'Nueva regla de precio opcional: POR_ITEMS o PRECIO_PAQUETE.'
         example: POR_ITEMS
@@ -618,6 +626,10 @@ definitions:
         description: Descripcion opcional mostrada en catalogo.
         example: Masaje y drenaje para cuatro sesiones
         type: string
+      duracion_min:
+        description: Duracion sugerida por sesion en minutos; opcional.
+        example: 90
+        type: integer
       local_ids:
         description: IDs de los locales activos donde se publica el combo.
         example:
@@ -643,6 +655,10 @@ definitions:
         items:
           $ref: '#/definitions/handlers.comboServicioCatalogoRequest'
         type: array
+      sesiones_totales:
+        description: Sesiones/visitas del paquete (nivel paquete, no la suma de líneas).
+        example: 4
+        type: integer
       tipo_precio:
         description: 'Regla de precio: POR_ITEMS o PRECIO_PAQUETE.'
         example: PRECIO_PAQUETE
@@ -1618,6 +1634,9 @@ definitions:
       descripcion:
         example: Promocion corporal de cuatro sesiones
         type: string
+      duracion_min:
+        example: 90
+        type: integer
       id:
         example: 12
         type: integer
