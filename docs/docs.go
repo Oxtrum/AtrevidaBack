@@ -3789,6 +3789,79 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/planes/{id}/sesiones/{numero}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Actualiza el estado realizado de todas las líneas de una sesión del plan. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Planes BD"
+                ],
+                "summary": "Marcar una sesión del plan como realizada o pendiente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID del plan",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Número de sesión",
+                        "name": "numero",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Estado de la sesión",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.marcarSesionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/reservas": {
             "get": {
                 "description": "Devuelve reservas en formato plano (sin agrupar por local). Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional). Response: total (int total de reservas), reservas ([]ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
@@ -6852,6 +6925,16 @@ const docTemplate = `{
                         45,
                         46
                     ]
+                }
+            }
+        },
+        "handlers.marcarSesionRequest": {
+            "type": "object",
+            "properties": {
+                "realizado": {
+                    "description": "TRUE marca la sesión como realizada; FALSE la vuelve a pendiente.",
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },

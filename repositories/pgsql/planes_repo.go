@@ -343,6 +343,21 @@ func esTransicionValida(actual, nuevo string) bool {
 	}
 }
 
+// MarcarSesion marca (o desmarca) todas las líneas de una sesión del plan. Devuelve filas afectadas.
+func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, error) {
+	res, err := r.db.Exec(`
+		UPDATE plan_servicios
+		SET realizado = $1,
+			fecha_realizado = CASE WHEN $1 THEN NOW() ELSE NULL END
+		WHERE plan_id = $2 AND sesion_numero = $3
+	`, realizado, planID, numero)
+	if err != nil {
+		return 0, fmt.Errorf("error al marcar sesion del plan: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
 func (r *PlanesRepo) cargarServicios(planID int) ([]models.PlanServicioPG, error) {
 	var servicios []models.PlanServicioPG
 	if err := r.db.Select(&servicios, `

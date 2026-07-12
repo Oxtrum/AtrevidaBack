@@ -74,4 +74,5 @@ type PlanesRepository interface {
 	CreatePlan(input CrearPlanInput) (int, error)
 	UpdatePlan(input ActualizarPlanInput) error
 	UpdatePlanEstado(id int, estado string, usuarioID *int) error
+	MarcarSesion(planID, numero int, realizado bool) (int, error)
 }

@@ -1092,6 +1092,13 @@ definitions:
     required:
     - ids
     type: object
+  handlers.marcarSesionRequest:
+    properties:
+      realizado:
+        description: TRUE marca la sesión como realizada; FALSE la vuelve a pendiente.
+        example: true
+        type: boolean
+    type: object
   handlers.messageResponse:
     properties:
       mensaje:
@@ -5125,6 +5132,55 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Cambiar estado de un plan
+      tags:
+      - Planes BD
+  /bd/planes/{id}/sesiones/{numero}:
+    patch:
+      consumes:
+      - application/json
+      description: Actualiza el estado realizado de todas las líneas de una sesión
+        del plan. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del plan
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Número de sesión
+        in: path
+        name: numero
+        required: true
+        type: integer
+      - description: Estado de la sesión
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.marcarSesionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Marcar una sesión del plan como realizada o pendiente
       tags:
       - Planes BD
   /bd/reservas:

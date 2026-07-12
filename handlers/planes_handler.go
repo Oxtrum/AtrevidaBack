@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -67,6 +68,11 @@ type actualizarPlanRequest struct {
 
 type cambiarEstadoPlanRequest struct {
 	Estado string `json:"estado" example:"ACTIVO"`
+}
+
+type marcarSesionRequest struct {
+	// TRUE marca la sesión como realizada; FALSE la vuelve a pendiente.
+	Realizado bool `json:"realizado" example:"true"`
 }
 
 // GetPlanes godoc
@@ -378,6 +384,44 @@ func (h *Container) PatchPlanEstado(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "estado del plan actualizado correctamente"})
+}
+
+// MarcarSesionPlan godoc
+// @Summary Marcar una sesión del plan como realizada o pendiente
+// @Description Actualiza el estado realizado de todas las líneas de una sesión del plan. Requiere token Bearer con rol gerencia o admin_sys.
+// @Tags Planes BD
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del plan"
+// @Param numero path int true "Número de sesión"
+// @Param request body marcarSesionRequest true "Estado de la sesión"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
+// @Security BearerAuth
+// @Router /bd/planes/{id}/sesiones/{numero} [patch]
+func (h *Container) MarcarSesionPlan(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id < 1 {
+		utils.RespondError(c, http.StatusBadRequest, "id invalido")
+		return
+	}
+	numero, err := strconv.Atoi(c.Param("numero"))
+	if err != nil || numero < 1 {
+		utils.RespondError(c, http.StatusBadRequest, "numero invalido")
+		return
+	}
+	var req marcarSesionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+	if err := h.PlanesPG.MarcarSesion(id, numero, req.Realizado); err != nil {
+		responderErrorPlan(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, gin.H{"ok": true})
 }
 
 func responderErrorPlan(c *gin.Context, err error) {

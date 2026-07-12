@@ -275,6 +275,20 @@ func (s *PlanesService) CambiarEstado(input CambiarEstadoInput) error {
 	return traducirErrorRepositorioPlan(s.repo.UpdatePlanEstado(input.ID, estado, input.UsuarioID))
 }
 
+func (s *PlanesService) MarcarSesion(planID, numero int, realizado bool) error {
+	if planID < 1 || numero < 1 {
+		return fmt.Errorf("id y numero deben ser positivos: %w", ErrPlanInvalido)
+	}
+	n, err := s.repo.MarcarSesion(planID, numero, realizado)
+	if err != nil {
+		return traducirErrorRepositorioPlan(err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w: sesion %d del plan %d", ErrPlanNoEncontrado, numero, planID)
+	}
+	return nil
+}
+
 func traducirErrorRepositorioPlan(err error) error {
 	if err == nil {
 		return nil
