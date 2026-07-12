@@ -24,7 +24,7 @@ type planFiltrosResponse struct {
 }
 
 type planListResponse struct {
-	Total   int                  `json:"total" example:"5"`
+	Total   int                 `json:"total" example:"5"`
 	Filtros planFiltrosResponse `json:"filtros"`
 	Planes  []models.PlanPG     `json:"planes"`
 }
@@ -40,21 +40,23 @@ type planServicioManualRequest struct {
 	PrecioUnitarioTexto *float64 `json:"precio_unitario_snapshot,omitempty" example:"200"`
 	SesionesContratadas    int      `json:"sesiones_contratadas" example:"2"`
 	Orden                  int      `json:"orden" example:"0"`
+	// Numero de sesion dentro del servicio (para seguimiento por sesion); default 1 si no se especifica.
+	SesionNumero int `json:"sesion_numero,omitempty" example:"1"`
 }
 
 type crearPlanRequest struct {
-	ClienteID      int                          `json:"cliente_id" example:"12"`
-	LocalID        int                          `json:"local_id" example:"1"`
-	ComboID        *int                         `json:"combo_id,omitempty" example:"12"`
-	Servicios      []planServicioManualRequest   `json:"servicios,omitempty"`
-	FechaInicio    *string                      `json:"fecha_inicio,omitempty" example:"2026-07-15"`
-	FechaFin       *string                      `json:"fecha_fin,omitempty" example:"2026-08-14"`
-	TipoPago       string                       `json:"tipo_pago" example:"UNICO"`
-	CantidadCuotas int                          `json:"cantidad_cuotas,omitempty" example:"3"`
-	Descuento      *float64                     `json:"descuento,omitempty" example:"50"`
-	Notas          *string                      `json:"notas,omitempty" example:"Pago contado"`
+	ClienteID      int                         `json:"cliente_id" example:"12"`
+	LocalID        int                         `json:"local_id" example:"1"`
+	ComboID        *int                        `json:"combo_id,omitempty" example:"12"`
+	Servicios      []planServicioManualRequest `json:"servicios,omitempty"`
+	FechaInicio    *string                     `json:"fecha_inicio,omitempty" example:"2026-07-15"`
+	FechaFin       *string                     `json:"fecha_fin,omitempty" example:"2026-08-14"`
+	TipoPago       string                      `json:"tipo_pago" example:"UNICO"`
+	CantidadCuotas int                         `json:"cantidad_cuotas,omitempty" example:"3"`
+	Descuento      *float64                    `json:"descuento,omitempty" example:"50"`
+	Notas          *string                     `json:"notas,omitempty" example:"Pago contado"`
 	// Codigo del pago de caja a aplicar a la cuota (UNICO); marca la cuota PAGADO.
-	PagoCodigo     *string                      `json:"pago_codigo,omitempty" example:"PAG-000123"`
+	PagoCodigo *string `json:"pago_codigo,omitempty" example:"PAG-000123"`
 }
 
 type actualizarPlanRequest struct {
@@ -248,6 +250,7 @@ func (h *Container) CreatePlan(c *gin.Context) {
 				PrecioUnitarioTexto: s.PrecioUnitarioTexto,
 				SesionesContratadas:    s.SesionesContratadas,
 				Orden:                  s.Orden,
+				SesionNumero:           s.SesionNumero,
 			})
 		}
 	}

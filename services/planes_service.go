@@ -23,10 +23,10 @@ const (
 )
 
 var (
-	ErrPlanInvalido          = errors.New("datos de plan invalidos")
-	ErrPlanNoEncontrado      = errors.New("plan no encontrado")
+	ErrPlanInvalido           = errors.New("datos de plan invalidos")
+	ErrPlanNoEncontrado       = errors.New("plan no encontrado")
 	ErrPlanTransicionInvalida = errors.New("transicion de estado no permitida")
-	ErrPlanOrigenInvalido    = errors.New("origen del plan invalido: combo_id y servicios son mutuamente excluyentes")
+	ErrPlanOrigenInvalido     = errors.New("origen del plan invalido: combo_id y servicios son mutuamente excluyentes")
 )
 
 type FiltroPlanes struct {
@@ -47,6 +47,7 @@ type PlanServicioInput struct {
 	PrecioUnitarioTexto *float64
 	SesionesContratadas    int
 	Orden                  int
+	SesionNumero           int
 }
 
 type CrearPlanInput struct {
@@ -157,6 +158,7 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 				PrecioUnitarioTexto: pu,
 				SesionesContratadas:    cs.Sesiones,
 				Orden:                  cs.Orden,
+				SesionNumero:           cs.SesionNumero,
 			})
 			subtotal += *pu * float64(cs.Sesiones)
 		}
@@ -178,6 +180,10 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 				pu = &zero
 			}
 			ordenes[s.Orden] = true
+			sesionNumero := s.SesionNumero
+			if sesionNumero < 1 {
+				sesionNumero = 1
+			}
 			servicios = append(servicios, repository.CrearPlanServicioInput{
 				ServicioIDOrigen:       s.ServicioIDOrigen,
 				NombreTexto:         s.NombreTexto,
@@ -185,6 +191,7 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 				PrecioUnitarioTexto: pu,
 				SesionesContratadas:    s.SesionesContratadas,
 				Orden:                  s.Orden,
+				SesionNumero:           sesionNumero,
 			})
 			subtotal += *pu * float64(s.SesionesContratadas)
 		}

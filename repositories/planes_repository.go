@@ -8,10 +8,10 @@ import (
 )
 
 var (
-	ErrPlanNoEncontrado         = errors.New("plan no encontrado")
-	ErrPlanDatosInvalidos       = errors.New("datos de plan invalidos")
-	ErrPlanTransicionInvalida   = errors.New("transicion de estado no permitida")
-	ErrPlanEstadoBloqueado      = errors.New("el plan no permite modificaciones en su estado actual")
+	ErrPlanNoEncontrado       = errors.New("plan no encontrado")
+	ErrPlanDatosInvalidos     = errors.New("datos de plan invalidos")
+	ErrPlanTransicionInvalida = errors.New("transicion de estado no permitida")
+	ErrPlanEstadoBloqueado    = errors.New("el plan no permite modificaciones en su estado actual")
 )
 
 type FiltroPlanes struct {
@@ -52,6 +52,7 @@ type CrearPlanServicioInput struct {
 	PrecioUnitarioTexto *float64
 	SesionesContratadas    int
 	Orden                  int
+	SesionNumero           int
 }
 
 type CrearPlanCuotaInput struct {

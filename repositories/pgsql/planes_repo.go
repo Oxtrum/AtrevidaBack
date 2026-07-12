@@ -178,10 +178,10 @@ func (r *PlanesRepo) CreatePlan(input repository.CrearPlanInput) (int, error) {
 		if _, err := tx.Exec(`
 			INSERT INTO plan_servicios (
 				plan_id, servicio_id_origen, nombre_texto, tiempo_texto,
-				precio_unitario_texto, sesiones_contratadas, orden
-			) VALUES ($1,$2,$3,$4,$5,$6,$7)
+				precio_unitario_texto, sesiones_contratadas, orden, sesion_numero
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 		`, planID, s.ServicioIDOrigen, s.NombreTexto, pointerString(s.TiempoTexto),
-			s.PrecioUnitarioTexto, s.SesionesContratadas, s.Orden); err != nil {
+			s.PrecioUnitarioTexto, s.SesionesContratadas, s.Orden, s.SesionNumero); err != nil {
 			return 0, fmt.Errorf("error al insertar servicio del plan: %w", err)
 		}
 	}
@@ -347,7 +347,8 @@ func (r *PlanesRepo) cargarServicios(planID int) ([]models.PlanServicioPG, error
 	var servicios []models.PlanServicioPG
 	if err := r.db.Select(&servicios, `
 		SELECT id, plan_id, servicio_id_origen, nombre_texto, tiempo_texto,
-			precio_unitario_texto, sesiones_contratadas, orden
+			precio_unitario_texto, sesiones_contratadas, orden,
+			sesion_numero, realizado, fecha_realizado
 		FROM plan_servicios
 		WHERE plan_id = $1
 		ORDER BY orden, id

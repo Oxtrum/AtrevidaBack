@@ -7104,6 +7104,11 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 8
                 },
+                "sesion_numero": {
+                    "description": "Numero de sesion dentro del servicio (para seguimiento por sesion); default 1 si no se especifica.",
+                    "type": "integer",
+                    "example": 1
+                },
                 "sesiones_contratadas": {
                     "type": "integer",
                     "example": 2
@@ -8362,6 +8367,10 @@ const docTemplate = `{
         "models.PlanServicioPG": {
             "type": "object",
             "properties": {
+                "fecha_realizado": {
+                    "type": "string",
+                    "example": "2026-07-12T15:04:05Z"
+                },
                 "id": {
                     "type": "integer",
                     "example": 35
@@ -8382,9 +8391,17 @@ const docTemplate = `{
                     "type": "number",
                     "example": 200
                 },
+                "realizado": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "servicio_id_origen": {
                     "type": "integer",
                     "example": 8
+                },
+                "sesion_numero": {
+                    "type": "integer",
+                    "example": 1
                 },
                 "sesiones_contratadas": {
                     "type": "integer",

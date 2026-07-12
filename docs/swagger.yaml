@@ -1270,6 +1270,11 @@ definitions:
       servicio_id_origen:
         example: 8
         type: integer
+      sesion_numero:
+        description: Numero de sesion dentro del servicio (para seguimiento por sesion);
+          default 1 si no se especifica.
+        example: 1
+        type: integer
       sesiones_contratadas:
         example: 2
         type: integer
@@ -2206,6 +2211,9 @@ definitions:
     type: object
   models.PlanServicioPG:
     properties:
+      fecha_realizado:
+        example: "2026-07-12T15:04:05Z"
+        type: string
       id:
         example: 35
         type: integer
@@ -2221,8 +2229,14 @@ definitions:
       precio_unitario_snapshot:
         example: 200
         type: number
+      realizado:
+        example: false
+        type: boolean
       servicio_id_origen:
         example: 8
+        type: integer
+      sesion_numero:
+        example: 1
         type: integer
       sesiones_contratadas:
         example: 2
