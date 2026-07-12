@@ -30,26 +30,26 @@ type FiltroCombos struct {
 }
 
 type CrearComboCatalogoInput struct {
-	Nombre          string
-	Descripcion     *string
-	CategoriaID     *int
-	TipoPrecio      string
-	PrecioPaquete   *float64
-	Moneda          string
-	DuracionMin     *int
-	LocalIDs        []int
-	Servicios       []repository.ComboServicioCatalogoInput
+	Nombre        string
+	Descripcion   *string
+	CategoriaID   *int
+	TipoPrecio    string
+	PrecioPaquete *float64
+	Moneda        string
+	DuracionMin   *int
+	LocalIDs      []int
+	Servicios     []repository.ComboServicioCatalogoInput
 }
 
 type ActualizarComboCatalogoInput struct {
-	ID              int
-	Nombre          *string
-	Descripcion     *string
-	CategoriaID     *int
-	TipoPrecio      *string
-	PrecioPaquete   *float64
-	Moneda          *string
-	DuracionMin     *int
+	ID            int
+	Nombre        *string
+	Descripcion   *string
+	CategoriaID   *int
+	TipoPrecio    *string
+	PrecioPaquete *float64
+	Moneda        *string
+	DuracionMin   *int
 }
 
 type CombosService struct {

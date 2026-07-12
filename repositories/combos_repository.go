@@ -41,7 +41,7 @@ type CrearComboInput struct {
 	TipoPrecio    string
 	PrecioPaquete *float64
 	Moneda        string
-	DuracionMin     *int
+	DuracionMin   *int
 	LocalIDs      []int
 	Servicios     []ComboServicioCatalogoInput
 }
@@ -54,7 +54,7 @@ type ActualizarComboInput struct {
 	TipoPrecio    *string
 	PrecioPaquete *float64
 	Moneda        *string
-	DuracionMin     *int
+	DuracionMin   *int
 }
 
 type CombosRepository interface {
