@@ -117,7 +117,8 @@ func (r *CombosRepo) CreateCombo(input repository.CrearComboInput) (int, error) 
 	if input.TipoPrecio == "PRECIO_PAQUETE" {
 		precioFinal = *input.PrecioPaquete
 	}
-	// Sesiones del paquete = input directo (nivel paquete), no la suma de líneas.
+	// Sesiones del paquete = cantidad de sesiones distintas presentes en las líneas.
+	sesionesTotales := contarSesiones(servicios)
 	var comboID int
 	err = tx.QueryRowx(`
 		INSERT INTO combos (
@@ -126,7 +127,7 @@ func (r *CombosRepo) CreateCombo(input repository.CrearComboInput) (int, error) 
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)
 		RETURNING id
 	`, input.Nombre, nullStr(pointerString(input.Descripcion)), input.CategoriaID,
-		input.TipoPrecio, input.PrecioPaquete, input.Moneda, precioFinal, input.SesionesTotales, input.DuracionMin).Scan(&comboID)
+		input.TipoPrecio, input.PrecioPaquete, input.Moneda, precioFinal, sesionesTotales, input.DuracionMin).Scan(&comboID)
 	if err != nil {
 		return 0, fmt.Errorf("error al crear combo: %w", err)
 	}
@@ -200,9 +201,6 @@ func (r *CombosRepo) UpdateCombo(input repository.ActualizarComboInput) error {
 	}
 	if input.Moneda != nil {
 		add("moneda", *input.Moneda)
-	}
-	if input.SesionesTotales != nil {
-		add("sesiones_totales", *input.SesionesTotales)
 	}
 	if input.DuracionMin != nil {
 		add("duracion_min", *input.DuracionMin)
@@ -307,7 +305,7 @@ func (r *CombosRepo) cargarDetalleCombo(combo *models.ComboCatalogoPG, incluirIn
 	if err := r.db.Select(&servicios, fmt.Sprintf(`
 		SELECT cs.id, cs.combo_id, cb.nombre AS combo_nombre, cs.servicio_id,
 			cs.servicio_texto, COALESCE(cs.servicio_texto, '') AS servicio_nombre,
-			cs.tiempo, cs.costo, cs.sesiones, cs.orden, cs.activo
+			cs.tiempo, cs.costo, cs.sesiones, cs.sesion_numero, cs.orden, cs.activo
 		FROM combo_servicios cs JOIN combos cb ON cb.id = cs.combo_id
 		WHERE %s ORDER BY cs.orden, cs.id
 	`, condition), combo.ID); err != nil {
@@ -353,13 +351,14 @@ type servicioMaterializado struct {
 	Tiempo        *string
 	Costo         *float64
 	Sesiones      int
+	SesionNumero  int
 	Orden         int
 }
 
 func materializarServiciosTx(tx *sqlx.Tx, inputs []repository.ComboServicioCatalogoInput) ([]servicioMaterializado, error) {
 	resultado := make([]servicioMaterializado, 0, len(inputs))
 	for _, input := range inputs {
-		item := servicioMaterializado{ServicioID: input.ServicioID, ServicioTexto: input.ServicioTexto, Tiempo: input.Tiempo, Costo: input.Costo, Sesiones: input.Sesiones, Orden: input.Orden}
+		item := servicioMaterializado{ServicioID: input.ServicioID, ServicioTexto: input.ServicioTexto, Tiempo: input.Tiempo, Costo: input.Costo, Sesiones: input.Sesiones, SesionNumero: input.SesionNumero, Orden: input.Orden}
 		if input.ServicioID != nil {
 			var servicio struct {
 				Nombre string   `db:"nombre"`
@@ -414,9 +413,9 @@ func resumenServicios(servicios []servicioMaterializado) (float64, int) {
 func insertarServiciosTx(tx *sqlx.Tx, comboID int, servicios []servicioMaterializado) error {
 	for _, servicio := range servicios {
 		if _, err := tx.Exec(`
-			INSERT INTO combo_servicios (combo_id, servicio_id, servicio_texto, tiempo, costo, sesiones, orden, activo)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE)
-		`, comboID, servicio.ServicioID, servicio.ServicioTexto, pointerString(servicio.Tiempo), servicio.Costo, servicio.Sesiones, servicio.Orden); err != nil {
+			INSERT INTO combo_servicios (combo_id, servicio_id, servicio_texto, tiempo, costo, sesiones, sesion_numero, orden, activo)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE)
+		`, comboID, servicio.ServicioID, servicio.ServicioTexto, pointerString(servicio.Tiempo), servicio.Costo, servicio.Sesiones, servicio.SesionNumero, servicio.Orden); err != nil {
 			return fmt.Errorf("error al insertar servicio de combo: %w", err)
 		}
 	}
@@ -433,7 +432,7 @@ func actualizarResumenTx(tx *sqlx.Tx, comboID int) error {
 	if err := tx.Get(&resumen, `
 		SELECT cb.tipo_precio, cb.precio_paquete,
 			COALESCE(SUM(cs.costo * cs.sesiones) FILTER (WHERE cs.activo = TRUE), 0) AS precio_items,
-			COALESCE(SUM(cs.sesiones) FILTER (WHERE cs.activo = TRUE), 0) AS sesiones
+			COALESCE((SELECT COUNT(DISTINCT cs.sesion_numero) FROM combo_servicios cs WHERE cs.combo_id = cb.id AND cs.activo = TRUE), 1) AS sesiones
 		FROM combos cb LEFT JOIN combo_servicios cs ON cs.combo_id = cb.id
 		WHERE cb.id = $1 GROUP BY cb.id
 	`, comboID); err != nil {
@@ -446,8 +445,8 @@ func actualizarResumenTx(tx *sqlx.Tx, comboID int) error {
 		}
 		precioFinal = *resumen.PrecioPaquete
 	}
-	// sesiones_totales ya no se deriva de las líneas: es input del combo a nivel paquete.
-	if _, err := tx.Exec(`UPDATE combos SET costo_total = $1, actualizado_en = NOW() WHERE id = $2`, precioFinal, comboID); err != nil {
+	// sesiones_totales se deriva de la cantidad de sesiones distintas en las líneas activas.
+	if _, err := tx.Exec(`UPDATE combos SET costo_total = $1, sesiones_totales = $2, actualizado_en = NOW() WHERE id = $3`, precioFinal, resumen.Sesiones, comboID); err != nil {
 		return fmt.Errorf("error al actualizar resumen de combo: %w", err)
 	}
 	return nil
@@ -505,4 +504,20 @@ func pointerString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+// contarSesiones cuenta las sesiones distintas presentes en las líneas del combo.
+func contarSesiones(servicios []servicioMaterializado) int {
+	set := map[int]bool{}
+	for _, s := range servicios {
+		n := s.SesionNumero
+		if n < 1 {
+			n = 1
+		}
+		set[n] = true
+	}
+	if len(set) == 0 {
+		return 1
+	}
+	return len(set)
 }

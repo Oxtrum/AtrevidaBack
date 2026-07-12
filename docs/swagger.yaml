@@ -66,10 +66,6 @@ definitions:
         description: Nuevo precio final de paquete cuando corresponda.
         example: 750
         type: number
-      sesiones_totales:
-        description: Nuevas sesiones/visitas del paquete.
-        example: 4
-        type: integer
       tipo_precio:
         description: 'Nueva regla de precio opcional: POR_ITEMS o PRECIO_PAQUETE.'
         example: POR_ITEMS
@@ -577,6 +573,10 @@ definitions:
           del servicio origen.
         example: Masaje relajante personalizado
         type: string
+      sesion_numero:
+        description: Numero de sesion (1-based) a la que pertenece el servicio.
+        example: 1
+        type: integer
       sesiones:
         description: Cantidad de sesiones incluidas en esta linea.
         example: 2
@@ -655,10 +655,6 @@ definitions:
         items:
           $ref: '#/definitions/handlers.comboServicioCatalogoRequest'
         type: array
-      sesiones_totales:
-        description: Sesiones/visitas del paquete (nivel paquete, no la suma de líneas).
-        example: 4
-        type: integer
       tipo_precio:
         description: 'Regla de precio: POR_ITEMS o PRECIO_PAQUETE.'
         example: PRECIO_PAQUETE
@@ -1699,6 +1695,9 @@ definitions:
       servicio_texto:
         example: Masaje relajante personalizado
         type: string
+      sesion_numero:
+        example: 1
+        type: integer
       sesiones:
         example: 2
         type: integer

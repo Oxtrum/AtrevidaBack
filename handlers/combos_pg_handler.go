@@ -24,6 +24,8 @@ type comboServicioCatalogoRequest struct {
 	Costo *float64 `json:"costo,omitempty" example:"250"`
 	// Cantidad de sesiones incluidas en esta linea.
 	Sesiones int `json:"sesiones" example:"2"`
+	// Numero de sesion (1-based) a la que pertenece el servicio.
+	SesionNumero int `json:"sesion_numero" example:"1"`
 	// Posicion unica de la linea dentro del combo, iniciando en cero.
 	Orden int `json:"orden" example:"0"`
 }
@@ -41,8 +43,6 @@ type crearComboCatalogoRequest struct {
 	PrecioPaquete *float64 `json:"precio_paquete,omitempty" example:"700"`
 	// Moneda ISO de tres letras; BOB por defecto.
 	Moneda string `json:"moneda,omitempty" example:"BOB"`
-	// Sesiones/visitas del paquete (nivel paquete, no la suma de líneas).
-	SesionesTotales int `json:"sesiones_totales" example:"4"`
 	// Duracion sugerida por sesion en minutos; opcional.
 	DuracionMin *int `json:"duracion_min,omitempty" example:"90"`
 	// IDs de los locales activos donde se publica el combo.
@@ -64,8 +64,6 @@ type actualizarComboCatalogoRequest struct {
 	PrecioPaquete *float64 `json:"precio_paquete,omitempty" example:"750"`
 	// Nueva moneda ISO de tres letras.
 	Moneda *string `json:"moneda,omitempty" example:"BOB"`
-	// Nuevas sesiones/visitas del paquete.
-	SesionesTotales *int `json:"sesiones_totales,omitempty" example:"4"`
 	// Nueva duracion sugerida por sesion en minutos.
 	DuracionMin *int `json:"duracion_min,omitempty" example:"90"`
 }
@@ -166,7 +164,7 @@ func (h *Container) CreateComboPG(c *gin.Context) {
 	}
 	id, err := h.CombosPG.CrearCombo(services.CrearComboCatalogoInput{
 		Nombre: req.Nombre, Descripcion: req.Descripcion, CategoriaID: req.CategoriaID, TipoPrecio: req.TipoPrecio,
-		PrecioPaquete: req.PrecioPaquete, Moneda: req.Moneda, SesionesTotales: req.SesionesTotales, DuracionMin: req.DuracionMin,
+		PrecioPaquete: req.PrecioPaquete, Moneda: req.Moneda, DuracionMin: req.DuracionMin,
 		LocalIDs: req.LocalIDs, Servicios: toComboServiciosInput(req.Servicios),
 	})
 	if err != nil {
@@ -203,7 +201,7 @@ func (h *Container) PatchComboPG(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
 		return
 	}
-	err = h.CombosPG.ActualizarCombo(services.ActualizarComboCatalogoInput{ID: id, Nombre: req.Nombre, Descripcion: req.Descripcion, CategoriaID: req.CategoriaID, TipoPrecio: req.TipoPrecio, PrecioPaquete: req.PrecioPaquete, Moneda: req.Moneda, SesionesTotales: req.SesionesTotales, DuracionMin: req.DuracionMin})
+	err = h.CombosPG.ActualizarCombo(services.ActualizarComboCatalogoInput{ID: id, Nombre: req.Nombre, Descripcion: req.Descripcion, CategoriaID: req.CategoriaID, TipoPrecio: req.TipoPrecio, PrecioPaquete: req.PrecioPaquete, Moneda: req.Moneda, DuracionMin: req.DuracionMin})
 	if err != nil {
 		responderErrorCombo(c, err)
 		return
@@ -309,7 +307,7 @@ func (h *Container) PutComboServiciosPG(c *gin.Context) {
 func toComboServiciosInput(requests []comboServicioCatalogoRequest) []repository.ComboServicioCatalogoInput {
 	result := make([]repository.ComboServicioCatalogoInput, 0, len(requests))
 	for _, request := range requests {
-		result = append(result, repository.ComboServicioCatalogoInput{ServicioID: request.ServicioID, ServicioTexto: request.ServicioTexto, Tiempo: request.Tiempo, Costo: request.Costo, Sesiones: request.Sesiones, Orden: request.Orden})
+		result = append(result, repository.ComboServicioCatalogoInput{ServicioID: request.ServicioID, ServicioTexto: request.ServicioTexto, Tiempo: request.Tiempo, Costo: request.Costo, Sesiones: request.Sesiones, SesionNumero: request.SesionNumero, Orden: request.Orden})
 	}
 	return result
 }

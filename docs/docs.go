@@ -5499,11 +5499,6 @@ const docTemplate = `{
                     "type": "number",
                     "example": 750
                 },
-                "sesiones_totales": {
-                    "description": "Nuevas sesiones/visitas del paquete.",
-                    "type": "integer",
-                    "example": 4
-                },
                 "tipo_precio": {
                     "description": "Nueva regla de precio opcional: POR_ITEMS o PRECIO_PAQUETE.",
                     "type": "string",
@@ -6181,6 +6176,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Masaje relajante personalizado"
                 },
+                "sesion_numero": {
+                    "description": "Numero de sesion (1-based) a la que pertenece el servicio.",
+                    "type": "integer",
+                    "example": 1
+                },
                 "sesiones": {
                     "description": "Cantidad de sesiones incluidas en esta linea.",
                     "type": "integer",
@@ -6281,11 +6281,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/handlers.comboServicioCatalogoRequest"
                     }
-                },
-                "sesiones_totales": {
-                    "description": "Sesiones/visitas del paquete (nivel paquete, no la suma de líneas).",
-                    "type": "integer",
-                    "example": 4
                 },
                 "tipo_precio": {
                     "description": "Regla de precio: POR_ITEMS o PRECIO_PAQUETE.",
@@ -7689,6 +7684,10 @@ const docTemplate = `{
                 "servicio_texto": {
                     "type": "string",
                     "example": "Masaje relajante personalizado"
+                },
+                "sesion_numero": {
+                    "type": "integer",
+                    "example": 1
                 },
                 "sesiones": {
                     "type": "integer",

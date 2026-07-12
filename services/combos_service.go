@@ -36,7 +36,6 @@ type CrearComboCatalogoInput struct {
 	TipoPrecio      string
 	PrecioPaquete   *float64
 	Moneda          string
-	SesionesTotales int
 	DuracionMin     *int
 	LocalIDs        []int
 	Servicios       []repository.ComboServicioCatalogoInput
@@ -50,7 +49,6 @@ type ActualizarComboCatalogoInput struct {
 	TipoPrecio      *string
 	PrecioPaquete   *float64
 	Moneda          *string
-	SesionesTotales *int
 	DuracionMin     *int
 }
 
@@ -92,11 +90,8 @@ func (s *CombosService) ActualizarCombo(input ActualizarComboCatalogoInput) erro
 	if input.ID < 1 {
 		return fmt.Errorf("id debe ser un entero positivo: %w", ErrComboInvalido)
 	}
-	if input.Nombre == nil && input.Descripcion == nil && input.CategoriaID == nil && input.TipoPrecio == nil && input.PrecioPaquete == nil && input.Moneda == nil && input.SesionesTotales == nil && input.DuracionMin == nil {
+	if input.Nombre == nil && input.Descripcion == nil && input.CategoriaID == nil && input.TipoPrecio == nil && input.PrecioPaquete == nil && input.Moneda == nil && input.DuracionMin == nil {
 		return fmt.Errorf("debe especificarse al menos un campo a modificar: %w", ErrComboInvalido)
-	}
-	if input.SesionesTotales != nil && *input.SesionesTotales < 1 {
-		return fmt.Errorf("sesiones_totales debe ser un entero positivo: %w", ErrComboInvalido)
 	}
 	if input.DuracionMin != nil && *input.DuracionMin < 0 {
 		return fmt.Errorf("duracion_min no puede ser negativa: %w", ErrComboInvalido)
@@ -211,9 +206,6 @@ func normalizarCrearCombo(input CrearComboCatalogoInput) (repository.CrearComboI
 	if len(moneda) != 3 {
 		return repository.CrearComboInput{}, fmt.Errorf("moneda debe tener tres caracteres: %w", ErrComboInvalido)
 	}
-	if input.SesionesTotales < 1 {
-		return repository.CrearComboInput{}, fmt.Errorf("sesiones_totales debe ser un entero positivo: %w", ErrComboInvalido)
-	}
 	if input.DuracionMin != nil && *input.DuracionMin < 0 {
 		return repository.CrearComboInput{}, fmt.Errorf("duracion_min no puede ser negativa: %w", ErrComboInvalido)
 	}
@@ -226,7 +218,7 @@ func normalizarCrearCombo(input CrearComboCatalogoInput) (repository.CrearComboI
 		v := strings.TrimSpace(*input.Descripcion)
 		descripcion = &v
 	}
-	return repository.CrearComboInput{Nombre: nombre, Descripcion: descripcion, CategoriaID: input.CategoriaID, TipoPrecio: tipoPrecio, PrecioPaquete: input.PrecioPaquete, Moneda: moneda, SesionesTotales: input.SesionesTotales, DuracionMin: input.DuracionMin, LocalIDs: input.LocalIDs, Servicios: servicios}, nil
+	return repository.CrearComboInput{Nombre: nombre, Descripcion: descripcion, CategoriaID: input.CategoriaID, TipoPrecio: tipoPrecio, PrecioPaquete: input.PrecioPaquete, Moneda: moneda, DuracionMin: input.DuracionMin, LocalIDs: input.LocalIDs, Servicios: servicios}, nil
 }
 
 func normalizarServicios(servicios []repository.ComboServicioCatalogoInput) ([]repository.ComboServicioCatalogoInput, error) {
@@ -246,6 +238,9 @@ func normalizarServicios(servicios []repository.ComboServicioCatalogoInput) ([]r
 		// Servicio como referencia: sin sesiones por línea, default 1 (constraint sesiones > 0).
 		if servicio.Sesiones < 1 {
 			servicio.Sesiones = 1
+		}
+		if servicio.SesionNumero < 1 {
+			servicio.SesionNumero = 1
 		}
 		if servicio.Orden < 0 || ordenes[servicio.Orden] {
 			return nil, fmt.Errorf("orden debe ser no negativo y unico: %w", ErrComboServicioInvalido)

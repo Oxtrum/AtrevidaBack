@@ -166,6 +166,7 @@ type ComboServicioDetallePG struct {
 	Tiempo         *string  `db:"tiempo" json:"tiempo,omitempty" example:"01:00"`
 	Costo          *float64 `db:"costo" json:"costo,omitempty" example:"250"`
 	Sesiones       int      `db:"sesiones" json:"sesiones" example:"2"`
+	SesionNumero   int      `db:"sesion_numero" json:"sesion_numero" example:"1"`
 	Orden          int      `db:"orden" json:"orden" example:"1"`
 	Activo         bool     `db:"activo" json:"activo" example:"true"`
 }
