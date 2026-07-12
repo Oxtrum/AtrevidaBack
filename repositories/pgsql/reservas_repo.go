@@ -225,36 +225,6 @@ func (r *ReservasRepo) getDetalleReserva(reservaID int) ([]models.DetalleReserva
 }
 
 // POST
-// ajustarSesionesPlanTx suma delta a sesiones_usadas del plan, con piso en 0.
-// Fuente única de mutación del contador; reusada por create/anular/estado.
-func ajustarSesionesPlanTx(tx *sqlx.Tx, planID *int, delta int) error {
-	if planID == nil || delta == 0 {
-		return nil
-	}
-	if _, err := tx.Exec(
-		`UPDATE planes SET sesiones_usadas = GREATEST(sesiones_usadas + $1, 0) WHERE id = $2`,
-		delta, *planID,
-	); err != nil {
-		return fmt.Errorf("error al ajustar sesiones del plan: %w", err)
-	}
-	return nil
-}
-
-// reservaConsume indica si una reserva descuenta una sesión del plan:
-// solo mientras está activa y no rechazada.
-func reservaConsume(activo bool, estado string) bool {
-	return activo && estado != "RECHAZADO"
-}
-
-// nullIntToPtr convierte un sql.NullInt64 nullable en *int.
-func nullIntToPtr(n sql.NullInt64) *int {
-	if !n.Valid {
-		return nil
-	}
-	v := int(n.Int64)
-	return &v
-}
-
 func (r *ReservasRepo) CreateReserva(input repository.CreateReservaInput) (int, error) {
 	tx, err := r.db.Beginx()
 	if err != nil {
@@ -301,12 +271,6 @@ func (r *ReservasRepo) CreateReserva(input repository.CreateReservaInput) (int, 
 		`, reservaID, d.ServicioNombre, nullStr(d.ServicioTiempo), d.Precio, d.Sesiones, nullStr(d.Notas))
 		if err != nil {
 			return 0, fmt.Errorf("error al insertar detalle: %w", err)
-		}
-	}
-
-	if reservaConsume(true, input.Estado) {
-		if err := ajustarSesionesPlanTx(tx, input.PlanID, +1); err != nil {
-			return 0, err
 		}
 	}
 
@@ -469,34 +433,16 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 }
 
 func (r *ReservasRepo) AnularReserva(id int) error {
-	tx, err := r.db.Beginx()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	var planID sql.NullInt64
-	var estado string
-	if err := tx.QueryRowx(
-		`SELECT plan_id, estado FROM reservas WHERE id = $1 AND activo = TRUE`, id,
-	).Scan(&planID, &estado); err != nil {
-		return fmt.Errorf("reserva con id %d no encontrada o inactiva", id)
-	}
-
-	if _, err := tx.Exec(
+	res, err := r.db.Exec(
 		`UPDATE reservas SET activo = FALSE, actualizado_en = NOW() WHERE id = $1 AND activo = TRUE`, id,
-	); err != nil {
+	)
+	if err != nil {
 		return fmt.Errorf("error al eliminar reserva: %w", err)
 	}
-
-	// La leímos con activo=TRUE: si consumía, libera la sesión al anular.
-	if reservaConsume(true, estado) {
-		if err := ajustarSesionesPlanTx(tx, nullIntToPtr(planID), -1); err != nil {
-			return err
-		}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("reserva con id %d no encontrada o inactiva", id)
 	}
-
-	return tx.Commit()
+	return nil
 }
 
 func (r *ReservasRepo) UpdateReservaNotificado(id int, notificado bool) error {
@@ -541,14 +487,6 @@ func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoI
 		return err
 	}
 	defer tx.Rollback()
-
-	var planID sql.NullInt64
-	var estadoAnterior string
-	if err := tx.QueryRowx(
-		`SELECT plan_id, estado FROM reservas WHERE id = $1 AND activo = TRUE`, input.ID,
-	).Scan(&planID, &estadoAnterior); err != nil {
-		return fmt.Errorf("reserva no encontrada")
-	}
 
 	if input.TipoEspacio != nil {
 		var localID int
@@ -605,18 +543,6 @@ func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoI
 	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("reserva no encontrada")
-	}
-
-	// Ajusta el plan según la transición: rechazar libera (−1), reactivar consume (+1).
-	delta := 0
-	if reservaConsume(true, input.Estado) {
-		delta++
-	}
-	if reservaConsume(true, estadoAnterior) {
-		delta--
-	}
-	if err := ajustarSesionesPlanTx(tx, nullIntToPtr(planID), delta); err != nil {
-		return err
 	}
 
 	return tx.Commit()

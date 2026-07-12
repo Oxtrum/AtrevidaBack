@@ -3796,7 +3796,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Actualiza el estado realizado de todas las líneas de una sesión del plan. Requiere token Bearer con rol admin_sys.",
+                "description": "Actualiza el estado realizado de todas las líneas de una sesión del plan. Requiere token Bearer con rol gerencia o admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8152,7 +8152,7 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 12
                 },
-                "cliente_nombre_snapshot": {
+                "cliente_nombre_texto": {
                     "type": "string",
                     "example": "Maria Lopez"
                 },
@@ -8172,7 +8172,7 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Combo Relax"
                 },
-                "combo_nombre_snapshot": {
+                "combo_nombre_texto": {
                     "type": "string",
                     "example": "Combo Relax"
                 },
@@ -8222,7 +8222,7 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
-                "local_nombre_snapshot": {
+                "local_nombre_texto": {
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
@@ -8324,7 +8324,7 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 12
                 },
-                "cliente_nombre_snapshot": {
+                "cliente_nombre_texto": {
                     "type": "string",
                     "example": "Maria Lopez"
                 },
@@ -8344,7 +8344,7 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Combo Relax"
                 },
-                "combo_nombre_snapshot": {
+                "combo_nombre_texto": {
                     "type": "string",
                     "example": "Combo Relax"
                 },
@@ -8388,7 +8388,7 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
-                "local_nombre_snapshot": {
+                "local_nombre_texto": {
                     "type": "string",
                     "example": "SAN MARTIN"
                 },
@@ -8458,7 +8458,7 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 35
                 },
-                "nombre_snapshot": {
+                "nombre_texto": {
                     "type": "string",
                     "example": "Masaje relajante"
                 },
@@ -8470,7 +8470,7 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 21
                 },
-                "precio_unitario_snapshot": {
+                "precio_unitario_texto": {
                     "type": "number",
                     "example": 200
                 },
@@ -8490,7 +8490,7 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 2
                 },
-                "tiempo_snapshot": {
+                "tiempo_texto": {
                     "type": "string",
                     "example": "01:00"
                 }

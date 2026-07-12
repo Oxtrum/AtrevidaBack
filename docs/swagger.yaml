@@ -1999,7 +1999,7 @@ definitions:
       cliente_id:
         example: 12
         type: integer
-      cliente_nombre_snapshot:
+      cliente_nombre_texto:
         example: Maria Lopez
         type: string
       codigo:
@@ -2014,7 +2014,7 @@ definitions:
       combo_nombre:
         example: Combo Relax
         type: string
-      combo_nombre_snapshot:
+      combo_nombre_texto:
         example: Combo Relax
         type: string
       costo_total:
@@ -2051,7 +2051,7 @@ definitions:
       local_id:
         example: 1
         type: integer
-      local_nombre_snapshot:
+      local_nombre_texto:
         example: SAN MARTIN
         type: string
       moneda:
@@ -2125,7 +2125,7 @@ definitions:
       cliente_id:
         example: 12
         type: integer
-      cliente_nombre_snapshot:
+      cliente_nombre_texto:
         example: Maria Lopez
         type: string
       codigo:
@@ -2140,7 +2140,7 @@ definitions:
       combo_nombre:
         example: Combo Relax
         type: string
-      combo_nombre_snapshot:
+      combo_nombre_texto:
         example: Combo Relax
         type: string
       costo_total:
@@ -2173,7 +2173,7 @@ definitions:
       local_id:
         example: 1
         type: integer
-      local_nombre_snapshot:
+      local_nombre_texto:
         example: SAN MARTIN
         type: string
       moneda:
@@ -2224,7 +2224,7 @@ definitions:
       id:
         example: 35
         type: integer
-      nombre_snapshot:
+      nombre_texto:
         example: Masaje relajante
         type: string
       orden:
@@ -2233,7 +2233,7 @@ definitions:
       plan_id:
         example: 21
         type: integer
-      precio_unitario_snapshot:
+      precio_unitario_texto:
         example: 200
         type: number
       realizado:
@@ -2248,7 +2248,7 @@ definitions:
       sesiones_contratadas:
         example: 2
         type: integer
-      tiempo_snapshot:
+      tiempo_texto:
         example: "01:00"
         type: string
     type: object
@@ -5139,7 +5139,7 @@ paths:
       consumes:
       - application/json
       description: Actualiza el estado realizado de todas las líneas de una sesión
-        del plan. Requiere token Bearer con rol admin_sys.
+        del plan. Requiere token Bearer con rol gerencia o admin_sys.
       parameters:
       - default: Bearer <token>
         description: Token Bearer
