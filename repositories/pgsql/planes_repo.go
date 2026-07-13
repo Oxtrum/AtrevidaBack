@@ -348,7 +348,7 @@ func esTransicionValida(actual, nuevo string) bool {
 // realizadas pasa ACTIVO -> COMPLETADO; si deja de estarlo, COMPLETADO -> ACTIVO.
 // Esta sincronización automática omite a propósito las reglas de transición
 // manual (COMPLETADO -> ACTIVO no es una transición manual válida). Los estados
-// BORRADOR/CANCELADO/VENCIDO no se tocan. Devuelve las filas afectadas por el
+// RESERVADO/CANCELADO/VENCIDO no se tocan. Devuelve las filas afectadas por el
 // marcado de sesión.
 func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, error) {
 	tx, err := r.db.Beginx()

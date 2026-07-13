@@ -84,7 +84,7 @@ type marcarSesionRequest struct {
 // @Param cliente query string false "Busqueda parcial por nombre del cliente" example(Maria)
 // @Param local query string false "Busqueda parcial por nombre del local" example(SAN MARTIN)
 // @Param local_id query int false "ID exacto del local" example(1)
-// @Param estado query string false "Filtrar por estado contractual: BORRADOR, ACTIVO, COMPLETADO, VENCIDO, CANCELADO" example(ACTIVO)
+// @Param estado query string false "Filtrar por estado contractual: RESERVADO, ACTIVO, COMPLETADO, VENCIDO, CANCELADO" example(ACTIVO)
 // @Param estado_cobranza query string false "Filtrar por estado de cobranza: PENDIENTE, PARCIAL, PAGADO, VENCIDO" example(PENDIENTE)
 // @Param fecha_desde query string false "Fecha de creacion desde (YYYY-MM-DD)" example(2026-07-01)
 // @Param fecha_hasta query string false "Fecha de creacion hasta (YYYY-MM-DD)" example(2026-07-31)
@@ -285,7 +285,7 @@ func (h *Container) CreatePlan(c *gin.Context) {
 
 // PatchPlan godoc
 // @Summary Actualizar campos editables de un plan
-// @Description Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol gerencia o admin_sys.
+// @Description Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido cuando el plan esta en estado RESERVADO. Requiere token Bearer con rol gerencia o admin_sys.
 // @Tags Planes BD
 // @Accept json
 // @Produce json
@@ -345,7 +345,7 @@ func (h *Container) PatchPlan(c *gin.Context) {
 
 // PatchPlanEstado godoc
 // @Summary Cambiar estado de un plan
-// @Description Transicion de estado del plan. Transiciones validas: BORRADOR -> ACTIVO, ACTIVO -> COMPLETADO, ACTIVO -> CANCELADO. Requiere token Bearer con rol gerencia o admin_sys.
+// @Description Transicion de estado del plan. Transiciones validas: RESERVADO -> ACTIVO, ACTIVO -> COMPLETADO, ACTIVO -> CANCELADO. Requiere token Bearer con rol gerencia o admin_sys.
 // @Tags Planes BD
 // @Accept json
 // @Produce json

@@ -4848,7 +4848,7 @@ paths:
         in: query
         name: local_id
         type: integer
-      - description: 'Filtrar por estado contractual: BORRADOR, ACTIVO, COMPLETADO,
+      - description: 'Filtrar por estado contractual: RESERVADO, ACTIVO, COMPLETADO,
           VENCIDO, CANCELADO'
         example: ACTIVO
         in: query
@@ -5009,7 +5009,7 @@ paths:
       consumes:
       - application/json
       description: Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido
-        cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol gerencia
+        cuando el plan esta en estado RESERVADO. Requiere token Bearer con rol gerencia
         o admin_sys.
       parameters:
       - default: Bearer <token>
@@ -5073,7 +5073,7 @@ paths:
     patch:
       consumes:
       - application/json
-      description: 'Transicion de estado del plan. Transiciones validas: BORRADOR
+      description: 'Transicion de estado del plan. Transiciones validas: RESERVADO
         -> ACTIVO, ACTIVO -> COMPLETADO, ACTIVO -> CANCELADO. Requiere token Bearer
         con rol gerencia o admin_sys.'
       parameters:

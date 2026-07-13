@@ -3367,7 +3367,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "example": "ACTIVO",
-                        "description": "Filtrar por estado contractual: BORRADOR, ACTIVO, COMPLETADO, VENCIDO, CANCELADO",
+                        "description": "Filtrar por estado contractual: RESERVADO, ACTIVO, COMPLETADO, VENCIDO, CANCELADO",
                         "name": "estado",
                         "in": "query"
                     },
@@ -3595,7 +3595,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido cuando el plan esta en estado BORRADOR. Requiere token Bearer con rol gerencia o admin_sys.",
+                "description": "Actualiza notas, fecha_inicio o fecha_fin de un plan. Solo permitido cuando el plan esta en estado RESERVADO. Requiere token Bearer con rol gerencia o admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3693,7 +3693,7 @@ const docTemplate = `{
         },
         "/bd/planes/{id}/estado": {
             "patch": {
-                "description": "Transicion de estado del plan. Transiciones validas: BORRADOR -\u003e ACTIVO, ACTIVO -\u003e COMPLETADO, ACTIVO -\u003e CANCELADO. Requiere token Bearer con rol gerencia o admin_sys.",
+                "description": "Transicion de estado del plan. Transiciones validas: RESERVADO -\u003e ACTIVO, ACTIVO -\u003e COMPLETADO, ACTIVO -\u003e CANCELADO. Requiere token Bearer con rol gerencia o admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
