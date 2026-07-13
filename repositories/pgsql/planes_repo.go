@@ -343,9 +343,21 @@ func esTransicionValida(actual, nuevo string) bool {
 	}
 }
 
-// MarcarSesion marca (o desmarca) todas las líneas de una sesión del plan. Devuelve filas afectadas.
+// MarcarSesion marca (o desmarca) todas las líneas de una sesión del plan y
+// sincroniza el estado del plan con el avance: cuando todas las sesiones quedan
+// realizadas pasa ACTIVO -> COMPLETADO; si deja de estarlo, COMPLETADO -> ACTIVO.
+// Esta sincronización automática omite a propósito las reglas de transición
+// manual (COMPLETADO -> ACTIVO no es una transición manual válida). Los estados
+// BORRADOR/CANCELADO/VENCIDO no se tocan. Devuelve las filas afectadas por el
+// marcado de sesión.
 func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, error) {
-	res, err := r.db.Exec(`
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`
 		UPDATE plan_servicios
 		SET realizado = $1,
 			fecha_realizado = CASE WHEN $1 THEN NOW() ELSE NULL END
@@ -355,6 +367,49 @@ func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, erro
 		return 0, fmt.Errorf("error al marcar sesion del plan: %w", err)
 	}
 	n, _ := res.RowsAffected()
+	if n == 0 {
+		// Sesión inexistente: no tocar el estado del plan.
+		if err := tx.Commit(); err != nil {
+			return 0, err
+		}
+		return 0, nil
+	}
+
+	// Avance de sesiones + estado actual para decidir la sincronización.
+	var info struct {
+		Estado string `db:"estado"`
+		Total  int    `db:"total"`
+		Hechas int    `db:"hechas"`
+	}
+	if err := tx.Get(&info, `
+		SELECT p.estado,
+			COUNT(ps.id) AS total,
+			COUNT(ps.id) FILTER (WHERE ps.realizado) AS hechas
+		FROM planes p
+		LEFT JOIN plan_servicios ps ON ps.plan_id = p.id
+		WHERE p.id = $1
+		GROUP BY p.estado
+	`, planID); err != nil {
+		return 0, fmt.Errorf("error al recalcular avance del plan: %w", err)
+	}
+
+	nuevoEstado := ""
+	if info.Total > 0 && info.Hechas == info.Total && info.Estado == "ACTIVO" {
+		nuevoEstado = "COMPLETADO"
+	} else if info.Hechas < info.Total && info.Estado == "COMPLETADO" {
+		nuevoEstado = "ACTIVO"
+	}
+	if nuevoEstado != "" {
+		if _, err := tx.Exec(`
+			UPDATE planes SET estado = $1, actualizado_en = NOW() WHERE id = $2
+		`, nuevoEstado, planID); err != nil {
+			return 0, fmt.Errorf("error al sincronizar estado del plan: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
 	return int(n), nil
 }
 

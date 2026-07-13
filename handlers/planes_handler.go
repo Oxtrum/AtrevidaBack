@@ -388,7 +388,7 @@ func (h *Container) PatchPlanEstado(c *gin.Context) {
 
 // MarcarSesionPlan godoc
 // @Summary Marcar una sesión del plan como realizada o pendiente
-// @Description Actualiza el estado realizado de todas las líneas de una sesión del plan. Requiere token Bearer con rol gerencia o admin_sys.
+// @Description Actualiza el estado realizado de todas las líneas de una sesión del plan. Sincroniza el estado del plan con el avance: si todas las sesiones quedan realizadas pasa ACTIVO a COMPLETADO, y al deshacer una sesión vuelve COMPLETADO a ACTIVO. Requiere token Bearer con rol gerencia o admin_sys.
 // @Tags Planes BD
 // @Accept json
 // @Produce json
