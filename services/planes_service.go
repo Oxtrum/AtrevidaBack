@@ -294,6 +294,16 @@ func (s *PlanesService) MarcarSesion(planID, numero int, realizado bool) error {
 	return nil
 }
 
+func (s *PlanesService) CobrarPlan(planID int, pagoCodigo string) error {
+	if planID < 1 {
+		return fmt.Errorf("id debe ser un entero positivo: %w", ErrPlanInvalido)
+	}
+	if strings.TrimSpace(pagoCodigo) == "" {
+		return fmt.Errorf("pago_codigo es requerido: %w", ErrPlanInvalido)
+	}
+	return traducirErrorRepositorioPlan(s.repo.CobrarPlan(planID, strings.TrimSpace(pagoCodigo)))
+}
+
 func traducirErrorRepositorioPlan(err error) error {
 	if err == nil {
 		return nil

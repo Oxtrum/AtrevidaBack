@@ -413,6 +413,46 @@ func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, erro
 	return int(n), nil
 }
 
+// CobrarPlan adjunta un pago existente a un plan RESERVADO, marca la cobranza
+// PAGADO y activa el plan, todo en una transaccion. Rechaza planes que no esten
+// en RESERVADO (evita doble cobro).
+func (r *PlanesRepo) CobrarPlan(planID int, pagoCodigo string) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var plan struct {
+		Estado      string  `db:"estado"`
+		PrecioTotal float64 `db:"precio_total"`
+	}
+	if err := tx.Get(&plan, `SELECT estado, precio_total FROM planes WHERE id = $1`, planID); err != nil {
+		return fmt.Errorf("%w: plan con id %d", repository.ErrPlanNoEncontrado, planID)
+	}
+	if plan.Estado != "RESERVADO" {
+		return fmt.Errorf("%w: el plan %d no esta RESERVADO (estado %s)", repository.ErrPlanTransicionInvalida, planID, plan.Estado)
+	}
+
+	if err := aplicarPagoUnicoTx(tx, planID, pagoCodigo, plan.PrecioTotal); err != nil {
+		return err
+	}
+
+	estadoCobranza, err := recomputarCobranzaTx(tx, planID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE planes SET estado = 'ACTIVO', estado_cobranza = $1, actualizado_en = NOW()
+		WHERE id = $2
+	`, estadoCobranza, planID); err != nil {
+		return fmt.Errorf("error al activar el plan cobrado: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 func (r *PlanesRepo) cargarServicios(planID int) ([]models.PlanServicioPG, error) {
 	var servicios []models.PlanServicioPG
 	if err := r.db.Select(&servicios, `
