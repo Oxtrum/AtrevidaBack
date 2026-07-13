@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	EstadoPlanBorrador   = "BORRADOR"
+	EstadoPlanReservado  = "RESERVADO"
 	EstadoPlanActivo     = "ACTIVO"
 	EstadoPlanCompletado = "COMPLETADO"
 	EstadoPlanVencido    = "VENCIDO"
@@ -226,6 +226,11 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 		}
 	}
 
+	estadoInicial := EstadoPlanReservado
+	if input.PagoCodigo != nil && input.TipoPago == TipoPagoUnico && precioTotal > 0 {
+		estadoInicial = EstadoPlanActivo
+	}
+
 	id, err := s.repo.CreatePlan(repository.CrearPlanInput{
 		ClienteID:           input.ClienteID,
 		LocalID:             input.LocalID,
@@ -233,7 +238,7 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 		ComboNombreTexto: comboNombreTexto,
 		FechaInicio:         input.FechaInicio,
 		FechaFin:            input.FechaFin,
-		Estado:              EstadoPlanBorrador,
+		Estado:              estadoInicial,
 		TipoPago:            input.TipoPago,
 		Subtotal:            subtotal,
 		Descuento:           input.Descuento,

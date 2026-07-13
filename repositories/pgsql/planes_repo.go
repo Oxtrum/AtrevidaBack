@@ -245,8 +245,8 @@ func (r *PlanesRepo) UpdatePlan(input repository.ActualizarPlanInput) error {
 	if err := tx.Get(&estado, `SELECT estado FROM planes WHERE id = $1`, input.ID); err != nil {
 		return fmt.Errorf("%w: plan con id %d", repository.ErrPlanNoEncontrado, input.ID)
 	}
-	if estado != "BORRADOR" {
-		return fmt.Errorf("%w: solo se puede modificar un plan en BORRADOR", repository.ErrPlanEstadoBloqueado)
+	if estado != "RESERVADO" {
+		return fmt.Errorf("%w: solo se puede modificar un plan en RESERVADO", repository.ErrPlanEstadoBloqueado)
 	}
 
 	sets := []string{"actualizado_en = NOW()"}
@@ -332,7 +332,7 @@ func recomputarCobranzaTx(tx *sqlx.Tx, planID int) (string, error) {
 
 func esTransicionValida(actual, nuevo string) bool {
 	switch actual {
-	case "BORRADOR":
+	case "RESERVADO":
 		return nuevo == "ACTIVO" || nuevo == "CANCELADO"
 	case "ACTIVO":
 		return nuevo == "COMPLETADO" || nuevo == "CANCELADO"
