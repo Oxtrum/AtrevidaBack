@@ -3691,6 +3691,77 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/planes/{id}/cobrar": {
+            "post": {
+                "description": "Adjunta un pago existente (por codigo) a un plan en estado RESERVADO, marca la cobranza como PAGADO y activa el plan. Falla si el plan no esta RESERVADO. Requiere token Bearer con rol gerencia o admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Planes BD"
+                ],
+                "summary": "Cobrar un plan reservado",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID del plan",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Codigo del pago a aplicar",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.cobrarPlanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/planes/{id}/estado": {
             "patch": {
                 "description": "Transicion de estado del plan. Transiciones validas: RESERVADO -\u003e ACTIVO, ACTIVO -\u003e COMPLETADO, ACTIVO -\u003e CANCELADO. Requiere token Bearer con rol gerencia o admin_sys.",
@@ -6160,6 +6231,15 @@ const docTemplate = `{
                     "description": "Total de clientes encontrados",
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "handlers.cobrarPlanRequest": {
+            "type": "object",
+            "properties": {
+                "pago_codigo": {
+                    "type": "string",
+                    "example": "PAGO-000123"
                 }
             }
         },

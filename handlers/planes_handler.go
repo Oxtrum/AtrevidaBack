@@ -75,6 +75,10 @@ type marcarSesionRequest struct {
 	Realizado bool `json:"realizado" example:"true"`
 }
 
+type cobrarPlanRequest struct {
+	PagoCodigo string `json:"pago_codigo" example:"PAGO-000123"`
+}
+
 // GetPlanes godoc
 // @Summary Listar planes
 // @Description Devuelve todos los planes que cumplan los filtros aplicados. Un plan es un contrato adquirido por un cliente; no es un combo de catalogo. Requiere token Bearer. Los usuarios no admin_sys solo ven planes de su local asignado.
@@ -422,6 +426,40 @@ func (h *Container) MarcarSesionPlan(c *gin.Context) {
 		return
 	}
 	utils.Respond(c, http.StatusOK, gin.H{"ok": true})
+}
+
+// CobrarPlan godoc
+// @Summary Cobrar un plan reservado
+// @Description Adjunta un pago existente (por codigo) a un plan en estado RESERVADO, marca la cobranza como PAGADO y activa el plan. Falla si el plan no esta RESERVADO. Requiere token Bearer con rol gerencia o admin_sys.
+// @Tags Planes BD
+// @Accept json
+// @Produce json
+// @Param id path int true "ID del plan"
+// @Param request body cobrarPlanRequest true "Codigo del pago a aplicar"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse
+// @Failure 403 {object} utils.APIResponse
+// @Failure 404 {object} utils.APIResponse
+// @Router /bd/planes/{id}/cobrar [post]
+func (h *Container) CobrarPlan(c *gin.Context) {
+	id, err := requiredPositiveParam(c, "id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req cobrarPlanRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+
+	if err := h.PlanesPG.CobrarPlan(id, req.PagoCodigo); err != nil {
+		responderErrorPlan(c, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "plan cobrado y activado correctamente"})
 }
 
 func responderErrorPlan(c *gin.Context, err error) {

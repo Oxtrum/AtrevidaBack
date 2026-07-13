@@ -511,6 +511,12 @@ definitions:
         example: 1
         type: integer
     type: object
+  handlers.cobrarPlanRequest:
+    properties:
+      pago_codigo:
+        example: PAGO-000123
+        type: string
+    type: object
   handlers.comboCatalogoFiltrosResponse:
     properties:
       categoria:
@@ -5067,6 +5073,52 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Actualizar campos editables de un plan
+      tags:
+      - Planes BD
+  /bd/planes/{id}/cobrar:
+    post:
+      consumes:
+      - application/json
+      description: Adjunta un pago existente (por codigo) a un plan en estado RESERVADO,
+        marca la cobranza como PAGADO y activa el plan. Falla si el plan no esta RESERVADO.
+        Requiere token Bearer con rol gerencia o admin_sys.
+      parameters:
+      - description: ID del plan
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Codigo del pago a aplicar
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.cobrarPlanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Cobrar un plan reservado
       tags:
       - Planes BD
   /bd/planes/{id}/estado:

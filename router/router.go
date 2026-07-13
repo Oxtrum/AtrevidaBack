@@ -162,6 +162,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/planes/:id", h.AuthRequired, h.GerenciaRequired, h.PatchPlan)
 		bd.PATCH("/planes/:id/estado", h.AuthRequired, h.GerenciaRequired, h.PatchPlanEstado)
 		bd.PATCH("/planes/:id/sesiones/:numero", h.AuthRequired, h.GerenciaRequired, h.MarcarSesionPlan)
+		bd.POST("/planes/:id/cobrar", h.AuthRequired, h.GerenciaRequired, h.CobrarPlan)
 
 	}
 
