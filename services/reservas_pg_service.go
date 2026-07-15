@@ -934,13 +934,6 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 	estadoFinal := "PENDIENTE"
 	if !requiereEvaluacion {
 		estadoFinal = "AGENDADO"
-		if input.ServicioConfirmado == nil || strings.TrimSpace(*input.ServicioConfirmado) == "" {
-			servicio := strings.TrimSpace(servicioDirectoManual)
-			if servicioReserva != nil {
-				servicio = strings.TrimSpace(servicioReserva.Nombre)
-			}
-			input.ServicioConfirmado = &servicio
-		}
 	}
 	if strings.TrimSpace(input.Estado) != "" {
 		estadoRecibido, err := NormalizarEstadoReserva(input.Estado)
@@ -951,6 +944,15 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 			return 0, errors.New("estado inicial inválido para una reserva nueva")
 		}
 		estadoFinal = estadoRecibido
+	}
+	// Solo autorellenar el servicio confirmado cuando la reserva queda agendada;
+	// una reserva PENDIENTE no debe tener servicio confirmado hasta su aprobación.
+	if estadoFinal == "AGENDADO" && (input.ServicioConfirmado == nil || strings.TrimSpace(*input.ServicioConfirmado) == "") {
+		servicio := strings.TrimSpace(servicioDirectoManual)
+		if servicioReserva != nil {
+			servicio = strings.TrimSpace(servicioReserva.Nombre)
+		}
+		input.ServicioConfirmado = &servicio
 	}
 
 	/*if err := s.validarDisponibilidad(input.Local, &fecha, input.HoraDesde, horaHasta, input.Tipo, nil); err != nil {
