@@ -34,6 +34,7 @@ func (r *combosHandlerRepo) SetComboActivo(id int, activo bool) error {
 	return nil
 }
 func (r *combosHandlerRepo) SetComboLocales(int, []int) error { return nil }
+func (r *combosHandlerRepo) SetComboImagen(int, *string) error { return nil }
 func (r *combosHandlerRepo) ReplaceComboServicios(int, []repository.ComboServicioCatalogoInput) error {
 	return nil
 }

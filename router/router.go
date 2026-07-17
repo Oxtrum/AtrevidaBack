@@ -123,6 +123,9 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.DELETE("/combos/:id", h.AuthRequired, h.AdminSysRequired, h.DeleteComboPG)
 		bd.PUT("/combos/:id/locales", h.AuthRequired, h.AdminSysRequired, h.PutComboLocalesPG)
 		bd.PUT("/combos/:id/servicios", h.AuthRequired, h.AdminSysRequired, h.PutComboServiciosPG)
+		bd.POST("/combos/:id/imagen/upload-url", h.AuthRequired, h.AdminSysRequired, h.PostComboImagenUploadURL)
+		bd.PUT("/combos/:id/imagen", h.AuthRequired, h.AdminSysRequired, h.PutComboImagen)
+		bd.DELETE("/combos/:id/imagen", h.AuthRequired, h.AdminSysRequired, h.DeleteComboImagen)
 
 		bd.GET("/locales", h.GetLocales)
 		bd.GET("/locales/:id", h.GetLocalById)

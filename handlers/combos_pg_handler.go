@@ -339,6 +339,8 @@ func responderErrorCombo(c *gin.Context, err error) {
 		status = http.StatusBadRequest
 	case errors.Is(err, services.ErrComboNoEncontrado), errors.Is(err, services.ErrComboReferenciaNoEncontrada):
 		status = http.StatusNotFound
+	case errors.Is(err, services.ErrAlmacenamientoNoConfigurado):
+		status = http.StatusServiceUnavailable
 	}
 	utils.RespondError(c, status, err.Error())
 }

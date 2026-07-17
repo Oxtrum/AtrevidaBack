@@ -285,6 +285,20 @@ type comboCatalogoItemResponse struct {
 	Combo *models.ComboCatalogoPG `json:"combo"`
 }
 
+type comboImagenUploadResponse struct {
+	// URL absoluta a la que el frontend hace PUT con el archivo (incluye el token).
+	UploadURL string `json:"upload_url" example:"https://xxx.supabase.co/storage/v1/object/upload/sign/paquetes/combos/12?token=eyJ"`
+	// Token de la subida firmada.
+	Token string `json:"token" example:"eyJhbGciOi"`
+	// Path del objeto dentro del bucket.
+	Path string `json:"path" example:"combos/12"`
+}
+
+type comboImagenResponse struct {
+	// URL publica de la portada del combo.
+	ImagenURL string `json:"imagen_url" example:"https://xxx.supabase.co/storage/v1/object/public/paquetes/combos/12"`
+}
+
 type localItemResponse struct {
 	// Total de locales (siempre 1 para consulta por ID)
 	Total int `json:"total" example:"1"`

@@ -140,6 +140,10 @@ type ComboCatalogoPG struct {
 	Activo          bool                     `db:"activo" json:"activo" example:"true"`
 	CreadoEn        time.Time                `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
 	ActualizadoEn   time.Time                `db:"actualizado_en" json:"actualizado_en" example:"2026-07-11T10:00:00Z"`
+	// Path del objeto de portada en Supabase Storage; interno, no se expone en JSON.
+	ImagenPath *string `db:"imagen_path" json:"-"`
+	// URL publica de la portada derivada del path; nil si el combo no tiene imagen.
+	ImagenURL       *string                  `db:"-" json:"imagen_url,omitempty" example:"https://xxx.supabase.co/storage/v1/object/public/paquetes/combos/12"`
 	Locales         []LocalPG                `db:"-" json:"locales"`
 	Servicios       []ComboServicioDetallePG `db:"-" json:"servicios"`
 }

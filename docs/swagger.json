@@ -1766,6 +1766,244 @@
                 }
             }
         },
+        "/bd/combos/{id}/imagen": {
+            "put": {
+                "description": "Persiste la portada del combo tras una subida exitosa y devuelve su URL publica. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Combos BD"
+                ],
+                "summary": "Confirmar portada de combo subida",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "ID del combo",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.comboImagenResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Combo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Borra el objeto de portada en Supabase Storage y limpia el path del combo. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Combos BD"
+                ],
+                "summary": "Eliminar portada de combo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "ID del combo",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Combo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/combos/{id}/imagen/upload-url": {
+            "post": {
+                "description": "Devuelve una URL firmada de Supabase Storage para que el cliente suba la imagen de portada directamente, sin pasar los bytes por el backend. Requiere token Bearer con rol admin_sys. Tras subir el archivo, confirmar con PUT /bd/combos/{id}/imagen.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Combos BD"
+                ],
+                "summary": "Emitir URL firmada para subir portada de combo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "ID del combo",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.comboImagenUploadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Combo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/combos/{id}/locales": {
             "put": {
                 "description": "Reemplaza la disponibilidad de una promocion por una lista completa de locales activos. Requiere token Bearer con rol admin_sys.",
@@ -6303,6 +6541,36 @@
                 }
             }
         },
+        "handlers.comboImagenResponse": {
+            "type": "object",
+            "properties": {
+                "imagen_url": {
+                    "description": "URL publica de la portada del combo.",
+                    "type": "string",
+                    "example": "https://xxx.supabase.co/storage/v1/object/public/paquetes/combos/12"
+                }
+            }
+        },
+        "handlers.comboImagenUploadResponse": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "description": "Path del objeto dentro del bucket.",
+                    "type": "string",
+                    "example": "combos/12"
+                },
+                "token": {
+                    "description": "Token de la subida firmada.",
+                    "type": "string",
+                    "example": "eyJhbGciOi"
+                },
+                "upload_url": {
+                    "description": "URL absoluta a la que el frontend hace PUT con el archivo (incluye el token).",
+                    "type": "string",
+                    "example": "https://xxx.supabase.co/storage/v1/object/upload/sign/paquetes/combos/12?token=eyJ"
+                }
+            }
+        },
         "handlers.comboServicioCatalogoRequest": {
             "type": "object",
             "properties": {
@@ -7768,6 +8036,11 @@
                 "id": {
                     "type": "integer",
                     "example": 12
+                },
+                "imagen_url": {
+                    "description": "URL publica de la portada derivada del path; nil si el combo no tiene imagen.",
+                    "type": "string",
+                    "example": "https://xxx.supabase.co/storage/v1/object/public/paquetes/combos/12"
                 },
                 "locales": {
                     "type": "array",

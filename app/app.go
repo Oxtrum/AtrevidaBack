@@ -44,6 +44,9 @@ func Build() (*gin.Engine, error) {
 	localesHorariosPGService := services.NewLocalesHorariosService(localesHorariosPGRepo)
 	serviciosPGService := services.NewServiciosPGService(serviciosPGRepo)
 	combosPGService := services.NewCombosService(combosPGRepo)
+	combosPGService.Storage = services.NewSupabaseStorage(
+		config.App.Storage.SupabaseURL, config.App.Storage.SecretKey, config.App.Storage.Bucket,
+	)
 	reservasPGService := services.NewReservasPGService(reservasPGRepo, serviciosPGRepo)
 	localesPGService := services.NewLocalesService(localesPGRepo)
 	pagosPGService := services.NewPagosService(pagosPGRepo)

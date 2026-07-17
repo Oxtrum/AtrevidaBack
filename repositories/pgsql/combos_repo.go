@@ -34,7 +34,7 @@ func (r *CombosRepo) ListCombos(f repository.FiltroCombos) ([]models.ComboCatalo
 				WHEN cb.tipo_precio = 'PRECIO_PAQUETE' THEN COALESCE(cb.precio_paquete, cb.costo_total, 0)
 				ELSE COALESCE((SELECT SUM(cs2.costo * cs2.sesiones) FROM combo_servicios cs2 WHERE cs2.combo_id = cb.id AND cs2.activo = TRUE), 0)
 			END AS precio_final,
-			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en
+			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en, cb.imagen_path
 		FROM combos cb
 		LEFT JOIN categorias c ON c.id = cb.categoria_id
 		LEFT JOIN combo_local cl ON cl.combo_id = cb.id
@@ -75,7 +75,7 @@ func (r *CombosRepo) GetComboByID(id int, incluirInactivo bool) (*models.ComboCa
 				WHEN cb.tipo_precio = 'PRECIO_PAQUETE' THEN COALESCE(cb.precio_paquete, cb.costo_total, 0)
 				ELSE COALESCE(SUM(cs.costo * cs.sesiones) FILTER (WHERE cs.activo = TRUE), 0)
 			END AS precio_final,
-			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en
+			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en, cb.imagen_path
 		FROM combos cb
 		LEFT JOIN categorias c ON c.id = cb.categoria_id
 		LEFT JOIN combo_servicios cs ON cs.combo_id = cb.id
@@ -217,6 +217,17 @@ func (r *CombosRepo) UpdateCombo(input repository.ActualizarComboInput) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (r *CombosRepo) SetComboImagen(id int, path *string) error {
+	result, err := r.db.Exec(`UPDATE combos SET imagen_path = $1, actualizado_en = NOW() WHERE id = $2`, path, id)
+	if err != nil {
+		return fmt.Errorf("error al actualizar imagen de combo: %w", err)
+	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		return fmt.Errorf("%w: combo con id %d", repository.ErrComboNoEncontrado, id)
+	}
+	return nil
 }
 
 func (r *CombosRepo) SetComboActivo(id int, activo bool) error {

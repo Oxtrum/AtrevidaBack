@@ -30,6 +30,7 @@ func (f *fakeCombosRepo) CreateCombo(input repository.CrearComboInput) (int, err
 func (f *fakeCombosRepo) UpdateCombo(repository.ActualizarComboInput) error { return nil }
 func (f *fakeCombosRepo) SetComboActivo(int, bool) error                    { return nil }
 func (f *fakeCombosRepo) SetComboLocales(int, []int) error                  { return nil }
+func (f *fakeCombosRepo) SetComboImagen(int, *string) error                 { return nil }
 
 func (f *fakeCombosRepo) ReplaceComboServicios(_ int, input []repository.ComboServicioCatalogoInput) error {
 	f.servicesInput = input

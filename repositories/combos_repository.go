@@ -65,4 +65,6 @@ type CombosRepository interface {
 	SetComboActivo(id int, activo bool) error
 	SetComboLocales(comboID int, localIDs []int) error
 	ReplaceComboServicios(comboID int, servicios []ComboServicioCatalogoInput) error
+	// SetComboImagen actualiza el path de portada (nil lo limpia).
+	SetComboImagen(id int, path *string) error
 }

@@ -20,6 +20,7 @@ var (
 	ErrComboNoEncontrado           = errors.New("combo no encontrado")
 	ErrComboReferenciaNoEncontrada = errors.New("referencia de combo no encontrada")
 	ErrComboServicioInvalido       = errors.New("servicio de combo invalido")
+	ErrAlmacenamientoNoConfigurado = errors.New("almacenamiento de imagenes no configurado")
 )
 
 type FiltroCombos struct {
@@ -54,10 +55,71 @@ type ActualizarComboCatalogoInput struct {
 
 type CombosService struct {
 	repo repository.CombosRepository
+	// Storage es opcional: si es nil, la gestion de imagenes queda deshabilitada
+	// y las respuestas simplemente no incluyen imagen_url. Se inyecta en app.go.
+	Storage *SupabaseStorage
 }
 
 func NewCombosService(repo repository.CombosRepository) *CombosService {
 	return &CombosService{repo: repo}
+}
+
+// rutaImagenCombo es el path determinista del objeto en el bucket. Reemplazar
+// la imagen sobreescribe el mismo path, evitando objetos huerfanos.
+func rutaImagenCombo(comboID int) string {
+	return fmt.Sprintf("combos/%d", comboID)
+}
+
+// rellenarImagenURL deriva la URL publica desde el path guardado.
+func (s *CombosService) rellenarImagenURL(combo *models.ComboCatalogoPG) {
+	if combo == nil || s.Storage == nil || combo.ImagenPath == nil || *combo.ImagenPath == "" {
+		return
+	}
+	url := s.Storage.URLPublica(*combo.ImagenPath)
+	combo.ImagenURL = &url
+}
+
+// GenerarURLSubidaImagen valida el combo y emite una URL firmada de subida.
+func (s *CombosService) GenerarURLSubidaImagen(comboID int) (SubidaFirmada, error) {
+	if comboID < 1 {
+		return SubidaFirmada{}, fmt.Errorf("id debe ser un entero positivo: %w", ErrComboInvalido)
+	}
+	if s.Storage == nil {
+		return SubidaFirmada{}, ErrAlmacenamientoNoConfigurado
+	}
+	if _, err := s.repo.GetComboByID(comboID, true); err != nil {
+		return SubidaFirmada{}, traducirErrorRepositorioCombo(err)
+	}
+	return s.Storage.CrearURLSubida(rutaImagenCombo(comboID))
+}
+
+// ConfirmarImagen persiste el path tras una subida exitosa y devuelve la URL publica.
+func (s *CombosService) ConfirmarImagen(comboID int) (string, error) {
+	if comboID < 1 {
+		return "", fmt.Errorf("id debe ser un entero positivo: %w", ErrComboInvalido)
+	}
+	if s.Storage == nil {
+		return "", ErrAlmacenamientoNoConfigurado
+	}
+	path := rutaImagenCombo(comboID)
+	if err := s.repo.SetComboImagen(comboID, &path); err != nil {
+		return "", traducirErrorRepositorioCombo(err)
+	}
+	return s.Storage.URLPublica(path), nil
+}
+
+// EliminarImagen borra el objeto del bucket y limpia el path del combo.
+func (s *CombosService) EliminarImagen(comboID int) error {
+	if comboID < 1 {
+		return fmt.Errorf("id debe ser un entero positivo: %w", ErrComboInvalido)
+	}
+	if s.Storage == nil {
+		return ErrAlmacenamientoNoConfigurado
+	}
+	if err := s.Storage.Eliminar(rutaImagenCombo(comboID)); err != nil {
+		return err
+	}
+	return traducirErrorRepositorioCombo(s.repo.SetComboImagen(comboID, nil))
 }
 
 func (s *CombosService) ListarCombos(f FiltroCombos) ([]models.ComboCatalogoPG, int, error) {
@@ -66,6 +128,9 @@ func (s *CombosService) ListarCombos(f FiltroCombos) ([]models.ComboCatalogoPG, 
 		Nombre: strings.TrimSpace(f.Nombre), Categoria: strings.TrimSpace(f.Categoria),
 		Local: strings.TrimSpace(f.Local), LocalID: f.LocalID, Activo: &activo,
 	})
+	for i := range combos {
+		s.rellenarImagenURL(&combos[i])
+	}
 	return combos, total, traducirErrorRepositorioCombo(err)
 }
 
@@ -74,6 +139,7 @@ func (s *CombosService) ObtenerCombo(id int) (*models.ComboCatalogoPG, error) {
 		return nil, fmt.Errorf("id debe ser un entero positivo: %w", ErrComboInvalido)
 	}
 	combo, err := s.repo.GetComboByID(id, false)
+	s.rellenarImagenURL(combo)
 	return combo, traducirErrorRepositorioCombo(err)
 }
 

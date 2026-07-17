@@ -4,14 +4,23 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	DB   DBConfig
-	Auth AuthConfig
+	DB      DBConfig
+	Auth    AuthConfig
+	Storage StorageConfig
+}
+
+// StorageConfig apunta al bucket de Supabase Storage usado para imagenes de combos.
+type StorageConfig struct {
+	SupabaseURL string
+	SecretKey   string
+	Bucket      string
 }
 
 type AuthConfig struct {
@@ -49,6 +58,11 @@ func Load() {
 		Auth: AuthConfig{
 			TokenSecret: getEnvDefault("AUTH_TOKEN_SECRET", "atrevida-local-dev-secret"),
 			TokenTTL:    time.Duration(getEnvIntDefault("AUTH_TOKEN_TTL_MINUTES", 60)) * time.Minute,
+		},
+		Storage: StorageConfig{
+			SupabaseURL: strings.TrimRight(os.Getenv("SUPABASE_URL"), "/"),
+			SecretKey:   os.Getenv("SUPABASE_SECRET_KEY"),
+			Bucket:      getEnvDefault("SUPABASE_STORAGE_BUCKET", "paquetes"),
 		},
 	}
 }

@@ -560,6 +560,29 @@ definitions:
         example: 3
         type: integer
     type: object
+  handlers.comboImagenResponse:
+    properties:
+      imagen_url:
+        description: URL publica de la portada del combo.
+        example: https://xxx.supabase.co/storage/v1/object/public/paquetes/combos/12
+        type: string
+    type: object
+  handlers.comboImagenUploadResponse:
+    properties:
+      path:
+        description: Path del objeto dentro del bucket.
+        example: combos/12
+        type: string
+      token:
+        description: Token de la subida firmada.
+        example: eyJhbGciOi
+        type: string
+      upload_url:
+        description: URL absoluta a la que el frontend hace PUT con el archivo (incluye
+          el token).
+        example: https://xxx.supabase.co/storage/v1/object/upload/sign/paquetes/combos/12?token=eyJ
+        type: string
+    type: object
   handlers.comboServicioCatalogoRequest:
     properties:
       costo:
@@ -1654,6 +1677,11 @@ definitions:
       id:
         example: 12
         type: integer
+      imagen_url:
+        description: URL publica de la portada derivada del path; nil si el combo
+          no tiene imagen.
+        example: https://xxx.supabase.co/storage/v1/object/public/paquetes/combos/12
+        type: string
       locales:
         items:
           $ref: '#/definitions/models.LocalPG'
@@ -3743,6 +3771,163 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Actualizar metadatos de combo
+      tags:
+      - Combos BD
+  /bd/combos/{id}/imagen:
+    delete:
+      description: Borra el objeto de portada en Supabase Storage y limpia el path
+        del combo. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del combo
+        example: 12
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Combo no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "503":
+          description: Almacenamiento de imagenes no configurado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Eliminar portada de combo
+      tags:
+      - Combos BD
+    put:
+      description: Persiste la portada del combo tras una subida exitosa y devuelve
+        su URL publica. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del combo
+        example: 12
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.comboImagenResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Combo no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "503":
+          description: Almacenamiento de imagenes no configurado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Confirmar portada de combo subida
+      tags:
+      - Combos BD
+  /bd/combos/{id}/imagen/upload-url:
+    post:
+      description: Devuelve una URL firmada de Supabase Storage para que el cliente
+        suba la imagen de portada directamente, sin pasar los bytes por el backend.
+        Requiere token Bearer con rol admin_sys. Tras subir el archivo, confirmar
+        con PUT /bd/combos/{id}/imagen.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del combo
+        example: 12
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.comboImagenUploadResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Combo no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "503":
+          description: Almacenamiento de imagenes no configurado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Emitir URL firmada para subir portada de combo
       tags:
       - Combos BD
   /bd/combos/{id}/locales:
