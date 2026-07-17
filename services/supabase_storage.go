@@ -52,6 +52,8 @@ func (s *SupabaseStorage) CrearURLSubida(path string) (SubidaFirmada, error) {
 		return SubidaFirmada{}, err
 	}
 	s.setAuth(req)
+	// Permite sobreescribir el objeto en el mismo path al reemplazar la portada.
+	req.Header.Set("x-upsert", "true")
 
 	resp, err := s.client.Do(req)
 	if err != nil {
