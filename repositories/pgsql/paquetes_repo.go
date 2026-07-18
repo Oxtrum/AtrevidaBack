@@ -83,6 +83,13 @@ func (r *PaquetesRepo) CrearPaquete(in repository.CrearPaqueteInput) (int, error
 	}
 	defer tx.Rollback()
 
+	if err := validarCategoriaTx(tx, in.CategoriaID); err != nil {
+		return 0, err
+	}
+	if err := validarLocalesTx(tx, in.LocalIDs); err != nil {
+		return 0, err
+	}
+
 	var paqueteID int
 	err = tx.QueryRowx(`
 		INSERT INTO paquetes (nombre, descripcion, categoria_id, imagen_path, moneda, activo)
@@ -114,6 +121,13 @@ func (r *PaquetesRepo) ActualizarPaquete(in repository.ActualizarPaqueteInput) e
 		return err
 	}
 	defer tx.Rollback()
+
+	if err := validarCategoriaTx(tx, in.CategoriaID); err != nil {
+		return err
+	}
+	if err := validarLocalesTx(tx, in.LocalIDs); err != nil {
+		return err
+	}
 
 	res, err := tx.Exec(`
 		UPDATE paquetes SET nombre = $1, descripcion = $2, categoria_id = $3, moneda = $4, actualizado_en = NOW()
@@ -372,17 +386,17 @@ func upsertTierComboTx(tx *sqlx.Tx, paqueteID int, paqueteNombre, moneda string,
 	if tier.ID != nil {
 		res, err := tx.Exec(`
 			UPDATE combos SET
-				nombre = $1, paquete_id = $2, tipo_precio = 'PRECIO_PAQUETE', precio_paquete = $3,
-				precio_regular = $4, nota = $5, moneda = $6, sesiones_totales = $7, imagen_path = $8,
-				categoria_id = $9, costo_total = $10, activo = TRUE, actualizado_en = NOW()
-			WHERE id = $11
-		`, nombre, paqueteID, tier.PrecioContado, tier.PrecioRegular, nullStr(pointerString(tier.Nota)),
-			moneda, tier.Sesiones, imagenPath, categoriaID, costoTotal, *tier.ID)
+				nombre = $1, tipo_precio = 'PRECIO_PAQUETE', precio_paquete = $2,
+				precio_regular = $3, nota = $4, moneda = $5, sesiones_totales = $6, imagen_path = $7,
+				categoria_id = $8, costo_total = $9, activo = TRUE, actualizado_en = NOW()
+			WHERE id = $10 AND paquete_id = $11
+		`, nombre, tier.PrecioContado, tier.PrecioRegular, nullStr(pointerString(tier.Nota)),
+			moneda, tier.Sesiones, imagenPath, categoriaID, costoTotal, *tier.ID, paqueteID)
 		if err != nil {
 			return 0, fmt.Errorf("error al actualizar tier de paquete: %w", err)
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
-			return 0, fmt.Errorf("%w: tier con id %d", repository.ErrPaqueteNoEncontrado, *tier.ID)
+			return 0, fmt.Errorf("%w: tier con id %d para paquete %d", repository.ErrPaqueteNoEncontrado, *tier.ID, paqueteID)
 		}
 		return *tier.ID, nil
 	}
