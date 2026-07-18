@@ -183,6 +183,26 @@ type comboCatalogoFiltrosResponse struct {
 	LocalID *int `json:"local_id,omitempty" example:"1"`
 }
 
+type paqueteFiltrosResponse struct {
+	// Filtro aplicado: nombre parcial del paquete.
+	Nombre string `json:"nombre" example:"relax"`
+	// Filtro aplicado: categoría parcial del paquete.
+	Categoria string `json:"categoria" example:"Corporal"`
+	// Filtro aplicado: nombre parcial del local.
+	Local string `json:"local" example:"SAN MARTIN"`
+	// Filtro aplicado: estado activo del paquete.
+	Activo *bool `json:"activo,omitempty" example:"true"`
+}
+
+type paqueteListResponse struct {
+	// Cantidad total de paquetes que coinciden con los filtros aplicados.
+	Total int `json:"total" example:"3"`
+	// Filtros aplicados en la búsqueda.
+	Filtros paqueteFiltrosResponse `json:"filtros"`
+	// Lista de paquetes del catalogo.
+	Paquetes []models.PaqueteDetalle `json:"paquetes"`
+}
+
 type comboServicioListResponse struct {
 	// Total de servicios del combo
 	Total int `json:"total" example:"3"`
@@ -297,6 +317,25 @@ type comboImagenUploadResponse struct {
 type comboImagenResponse struct {
 	// URL publica de la portada del combo.
 	ImagenURL string `json:"imagen_url" example:"https://xxx.supabase.co/storage/v1/object/public/paquetes/combos/12"`
+}
+
+type paqueteItemResponse struct {
+	// Datos completos del paquete, incluidos catalogo base, locales y tiers.
+	Paquete *models.PaqueteDetalle `json:"paquete"`
+}
+
+type paqueteImagenUploadResponse struct {
+	// URL absoluta a la que el frontend hace PUT con el archivo (incluye el token).
+	UploadURL string `json:"upload_url" example:"https://xxx.supabase.co/storage/v1/object/upload/sign/paquetes/paquetes/4?token=eyJ"`
+	// Token de la subida firmada.
+	Token string `json:"token" example:"eyJhbGciOi"`
+	// Path del objeto dentro del bucket.
+	Path string `json:"path" example:"paquetes/4"`
+}
+
+type paqueteImagenResponse struct {
+	// URL publica de la portada del paquete.
+	ImagenURL string `json:"imagen_url" example:"https://xxx.supabase.co/storage/v1/object/public/paquetes/paquetes/4"`
 }
 
 type localItemResponse struct {
