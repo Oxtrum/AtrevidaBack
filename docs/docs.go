@@ -3562,6 +3562,628 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/paquetes": {
+            "get": {
+                "description": "Devuelve los paquetes que cumplan los filtros, con su catalogo base de servicios, locales y tiers (precio por cantidad de sesiones). Por defecto solo devuelve paquetes activos.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Paquetes BD"
+                ],
+                "summary": "Listar paquetes de catalogo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "relax",
+                        "description": "Busqueda parcial por nombre",
+                        "name": "nombre",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "Corporal",
+                        "description": "Busqueda parcial por categoria",
+                        "name": "categoria",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "SAN MARTIN",
+                        "description": "Busqueda parcial por nombre de local",
+                        "name": "local",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": true,
+                        "description": "Filtrar por activo; default true",
+                        "name": "activo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.paqueteListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: activo invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Crea un paquete con su catalogo base de servicios, locales y tiers (precio por cantidad de sesiones) en una unica transaccion. Requiere token Bearer con rol admin_sys. Cada tier se materializa internamente como un combo enlazado al paquete.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Paquetes BD"
+                ],
+                "summary": "Crear paquete de catalogo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos completos del paquete",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.paqueteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.idResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: datos de paquete, locales, tiers o servicios invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Categoria, local o servicio no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/paquetes/{id}": {
+            "get": {
+                "description": "Devuelve un paquete activo con su catalogo base de servicios, locales y tiers.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Paquetes BD"
+                ],
+                "summary": "Obtener paquete por ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 4,
+                        "description": "ID del paquete",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.paqueteItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Paquete no encontrado o inactivo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Realiza el borrado logico de un paquete de catalogo: lo marca inactivo y deja de aparecer en el catalogo publico. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Paquetes BD"
+                ],
+                "summary": "Desactivar paquete",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 4,
+                        "description": "ID del paquete",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Paquete no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Reemplaza los datos, catalogo base de servicios, locales y tiers de un paquete en una unica transaccion. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Paquetes BD"
+                ],
+                "summary": "Actualizar paquete de catalogo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 4,
+                        "description": "ID del paquete",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos completos del paquete",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.paqueteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id, locales, tiers o servicios invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Paquete, categoria o local no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/paquetes/{id}/imagen": {
+            "put": {
+                "description": "Persiste la portada del paquete tras una subida exitosa y devuelve su URL publica. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Paquetes BD"
+                ],
+                "summary": "Confirmar portada de paquete subida",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 4,
+                        "description": "ID del paquete",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.paqueteImagenResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Paquete no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Borra el objeto de portada en Supabase Storage y limpia el path del paquete. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Paquetes BD"
+                ],
+                "summary": "Eliminar portada de paquete",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 4,
+                        "description": "ID del paquete",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Paquete no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/paquetes/{id}/imagen/upload-url": {
+            "post": {
+                "description": "Devuelve una URL firmada de Supabase Storage para que el cliente suba la imagen de portada directamente, sin pasar los bytes por el backend. Requiere token Bearer con rol admin_sys. Tras subir el archivo, confirmar con PUT /bd/paquetes/{id}/imagen.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Paquetes BD"
+                ],
+                "summary": "Emitir URL firmada para subir portada de paquete",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 4,
+                        "description": "ID del paquete",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.paqueteImagenUploadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Paquete no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/planes": {
             "get": {
                 "description": "Devuelve todos los planes que cumplan los filtros aplicados. Un plan es un contrato adquirido por un cliente; no es un combo de catalogo. Requiere token Bearer. Los usuarios no admin_sys solo ven planes de su local asignado.",
@@ -7457,6 +8079,204 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.paqueteFiltrosResponse": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "description": "Filtro aplicado: estado activo del paquete.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "categoria": {
+                    "description": "Filtro aplicado: categoría parcial del paquete.",
+                    "type": "string",
+                    "example": "Corporal"
+                },
+                "local": {
+                    "description": "Filtro aplicado: nombre parcial del local.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "nombre": {
+                    "description": "Filtro aplicado: nombre parcial del paquete.",
+                    "type": "string",
+                    "example": "relax"
+                }
+            }
+        },
+        "handlers.paqueteImagenResponse": {
+            "type": "object",
+            "properties": {
+                "imagen_url": {
+                    "description": "URL publica de la portada del paquete.",
+                    "type": "string",
+                    "example": "https://xxx.supabase.co/storage/v1/object/public/paquetes/paquetes/4"
+                }
+            }
+        },
+        "handlers.paqueteImagenUploadResponse": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "description": "Path del objeto dentro del bucket.",
+                    "type": "string",
+                    "example": "paquetes/4"
+                },
+                "token": {
+                    "description": "Token de la subida firmada.",
+                    "type": "string",
+                    "example": "eyJhbGciOi"
+                },
+                "upload_url": {
+                    "description": "URL absoluta a la que el frontend hace PUT con el archivo (incluye el token).",
+                    "type": "string",
+                    "example": "https://xxx.supabase.co/storage/v1/object/upload/sign/paquetes/paquetes/4?token=eyJ"
+                }
+            }
+        },
+        "handlers.paqueteItemResponse": {
+            "type": "object",
+            "properties": {
+                "paquete": {
+                    "description": "Datos completos del paquete, incluidos catalogo base, locales y tiers.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.PaqueteDetalle"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.paqueteListResponse": {
+            "type": "object",
+            "properties": {
+                "filtros": {
+                    "description": "Filtros aplicados en la búsqueda.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handlers.paqueteFiltrosResponse"
+                        }
+                    ]
+                },
+                "paquetes": {
+                    "description": "Lista de paquetes del catalogo.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PaqueteDetalle"
+                    }
+                },
+                "total": {
+                    "description": "Cantidad total de paquetes que coinciden con los filtros aplicados.",
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "handlers.paqueteRequest": {
+            "type": "object",
+            "properties": {
+                "categoria_id": {
+                    "description": "ID opcional de la categoria del catalogo.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "descripcion": {
+                    "description": "Descripcion opcional mostrada en catalogo.",
+                    "type": "string",
+                    "example": "Masajes y drenaje segun cantidad de sesiones"
+                },
+                "local_ids": {
+                    "description": "IDs de los locales activos donde se publica el paquete.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        2
+                    ]
+                },
+                "moneda": {
+                    "description": "Moneda ISO de tres letras; BOB por defecto.",
+                    "type": "string",
+                    "example": "BOB"
+                },
+                "nombre": {
+                    "description": "Nombre comercial del paquete.",
+                    "type": "string",
+                    "example": "Paquete Relax"
+                },
+                "servicios_base": {
+                    "description": "Catalogo base de servicios que componen el paquete.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.paqueteServicioBaseRequest"
+                    }
+                },
+                "tiers": {
+                    "description": "Tiers (precio por cantidad de sesiones) del paquete.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.paqueteTierRequest"
+                    }
+                }
+            }
+        },
+        "handlers.paqueteServicioBaseRequest": {
+            "type": "object",
+            "properties": {
+                "costo": {
+                    "description": "Precio unitario snapshot de cada sesion.",
+                    "type": "number",
+                    "example": 250
+                },
+                "orden": {
+                    "description": "Posicion unica de la linea dentro del catalogo base, iniciando en cero.",
+                    "type": "integer",
+                    "example": 0
+                },
+                "servicio_id": {
+                    "description": "ID opcional del servicio de catalogo usado como origen.",
+                    "type": "integer",
+                    "example": 8
+                },
+                "servicio_texto": {
+                    "description": "Nombre snapshot manual; si se omite y hay servicio_id, se copia del servicio origen.",
+                    "type": "string",
+                    "example": "Masaje relajante personalizado"
+                }
+            }
+        },
+        "handlers.paqueteTierRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID del tier a actualizar; si se omite se crea uno nuevo.",
+                    "type": "integer",
+                    "example": 5
+                },
+                "nota": {
+                    "description": "Nota comercial opcional del tier.",
+                    "type": "string",
+                    "example": "Promocion vigente"
+                },
+                "precio_contado": {
+                    "description": "Precio al contado del tier.",
+                    "type": "number",
+                    "example": 700
+                },
+                "precio_regular": {
+                    "description": "Precio regular opcional, mayor al de contado, usado para mostrar descuento.",
+                    "type": "number",
+                    "example": 800
+                },
+                "sesiones": {
+                    "description": "Cantidad de sesiones incluidas en este tier.",
+                    "type": "integer",
+                    "example": 4
+                }
+            }
+        },
         "handlers.planFiltrosResponse": {
             "type": "object",
             "properties": {
@@ -8059,6 +8879,14 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Combo Relax"
                 },
+                "nota": {
+                    "type": "string",
+                    "example": "Promocion vigente"
+                },
+                "paquete_id": {
+                    "type": "integer",
+                    "example": 1
+                },
                 "precio_final": {
                     "type": "number",
                     "example": 700
@@ -8070,6 +8898,10 @@ const docTemplate = `{
                 "precio_paquete": {
                     "type": "number",
                     "example": 700
+                },
+                "precio_regular": {
+                    "type": "number",
+                    "example": 800
                 },
                 "servicios": {
                     "type": "array",
@@ -8479,6 +9311,81 @@ const docTemplate = `{
                     "description": "Username opcional del cajero que modifico el pago por ultima vez.",
                     "type": "string",
                     "example": "ana"
+                }
+            }
+        },
+        "models.PaqueteDetalle": {
+            "type": "object",
+            "properties": {
+                "locales": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LocalPG"
+                    }
+                },
+                "paquete": {
+                    "$ref": "#/definitions/models.PaquetePG"
+                },
+                "servicios_base": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PaqueteServicioPG"
+                    }
+                },
+                "tiers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ComboCatalogoPG"
+                    }
+                }
+            }
+        },
+        "models.PaquetePG": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean"
+                },
+                "categoria": {
+                    "type": "string"
+                },
+                "categoria_id": {
+                    "type": "integer"
+                },
+                "descripcion": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "imagen_url": {
+                    "type": "string"
+                },
+                "moneda": {
+                    "type": "string"
+                },
+                "nombre": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PaqueteServicioPG": {
+            "type": "object",
+            "properties": {
+                "costo": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "orden": {
+                    "type": "integer"
+                },
+                "servicio_id": {
+                    "type": "integer"
+                },
+                "servicio_texto": {
+                    "type": "string"
                 }
             }
         },

@@ -127,6 +127,15 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PUT("/combos/:id/imagen", h.AuthRequired, h.AdminSysRequired, h.PutComboImagen)
 		bd.DELETE("/combos/:id/imagen", h.AuthRequired, h.AdminSysRequired, h.DeleteComboImagen)
 
+		bd.GET("/paquetes", h.GetPaquetes)
+		bd.GET("/paquetes/:id", h.GetPaqueteByID)
+		bd.POST("/paquetes", h.AuthRequired, h.AdminSysRequired, h.CreatePaquete)
+		bd.PATCH("/paquetes/:id", h.AuthRequired, h.AdminSysRequired, h.PatchPaquete)
+		bd.DELETE("/paquetes/:id", h.AuthRequired, h.AdminSysRequired, h.DeletePaquete)
+		bd.POST("/paquetes/:id/imagen/upload-url", h.AuthRequired, h.AdminSysRequired, h.PostPaqueteImagenUploadURL)
+		bd.PUT("/paquetes/:id/imagen", h.AuthRequired, h.AdminSysRequired, h.PutPaqueteImagen)
+		bd.DELETE("/paquetes/:id/imagen", h.AuthRequired, h.AdminSysRequired, h.DeletePaqueteImagen)
+
 		bd.GET("/locales", h.GetLocales)
 		bd.GET("/locales/:id", h.GetLocalById)
 		bd.GET("/locales/horarios", h.GetHorariosByLocal)

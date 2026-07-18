@@ -33,6 +33,7 @@ func Build() (*gin.Engine, error) {
 	localesHorariosPGRepo := pgsqlrepo.NewLocalesHorariosRepo(pgDB)
 	serviciosPGRepo := pgsqlrepo.NewServiciosRepo(pgDB)
 	combosPGRepo := pgsqlrepo.NewCombosRepo(pgDB)
+	paquetesPGRepo := pgsqlrepo.NewPaquetesRepo(pgDB)
 	reservasPGRepo := pgsqlrepo.NewReservasRepo(pgDB)
 	localesPGRepo := pgsqlrepo.NewLocalesRepo(pgDB)
 	pagosPGRepo := pgsqlrepo.NewPagosRepo(pgDB)
@@ -47,6 +48,10 @@ func Build() (*gin.Engine, error) {
 	combosPGService.Storage = services.NewSupabaseStorage(
 		config.App.Storage.SupabaseURL, config.App.Storage.SecretKey, config.App.Storage.Bucket,
 	)
+	paquetesPGService := services.NewPaquetesService(paquetesPGRepo)
+	paquetesPGService.Storage = services.NewSupabaseStorage(
+		config.App.Storage.SupabaseURL, config.App.Storage.SecretKey, config.App.Storage.Bucket,
+	)
 	reservasPGService := services.NewReservasPGService(reservasPGRepo, serviciosPGRepo)
 	localesPGService := services.NewLocalesService(localesPGRepo)
 	pagosPGService := services.NewPagosService(pagosPGRepo)
@@ -59,6 +64,7 @@ func Build() (*gin.Engine, error) {
 		localesHorariosPGService,
 		serviciosPGService,
 		combosPGService,
+		paquetesPGService,
 		reservasPGService,
 		localesPGService,
 		pagosPGService,

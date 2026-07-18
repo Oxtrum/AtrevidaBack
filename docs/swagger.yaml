@@ -1251,6 +1251,154 @@ definitions:
         - $ref: '#/definitions/services.PagoResumenReporte'
         description: Reporte general o reporte del local filtrado
     type: object
+  handlers.paqueteFiltrosResponse:
+    properties:
+      activo:
+        description: 'Filtro aplicado: estado activo del paquete.'
+        example: true
+        type: boolean
+      categoria:
+        description: 'Filtro aplicado: categoría parcial del paquete.'
+        example: Corporal
+        type: string
+      local:
+        description: 'Filtro aplicado: nombre parcial del local.'
+        example: SAN MARTIN
+        type: string
+      nombre:
+        description: 'Filtro aplicado: nombre parcial del paquete.'
+        example: relax
+        type: string
+    type: object
+  handlers.paqueteImagenResponse:
+    properties:
+      imagen_url:
+        description: URL publica de la portada del paquete.
+        example: https://xxx.supabase.co/storage/v1/object/public/paquetes/paquetes/4
+        type: string
+    type: object
+  handlers.paqueteImagenUploadResponse:
+    properties:
+      path:
+        description: Path del objeto dentro del bucket.
+        example: paquetes/4
+        type: string
+      token:
+        description: Token de la subida firmada.
+        example: eyJhbGciOi
+        type: string
+      upload_url:
+        description: URL absoluta a la que el frontend hace PUT con el archivo (incluye
+          el token).
+        example: https://xxx.supabase.co/storage/v1/object/upload/sign/paquetes/paquetes/4?token=eyJ
+        type: string
+    type: object
+  handlers.paqueteItemResponse:
+    properties:
+      paquete:
+        allOf:
+        - $ref: '#/definitions/models.PaqueteDetalle'
+        description: Datos completos del paquete, incluidos catalogo base, locales
+          y tiers.
+    type: object
+  handlers.paqueteListResponse:
+    properties:
+      filtros:
+        allOf:
+        - $ref: '#/definitions/handlers.paqueteFiltrosResponse'
+        description: Filtros aplicados en la búsqueda.
+      paquetes:
+        description: Lista de paquetes del catalogo.
+        items:
+          $ref: '#/definitions/models.PaqueteDetalle'
+        type: array
+      total:
+        description: Cantidad total de paquetes que coinciden con los filtros aplicados.
+        example: 3
+        type: integer
+    type: object
+  handlers.paqueteRequest:
+    properties:
+      categoria_id:
+        description: ID opcional de la categoria del catalogo.
+        example: 3
+        type: integer
+      descripcion:
+        description: Descripcion opcional mostrada en catalogo.
+        example: Masajes y drenaje segun cantidad de sesiones
+        type: string
+      local_ids:
+        description: IDs de los locales activos donde se publica el paquete.
+        example:
+        - 1
+        - 2
+        items:
+          type: integer
+        type: array
+      moneda:
+        description: Moneda ISO de tres letras; BOB por defecto.
+        example: BOB
+        type: string
+      nombre:
+        description: Nombre comercial del paquete.
+        example: Paquete Relax
+        type: string
+      servicios_base:
+        description: Catalogo base de servicios que componen el paquete.
+        items:
+          $ref: '#/definitions/handlers.paqueteServicioBaseRequest'
+        type: array
+      tiers:
+        description: Tiers (precio por cantidad de sesiones) del paquete.
+        items:
+          $ref: '#/definitions/handlers.paqueteTierRequest'
+        type: array
+    type: object
+  handlers.paqueteServicioBaseRequest:
+    properties:
+      costo:
+        description: Precio unitario snapshot de cada sesion.
+        example: 250
+        type: number
+      orden:
+        description: Posicion unica de la linea dentro del catalogo base, iniciando
+          en cero.
+        example: 0
+        type: integer
+      servicio_id:
+        description: ID opcional del servicio de catalogo usado como origen.
+        example: 8
+        type: integer
+      servicio_texto:
+        description: Nombre snapshot manual; si se omite y hay servicio_id, se copia
+          del servicio origen.
+        example: Masaje relajante personalizado
+        type: string
+    type: object
+  handlers.paqueteTierRequest:
+    properties:
+      id:
+        description: ID del tier a actualizar; si se omite se crea uno nuevo.
+        example: 5
+        type: integer
+      nota:
+        description: Nota comercial opcional del tier.
+        example: Promocion vigente
+        type: string
+      precio_contado:
+        description: Precio al contado del tier.
+        example: 700
+        type: number
+      precio_regular:
+        description: Precio regular opcional, mayor al de contado, usado para mostrar
+          descuento.
+        example: 800
+        type: number
+      sesiones:
+        description: Cantidad de sesiones incluidas en este tier.
+        example: 4
+        type: integer
+    type: object
   handlers.planFiltrosResponse:
     properties:
       cliente:
@@ -1692,6 +1840,12 @@ definitions:
       nombre:
         example: Combo Relax
         type: string
+      nota:
+        example: Promocion vigente
+        type: string
+      paquete_id:
+        example: 1
+        type: integer
       precio_final:
         example: 700
         type: number
@@ -1700,6 +1854,9 @@ definitions:
         type: number
       precio_paquete:
         example: 700
+        type: number
+      precio_regular:
+        example: 800
         type: number
       servicios:
         items:
@@ -2014,6 +2171,55 @@ definitions:
         description: Username opcional del cajero que modifico el pago por ultima
           vez.
         example: ana
+        type: string
+    type: object
+  models.PaqueteDetalle:
+    properties:
+      locales:
+        items:
+          $ref: '#/definitions/models.LocalPG'
+        type: array
+      paquete:
+        $ref: '#/definitions/models.PaquetePG'
+      servicios_base:
+        items:
+          $ref: '#/definitions/models.PaqueteServicioPG'
+        type: array
+      tiers:
+        items:
+          $ref: '#/definitions/models.ComboCatalogoPG'
+        type: array
+    type: object
+  models.PaquetePG:
+    properties:
+      activo:
+        type: boolean
+      categoria:
+        type: string
+      categoria_id:
+        type: integer
+      descripcion:
+        type: string
+      id:
+        type: integer
+      imagen_url:
+        type: string
+      moneda:
+        type: string
+      nombre:
+        type: string
+    type: object
+  models.PaqueteServicioPG:
+    properties:
+      costo:
+        type: number
+      id:
+        type: integer
+      orden:
+        type: integer
+      servicio_id:
+        type: integer
+      servicio_texto:
         type: string
     type: object
   models.PlanCompletoPG:
@@ -5011,6 +5217,417 @@ paths:
       summary: Obtener resumen de pagos
       tags:
       - Pagos
+  /bd/paquetes:
+    get:
+      description: Devuelve los paquetes que cumplan los filtros, con su catalogo
+        base de servicios, locales y tiers (precio por cantidad de sesiones). Por
+        defecto solo devuelve paquetes activos.
+      parameters:
+      - description: Busqueda parcial por nombre
+        example: relax
+        in: query
+        name: nombre
+        type: string
+      - description: Busqueda parcial por categoria
+        example: Corporal
+        in: query
+        name: categoria
+        type: string
+      - description: Busqueda parcial por nombre de local
+        example: SAN MARTIN
+        in: query
+        name: local
+        type: string
+      - description: Filtrar por activo; default true
+        example: true
+        in: query
+        name: activo
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.paqueteListResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: activo invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar paquetes de catalogo
+      tags:
+      - Paquetes BD
+    post:
+      consumes:
+      - application/json
+      description: Crea un paquete con su catalogo base de servicios, locales y tiers
+        (precio por cantidad de sesiones) en una unica transaccion. Requiere token
+        Bearer con rol admin_sys. Cada tier se materializa internamente como un combo
+        enlazado al paquete.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos completos del paquete
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.paqueteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: datos de paquete, locales, tiers o servicios
+            invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria, local o servicio no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Crear paquete de catalogo
+      tags:
+      - Paquetes BD
+  /bd/paquetes/{id}:
+    delete:
+      description: 'Realiza el borrado logico de un paquete de catalogo: lo marca
+        inactivo y deja de aparecer en el catalogo publico. Requiere token Bearer
+        con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del paquete
+        example: 4
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Paquete no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Desactivar paquete
+      tags:
+      - Paquetes BD
+    get:
+      description: Devuelve un paquete activo con su catalogo base de servicios, locales
+        y tiers.
+      parameters:
+      - description: ID del paquete
+        example: 4
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.paqueteItemResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Paquete no encontrado o inactivo
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Obtener paquete por ID
+      tags:
+      - Paquetes BD
+    patch:
+      consumes:
+      - application/json
+      description: Reemplaza los datos, catalogo base de servicios, locales y tiers
+        de un paquete en una unica transaccion. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del paquete
+        example: 4
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Datos completos del paquete
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.paqueteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id, locales, tiers o servicios invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Paquete, categoria o local no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Actualizar paquete de catalogo
+      tags:
+      - Paquetes BD
+  /bd/paquetes/{id}/imagen:
+    delete:
+      description: Borra el objeto de portada en Supabase Storage y limpia el path
+        del paquete. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del paquete
+        example: 4
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Paquete no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "503":
+          description: Almacenamiento de imagenes no configurado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Eliminar portada de paquete
+      tags:
+      - Paquetes BD
+    put:
+      description: Persiste la portada del paquete tras una subida exitosa y devuelve
+        su URL publica. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del paquete
+        example: 4
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.paqueteImagenResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Paquete no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "503":
+          description: Almacenamiento de imagenes no configurado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Confirmar portada de paquete subida
+      tags:
+      - Paquetes BD
+  /bd/paquetes/{id}/imagen/upload-url:
+    post:
+      description: Devuelve una URL firmada de Supabase Storage para que el cliente
+        suba la imagen de portada directamente, sin pasar los bytes por el backend.
+        Requiere token Bearer con rol admin_sys. Tras subir el archivo, confirmar
+        con PUT /bd/paquetes/{id}/imagen.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del paquete
+        example: 4
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.paqueteImagenUploadResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Paquete no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "503":
+          description: Almacenamiento de imagenes no configurado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Emitir URL firmada para subir portada de paquete
+      tags:
+      - Paquetes BD
   /bd/planes:
     get:
       description: Devuelve todos los planes que cumplan los filtros aplicados. Un
