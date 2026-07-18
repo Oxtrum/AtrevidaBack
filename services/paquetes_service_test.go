@@ -80,6 +80,21 @@ func TestCrearPaquete_PrecioRegularMayorQueContado(t *testing.T) {
 	}
 }
 
+func TestCrearPaquete_ServicioBaseSinIDNiTexto(t *testing.T) {
+	svc := NewPaquetesService(&fakePaquetesRepo{})
+	_, err := svc.Crear(CrearPaqueteInput{
+		Nombre:   "X",
+		LocalIDs: []int{1},
+		Tiers:    []models.PaqueteTierInput{{Sesiones: 1, PrecioContado: 10}},
+		ServiciosBase: []repository.PaqueteServicioInput{
+			{ServicioID: nil, ServicioTexto: nil, Costo: 10, Orden: 0},
+		},
+	})
+	if !errors.Is(err, ErrPaqueteInvalido) {
+		t.Fatalf("esperaba ErrPaqueteInvalido, got %v", err)
+	}
+}
+
 func TestCrearPaquete_Valido_DelegaAlRepo(t *testing.T) {
 	repo := &fakePaquetesRepo{}
 	svc := NewPaquetesService(repo)

@@ -122,6 +122,14 @@ func (r *PaquetesRepo) ActualizarPaquete(in repository.ActualizarPaqueteInput) e
 	}
 	defer tx.Rollback()
 
+	var existe bool
+	if err := tx.Get(&existe, `SELECT EXISTS(SELECT 1 FROM paquetes WHERE id = $1)`, in.ID); err != nil {
+		return err
+	}
+	if !existe {
+		return fmt.Errorf("%w: paquete con id %d", repository.ErrPaqueteNoEncontrado, in.ID)
+	}
+
 	if err := validarCategoriaTx(tx, in.CategoriaID); err != nil {
 		return err
 	}
@@ -285,12 +293,36 @@ func paqueteConditions(f repository.FiltroPaquetes) ([]string, []interface{}) {
 	return conditions, args
 }
 
+// insertarServiciosBaseTx resuelve y valida cada linea del catalogo base,
+// igual que combos.materializarServiciosTx: si trae servicio_id, lo busca en
+// servicios (debe existir y estar activo) y copia nombre/costo cuando la
+// linea no los trae; si no trae servicio_id, exige servicio_texto no vacio.
 func insertarServiciosBaseTx(tx *sqlx.Tx, paqueteID int, servicios []repository.PaqueteServicioInput) error {
 	for _, s := range servicios {
+		servicioTexto := strings.TrimSpace(pointerString(s.ServicioTexto))
+		costo := s.Costo
+		if s.ServicioID != nil {
+			var servicio struct {
+				Nombre string   `db:"nombre"`
+				Costo  *float64 `db:"costo"`
+			}
+			if err := tx.Get(&servicio, `SELECT nombre, costo FROM servicios WHERE id = $1 AND activo = TRUE`, *s.ServicioID); err != nil {
+				return fmt.Errorf("%w: servicio con id %d no encontrado o inactivo", repository.ErrComboNoEncontrado, *s.ServicioID)
+			}
+			if servicioTexto == "" {
+				servicioTexto = servicio.Nombre
+			}
+			if costo == 0 && servicio.Costo != nil {
+				costo = *servicio.Costo
+			}
+		}
+		if servicioTexto == "" {
+			return fmt.Errorf("servicio_texto no puede quedar vacio")
+		}
 		if _, err := tx.Exec(`
 			INSERT INTO paquete_servicios (paquete_id, servicio_id, servicio_texto, costo, orden, activo)
 			VALUES ($1,$2,$3,$4,$5,TRUE)
-		`, paqueteID, s.ServicioID, nullStr(pointerString(s.ServicioTexto)), s.Costo, s.Orden); err != nil {
+		`, paqueteID, s.ServicioID, nullStr(servicioTexto), costo, s.Orden); err != nil {
 			return fmt.Errorf("error al insertar servicio base de paquete: %w", err)
 		}
 	}

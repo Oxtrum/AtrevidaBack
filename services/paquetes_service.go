@@ -164,6 +164,9 @@ func (s *PaquetesService) Actualizar(input ActualizarPaqueteInput) error {
 	if err != nil {
 		return err
 	}
+	if err := validarServiciosBasePaquete(input.ServiciosBase); err != nil {
+		return err
+	}
 	input.Nombre = normalizado.nombre
 	input.Moneda = normalizado.moneda
 	if input.Descripcion != nil {
@@ -234,9 +237,28 @@ func normalizarPaquete(nombre string, localIDs []int, tiers []models.PaqueteTier
 	return paqueteNormalizado{nombre: nombreLimpio, moneda: monedaLimpia}, nil
 }
 
+// validarServiciosBasePaquete exige que cada linea del catalogo base traiga
+// servicio_id o servicio_texto (no ambos vacios), igual que
+// combos.normalizarServicios valida sus lineas.
+func validarServiciosBasePaquete(servicios []repository.PaqueteServicioInput) error {
+	for _, s := range servicios {
+		texto := ""
+		if s.ServicioTexto != nil {
+			texto = strings.TrimSpace(*s.ServicioTexto)
+		}
+		if s.ServicioID == nil && texto == "" {
+			return fmt.Errorf("cada servicio base requiere servicio_id o servicio_texto: %w", ErrPaqueteInvalido)
+		}
+	}
+	return nil
+}
+
 func normalizarCrearPaquete(input CrearPaqueteInput) (repository.CrearPaqueteInput, error) {
 	normalizado, err := normalizarPaquete(input.Nombre, input.LocalIDs, input.Tiers, input.Moneda)
 	if err != nil {
+		return repository.CrearPaqueteInput{}, err
+	}
+	if err := validarServiciosBasePaquete(input.ServiciosBase); err != nil {
 		return repository.CrearPaqueteInput{}, err
 	}
 	var descripcion *string
