@@ -144,6 +144,9 @@ type ComboCatalogoPG struct {
 	ImagenPath *string `db:"imagen_path" json:"-"`
 	// URL publica de la portada derivada del path; nil si el combo no tiene imagen.
 	ImagenURL       *string                  `db:"-" json:"imagen_url,omitempty" example:"https://xxx.supabase.co/storage/v1/object/public/paquetes/combos/12"`
+	PrecioRegular   *float64                 `db:"precio_regular" json:"precio_regular,omitempty" example:"800"`
+	Nota            *string                  `db:"nota" json:"nota,omitempty" example:"Promocion vigente"`
+	PaqueteID       *int                     `db:"paquete_id" json:"paquete_id,omitempty" example:"1"`
 	Locales         []LocalPG                `db:"-" json:"locales"`
 	Servicios       []ComboServicioDetallePG `db:"-" json:"servicios"`
 }
@@ -369,4 +372,38 @@ type PagoCompletoPG struct {
 	PagoPG
 	// Detalle de servicios cobrados.
 	Detalle []DetallePagoPG `db:"-" json:"detalle"`
+}
+
+// Paquetes
+
+// PaquetePG es la fila base del catalogo (fuente de verdad). Los tiers son
+// combos derivados enlazados por combos.paquete_id.
+type PaquetePG struct {
+	ID            int     `db:"id" json:"id"`
+	Nombre        string  `db:"nombre" json:"nombre"`
+	Descripcion   *string `db:"descripcion" json:"descripcion,omitempty"`
+	CategoriaID   *int    `db:"categoria_id" json:"categoria_id,omitempty"`
+	Categoria     *string `db:"categoria" json:"categoria,omitempty"`
+	ImagenPath    *string `db:"imagen_path" json:"-"`
+	ImagenURL     *string `db:"-" json:"imagen_url,omitempty"`
+	Moneda        string  `db:"moneda" json:"moneda"`
+	Activo        bool    `db:"activo" json:"activo"`
+}
+
+type PaqueteServicioPG struct {
+	ID            int      `db:"id" json:"id"`
+	PaqueteID     int      `db:"paquete_id" json:"-"`
+	ServicioID    *int     `db:"servicio_id" json:"servicio_id,omitempty"`
+	ServicioTexto *string  `db:"servicio_texto" json:"servicio_texto,omitempty"`
+	Costo         float64  `db:"costo" json:"costo"`
+	Orden         int      `db:"orden" json:"orden"`
+}
+
+// PaqueteTierInput es el tier tal como lo envia el admin (no la fila combo).
+type PaqueteTierInput struct {
+	ID            *int     `json:"id,omitempty"`
+	Sesiones      int      `json:"sesiones"`
+	PrecioContado float64  `json:"precio_contado"`
+	PrecioRegular *float64 `json:"precio_regular,omitempty"`
+	Nota          *string  `json:"nota,omitempty"`
 }
