@@ -125,30 +125,30 @@ type ComboPG struct {
 // ComboCatalogoPG representa una promocion reutilizable del catalogo.
 // No representa una compra ni conserva progreso de clientes.
 type ComboCatalogoPG struct {
-	ID              int                      `db:"id" json:"id" example:"12"`
-	Nombre          string                   `db:"nombre" json:"nombre" example:"Combo Relax"`
-	Descripcion     *string                  `db:"descripcion" json:"descripcion,omitempty" example:"Promocion corporal de cuatro sesiones"`
-	CategoriaID     *int                     `db:"categoria_id" json:"categoria_id,omitempty" example:"3"`
-	Categoria       string                   `db:"categoria" json:"categoria" example:"Corporal"`
-	TipoPrecio      string                   `db:"tipo_precio" json:"tipo_precio" example:"PRECIO_PAQUETE"`
-	PrecioPaquete   *float64                 `db:"precio_paquete" json:"precio_paquete,omitempty" example:"700"`
-	PrecioItems     float64                  `db:"precio_items" json:"precio_items" example:"800"`
-	PrecioFinal     float64                  `db:"precio_final" json:"precio_final" example:"700"`
-	Moneda          string                   `db:"moneda" json:"moneda" example:"BOB"`
-	SesionesTotales int                      `db:"sesiones_totales" json:"sesiones_totales" example:"4"`
-	DuracionMin     *int                     `db:"duracion_min" json:"duracion_min,omitempty" example:"90"`
-	Activo          bool                     `db:"activo" json:"activo" example:"true"`
-	CreadoEn        time.Time                `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
-	ActualizadoEn   time.Time                `db:"actualizado_en" json:"actualizado_en" example:"2026-07-11T10:00:00Z"`
+	ID              int       `db:"id" json:"id" example:"12"`
+	Nombre          string    `db:"nombre" json:"nombre" example:"Combo Relax"`
+	Descripcion     *string   `db:"descripcion" json:"descripcion,omitempty" example:"Promocion corporal de cuatro sesiones"`
+	CategoriaID     *int      `db:"categoria_id" json:"categoria_id,omitempty" example:"3"`
+	Categoria       string    `db:"categoria" json:"categoria" example:"Corporal"`
+	TipoPrecio      string    `db:"tipo_precio" json:"tipo_precio" example:"PRECIO_PAQUETE"`
+	PrecioPaquete   *float64  `db:"precio_paquete" json:"precio_paquete,omitempty" example:"700"`
+	PrecioItems     float64   `db:"precio_items" json:"precio_items" example:"800"`
+	PrecioFinal     float64   `db:"precio_final" json:"precio_final" example:"700"`
+	Moneda          string    `db:"moneda" json:"moneda" example:"BOB"`
+	SesionesTotales int       `db:"sesiones_totales" json:"sesiones_totales" example:"4"`
+	DuracionMin     *int      `db:"duracion_min" json:"duracion_min,omitempty" example:"90"`
+	Activo          bool      `db:"activo" json:"activo" example:"true"`
+	CreadoEn        time.Time `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
+	ActualizadoEn   time.Time `db:"actualizado_en" json:"actualizado_en" example:"2026-07-11T10:00:00Z"`
 	// Path del objeto de portada en Supabase Storage; interno, no se expone en JSON.
 	ImagenPath *string `db:"imagen_path" json:"-"`
 	// URL publica de la portada derivada del path; nil si el combo no tiene imagen.
-	ImagenURL       *string                  `db:"-" json:"imagen_url,omitempty" example:"https://xxx.supabase.co/storage/v1/object/public/paquetes/combos/12"`
-	PrecioRegular   *float64                 `db:"precio_regular" json:"precio_regular,omitempty" example:"800"`
-	Nota            *string                  `db:"nota" json:"nota,omitempty" example:"Promocion vigente"`
-	PaqueteID       *int                     `db:"paquete_id" json:"paquete_id,omitempty" example:"1"`
-	Locales         []LocalPG                `db:"-" json:"locales"`
-	Servicios       []ComboServicioDetallePG `db:"-" json:"servicios"`
+	ImagenURL     *string                  `db:"-" json:"imagen_url,omitempty" example:"https://xxx.supabase.co/storage/v1/object/public/paquetes/combos/12"`
+	PrecioRegular *float64                 `db:"precio_regular" json:"precio_regular,omitempty" example:"800"`
+	Nota          *string                  `db:"nota" json:"nota,omitempty" example:"Promocion vigente"`
+	PaqueteID     *int                     `db:"paquete_id" json:"paquete_id,omitempty" example:"1"`
+	Locales       []LocalPG                `db:"-" json:"locales"`
+	Servicios     []ComboServicioDetallePG `db:"-" json:"servicios"`
 }
 
 type ComboServicioPG struct {
@@ -181,35 +181,35 @@ type ComboServicioDetallePG struct {
 // Planes
 
 type PlanPG struct {
-	ID                    int        `db:"id" json:"id" example:"21"`
-	Codigo                string     `db:"codigo" json:"codigo" example:"PLAN-000001"`
-	Cliente               string     `db:"cliente" json:"cliente" example:"Maria Lopez"`
-	LocalID               *int       `db:"local_id" json:"local_id,omitempty" example:"1"`
-	ComboID               *int       `db:"combo_id" json:"combo_id,omitempty" example:"12"`
-	ComboNombre           *string    `db:"combo_nombre" json:"combo_nombre,omitempty" example:"Combo Relax"`
-	SesionesTotales       int        `db:"sesiones_totales" json:"sesiones_totales" example:"4"`
-	SesionesUsadas        int        `db:"sesiones_usadas" json:"sesiones_usadas" example:"2"`
-	CostoTotal            *float64   `db:"costo_total" json:"costo_total,omitempty" example:"700"`
-	Notas                 *string    `db:"notas" json:"notas,omitempty" example:"Cliente frecuente"`
-	Activo                bool       `db:"activo" json:"activo" example:"true"`
-	CreadoEn              time.Time  `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
-	ClienteID             *int       `db:"cliente_id" json:"cliente_id,omitempty" example:"12"`
-	ClienteNombreTexto    string     `db:"cliente_nombre_texto" json:"cliente_nombre_texto" example:"Maria Lopez"`
-	LocalNombreTexto      string     `db:"local_nombre_texto" json:"local_nombre_texto" example:"SAN MARTIN"`
-	ComboIDOrigen         *int       `db:"combo_id_origen" json:"combo_id_origen,omitempty" example:"12"`
-	ComboNombreTexto      *string    `db:"combo_nombre_texto" json:"combo_nombre_texto,omitempty" example:"Combo Relax"`
-	FechaInicio           *time.Time `db:"fecha_inicio" json:"fecha_inicio,omitempty" example:"2026-07-15"`
-	FechaFin              *time.Time `db:"fecha_fin" json:"fecha_fin,omitempty" example:"2026-08-14"`
-	Estado                string     `db:"estado" json:"estado" example:"ACTIVO"`
-	EstadoCobranza        string     `db:"estado_cobranza" json:"estado_cobranza" example:"PENDIENTE"`
-	TipoPago              string     `db:"tipo_pago" json:"tipo_pago" example:"UNICO"`
-	Subtotal              float64    `db:"subtotal" json:"subtotal" example:"800"`
-	Descuento             float64    `db:"descuento" json:"descuento" example:"100"`
-	PrecioTotal           float64    `db:"precio_total" json:"precio_total" example:"700"`
-	Moneda                string     `db:"moneda" json:"moneda" example:"BOB"`
-	CreadoPor             *int       `db:"creado_por" json:"creado_por,omitempty" example:"1"`
-	ActualizadoPor        *int       `db:"actualizado_por" json:"actualizado_por,omitempty" example:"1"`
-	ActualizadoEn         *time.Time `db:"actualizado_en" json:"actualizado_en,omitempty" example:"2026-07-11T12:00:00Z"`
+	ID                 int        `db:"id" json:"id" example:"21"`
+	Codigo             string     `db:"codigo" json:"codigo" example:"PLAN-000001"`
+	Cliente            string     `db:"cliente" json:"cliente" example:"Maria Lopez"`
+	LocalID            *int       `db:"local_id" json:"local_id,omitempty" example:"1"`
+	ComboID            *int       `db:"combo_id" json:"combo_id,omitempty" example:"12"`
+	ComboNombre        *string    `db:"combo_nombre" json:"combo_nombre,omitempty" example:"Combo Relax"`
+	SesionesTotales    int        `db:"sesiones_totales" json:"sesiones_totales" example:"4"`
+	SesionesUsadas     int        `db:"sesiones_usadas" json:"sesiones_usadas" example:"2"`
+	CostoTotal         *float64   `db:"costo_total" json:"costo_total,omitempty" example:"700"`
+	Notas              *string    `db:"notas" json:"notas,omitempty" example:"Cliente frecuente"`
+	Activo             bool       `db:"activo" json:"activo" example:"true"`
+	CreadoEn           time.Time  `db:"creado_en" json:"creado_en" example:"2026-07-11T10:00:00Z"`
+	ClienteID          *int       `db:"cliente_id" json:"cliente_id,omitempty" example:"12"`
+	ClienteNombreTexto string     `db:"cliente_nombre_texto" json:"cliente_nombre_texto" example:"Maria Lopez"`
+	LocalNombreTexto   string     `db:"local_nombre_texto" json:"local_nombre_texto" example:"SAN MARTIN"`
+	ComboIDOrigen      *int       `db:"combo_id_origen" json:"combo_id_origen,omitempty" example:"12"`
+	ComboNombreTexto   *string    `db:"combo_nombre_texto" json:"combo_nombre_texto,omitempty" example:"Combo Relax"`
+	FechaInicio        *time.Time `db:"fecha_inicio" json:"fecha_inicio,omitempty" example:"2026-07-15"`
+	FechaFin           *time.Time `db:"fecha_fin" json:"fecha_fin,omitempty" example:"2026-08-14"`
+	Estado             string     `db:"estado" json:"estado" example:"ACTIVO"`
+	EstadoCobranza     string     `db:"estado_cobranza" json:"estado_cobranza" example:"PENDIENTE"`
+	TipoPago           string     `db:"tipo_pago" json:"tipo_pago" example:"UNICO"`
+	Subtotal           float64    `db:"subtotal" json:"subtotal" example:"800"`
+	Descuento          float64    `db:"descuento" json:"descuento" example:"100"`
+	PrecioTotal        float64    `db:"precio_total" json:"precio_total" example:"700"`
+	Moneda             string     `db:"moneda" json:"moneda" example:"BOB"`
+	CreadoPor          *int       `db:"creado_por" json:"creado_por,omitempty" example:"1"`
+	ActualizadoPor     *int       `db:"actualizado_por" json:"actualizado_por,omitempty" example:"1"`
+	ActualizadoEn      *time.Time `db:"actualizado_en" json:"actualizado_en,omitempty" example:"2026-07-11T12:00:00Z"`
 }
 
 type PlanServicioPG struct {
@@ -379,24 +379,24 @@ type PagoCompletoPG struct {
 // PaquetePG es la fila base del catalogo (fuente de verdad). Los tiers son
 // combos derivados enlazados por combos.paquete_id.
 type PaquetePG struct {
-	ID            int     `db:"id" json:"id"`
-	Nombre        string  `db:"nombre" json:"nombre"`
-	Descripcion   *string `db:"descripcion" json:"descripcion,omitempty"`
-	CategoriaID   *int    `db:"categoria_id" json:"categoria_id,omitempty"`
-	Categoria     *string `db:"categoria" json:"categoria,omitempty"`
-	ImagenPath    *string `db:"imagen_path" json:"-"`
-	ImagenURL     *string `db:"-" json:"imagen_url,omitempty"`
-	Moneda        string  `db:"moneda" json:"moneda"`
-	Activo        bool    `db:"activo" json:"activo"`
+	ID          int     `db:"id" json:"id"`
+	Nombre      string  `db:"nombre" json:"nombre"`
+	Descripcion *string `db:"descripcion" json:"descripcion,omitempty"`
+	CategoriaID *int    `db:"categoria_id" json:"categoria_id,omitempty"`
+	Categoria   *string `db:"categoria" json:"categoria,omitempty"`
+	ImagenPath  *string `db:"imagen_path" json:"-"`
+	ImagenURL   *string `db:"-" json:"imagen_url,omitempty"`
+	Moneda      string  `db:"moneda" json:"moneda"`
+	Activo      bool    `db:"activo" json:"activo"`
 }
 
 type PaqueteServicioPG struct {
-	ID            int      `db:"id" json:"id"`
-	PaqueteID     int      `db:"paquete_id" json:"-"`
-	ServicioID    *int     `db:"servicio_id" json:"servicio_id,omitempty"`
-	ServicioTexto *string  `db:"servicio_texto" json:"servicio_texto,omitempty"`
-	Costo         float64  `db:"costo" json:"costo"`
-	Orden         int      `db:"orden" json:"orden"`
+	ID            int     `db:"id" json:"id"`
+	PaqueteID     int     `db:"paquete_id" json:"-"`
+	ServicioID    *int    `db:"servicio_id" json:"servicio_id,omitempty"`
+	ServicioTexto *string `db:"servicio_texto" json:"servicio_texto,omitempty"`
+	Costo         float64 `db:"costo" json:"costo"`
+	Orden         int     `db:"orden" json:"orden"`
 }
 
 // PaqueteTierInput es el tier tal como lo envia el admin (no la fila combo).
@@ -406,4 +406,14 @@ type PaqueteTierInput struct {
 	PrecioContado float64  `json:"precio_contado"`
 	PrecioRegular *float64 `json:"precio_regular,omitempty"`
 	Nota          *string  `json:"nota,omitempty"`
+}
+
+// PaqueteDetalle es un paquete del catalogo con sus datos derivados: el
+// catalogo base de servicios, los locales donde esta disponible y sus tiers
+// (combos materializados) por cantidad de sesiones.
+type PaqueteDetalle struct {
+	Paquete       PaquetePG           `json:"paquete"`
+	ServiciosBase []PaqueteServicioPG `json:"servicios_base"`
+	Locales       []LocalPG           `json:"locales"`
+	Tiers         []ComboCatalogoPG   `json:"tiers"`
 }

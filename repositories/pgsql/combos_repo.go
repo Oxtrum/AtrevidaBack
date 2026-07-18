@@ -34,7 +34,8 @@ func (r *CombosRepo) ListCombos(f repository.FiltroCombos) ([]models.ComboCatalo
 				WHEN cb.tipo_precio = 'PRECIO_PAQUETE' THEN COALESCE(cb.precio_paquete, cb.costo_total, 0)
 				ELSE COALESCE((SELECT SUM(cs2.costo * cs2.sesiones) FROM combo_servicios cs2 WHERE cs2.combo_id = cb.id AND cs2.activo = TRUE), 0)
 			END AS precio_final,
-			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en, cb.imagen_path
+			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en, cb.imagen_path,
+			cb.paquete_id, cb.precio_regular, cb.nota
 		FROM combos cb
 		LEFT JOIN categorias c ON c.id = cb.categoria_id
 		LEFT JOIN combo_local cl ON cl.combo_id = cb.id
@@ -75,7 +76,8 @@ func (r *CombosRepo) GetComboByID(id int, incluirInactivo bool) (*models.ComboCa
 				WHEN cb.tipo_precio = 'PRECIO_PAQUETE' THEN COALESCE(cb.precio_paquete, cb.costo_total, 0)
 				ELSE COALESCE(SUM(cs.costo * cs.sesiones) FILTER (WHERE cs.activo = TRUE), 0)
 			END AS precio_final,
-			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en, cb.imagen_path
+			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en, cb.imagen_path,
+			cb.paquete_id, cb.precio_regular, cb.nota
 		FROM combos cb
 		LEFT JOIN categorias c ON c.id = cb.categoria_id
 		LEFT JOIN combo_servicios cs ON cs.combo_id = cb.id
