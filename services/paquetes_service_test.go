@@ -11,6 +11,7 @@ import (
 type fakePaquetesRepo struct {
 	createInput repository.CrearPaqueteInput
 	createErr   error
+	getByIDErr  error
 }
 
 func (f *fakePaquetesRepo) ListPaquetes(repository.FiltroPaquetes) ([]models.PaqueteDetalle, error) {
@@ -18,6 +19,9 @@ func (f *fakePaquetesRepo) ListPaquetes(repository.FiltroPaquetes) ([]models.Paq
 }
 
 func (f *fakePaquetesRepo) GetPaqueteByID(int, bool) (*models.PaqueteDetalle, error) {
+	if f.getByIDErr != nil {
+		return nil, f.getByIDErr
+	}
 	return nil, nil
 }
 
@@ -92,5 +96,14 @@ func TestCrearPaquete_Valido_DelegaAlRepo(t *testing.T) {
 	}
 	if repo.createInput.Nombre != "X" {
 		t.Fatalf("el repo no recibio el input esperado: %+v", repo.createInput)
+	}
+}
+
+func TestObtenerPaquete_TraduceNoEncontrado(t *testing.T) {
+	repo := &fakePaquetesRepo{getByIDErr: repository.ErrPaqueteNoEncontrado}
+	svc := NewPaquetesService(repo)
+	_, err := svc.Obtener(1)
+	if !errors.Is(err, ErrPaqueteNoEncontrado) {
+		t.Fatalf("esperaba ErrPaqueteNoEncontrado, got %v", err)
 	}
 }

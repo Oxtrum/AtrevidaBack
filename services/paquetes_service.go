@@ -74,7 +74,7 @@ func (s *PaquetesService) GenerarURLSubidaImagen(paqueteID int) (SubidaFirmada, 
 		return SubidaFirmada{}, ErrAlmacenamientoNoConfigurado
 	}
 	if _, err := s.repo.GetPaqueteByID(paqueteID, true); err != nil {
-		return SubidaFirmada{}, err
+		return SubidaFirmada{}, traducirErrorRepositorioPaquete(err)
 	}
 	return s.Storage.CrearURLSubida(rutaImagenPaquete(paqueteID))
 }
@@ -89,7 +89,7 @@ func (s *PaquetesService) ConfirmarImagen(paqueteID int) (string, error) {
 	}
 	path := rutaImagenPaquete(paqueteID)
 	if err := s.repo.SetPaqueteImagen(paqueteID, &path); err != nil {
-		return "", err
+		return "", traducirErrorRepositorioPaquete(err)
 	}
 	return s.Storage.URLPublica(path), nil
 }
@@ -105,7 +105,23 @@ func (s *PaquetesService) EliminarImagen(paqueteID int) error {
 	if err := s.Storage.Eliminar(rutaImagenPaquete(paqueteID)); err != nil {
 		return err
 	}
-	return s.repo.SetPaqueteImagen(paqueteID, nil)
+	return traducirErrorRepositorioPaquete(s.repo.SetPaqueteImagen(paqueteID, nil))
+}
+
+// traducirErrorRepositorioPaquete mapea errores del repositorio a los
+// sentinels del servicio para que los handlers puedan discriminar 404 (no
+// encontrado) de 400 (input invalido) sin conocer los tipos del repositorio.
+func traducirErrorRepositorioPaquete(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, repository.ErrPaqueteNoEncontrado) {
+		return fmt.Errorf("%w: %v", ErrPaqueteNoEncontrado, err)
+	}
+	if errors.Is(err, repository.ErrComboNoEncontrado) {
+		return fmt.Errorf("%w: %v", ErrPaqueteInvalido, err)
+	}
+	return err
 }
 
 func (s *PaquetesService) Listar(f repository.FiltroPaquetes) ([]models.PaqueteDetalle, error) {
@@ -125,7 +141,7 @@ func (s *PaquetesService) Obtener(id int) (*models.PaqueteDetalle, error) {
 	}
 	paquete, err := s.repo.GetPaqueteByID(id, false)
 	if err != nil {
-		return nil, err
+		return nil, traducirErrorRepositorioPaquete(err)
 	}
 	s.rellenarImagenURLPaquete(paquete)
 	return paquete, nil
@@ -136,7 +152,8 @@ func (s *PaquetesService) Crear(input CrearPaqueteInput) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return s.repo.CrearPaquete(normalizado)
+	id, err := s.repo.CrearPaquete(normalizado)
+	return id, traducirErrorRepositorioPaquete(err)
 }
 
 func (s *PaquetesService) Actualizar(input ActualizarPaqueteInput) error {
@@ -153,7 +170,7 @@ func (s *PaquetesService) Actualizar(input ActualizarPaqueteInput) error {
 		v := strings.TrimSpace(*input.Descripcion)
 		input.Descripcion = &v
 	}
-	return s.repo.ActualizarPaquete(repository.ActualizarPaqueteInput{
+	return traducirErrorRepositorioPaquete(s.repo.ActualizarPaquete(repository.ActualizarPaqueteInput{
 		ID:            input.ID,
 		Nombre:        input.Nombre,
 		Descripcion:   input.Descripcion,
@@ -162,14 +179,14 @@ func (s *PaquetesService) Actualizar(input ActualizarPaqueteInput) error {
 		LocalIDs:      input.LocalIDs,
 		ServiciosBase: input.ServiciosBase,
 		Tiers:         input.Tiers,
-	})
+	}))
 }
 
 func (s *PaquetesService) Eliminar(id int) error {
 	if id < 1 {
 		return fmt.Errorf("id debe ser un entero positivo: %w", ErrPaqueteInvalido)
 	}
-	return s.repo.EliminarPaquete(id)
+	return traducirErrorRepositorioPaquete(s.repo.EliminarPaquete(id))
 }
 
 type paqueteNormalizado struct {
