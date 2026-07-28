@@ -214,7 +214,7 @@ func transformReservasEnSlots(reservas []models.ReservaPGCompleta) []models.Rese
 	var resultado []models.ReservaPGCompleta
 
 	for _, rv := range reservas {
-		slots := partirEnSlots60(rv.HoraDesde, rv.HoraHasta)
+		slots := partirEnSlots30(rv.HoraDesde, rv.HoraHasta)
 		if len(slots) == 0 {
 			// Si no se puede partir (horario inválido), lo dejamos tal cual
 			resultado = append(resultado, rv)
@@ -231,8 +231,8 @@ func transformReservasEnSlots(reservas []models.ReservaPGCompleta) []models.Rese
 	return resultado
 }
 
-// partirEnSlots60 divide un rango [desde, hasta] en bloques de 60 minutos.
-func partirEnSlots60(desde, hasta string) [][2]string {
+// partirEnSlots30 divide un rango [desde, hasta] en bloques de 30 minutos.
+func partirEnSlots30(desde, hasta string) [][2]string {
 	parseHora := func(h string) (time.Time, error) {
 		if len(h) > 5 {
 			h = h[:5]
@@ -253,7 +253,7 @@ func partirEnSlots60(desde, hasta string) [][2]string {
 	var slots [][2]string
 	cur := tDesde
 	for cur.Before(tHasta) {
-		siguiente := cur.Add(60 * time.Minute)
+		siguiente := cur.Add(30 * time.Minute)
 		if siguiente.After(tHasta) {
 			siguiente = tHasta
 		}
@@ -357,27 +357,27 @@ func (s *ReservasPGService) getEspaciosLibresRaw(f FiltroReservasPG, desde, hast
 	return resultado, nil
 }
 
-// horarioLocal retorna los slots de 60 min disponibles para un local y día dado.
+// horarioLocal retorna los slots de 30 min disponibles para un local y día dado.
 func horarioLocal(local string, fecha time.Time) [][2]string {
 	if fecha.Weekday() == time.Sunday {
 		return nil
 	}
 	if fecha.Weekday() == time.Saturday {
 		if strings.EqualFold(strings.TrimSpace(local), "PASEO ARANJUEZ") {
-			return generarSlots60("08:00", "18:00")
+			return generarSlots30("08:00", "18:00")
 		}
-		return generarSlots60("08:00", "15:00")
+		return generarSlots30("08:00", "15:00")
 	}
-	return generarSlots60("08:00", "20:00")
+	return generarSlots30("08:00", "20:00")
 }
 
-// generarSlots60 produce pares [desde, hasta] de 60 min entre apertura y cierre.
-func generarSlots60(apertura, cierre string) [][2]string {
+// generarSlots30 produce pares [desde, hasta] de 30 min entre apertura y cierre.
+func generarSlots30(apertura, cierre string) [][2]string {
 	t, _ := time.Parse("15:04", apertura)
 	fin, _ := time.Parse("15:04", cierre)
 	var slots [][2]string
 	for t.Before(fin) {
-		siguiente := t.Add(60 * time.Minute)
+		siguiente := t.Add(30 * time.Minute)
 		if siguiente.After(fin) {
 			break
 		}
