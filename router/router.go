@@ -154,12 +154,13 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.GET("/reservas", h.GetReservasSimplePG)
 		bd.GET("/reservas/resumen", h.AuthRequired, h.GetReservasResumenPG)
 		bd.GET("/reservas/:id", h.AuthRequired, h.GetReservaPGByID)
-		bd.PATCH("/reservas/notificar", h.PatchReservaNotificadoPG)
-		bd.DELETE("/reservas/:id", h.DeleteReservaPG)
+		bd.PATCH("/reservas/notificar", h.AuthRequired, h.PatchReservaNotificadoPG)
+		bd.DELETE("/reservas/:id", h.AuthRequired, h.DeleteReservaPG)
 		bd.GET("/reservas/calendario", h.GetReservasPG)
+		// POST y GET quedan publicos: el formulario de reserva del sitio los usa sin token.
 		bd.POST("/reservas", h.PostReservaPG)
-		bd.PATCH("/reservas", h.PatchReservaPG)
-		bd.PATCH("/reservas/estado", h.PatchReservaEstadoPG)
+		bd.PATCH("/reservas", h.AuthRequired, h.PatchReservaPG)
+		bd.PATCH("/reservas/estado", h.AuthRequired, h.PatchReservaEstadoPG)
 
 		bd.GET("/pagos", h.AuthRequired, h.GetPagos)
 		bd.GET("/pagos/resumen", h.AuthRequired, h.GetResumenPagos)

@@ -487,6 +487,7 @@ type ReservaSimple struct {
 	Cliente            string   `json:"cliente" example:"Maria Lopez"`
 	Estado             *string  `json:"estado,omitempty" example:"AGENDADO"`
 	NumeroTelefono     *string  `json:"numero_telefono,omitempty" example:"+59170011223"`
+	PlanID             *int     `json:"plan_id,omitempty" example:"21"`
 	Servicio           *string  `json:"servicio,omitempty" example:"Depilacion Laser"`
 	ServicioSolicitado *string  `json:"servicio_solicitado,omitempty" example:"Piernas completas"`
 	ServicioConfirmado *string  `json:"servicio_confirmado,omitempty" example:"Depilacion Laser Piernas"`
@@ -627,6 +628,7 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 			Cliente:            rv.Cliente,
 			Estado:             rv.Estado,
 			NumeroTelefono:     rv.NumeroTelefono,
+			PlanID:             rv.PlanID,
 			Servicio:           rv.ServicioNombre,
 			ServicioSolicitado: rv.ServicioSolicitado,
 			ServicioConfirmado: rv.ServicioConfirmado,
@@ -659,6 +661,7 @@ func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple
 		Cliente:            rv.Cliente,
 		Estado:             rv.Estado,
 		NumeroTelefono:     rv.NumeroTelefono,
+		PlanID:             rv.PlanID,
 		Servicio:           rv.ServicioNombre,
 		ServicioSolicitado: rv.ServicioSolicitado,
 		ServicioConfirmado: rv.ServicioConfirmado,
@@ -1110,23 +1113,24 @@ func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReserv
 
 // PATCH
 type ActualizarReservaPGInput struct {
-	Id        int
-	Local     string
-	Fecha     string
-	HoraDesde string
-	Tipo      string
-	Cliente   string
+	Id    int
+	Local string
 
 	NuevaFecha              string
 	NuevaHoraDesde          string
 	NuevaHoraHasta          string
 	NuevoTipo               string
+	NuevoCliente            string
 	NuevoNumeroTelefono     string
 	NuevoServicio           string
 	NuevoServicioSolicitado string
 	NuevoServicioConfirmado string
 	NuevoPrecio             *float64
 	NuevasNotas             string
+	NuevoLocal              string
+	NuevoPlanID             *int
+	// LimpiarPlanID desvincula la reserva de su plan (plan_id = NULL).
+	LimpiarPlanID bool
 }
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
@@ -1163,6 +1167,21 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 
 	if input.NuevoNumeroTelefono != "" {
 		upd.NuevoNumeroTelefono = &input.NuevoNumeroTelefono
+	}
+
+	if input.NuevoCliente != "" {
+		cliente := strings.TrimSpace(input.NuevoCliente)
+		upd.NuevoCliente = &cliente
+	}
+
+	if input.NuevoLocal != "" {
+		local := strings.TrimSpace(input.NuevoLocal)
+		upd.NuevoLocal = &local
+	}
+
+	upd.LimpiarPlanID = input.LimpiarPlanID
+	if !input.LimpiarPlanID && input.NuevoPlanID != nil {
+		upd.NuevoPlanID = input.NuevoPlanID
 	}
 
 	if input.NuevoTipo != "" {
@@ -1242,9 +1261,33 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 	if err != nil {
 		return err
 	}
-	if estadoActual == "AGENDADO" || estadoActual == "COMPLETADO" {
-		return fmt.Errorf("no se puede editar una reserva con estado %s", estadoActual)
+	// Una reserva COMPLETADO ya se cobró: cambiarle servicio o precio dejaría el
+	// pago emitido sin forma de reconciliarse. Las AGENDADO sí se editan porque
+	// recepción necesita reprogramar y corregir el servicio o paquete elegido.
+	if estadoActual == "COMPLETADO" {
+		return errors.New("no se puede editar una reserva completada")
 	}
+
+	// Una reserva AGENDADO ya tiene servicio confirmado: si cambia el servicio
+	// hay que mover con él el confirmado y el tipo de espacio, o la reserva
+	// queda apuntando al espacio equivocado.
+	if estadoActual == "AGENDADO" && upd.NuevoServicio != nil {
+		if upd.NuevoServicioConfirmado == nil {
+			upd.NuevoServicioConfirmado = upd.NuevoServicio
+		}
+		if upd.NuevoTipo == nil && s.serviciosRepo != nil {
+			if servicio, err := s.serviciosRepo.GetServicioByNombre(*upd.NuevoServicio); err == nil && servicio != nil {
+				if tipo := strings.ToUpper(strings.TrimSpace(servicio.TipoEspacio)); tipo != "" {
+					upd.NuevoTipo = &tipo
+				}
+			}
+		}
+	}
+
+	// Reprogramar invalida la confirmación ya enviada: se devuelve al feed de
+	// notificaciones para reavisar al cliente.
+	upd.ResetNotificado = estadoActual == "AGENDADO" &&
+		(upd.NuevaFecha != nil || upd.NuevaHoraDesde != nil || upd.NuevaHoraHasta != nil || upd.NuevoLocal != nil)
 
 	// 1.1 coherencia de horas
 	horaDesdeFinal := current.HoraDesde
@@ -1285,8 +1328,12 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 		return fmt.Errorf("La hora de inicio no puede ser igual o posterior a la hora de finalización")
 	}
 
-	// Campos para validación (prioridad al nuevo valor, fallback al actual)
-	valLocal := input.Local
+	// Campos para validación (prioridad al nuevo valor, fallback al actual).
+	// El horario de atención depende del local destino, no del de origen.
+	valLocal := input.NuevoLocal
+	if valLocal == "" {
+		valLocal = input.Local
+	}
 	if valLocal == "" {
 		valLocal = current.LocalNombre
 	}
@@ -1465,7 +1512,8 @@ func canTransitionReservaEstado(actual, siguiente string) bool {
 	case "RECHAZADO":
 		return siguiente == "PENDIENTE"
 	case "AGENDADO":
-		return siguiente == "COMPLETADO"
+		// RECHAZADO cubre la cancelación de una reserva ya confirmada.
+		return siguiente == "COMPLETADO" || siguiente == "RECHAZADO"
 	case "COMPLETADO":
 		return false
 	default:

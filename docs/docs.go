@@ -4981,7 +4981,12 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional).",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).",
                 "consumes": [
                     "application/json"
                 ],
@@ -5023,13 +5028,25 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar u horario fuera de atencion",
+                        "description": "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar, fecha pasada u horario fuera de atencion",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token ausente o invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Reserva no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Reserva completada o sin espacios disponibles en el horario destino",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5178,7 +5195,12 @@ const docTemplate = `{
         },
         "/bd/reservas/estado": {
             "patch": {
-                "description": "Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio (opcional). servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO. RECHAZADO y COMPLETADO no admiten cambios.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO, RECHAZADO→PENDIENTE. COMPLETADO no admite cambios.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5221,6 +5243,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Error de validacion: estado invalido, transicion no permitida, campo requerido faltante",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token ausente o invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -6739,6 +6767,11 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 44
                 },
+                "limpiar_plan_id": {
+                    "description": "Desvincula la reserva de su plan actual; tiene prioridad sobre nuevo_plan_id, opcional",
+                    "type": "boolean",
+                    "example": false
+                },
                 "local": {
                     "description": "Nombre del local (siempre requerido para validar existencia)",
                     "type": "string",
@@ -6764,10 +6797,25 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Reagendada por solicitud del cliente"
                 },
+                "nuevo_cliente": {
+                    "description": "Nuevo nombre del cliente, opcional",
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "nuevo_local": {
+                    "description": "Nuevo local al que se mueve la reserva, opcional",
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
                 "nuevo_numero_telefono": {
                     "description": "Nuevo numero de telefono, opcional",
                     "type": "string",
                     "example": "+59170011224"
+                },
+                "nuevo_plan_id": {
+                    "description": "Nuevo plan o paquete al que se imputa la reserva, opcional",
+                    "type": "integer",
+                    "example": 7
                 },
                 "nuevo_precio": {
                     "description": "Nuevo precio, opcional",
@@ -10137,6 +10185,10 @@ const docTemplate = `{
                 "numero_telefono": {
                     "type": "string",
                     "example": "+59170011223"
+                },
+                "plan_id": {
+                    "type": "integer",
+                    "example": 21
                 },
                 "precio": {
                     "type": "number",

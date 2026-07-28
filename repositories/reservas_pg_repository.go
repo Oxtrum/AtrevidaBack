@@ -55,12 +55,19 @@ type UpdateReservaInput struct {
 	NuevaHoraDesde          *string
 	NuevaHoraHasta          *string
 	NuevoTipo               *string
+	NuevoCliente            *string
 	NuevoNumeroTelefono     *string
 	NuevoServicio           *string
 	NuevoServicioSolicitado *string
 	NuevoServicioConfirmado *string
 	NuevoPrecio             *float64
 	NuevasNotas             *string
+	NuevoLocal              *string
+	NuevoPlanID             *int
+	// LimpiarPlanID desvincula la reserva de su plan (plan_id = NULL).
+	LimpiarPlanID bool
+	// ResetNotificado marca la reserva como no notificada para reavisar al cliente.
+	ResetNotificado bool
 }
 
 type UpdateReservaEstadoInput struct {

@@ -599,18 +599,29 @@ type actualizarReservaPGRequest struct {
 	NuevoPrecio *float64 `json:"nuevo_precio" example:"180"`
 	// Nuevas notas u observaciones, opcional
 	NuevasNotas string `json:"nuevas_notas" example:"Reagendada por solicitud del cliente"`
+	// Nuevo nombre del cliente, opcional
+	NuevoCliente string `json:"nuevo_cliente" example:"Maria Lopez"`
+	// Nuevo local al que se mueve la reserva, opcional
+	NuevoLocal string `json:"nuevo_local" example:"PASEO ARANJUEZ"`
+	// Nuevo plan o paquete al que se imputa la reserva, opcional
+	NuevoPlanID *int `json:"nuevo_plan_id" example:"7"`
+	// Desvincula la reserva de su plan actual; tiene prioridad sobre nuevo_plan_id, opcional
+	LimpiarPlanID bool `json:"limpiar_plan_id" example:"false"`
 }
 
 // PatchReservaPG godoc
 // @Summary Actualizar reserva en base de datos
-// @Description Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional).
+// @Description Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param payload body actualizarReservaPGRequest true "Datos para actualizar la reserva"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar u horario fuera de atencion"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar, fecha pasada u horario fuera de atencion"
+// @Failure 401 {object} utils.APIResponse "Token ausente o invalido"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
+// @Failure 409 {object} utils.APIResponse "Reserva completada o sin espacios disponibles en el horario destino"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [patch]
 func (h *Container) PatchReservaPG(c *gin.Context) {
@@ -647,9 +658,11 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		nuevoTelefono = nuevoTelefonoNormalizado
 	}
 
-	if req.NuevaFecha == "" && req.NuevaHoraDesde == "" && nuevoTipoNorm == "" &&
+	if req.NuevaFecha == "" && req.NuevaHoraDesde == "" && req.NuevaHoraHasta == "" && nuevoTipoNorm == "" &&
 		nuevoTelefono == "" && req.NuevoServicio == "" && req.NuevoServicioSolicitado == "" &&
-		req.NuevoServicioConfirmado == "" && req.NuevoPrecio == nil && req.NuevasNotas == "" {
+		req.NuevoServicioConfirmado == "" && req.NuevoPrecio == nil && req.NuevasNotas == "" &&
+		strings.TrimSpace(req.NuevoCliente) == "" && strings.TrimSpace(req.NuevoLocal) == "" &&
+		req.NuevoPlanID == nil && !req.LimpiarPlanID {
 		utils.RespondError(c, http.StatusBadRequest, "no hay cambios para actualizar")
 		return
 	}
@@ -661,26 +674,40 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		NuevaHoraDesde:          req.NuevaHoraDesde,
 		NuevaHoraHasta:          req.NuevaHoraHasta,
 		NuevoTipo:               nuevoTipoNorm,
+		NuevoCliente:            req.NuevoCliente,
 		NuevoNumeroTelefono:     nuevoTelefono,
 		NuevoServicio:           req.NuevoServicio,
 		NuevoServicioSolicitado: req.NuevoServicioSolicitado,
 		NuevoServicioConfirmado: req.NuevoServicioConfirmado,
 		NuevoPrecio:             req.NuevoPrecio,
 		NuevasNotas:             req.NuevasNotas,
+		NuevoLocal:              req.NuevoLocal,
+		NuevoPlanID:             req.NuevoPlanID,
+		LimpiarPlanID:           req.LimpiarPlanID,
 	})
 
 	if err != nil {
 		errLower := strings.ToLower(err.Error())
-		if strings.Contains(errLower, "no se pudo encontrar la reserva") {
+		if strings.Contains(errLower, "no se pudo encontrar la reserva") ||
+			strings.Contains(errLower, "reserva no encontrada") {
 			utils.RespondError(c, http.StatusNotFound, "No se pudo encontrar la reserva")
 			return
 		}
-		if strings.Contains(errLower, "horario fuera de atenci") ||
+		if strings.Contains(errLower, "no se puede editar una reserva completada") ||
+			strings.Contains(errLower, "no hay ambientes disponibles") ||
+			strings.Contains(errLower, "no hay espacios disponibles") {
+			utils.RespondError(c, http.StatusConflict, err.Error())
+			return
+		}
+		if strings.Contains(errLower, "no está disponible en este local") ||
+			strings.Contains(errLower, "horario fuera de atenci") ||
 			strings.Contains(errLower, "hora_desde") ||
 			strings.Contains(errLower, "hora_hasta") ||
 			strings.Contains(errLower, "formato de fecha") ||
 			strings.Contains(errLower, "hora de inicio") ||
-			strings.Contains(errLower, "hora de finalizaci") {
+			strings.Contains(errLower, "hora de finalizaci") ||
+			strings.Contains(errLower, "fecha pasada") ||
+			strings.Contains(errLower, "no encontrado") {
 			utils.RespondError(c, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -693,13 +720,15 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 
 // PatchReservaEstadoPG godoc
 // @Summary Actualizar estado de reserva
-// @Description Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio (opcional). servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO. RECHAZADO y COMPLETADO no admiten cambios.
+// @Description Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO, RECHAZADO→PENDIENTE. COMPLETADO no admite cambios.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param payload body actualizarEstadoReservaPGRequest true "Nuevo estado de la reserva"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: estado invalido, transicion no permitida, campo requerido faltante"
+// @Failure 401 {object} utils.APIResponse "Token ausente o invalido"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/estado [patch]

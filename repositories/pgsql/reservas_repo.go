@@ -318,6 +318,19 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 		return fmt.Errorf("Reserva no encontrada")
 	}
 
+	// Un cambio de local mueve la reserva a otro conjunto de espacios: la
+	// capacidad debe validarse contra el local destino, no contra el actual.
+	localNombreFinal := ""
+	if input.NuevoLocal != nil {
+		localNombreFinal = strings.TrimSpace(*input.NuevoLocal)
+		err = tx.QueryRowx(
+			`SELECT id, nombre FROM locales WHERE UPPER(nombre) = UPPER($1)`, localNombreFinal,
+		).Scan(&localID, &localNombreFinal)
+		if err != nil {
+			return fmt.Errorf("local '%s' no encontrado", strings.TrimSpace(*input.NuevoLocal))
+		}
+	}
+
 	if input.NuevaFecha != nil {
 
 		today := time.Now().Truncate(24 * time.Hour)
@@ -419,10 +432,33 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 		args = append(args, *input.NuevasNotas)
 		idx++
 	}
+	if input.NuevoCliente != nil {
+		sets = append(sets, fmt.Sprintf("cliente = $%d", idx))
+		args = append(args, *input.NuevoCliente)
+		idx++
+	}
+	if input.NuevoLocal != nil {
+		sets = append(sets, fmt.Sprintf("local_id = $%d", idx))
+		args = append(args, localID)
+		idx++
+		sets = append(sets, fmt.Sprintf("local_nombre = $%d", idx))
+		args = append(args, localNombreFinal)
+		idx++
+	}
+	if input.LimpiarPlanID {
+		sets = append(sets, "plan_id = NULL")
+	} else if input.NuevoPlanID != nil {
+		sets = append(sets, fmt.Sprintf("plan_id = $%d", idx))
+		args = append(args, *input.NuevoPlanID)
+		idx++
+	}
+	if input.ResetNotificado {
+		sets = append(sets, "notificado = FALSE")
+	}
 
 	args = append(args, reservaID)
 	_, err = tx.Exec(
-		fmt.Sprintf("UPDATE reservas SET %s WHERE id = $%d", strings.Join(sets, ", "), idx),
+		fmt.Sprintf("UPDATE reservas SET %s WHERE id = $%d AND activo = TRUE", strings.Join(sets, ", "), idx),
 		args...,
 	)
 	if err != nil {
