@@ -27,6 +27,7 @@ Si cambias cualquiera de estos puntos, tambien debes actualizar la documentacion
    - `@Failure`
    - `@Router`
 4. Reutiliza `utils.APIResponse` como wrapper de respuesta cuando corresponda.
+5. Si el endpoint lleva `h.AuthRequired` (o `h.AdminSysRequired` / `h.GerenciaRequired`) en `router.go`, agrega `@Security BearerAuth` y `@Failure 401`. Cambiar el middleware de una ruta es un cambio de contrato: revisa que el frontend mande el token en ese camino antes de protegerla.
 
 ## Generacion obligatoria
 
@@ -88,6 +89,7 @@ Cuando se te pida documentar APIs, revisa CADA endpoint modificado contra esta l
 - [ ] Cada campo del struct request/response tiene comentario `//` con descripcion
 - [ ] `@Success` coincide con el codigo real del handler (200, 201, 207...)
 - [ ] `@Failure` cubre TODOS los codigos que el handler puede retornar (400, 404, 409, 500...)
+- [ ] Los handlers mapean el error del service al codigo correcto y NO caen al 500 por defecto. El mapeo es por substring del mensaje: si cambias el texto de un `errors.New` en `services/`, actualiza el `strings.Contains` del handler o el error empieza a salir como 500
 - [ ] `@Failure` incluye texto descriptivo entre comillas: `"Error de validacion: ..."`
 - [ ] `@Router` coincide exactamente con la ruta registrada en `router.go`
 - [ ] Response types en `{object}` existen en el codigo
