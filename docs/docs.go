@@ -9858,6 +9858,11 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 5
                 },
+                "reserva_hora_hasta": {
+                    "description": "HoraHastaReal es la hora_hasta verdadera de la reserva cuando se parte\nen slots de 30 min para la rejilla. HoraHasta contiene el fin del slot\n(p.ej. \"16:30\"), HoraHastaReal el fin real de la reserva (p.ej. \"17:00\").",
+                    "type": "string",
+                    "example": "17:00"
+                },
                 "servicio": {
                     "type": "string",
                     "example": "Depilacion Laser"

@@ -222,6 +222,12 @@ func transformReservasEnSlots(reservas []models.ReservaPGCompleta) []models.Rese
 		}
 		for _, slot := range slots {
 			entrada := rv // copia valor
+			// Normalizar a HH:MM porque PG TIME puede traer segundos ("14:00:00").
+			origHasta := rv.HoraHasta
+			if len(origHasta) > 5 {
+				origHasta = origHasta[:5]
+			}
+			entrada.HoraHastaOriginal = origHasta
 			entrada.HoraDesde = slot[0]
 			entrada.HoraHasta = slot[1]
 			resultado = append(resultado, entrada)

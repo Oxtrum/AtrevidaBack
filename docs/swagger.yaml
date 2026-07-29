@@ -2550,6 +2550,13 @@ definitions:
         description: ID del plan asociado, si la reserva consume un paquete.
         example: 5
         type: integer
+      reserva_hora_hasta:
+        description: |-
+          HoraHastaReal es la hora_hasta verdadera de la reserva cuando se parte
+          en slots de 30 min para la rejilla. HoraHasta contiene el fin del slot
+          (p.ej. "16:30"), HoraHastaReal el fin real de la reserva (p.ej. "17:00").
+        example: "17:00"
+        type: string
       servicio:
         example: Depilacion Laser
         type: string

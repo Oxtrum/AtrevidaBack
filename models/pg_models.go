@@ -302,6 +302,10 @@ type DetalleReservaPG struct {
 type ReservaPGCompleta struct {
 	ReservaPG
 	Detalle []DetalleReservaPG `db:"-"`
+	// HoraHastaOriginal preserva la hora_hasta real de la reserva antes de
+	// dividirla en slots de 30 min para la rejilla del calendario. Se expone
+	// al JSON como reserva_hora_hasta a través de ReservaItem.
+	HoraHastaOriginal string `db:"-" json:"-"`
 }
 
 // Pagos

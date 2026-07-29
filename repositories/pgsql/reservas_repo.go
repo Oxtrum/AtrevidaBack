@@ -640,15 +640,16 @@ func BuildJerarquia(reservas []models.ReservaPGCompleta) []models.LocalReservas 
 		slot := slotKey{horaDesde: rv.HoraDesde, horaHasta: rv.HoraHasta}
 
 		item := models.ReservaItem{
-			ID:         rv.ID,
-			Tipo:       tipoLetraANombre(rv.TipoEspacio),
-			Cliente:    rv.Cliente,
-			Local:      rv.LocalNombre,
-			Fecha:      rv.Fecha.Format("2006-01-02"),
-			HoraDesde:  rv.HoraDesde,
-			HoraHasta:  rv.HoraHasta,
-			PlanID:     rv.PlanID,
-			Notificado: rv.Notificado,
+			ID:             rv.ID,
+			Tipo:           tipoLetraANombre(rv.TipoEspacio),
+			Cliente:        rv.Cliente,
+			Local:          rv.LocalNombre,
+			Fecha:          rv.Fecha.Format("2006-01-02"),
+			HoraDesde:      rv.HoraDesde,
+			HoraHasta:      rv.HoraHasta,
+			HoraHastaReal:  rv.HoraHastaOriginal,
+			PlanID:         rv.PlanID,
+			Notificado:     rv.Notificado,
 		}
 		if !rv.CreadoEn.IsZero() {
 			item.CreadoEn = rv.CreadoEn.Format(time.RFC3339)
