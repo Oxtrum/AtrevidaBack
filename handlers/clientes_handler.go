@@ -18,6 +18,10 @@ type crearClienteRequest struct {
 	Apellido string `json:"apellido" example:"Lopez"`
 	// Numero de telefono del cliente
 	NumeroTelefono string `json:"numero_telefono" example:"+59170011223"`
+	// Cedula de identidad del cliente (opcional)
+	CI string `json:"ci" example:"8765432"`
+	// NIT de facturacion por defecto del cliente (opcional)
+	NIT string `json:"nit" example:"1234567"`
 }
 
 type actualizarClienteRequest struct {
@@ -27,11 +31,15 @@ type actualizarClienteRequest struct {
 	Apellido *string `json:"apellido" example:"Lopez Aguilar"`
 	// Nuevo numero de telefono (opcional)
 	NumeroTelefono *string `json:"numero_telefono" example:"+59170011224"`
+	// Nueva cedula de identidad (opcional; cadena vacia la borra)
+	CI *string `json:"ci" example:"8765432"`
+	// Nuevo NIT de facturacion (opcional; cadena vacia lo borra)
+	NIT *string `json:"nit" example:"1234567"`
 }
 
 // GetClientes godoc
 // @Summary Listar clientes
-// @Description Devuelve clientes de BD con filtros. Filtros: nombre busqueda parcial (opcional), apellido busqueda parcial (opcional), numero_telefono busqueda parcial (opcional). Response: total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido, numero_telefono).
+// @Description Devuelve clientes de BD con filtros. Filtros: nombre busqueda parcial (opcional), apellido busqueda parcial (opcional), numero_telefono busqueda parcial (opcional). Response: total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido, numero_telefono, ci, nit).
 // @Tags Clientes
 // @Produce json
 // @Param nombre query string false "Busqueda parcial por nombre" example(Maria)
@@ -64,7 +72,7 @@ func (h *Container) GetClientes(c *gin.Context) {
 
 // GetClienteByID godoc
 // @Summary Obtener cliente por ID
-// @Description Devuelve un cliente por su ID. Param: id (requerido, path). Response: cliente (ClientePG con: id, nombre, apellido, numero_telefono).
+// @Description Devuelve un cliente por su ID. Param: id (requerido, path). Response: cliente (ClientePG con: id, nombre, apellido, numero_telefono, ci, nit).
 // @Tags Clientes
 // @Produce json
 // @Param id path int true "ID del cliente" example(12)
@@ -95,11 +103,11 @@ func (h *Container) GetClienteByID(c *gin.Context) {
 
 // CreateCliente godoc
 // @Summary Crear cliente
-// @Description Crea un cliente en BD. Body: nombre (requerido), apellido (requerido), numero_telefono (requerido). Response: id (int ID del cliente creado).
+// @Description Crea un cliente en BD. Body: nombre (requerido), apellido (requerido), numero_telefono (requerido), ci (opcional), nit (opcional). Response: id (int ID del cliente creado).
 // @Tags Clientes
 // @Accept json
 // @Produce json
-// @Param payload body crearClienteRequest true "Datos del cliente (nombre, apellido, numero_telefono)"
+// @Param payload body crearClienteRequest true "Datos del cliente (nombre, apellido, numero_telefono, ci, nit)"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: nombre/apellido/numero_telefono requeridos"
 // @Failure 409 {object} utils.APIResponse "Conflicto: cliente ya existe"
@@ -123,6 +131,8 @@ func (h *Container) CreateCliente(c *gin.Context) {
 		Nombre:         req.Nombre,
 		Apellido:       req.Apellido,
 		NumeroTelefono: req.NumeroTelefono,
+		CI:             req.CI,
+		NIT:            req.NIT,
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -138,7 +148,7 @@ func (h *Container) CreateCliente(c *gin.Context) {
 
 // PatchCliente godoc
 // @Summary Actualizar cliente
-// @Description Actualiza parcialmente un cliente. Param: id (requerido, path). Body: nombre (opcional), apellido (opcional), numero_telefono (opcional). Response: mensaje string.
+// @Description Actualiza parcialmente un cliente. Param: id (requerido, path). Body: nombre (opcional), apellido (opcional), numero_telefono (opcional), ci (opcional), nit (opcional). Enviar cadena vacia en ci o nit borra el dato. Response: mensaje string.
 // @Tags Clientes
 // @Accept json
 // @Produce json
@@ -163,7 +173,8 @@ func (h *Container) PatchCliente(c *gin.Context) {
 		return
 	}
 
-	if req.Nombre == nil && req.Apellido == nil && req.NumeroTelefono == nil {
+	if req.Nombre == nil && req.Apellido == nil && req.NumeroTelefono == nil &&
+		req.CI == nil && req.NIT == nil {
 		utils.RespondError(c, http.StatusBadRequest, "debe especificarse al menos un campo a modificar")
 		return
 	}
@@ -186,6 +197,8 @@ func (h *Container) PatchCliente(c *gin.Context) {
 		Nombre:         req.Nombre,
 		Apellido:       req.Apellido,
 		NumeroTelefono: req.NumeroTelefono,
+		CI:             req.CI,
+		NIT:            req.NIT,
 	})
 	if err != nil {
 		status := http.StatusInternalServerError

@@ -31,6 +31,14 @@ definitions:
         description: Nuevo apellido (opcional)
         example: Lopez Aguilar
         type: string
+      ci:
+        description: Nueva cedula de identidad (opcional; cadena vacia la borra)
+        example: "8765432"
+        type: string
+      nit:
+        description: Nuevo NIT de facturacion (opcional; cadena vacia lo borra)
+        example: "1234567"
+        type: string
       nombre:
         description: Nuevo nombre (opcional)
         example: Maria Fernanda
@@ -652,6 +660,14 @@ definitions:
       apellido:
         description: Apellido del cliente
         example: Lopez
+        type: string
+      ci:
+        description: Cedula de identidad del cliente (opcional)
+        example: "8765432"
+        type: string
+      nit:
+        description: NIT de facturacion por defecto del cliente (opcional)
+        example: "1234567"
         type: string
       nombre:
         description: Nombre del cliente
@@ -1806,9 +1822,17 @@ definitions:
       apellido:
         example: Lopez
         type: string
+      ci:
+        description: Cedula de identidad del cliente; vacia si no se registro.
+        example: "8765432"
+        type: string
       id:
         example: 12
         type: integer
+      nit:
+        description: NIT de facturacion por defecto del cliente; vacio si no se registro.
+        example: "1234567"
+        type: string
       nombre:
         example: Maria
         type: string
@@ -3544,7 +3568,7 @@ paths:
         parcial (opcional), apellido busqueda parcial (opcional), numero_telefono
         busqueda parcial (opcional). Response: total (int), filtros (objeto con nombre,
         apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido,
-        numero_telefono).'
+        numero_telefono, ci, nit).'
       parameters:
       - description: Busqueda parcial por nombre
         example: Maria
@@ -3584,9 +3608,10 @@ paths:
       consumes:
       - application/json
       description: 'Crea un cliente en BD. Body: nombre (requerido), apellido (requerido),
-        numero_telefono (requerido). Response: id (int ID del cliente creado).'
+        numero_telefono (requerido), ci (opcional), nit (opcional). Response: id (int
+        ID del cliente creado).'
       parameters:
-      - description: Datos del cliente (nombre, apellido, numero_telefono)
+      - description: Datos del cliente (nombre, apellido, numero_telefono, ci, nit)
         in: body
         name: payload
         required: true
@@ -3659,7 +3684,7 @@ paths:
       - Clientes
     get:
       description: 'Devuelve un cliente por su ID. Param: id (requerido, path). Response:
-        cliente (ClientePG con: id, nombre, apellido, numero_telefono).'
+        cliente (ClientePG con: id, nombre, apellido, numero_telefono, ci, nit).'
       parameters:
       - description: ID del cliente
         example: 12
@@ -3698,7 +3723,8 @@ paths:
       consumes:
       - application/json
       description: 'Actualiza parcialmente un cliente. Param: id (requerido, path).
-        Body: nombre (opcional), apellido (opcional), numero_telefono (opcional).
+        Body: nombre (opcional), apellido (opcional), numero_telefono (opcional),
+        ci (opcional), nit (opcional). Enviar cadena vacia en ci o nit borra el dato.
         Response: mensaje string.'
       parameters:
       - description: ID del cliente
