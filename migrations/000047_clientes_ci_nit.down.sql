@@ -1,0 +1,3 @@
+ALTER TABLE clientes
+    DROP COLUMN IF EXISTS nit,
+    DROP COLUMN IF EXISTS ci;

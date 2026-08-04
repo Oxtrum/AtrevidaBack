@@ -47,6 +47,10 @@ type ClientePG struct {
 	Nombre         string `db:"nombre" json:"nombre" example:"Maria"`
 	Apellido       string `db:"apellido" json:"apellido" example:"Lopez"`
 	NumeroTelefono string `db:"numero_telefono" json:"numero_telefono" example:"+59170011223"`
+	// Cedula de identidad del cliente; vacia si no se registro.
+	CI string `db:"ci" json:"ci" example:"8765432"`
+	// NIT de facturacion por defecto del cliente; vacio si no se registro.
+	NIT string `db:"nit" json:"nit" example:"1234567"`
 }
 
 // Usuarios

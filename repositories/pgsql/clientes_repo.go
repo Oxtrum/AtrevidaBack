@@ -45,7 +45,8 @@ func (r *ClientesRepo) GetClientes(filtro repository.FiltroClientes) ([]models.C
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, nombre, apellido, numero_telefono
+		SELECT id, nombre, apellido, numero_telefono,
+		       COALESCE(ci, '') AS ci, COALESCE(nit, '') AS nit
 		FROM clientes
 		WHERE %s
 		ORDER BY apellido, nombre, id
@@ -63,7 +64,8 @@ func (r *ClientesRepo) GetClienteByID(id int) (*models.ClientePG, error) {
 	var cliente models.ClientePG
 
 	err := r.db.Get(&cliente, `
-		SELECT id, nombre, apellido, numero_telefono
+		SELECT id, nombre, apellido, numero_telefono,
+		       COALESCE(ci, '') AS ci, COALESCE(nit, '') AS nit
 		FROM clientes
 		WHERE id = $1
 	`, id)
