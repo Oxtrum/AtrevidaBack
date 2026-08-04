@@ -1064,7 +1064,7 @@ const docTemplate = `{
         },
         "/bd/clientes": {
             "get": {
-                "description": "Devuelve clientes de BD con filtros. Filtros: nombre busqueda parcial (opcional), apellido busqueda parcial (opcional), numero_telefono busqueda parcial (opcional). Response: total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido, numero_telefono).",
+                "description": "Devuelve clientes de BD con filtros. Filtros: nombre busqueda parcial (opcional), apellido busqueda parcial (opcional), numero_telefono busqueda parcial (opcional). Response: total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido, numero_telefono, ci, nit).",
                 "produces": [
                     "application/json"
                 ],
@@ -1123,7 +1123,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un cliente en BD. Body: nombre (requerido), apellido (requerido), numero_telefono (requerido). Response: id (int ID del cliente creado).",
+                "description": "Crea un cliente en BD. Body: nombre (requerido), apellido (requerido), numero_telefono (requerido), ci (opcional), nit (opcional). Response: id (int ID del cliente creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1136,7 +1136,7 @@ const docTemplate = `{
                 "summary": "Crear cliente",
                 "parameters": [
                     {
-                        "description": "Datos del cliente (nombre, apellido, numero_telefono)",
+                        "description": "Datos del cliente (nombre, apellido, numero_telefono, ci, nit)",
                         "name": "payload",
                         "in": "body",
                         "required": true,
@@ -1187,7 +1187,7 @@ const docTemplate = `{
         },
         "/bd/clientes/{id}": {
             "get": {
-                "description": "Devuelve un cliente por su ID. Param: id (requerido, path). Response: cliente (ClientePG con: id, nombre, apellido, numero_telefono).",
+                "description": "Devuelve un cliente por su ID. Param: id (requerido, path). Response: cliente (ClientePG con: id, nombre, apellido, numero_telefono, ci, nit).",
                 "produces": [
                     "application/json"
                 ],
@@ -1303,7 +1303,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza parcialmente un cliente. Param: id (requerido, path). Body: nombre (opcional), apellido (opcional), numero_telefono (opcional). Response: mensaje string.",
+                "description": "Actualiza parcialmente un cliente. Param: id (requerido, path). Body: nombre (opcional), apellido (opcional), numero_telefono (opcional), ci (opcional), nit (opcional). Enviar cadena vacia en ci o nit borra el dato. Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6486,6 +6486,16 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Lopez Aguilar"
                 },
+                "ci": {
+                    "description": "Nueva cedula de identidad (opcional; cadena vacia la borra)",
+                    "type": "string",
+                    "example": "8765432"
+                },
+                "nit": {
+                    "description": "Nuevo NIT de facturacion (opcional; cadena vacia lo borra)",
+                    "type": "string",
+                    "example": "1234567"
+                },
                 "nombre": {
                     "description": "Nuevo nombre (opcional)",
                     "type": "string",
@@ -7309,6 +7319,16 @@ const docTemplate = `{
                     "description": "Apellido del cliente",
                     "type": "string",
                     "example": "Lopez"
+                },
+                "ci": {
+                    "description": "Cedula de identidad del cliente (opcional)",
+                    "type": "string",
+                    "example": "8765432"
+                },
+                "nit": {
+                    "description": "NIT de facturacion por defecto del cliente (opcional)",
+                    "type": "string",
+                    "example": "1234567"
                 },
                 "nombre": {
                     "description": "Nombre del cliente",
@@ -8859,9 +8879,19 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Lopez"
                 },
+                "ci": {
+                    "description": "Cedula de identidad del cliente; vacia si no se registro.",
+                    "type": "string",
+                    "example": "8765432"
+                },
                 "id": {
                     "type": "integer",
                     "example": 12
+                },
+                "nit": {
+                    "description": "NIT de facturacion por defecto del cliente; vacio si no se registro.",
+                    "type": "string",
+                    "example": "1234567"
                 },
                 "nombre": {
                     "type": "string",

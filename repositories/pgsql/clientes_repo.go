@@ -45,7 +45,8 @@ func (r *ClientesRepo) GetClientes(filtro repository.FiltroClientes) ([]models.C
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, nombre, apellido, numero_telefono
+		SELECT id, nombre, apellido, numero_telefono,
+		       COALESCE(ci, '') AS ci, COALESCE(nit, '') AS nit
 		FROM clientes
 		WHERE %s
 		ORDER BY apellido, nombre, id
@@ -63,7 +64,8 @@ func (r *ClientesRepo) GetClienteByID(id int) (*models.ClientePG, error) {
 	var cliente models.ClientePG
 
 	err := r.db.Get(&cliente, `
-		SELECT id, nombre, apellido, numero_telefono
+		SELECT id, nombre, apellido, numero_telefono,
+		       COALESCE(ci, '') AS ci, COALESCE(nit, '') AS nit
 		FROM clientes
 		WHERE id = $1
 	`, id)
@@ -77,14 +79,16 @@ func (r *ClientesRepo) GetClienteByID(id int) (*models.ClientePG, error) {
 	return &cliente, nil
 }
 
-func (r *ClientesRepo) CreateCliente(nombre, apellido, numeroTelefono string) (int, error) {
+func (r *ClientesRepo) CreateCliente(input repository.CrearClienteInput) (int, error) {
 	var clienteID int
 
+	// NULLIF: una cadena vacia se guarda como NULL, no como ''. Asi la columna
+	// distingue "no registrado" de "registrado en blanco".
 	err := r.db.QueryRowx(`
-		INSERT INTO clientes (nombre, apellido, numero_telefono)
-		VALUES ($1, $2, $3)
+		INSERT INTO clientes (nombre, apellido, numero_telefono, ci, nit)
+		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''))
 		RETURNING id
-	`, nombre, apellido, numeroTelefono).Scan(&clienteID)
+	`, input.Nombre, input.Apellido, input.NumeroTelefono, input.CI, input.NIT).Scan(&clienteID)
 	if err != nil {
 		if esUniqueClientesError(err) {
 			return 0, fmt.Errorf("ya existe un cliente con ese nombre, apellido y numero de telefono")
@@ -113,6 +117,16 @@ func (r *ClientesRepo) UpdateCliente(input repository.ActualizarClienteInput) er
 	if input.NumeroTelefono != nil {
 		sets = append(sets, fmt.Sprintf("numero_telefono = $%d", idx))
 		args = append(args, *input.NumeroTelefono)
+		idx++
+	}
+	if input.CI != nil {
+		sets = append(sets, fmt.Sprintf("ci = NULLIF($%d, '')", idx))
+		args = append(args, *input.CI)
+		idx++
+	}
+	if input.NIT != nil {
+		sets = append(sets, fmt.Sprintf("nit = NULLIF($%d, '')", idx))
+		args = append(args, *input.NIT)
 		idx++
 	}
 

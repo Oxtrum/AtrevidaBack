@@ -37,14 +37,18 @@ type CrearClienteInput struct {
 	Nombre         string
 	Apellido       string
 	NumeroTelefono string
+	CI             string
+	NIT            string
 }
 
 func (s *ClientesService) CreateCliente(input CrearClienteInput) (int, error) {
-	return s.repo.CreateCliente(
-		strings.TrimSpace(input.Nombre),
-		strings.TrimSpace(input.Apellido),
-		strings.TrimSpace(input.NumeroTelefono),
-	)
+	return s.repo.CreateCliente(repository.CrearClienteInput{
+		Nombre:         strings.TrimSpace(input.Nombre),
+		Apellido:       strings.TrimSpace(input.Apellido),
+		NumeroTelefono: strings.TrimSpace(input.NumeroTelefono),
+		CI:             strings.TrimSpace(input.CI),
+		NIT:            strings.TrimSpace(input.NIT),
+	})
 }
 
 type ActualizarClienteInput struct {
@@ -52,32 +56,26 @@ type ActualizarClienteInput struct {
 	Nombre         *string
 	Apellido       *string
 	NumeroTelefono *string
+	CI             *string
+	NIT            *string
 }
 
 func (s *ClientesService) UpdateCliente(input ActualizarClienteInput) error {
-	var nombre *string
-	if input.Nombre != nil {
-		value := strings.TrimSpace(*input.Nombre)
-		nombre = &value
-	}
-
-	var apellido *string
-	if input.Apellido != nil {
-		value := strings.TrimSpace(*input.Apellido)
-		apellido = &value
-	}
-
-	var numeroTelefono *string
-	if input.NumeroTelefono != nil {
-		value := strings.TrimSpace(*input.NumeroTelefono)
-		numeroTelefono = &value
+	trim := func(value *string) *string {
+		if value == nil {
+			return nil
+		}
+		recortado := strings.TrimSpace(*value)
+		return &recortado
 	}
 
 	return s.repo.UpdateCliente(repository.ActualizarClienteInput{
 		ID:             input.ID,
-		Nombre:         nombre,
-		Apellido:       apellido,
-		NumeroTelefono: numeroTelefono,
+		Nombre:         trim(input.Nombre),
+		Apellido:       trim(input.Apellido),
+		NumeroTelefono: trim(input.NumeroTelefono),
+		CI:             trim(input.CI),
+		NIT:            trim(input.NIT),
 	})
 }
 
