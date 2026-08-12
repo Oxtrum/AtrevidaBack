@@ -21,49 +21,17 @@ func NewPlanesRepo(db *sqlx.DB) *PlanesRepo {
 }
 
 func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, error) {
-	conditions := []string{"1 = 1"}
-	args := []interface{}{}
-	idx := 1
-
-	if f.Cliente != "" {
-		conditions = append(conditions, fmt.Sprintf("p.cliente_nombre_texto ILIKE $%d", idx))
-		args = append(args, "%"+f.Cliente+"%")
-		idx++
+	conditions, args := planConditions(f)
+	idx := len(args) + 1
+	if f.CursorSet {
+		conditions = append(conditions, fmt.Sprintf("(p.creado_en, p.id) < ($%d, $%d)", idx, idx+1))
+		args = append(args, f.CursorFecha, f.CursorID)
+		idx += 2
 	}
-	if f.ClienteID != nil {
-		conditions = append(conditions, fmt.Sprintf("p.cliente_id = $%d", idx))
-		args = append(args, *f.ClienteID)
-		idx++
-	}
-	if f.LocalID != nil {
-		conditions = append(conditions, fmt.Sprintf("p.local_id = $%d", idx))
-		args = append(args, *f.LocalID)
-		idx++
-	}
-	if f.Local != "" {
-		conditions = append(conditions, fmt.Sprintf("p.local_nombre_texto ILIKE $%d", idx))
-		args = append(args, "%"+f.Local+"%")
-		idx++
-	}
-	if f.Estado != "" {
-		conditions = append(conditions, fmt.Sprintf("p.estado = $%d", idx))
-		args = append(args, f.Estado)
-		idx++
-	}
-	if f.EstadoCobranza != "" {
-		conditions = append(conditions, fmt.Sprintf("p.estado_cobranza = $%d", idx))
-		args = append(args, f.EstadoCobranza)
-		idx++
-	}
-	if f.FechaDesde != nil {
-		conditions = append(conditions, fmt.Sprintf("p.creado_en >= $%d", idx))
-		args = append(args, *f.FechaDesde)
-		idx++
-	}
-	if f.FechaHasta != nil {
-		conditions = append(conditions, fmt.Sprintf("p.creado_en <= $%d", idx))
-		args = append(args, *f.FechaHasta)
-		idx++
+	limitClause := ""
+	if f.PageLimit > 0 {
+		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		args = append(args, f.PageLimit)
 	}
 
 	query := fmt.Sprintf(`
@@ -79,8 +47,8 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 			p.creado_por, p.actualizado_por, p.actualizado_en
 		FROM planes p
 		WHERE %s
-		ORDER BY p.creado_en DESC, p.id DESC
-	`, strings.Join(conditions, " AND "))
+		ORDER BY p.creado_en DESC, p.id DESC%s
+	`, strings.Join(conditions, " AND "), limitClause)
 
 	var planes []models.PlanPG
 	if err := r.db.SelectContext(queryContext(f.Context), &planes, query, args...); err != nil {
@@ -90,6 +58,50 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 		planes = []models.PlanPG{}
 	}
 	return planes, nil
+}
+
+func (r *PlanesRepo) CountPlanes(f repository.FiltroPlanes) (int, error) {
+	conditions, args := planConditions(f)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM planes p WHERE %s", strings.Join(conditions, " AND "))
+	var total int
+	if err := r.db.GetContext(queryContext(f.Context), &total, query, args...); err != nil {
+		return 0, fmt.Errorf("error al contar planes: %w", err)
+	}
+	return total, nil
+}
+
+func planConditions(f repository.FiltroPlanes) ([]string, []interface{}) {
+	conditions := []string{"1 = 1"}
+	args := []interface{}{}
+	add := func(condition string, value interface{}) {
+		conditions = append(conditions, fmt.Sprintf(condition, len(args)+1))
+		args = append(args, value)
+	}
+	if f.Cliente != "" {
+		add("p.cliente_nombre_texto ILIKE $%d", "%"+f.Cliente+"%")
+	}
+	if f.ClienteID != nil {
+		add("p.cliente_id = $%d", *f.ClienteID)
+	}
+	if f.LocalID != nil {
+		add("p.local_id = $%d", *f.LocalID)
+	}
+	if f.Local != "" {
+		add("p.local_nombre_texto ILIKE $%d", "%"+f.Local+"%")
+	}
+	if f.Estado != "" {
+		add("p.estado = $%d", f.Estado)
+	}
+	if f.EstadoCobranza != "" {
+		add("p.estado_cobranza = $%d", f.EstadoCobranza)
+	}
+	if f.FechaDesde != nil {
+		add("p.creado_en >= $%d", *f.FechaDesde)
+	}
+	if f.FechaHasta != nil {
+		add("p.creado_en <= $%d", *f.FechaHasta)
+	}
+	return conditions, args
 }
 
 func (r *PlanesRepo) GetPlanByID(id int) (*models.PlanCompletoPG, error) {

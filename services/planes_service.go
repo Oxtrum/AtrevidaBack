@@ -40,6 +40,10 @@ type FiltroPlanes struct {
 	EstadoCobranza string
 	FechaDesde     *time.Time
 	FechaHasta     *time.Time
+	PageLimit      int
+	CursorSet      bool
+	CursorFecha    time.Time
+	CursorID       int
 }
 
 type PlanServicioInput struct {
@@ -90,7 +94,12 @@ func NewPlanesService(repo repository.PlanesRepository, combosRepo repository.Co
 }
 
 func (s *PlanesService) ListarPlanes(f FiltroPlanes) ([]models.PlanPG, error) {
-	planes, err := s.repo.ListPlanes(repository.FiltroPlanes{
+	planes, err := s.repo.ListPlanes(toRepositoryFiltroPlanes(f))
+	return planes, traducirErrorRepositorioPlan(err)
+}
+
+func toRepositoryFiltroPlanes(f FiltroPlanes) repository.FiltroPlanes {
+	return repository.FiltroPlanes{
 		Context:        f.Context,
 		Cliente:        strings.TrimSpace(f.Cliente),
 		ClienteID:      f.ClienteID,
@@ -100,8 +109,12 @@ func (s *PlanesService) ListarPlanes(f FiltroPlanes) ([]models.PlanPG, error) {
 		EstadoCobranza: strings.TrimSpace(f.EstadoCobranza),
 		FechaDesde:     f.FechaDesde,
 		FechaHasta:     f.FechaHasta,
-	})
-	return planes, traducirErrorRepositorioPlan(err)
+		PageLimit:      f.PageLimit, CursorSet: f.CursorSet, CursorFecha: f.CursorFecha, CursorID: f.CursorID,
+	}
+}
+
+func (s *PlanesService) ContarPlanes(f FiltroPlanes) (int, error) {
+	return s.repo.CountPlanes(toRepositoryFiltroPlanes(f))
 }
 
 func (s *PlanesService) ObtenerPlan(id int) (*models.PlanCompletoPG, error) {

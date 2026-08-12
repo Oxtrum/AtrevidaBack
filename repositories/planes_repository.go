@@ -25,6 +25,10 @@ type FiltroPlanes struct {
 	EstadoCobranza string
 	FechaDesde     *time.Time
 	FechaHasta     *time.Time
+	PageLimit      int
+	CursorSet      bool
+	CursorFecha    time.Time
+	CursorID       int
 }
 
 type CrearPlanInput struct {
@@ -72,6 +76,7 @@ type ActualizarPlanInput struct {
 
 type PlanesRepository interface {
 	ListPlanes(filtro FiltroPlanes) ([]models.PlanPG, error)
+	CountPlanes(filtro FiltroPlanes) (int, error)
 	GetPlanByID(id int) (*models.PlanCompletoPG, error)
 	CreatePlan(input CrearPlanInput) (int, error)
 	UpdatePlan(input ActualizarPlanInput) error

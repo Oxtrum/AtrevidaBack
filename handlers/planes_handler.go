@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -25,9 +26,10 @@ type planFiltrosResponse struct {
 }
 
 type planListResponse struct {
-	Total   int                 `json:"total" example:"5"`
-	Filtros planFiltrosResponse `json:"filtros"`
-	Planes  []models.PlanPG     `json:"planes"`
+	Total      int                  `json:"total" example:"5"`
+	Filtros    planFiltrosResponse  `json:"filtros"`
+	Planes     []models.PlanPG      `json:"planes"`
+	Paginacion *pagination.Metadata `json:"paginacion,omitempty"`
 }
 
 type planItemResponse struct {
@@ -92,6 +94,9 @@ type cobrarPlanRequest struct {
 // @Param estado_cobranza query string false "Filtrar por estado de cobranza: PENDIENTE, PARCIAL, PAGADO, VENCIDO" example(PENDIENTE)
 // @Param fecha_desde query string false "Fecha de creacion desde (YYYY-MM-DD)" example(2026-07-01)
 // @Param fecha_hasta query string false "Fecha de creacion hasta (YYYY-MM-DD)" example(2026-07-31)
+// @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param include_total query bool false "Incluye el total de paginas" example(false)
 // @Success 200 {object} utils.APIResponse{data=planListResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: parametros invalidos"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
@@ -132,8 +137,28 @@ func (h *Container) GetPlanes(c *gin.Context) {
 		}
 		fechaHasta = &t
 	}
+	page, ok := parsePagination(c)
+	if !ok {
+		return
+	}
+	includeTotal, ok := parseIncludeTotal(c)
+	if !ok {
+		return
+	}
+	filters := planFiltrosResponse{
+		Cliente: strings.TrimSpace(c.Query("cliente")), Local: strings.TrimSpace(c.Query("local")), LocalID: filtroLocalID,
+		Estado: strings.TrimSpace(c.Query("estado")), EstadoCobranza: strings.TrimSpace(c.Query("estado_cobranza")),
+		FechaDesde: c.Query("fecha_desde"), FechaHasta: c.Query("fecha_hasta"),
+	}
+	var after timeCursor
+	if !decodePaginationCursor(c, page, "planes", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.CreatedAt.IsZero())) {
+		if !c.Writer.Written() {
+			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+		}
+		return
+	}
 
-	planes, err := h.PlanesPG.ListarPlanes(services.FiltroPlanes{
+	serviceFilter := services.FiltroPlanes{
 		Context:        c.Request.Context(),
 		Cliente:        strings.TrimSpace(c.Query("cliente")),
 		Local:          strings.TrimSpace(c.Query("local")),
@@ -142,24 +167,36 @@ func (h *Container) GetPlanes(c *gin.Context) {
 		EstadoCobranza: strings.TrimSpace(c.Query("estado_cobranza")),
 		FechaDesde:     fechaDesde,
 		FechaHasta:     fechaHasta,
-	})
+		PageLimit:      page.QueryLimit(), CursorSet: page.Cursor != "", CursorFecha: after.CreatedAt, CursorID: after.ID,
+	}
+	planes, err := h.PlanesPG.ListarPlanes(serviceFilter)
 	if err != nil {
 		responderErrorPlan(c, err)
 		return
 	}
+	planes, metadata, err := pagination.Build(planes, page, "planes", filters, func(item models.PlanPG) any {
+		return timeCursor{CreatedAt: item.CreadoEn, ID: item.ID}
+	})
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if includeTotal {
+		serviceFilter.PageLimit = 0
+		serviceFilter.CursorSet = false
+		count, countErr := h.PlanesPG.ContarPlanes(serviceFilter)
+		if countErr != nil {
+			responderErrorPlan(c, countErr)
+			return
+		}
+		pagination.AddTotal(metadata, count)
+	}
 
 	utils.Respond(c, http.StatusOK, planListResponse{
-		Total: len(planes),
-		Filtros: planFiltrosResponse{
-			Cliente:        strings.TrimSpace(c.Query("cliente")),
-			Local:          strings.TrimSpace(c.Query("local")),
-			LocalID:        filtroLocalID,
-			Estado:         strings.TrimSpace(c.Query("estado")),
-			EstadoCobranza: strings.TrimSpace(c.Query("estado_cobranza")),
-			FechaDesde:     c.Query("fecha_desde"),
-			FechaHasta:     c.Query("fecha_hasta"),
-		},
-		Planes: planes,
+		Total:      len(planes),
+		Filtros:    filters,
+		Planes:     planes,
+		Paginacion: metadata,
 	})
 }
 
