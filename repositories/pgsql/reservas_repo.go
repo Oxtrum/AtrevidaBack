@@ -26,80 +26,17 @@ func NewReservasRepo(db *sqlx.DB) *ReservasRepo {
 
 // GET
 func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.ReservaPGCompleta, error) {
-	conditions := []string{"1=1"}
-	args := []interface{}{}
-	idx := 1
-
-	if f.LocalID != nil {
-		conditions = append(conditions, fmt.Sprintf("r.local_id = $%d", idx))
-		args = append(args, *f.LocalID)
-		idx++
+	conditions, args := reservaConditions(f)
+	idx := len(args) + 1
+	if f.CursorSet {
+		conditions = append(conditions, fmt.Sprintf("(r.local_nombre, r.fecha, r.hora_desde, r.id) > ($%d, $%d, $%d, $%d)", idx, idx+1, idx+2, idx+3))
+		args = append(args, f.CursorLocal, f.CursorFecha, f.CursorHora, f.CursorID)
+		idx += 4
 	}
-	if f.LocalNombre != "" {
-		conditions = append(conditions, fmt.Sprintf(`r.local_id = (
-			SELECT l.id FROM locales l
-			WHERE UPPER(l.nombre) = UPPER($%d)
-			LIMIT 1
-		)`, idx))
-		args = append(args, f.LocalNombre)
-		idx++
-	}
-	if f.Fecha != nil {
-		conditions = append(conditions, fmt.Sprintf("r.fecha = $%d", idx))
-		args = append(args, *f.Fecha)
-		idx++
-	}
-	if f.FechaDesde != nil {
-		conditions = append(conditions, fmt.Sprintf("r.fecha >= $%d", idx))
-		args = append(args, *f.FechaDesde)
-		idx++
-	}
-	if f.FechaHasta != nil {
-		conditions = append(conditions, fmt.Sprintf("r.fecha <= $%d", idx))
-		args = append(args, *f.FechaHasta)
-		idx++
-	}
-	if f.Cliente != "" {
-		conditions = append(conditions, fmt.Sprintf("r.cliente ILIKE $%d", idx))
-		args = append(args, "%"+f.Cliente+"%")
-		idx++
-	}
-	if f.NumeroTelefono != "" {
-		digitos := soloDigitosTelefono(f.NumeroTelefono)
-		last8 := digitos
-		if len(last8) > 8 {
-			last8 = last8[len(last8)-8:]
-		}
-		conditions = append(conditions, fmt.Sprintf(`(
-			BTRIM(COALESCE(r.numero_telefono, '')) = BTRIM($%d)
-			OR regexp_replace(COALESCE(r.numero_telefono, ''), '\D', '', 'g') = $%d
-			OR RIGHT(regexp_replace(COALESCE(r.numero_telefono, ''), '\D', '', 'g'), 8) = $%d
-		)`, idx, idx+1, idx+2))
-		args = append(args, f.NumeroTelefono, digitos, last8)
-		idx += 3
-	}
-	if f.ServicioSolicitado != "" {
-		conditions = append(conditions, fmt.Sprintf("COALESCE(r.servicio_solicitado, '') ILIKE $%d", idx))
-		args = append(args, "%"+f.ServicioSolicitado+"%")
-		idx++
-	}
-	if f.ServicioConfirmado != "" {
-		conditions = append(conditions, fmt.Sprintf("COALESCE(r.servicio_confirmado, '') ILIKE $%d", idx))
-		args = append(args, "%"+f.ServicioConfirmado+"%")
-		idx++
-	}
-	if f.TipoEspacio != "" {
-		conditions = append(conditions, fmt.Sprintf("r.tipo_espacio = $%d", idx))
-		args = append(args, strings.ToUpper(f.TipoEspacio))
-		idx++
-	}
-	if f.PlanID != nil {
-		conditions = append(conditions, fmt.Sprintf("r.plan_id = $%d", idx))
-		args = append(args, *f.PlanID)
-		idx++
-	}
-	if f.SoloActivas {
-		conditions = append(conditions, "r.activo = TRUE")
+	limitClause := ""
+	if f.PageLimit > 0 {
+		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		args = append(args, f.PageLimit)
 	}
 
 	query := fmt.Sprintf(`
@@ -112,8 +49,8 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
-		ORDER BY r.local_nombre, r.fecha, r.hora_desde
-	`, strings.Join(conditions, " AND "))
+		ORDER BY r.local_nombre, r.fecha, r.hora_desde, r.id%s
+	`, strings.Join(conditions, " AND "), limitClause)
 
 	rows, err := r.db.QueryxContext(queryContext(f.Context), query, args...)
 	if err != nil {
@@ -137,6 +74,72 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 	}
 
 	return reservas, nil
+}
+
+func (r *ReservasRepo) CountReservas(f repository.FiltroReservasPG) (int, error) {
+	conditions, args := reservaConditions(f)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM reservas r WHERE %s", strings.Join(conditions, " AND "))
+	var total int
+	if err := r.db.GetContext(queryContext(f.Context), &total, query, args...); err != nil {
+		return 0, fmt.Errorf("error al contar reservas: %w", err)
+	}
+	return total, nil
+}
+
+func reservaConditions(f repository.FiltroReservasPG) ([]string, []interface{}) {
+	conditions := []string{"1=1"}
+	args := []interface{}{}
+	add := func(condition string, value interface{}) {
+		conditions = append(conditions, fmt.Sprintf(condition, len(args)+1))
+		args = append(args, value)
+	}
+	if f.LocalID != nil {
+		add("r.local_id = $%d", *f.LocalID)
+	}
+	if f.LocalNombre != "" {
+		add("r.local_id = (SELECT l.id FROM locales l WHERE UPPER(l.nombre) = UPPER($%d) LIMIT 1)", f.LocalNombre)
+	}
+	if f.Fecha != nil {
+		add("r.fecha = $%d", *f.Fecha)
+	}
+	if f.FechaDesde != nil {
+		add("r.fecha >= $%d", *f.FechaDesde)
+	}
+	if f.FechaHasta != nil {
+		add("r.fecha <= $%d", *f.FechaHasta)
+	}
+	if f.Cliente != "" {
+		add("r.cliente ILIKE $%d", "%"+f.Cliente+"%")
+	}
+	if f.NumeroTelefono != "" {
+		digitos := soloDigitosTelefono(f.NumeroTelefono)
+		last8 := digitos
+		if len(last8) > 8 {
+			last8 = last8[len(last8)-8:]
+		}
+		idx := len(args) + 1
+		conditions = append(conditions, fmt.Sprintf("(BTRIM(COALESCE(r.numero_telefono, '')) = BTRIM($%d) OR regexp_replace(COALESCE(r.numero_telefono, ''), '\\D', '', 'g') = $%d OR RIGHT(regexp_replace(COALESCE(r.numero_telefono, ''), '\\D', '', 'g'), 8) = $%d)", idx, idx+1, idx+2))
+		args = append(args, f.NumeroTelefono, digitos, last8)
+	}
+	if f.ServicioSolicitado != "" {
+		add("COALESCE(r.servicio_solicitado, '') ILIKE $%d", "%"+f.ServicioSolicitado+"%")
+	}
+	if f.ServicioConfirmado != "" {
+		add("COALESCE(r.servicio_confirmado, '') ILIKE $%d", "%"+f.ServicioConfirmado+"%")
+	}
+	if f.Estado != "" {
+		add("r.estado = $%d", f.Estado)
+	}
+	if f.TipoEspacio != "" {
+		add("r.tipo_espacio = $%d", strings.ToUpper(f.TipoEspacio))
+	}
+	if f.PlanID != nil {
+		add("r.plan_id = $%d", *f.PlanID)
+	}
+	if f.SoloActivas {
+		conditions = append(conditions, "r.activo = TRUE")
+	}
+	return conditions, args
 }
 
 func (r *ReservasRepo) GetReservasAgendadasNoNotificadas(ctx context.Context, localNombre string, limit int) ([]models.ReservaPGCompleta, error) {

@@ -21,6 +21,8 @@ type reservasResumenRepo struct {
 	localID      int
 }
 
+func (r *reservasResumenRepo) CountReservas(repository.FiltroReservasPG) (int, error) { return 0, nil }
+
 func (r *reservasResumenRepo) GetReservas(f repository.FiltroReservasPG) ([]models.ReservaPGCompleta, error) {
 	r.calls = append(r.calls, f)
 	return nil, nil

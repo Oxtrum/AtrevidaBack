@@ -548,6 +548,12 @@ type FiltroReservasSimple struct {
 	ServicioConfirmado string
 	Estado             string
 	Tipo               string
+	PageLimit          int
+	CursorSet          bool
+	CursorLocal        string
+	CursorFecha        time.Time
+	CursorHora         string
+	CursorID           int
 }
 
 func (s *ReservasPGService) GetReservasAgendadasNoNotificadas(limit int, localNombre string) ([]ReservaSimple, error) {
@@ -581,7 +587,10 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 		NumeroTelefono:     f.NumeroTelefono,
 		ServicioSolicitado: f.ServicioSolicitado,
 		ServicioConfirmado: f.ServicioConfirmado,
+		Estado:             f.Estado,
 		SoloActivas:        true,
+		PageLimit:          f.PageLimit, CursorSet: f.CursorSet, CursorLocal: f.CursorLocal,
+		CursorFecha: f.CursorFecha, CursorHora: f.CursorHora, CursorID: f.CursorID,
 	}
 	if f.Tipo != "" {
 		filtro.TipoEspacio = tipoNombreALetra(f.Tipo)
@@ -611,12 +620,43 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 	if err != nil {
 		return nil, err
 	}
-	reservas = filterReservasPorEstado(reservas, f.Estado)
 	resultado := make([]ReservaSimple, 0, len(reservas))
 	for _, rv := range reservas {
 		resultado = append(resultado, reservaSimpleDesdePG(rv))
 	}
 	return resultado, nil
+}
+
+func (s *ReservasPGService) CountReservasSimple(f FiltroReservasSimple) (int, error) {
+	filtro := repository.FiltroReservasPG{
+		Context: f.Context, LocalNombre: f.Local, Cliente: f.Cliente,
+		NumeroTelefono: f.NumeroTelefono, ServicioSolicitado: f.ServicioSolicitado,
+		ServicioConfirmado: f.ServicioConfirmado, Estado: f.Estado, SoloActivas: true,
+	}
+	if f.Tipo != "" {
+		filtro.TipoEspacio = tipoNombreALetra(f.Tipo)
+	}
+	parseDate := func(raw, name string) (*time.Time, error) {
+		if raw == "" {
+			return nil, nil
+		}
+		value, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return nil, fmt.Errorf("formato de %s invalido, use YYYY-MM-DD", name)
+		}
+		return &value, nil
+	}
+	var err error
+	if filtro.Fecha, err = parseDate(f.Fecha, "fecha"); err != nil {
+		return 0, err
+	}
+	if filtro.FechaDesde, err = parseDate(f.FechaDesde, "fecha_desde"); err != nil {
+		return 0, err
+	}
+	if filtro.FechaHasta, err = parseDate(f.FechaHasta, "fecha_hasta"); err != nil {
+		return 0, err
+	}
+	return s.repo.CountReservas(filtro)
 }
 
 func reservaSimpleDesdePG(rv models.ReservaPGCompleta) ReservaSimple {

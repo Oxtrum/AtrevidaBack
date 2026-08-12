@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -75,7 +76,6 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 		}
 		filtro.Estado = estado
 	}
-
 	resultado, err := h.ReservasPG.GetReservasFiltradas(filtro)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
@@ -488,6 +488,9 @@ func float64Ptr(v float64) *float64 {
 // @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado" example(depilacion laser piernas)
 // @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(COMPLETADO)
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta) example(bicicleta)
+// @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param include_total query bool false "Incluye el total de paginas" example(false)
 // @Success 200 {object} utils.APIResponse{data=reservaSimpleListResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: tipo invalido, estado invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
@@ -521,16 +524,59 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		}
 		filtro.Estado = estado
 	}
+	page, ok := parsePagination(c)
+	if !ok {
+		return
+	}
+	includeTotal, ok := parseIncludeTotal(c)
+	if !ok {
+		return
+	}
+	filters := map[string]string{
+		"local": filtro.Local, "fecha": filtro.Fecha, "fecha_desde": filtro.FechaDesde, "fecha_hasta": filtro.FechaHasta,
+		"cliente": filtro.Cliente, "numero_telefono": filtro.NumeroTelefono, "servicio_solicitado": filtro.ServicioSolicitado,
+		"servicio_confirmado": filtro.ServicioConfirmado, "estado": filtro.Estado, "tipo": filtro.Tipo,
+	}
+	var after reservationCursor
+	if !decodePaginationCursor(c, page, "reservas", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.Date.IsZero() || after.Time == "")) {
+		if !c.Writer.Written() {
+			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+		}
+		return
+	}
+	filtro.PageLimit = page.QueryLimit()
+	filtro.CursorSet = page.Cursor != ""
+	filtro.CursorLocal, filtro.CursorFecha, filtro.CursorHora, filtro.CursorID = after.Local, after.Date, after.Time, after.ID
 
 	resultado, err := h.ReservasPG.GetReservasSimple(filtro)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+	resultado, metadata, err := pagination.Build(resultado, page, "reservas", filters, func(item services.ReservaSimple) any {
+		date, _ := time.Parse("2006-01-02", item.Fecha)
+		return reservationCursor{Local: item.Local, Date: date, Time: item.HoraDesde, ID: item.ID}
+	})
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if includeTotal {
+		countFilter := filtro
+		countFilter.PageLimit = 0
+		countFilter.CursorSet = false
+		count, countErr := h.ReservasPG.CountReservasSimple(countFilter)
+		if countErr != nil {
+			utils.RespondError(c, http.StatusInternalServerError, countErr.Error())
+			return
+		}
+		pagination.AddTotal(metadata, count)
+	}
 
 	utils.Respond(c, http.StatusOK, reservaSimpleListResponse{
-		Total:    len(resultado),
-		Reservas: resultado,
+		Total:      len(resultado),
+		Reservas:   resultado,
+		Paginacion: metadata,
 	})
 }
 

@@ -18,9 +18,16 @@ type FiltroReservasPG struct {
 	NumeroTelefono     string
 	ServicioSolicitado string
 	ServicioConfirmado string
+	Estado             string
 	TipoEspacio        string
 	PlanID             *int
 	SoloActivas        bool
+	PageLimit          int
+	CursorSet          bool
+	CursorLocal        string
+	CursorFecha        time.Time
+	CursorHora         string
+	CursorID           int
 }
 
 type CreateReservaInput struct {
@@ -109,6 +116,7 @@ type ResumenPagosReservas struct {
 
 type ReservasPGRepository interface {
 	GetReservas(f FiltroReservasPG) ([]models.ReservaPGCompleta, error)
+	CountReservas(f FiltroReservasPG) (int, error)
 	GetReservasAgendadasNoNotificadas(ctx context.Context, localNombre string, limit int) ([]models.ReservaPGCompleta, error)
 	GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 	GetLocalIDByNombre(nombre string) (int, error)
