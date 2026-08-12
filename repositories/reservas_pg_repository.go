@@ -1,12 +1,14 @@
 package repository
 
 import (
+	"context"
 	"time"
 
 	"atrevida-agenda-api/models"
 )
 
 type FiltroReservasPG struct {
+	Context            context.Context
 	LocalID            *int
 	LocalNombre        string
 	Fecha              *time.Time
@@ -85,6 +87,7 @@ type CapacidadLocal struct {
 }
 
 type FiltroResumenPagosReservas struct {
+	Context     context.Context
 	LocalID     *int
 	LocalNombre string
 	Fecha       time.Time
@@ -106,6 +109,7 @@ type ResumenPagosReservas struct {
 
 type ReservasPGRepository interface {
 	GetReservas(f FiltroReservasPG) ([]models.ReservaPGCompleta, error)
+	GetReservasAgendadasNoNotificadas(ctx context.Context, localNombre string, limit int) ([]models.ReservaPGCompleta, error)
 	GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 	GetLocalIDByNombre(nombre string) (int, error)
 	GetCapacidades(localNombre string) ([]CapacidadLocal, error)

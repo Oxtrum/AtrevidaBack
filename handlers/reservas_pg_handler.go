@@ -54,6 +54,7 @@ func (h *Container) GetReservasPG(c *gin.Context) {
 	}
 
 	filtro := services.FiltroReservasPG{
+		Context:            c.Request.Context(),
 		Local:              strings.TrimSpace(c.Query("local")),
 		Fecha:              strings.TrimSpace(c.Query("fecha")),
 		FechaDesde:         strings.TrimSpace(c.Query("fecha_desde")),
@@ -363,7 +364,7 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 		localID = nil
 	}
 
-	resumen, err := h.ReservasPG.GetResumenReservas(fecha, localNombre, localID)
+	resumen, err := h.ReservasPG.GetResumenReservasContext(c.Request.Context(), fecha, localNombre, localID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "local no encontrado") {
 			utils.RespondError(c, http.StatusNotFound, err.Error())
@@ -500,6 +501,7 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 	}
 
 	filtro := services.FiltroReservasSimple{
+		Context:            c.Request.Context(),
 		Local:              strings.TrimSpace(c.Query("local")),
 		Fecha:              strings.TrimSpace(c.Query("fecha")),
 		FechaDesde:         strings.TrimSpace(c.Query("fecha_desde")),
@@ -834,7 +836,7 @@ func (h *Container) GetNotificacionesReservasPG(c *gin.Context) {
 		return
 	}
 
-	reservas, err := h.ReservasPG.GetReservasAgendadasNoNotificadas(limit, scope.NombreLocal)
+	reservas, err := h.ReservasPG.GetReservasAgendadasNoNotificadasContext(c.Request.Context(), limit, scope.NombreLocal)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return

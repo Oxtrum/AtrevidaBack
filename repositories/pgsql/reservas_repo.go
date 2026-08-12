@@ -1,6 +1,7 @@
 package pgsql
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"sort"
@@ -35,7 +36,11 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 		idx++
 	}
 	if f.LocalNombre != "" {
-		conditions = append(conditions, fmt.Sprintf("UPPER(r.local_nombre) = UPPER($%d)", idx))
+		conditions = append(conditions, fmt.Sprintf(`r.local_id = (
+			SELECT l.id FROM locales l
+			WHERE UPPER(l.nombre) = UPPER($%d)
+			LIMIT 1
+		)`, idx))
 		args = append(args, f.LocalNombre)
 		idx++
 	}
@@ -110,22 +115,57 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 		ORDER BY r.local_nombre, r.fecha, r.hora_desde
 	`, strings.Join(conditions, " AND "))
 
-	rows, err := r.db.Queryx(query, args...)
+	rows, err := r.db.QueryxContext(queryContext(f.Context), query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error al consultar reservas: %w", err)
 	}
-	defer rows.Close()
-
 	var reservas []models.ReservaPGCompleta
 	for rows.Next() {
 		var rv models.ReservaPGCompleta
 		if err := rows.StructScan(&rv); err != nil {
-			continue
+			rows.Close()
+			return nil, fmt.Errorf("error al leer reserva: %w", err)
 		}
-		rv.Detalle, _ = r.getDetalleReserva(rv.ID)
 		reservas = append(reservas, rv)
 	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("error al recorrer reservas: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("error al cerrar consulta de reservas: %w", err)
+	}
 
+	return reservas, nil
+}
+
+func (r *ReservasRepo) GetReservasAgendadasNoNotificadas(ctx context.Context, localNombre string, limit int) ([]models.ReservaPGCompleta, error) {
+	conditions := []string{"r.activo = TRUE", "r.estado = 'AGENDADO'", "COALESCE(r.notificado, FALSE) = FALSE"}
+	args := []interface{}{}
+	if strings.TrimSpace(localNombre) != "" {
+		conditions = append(conditions, `r.local_id = (
+			SELECT l.id FROM locales l WHERE UPPER(l.nombre) = UPPER($1) LIMIT 1
+		)`)
+		args = append(args, strings.TrimSpace(localNombre))
+	}
+	args = append(args, limit)
+	query := fmt.Sprintf(`
+		SELECT r.id, r.local_id, r.local_nombre, r.tipo_espacio,
+			r.fecha, r.hora_desde::text, r.hora_hasta::text,
+			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre,
+			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
+			r.precio, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
+			r.creado_en, r.actualizado_en
+		FROM reservas r WHERE %s
+		ORDER BY r.creado_en DESC, r.id DESC LIMIT $%d
+	`, strings.Join(conditions, " AND "), len(args))
+	var reservas []models.ReservaPGCompleta
+	if err := r.db.SelectContext(queryContext(ctx), &reservas, query, args...); err != nil {
+		return nil, fmt.Errorf("error al consultar notificaciones de reservas: %w", err)
+	}
+	if reservas == nil {
+		reservas = []models.ReservaPGCompleta{}
+	}
 	return reservas, nil
 }
 
@@ -150,7 +190,10 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 		return nil, fmt.Errorf("error al obtener reserva por id: %w", err)
 	}
 
-	rv.Detalle, _ = r.getDetalleReserva(rv.ID)
+	rv.Detalle, err = r.getDetalleReserva(rv.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener detalle de reserva: %w", err)
+	}
 	return &rv, nil
 }
 
@@ -176,8 +219,8 @@ func (r *ReservasRepo) GetResumenPagosReservas(f repository.FiltroResumenPagosRe
 	conditions := []string{
 		"p.activo = TRUE",
 		"p.estado = 'PAGADO'",
-		"p.fecha_creacion::date >= $1::date",
-		"p.fecha_creacion::date <= $2::date",
+		"p.fecha_creacion >= $1::date",
+		"p.fecha_creacion < ($2::date + INTERVAL '1 day')",
 	}
 	args := []interface{}{f.FechaDesde, f.FechaHasta, f.Fecha}
 	idx := 4
@@ -188,7 +231,9 @@ func (r *ReservasRepo) GetResumenPagosReservas(f repository.FiltroResumenPagosRe
 		idx++
 	}
 	if f.LocalNombre != "" {
-		conditions = append(conditions, fmt.Sprintf("UPPER(p.local_nombre) = UPPER($%d)", idx))
+		conditions = append(conditions, fmt.Sprintf(`p.local_id = (
+			SELECT l.id FROM locales l WHERE UPPER(l.nombre) = UPPER($%d) LIMIT 1
+		)`, idx))
 		args = append(args, f.LocalNombre)
 	}
 
@@ -208,7 +253,7 @@ func (r *ReservasRepo) GetResumenPagosReservas(f repository.FiltroResumenPagosRe
 	`, strings.Join(conditions, " AND "))
 
 	var resumen repository.ResumenPagosReservas
-	if err := r.db.Get(&resumen, query, args...); err != nil {
+	if err := r.db.GetContext(queryContext(f.Context), &resumen, query, args...); err != nil {
 		return resumen, fmt.Errorf("no se pudo obtener el resumen de pagos para reservas")
 	}
 
@@ -475,7 +520,11 @@ func (r *ReservasRepo) AnularReserva(id int) error {
 	if err != nil {
 		return fmt.Errorf("error al eliminar reserva: %w", err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "eliminar reserva")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("reserva con id %d no encontrada o inactiva", id)
 	}
 	return nil
@@ -491,7 +540,11 @@ func (r *ReservasRepo) UpdateReservaNotificado(id int, notificado bool) error {
 		return fmt.Errorf("error al actualizar notificacion de reserva: %w", err)
 	}
 
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "actualizar notificacion de reserva")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("reserva con id %d no encontrada o inactiva", id)
 	}
 
@@ -513,7 +566,10 @@ func (r *ReservasRepo) UpdateReservasNotificado(ids []int, notificado bool) (int
 		return 0, fmt.Errorf("error al actualizar notificaciones de reservas: %w", err)
 	}
 
-	n, _ := res.RowsAffected()
+	n, err := affectedRows(res, "actualizar notificaciones de reservas")
+	if err != nil {
+		return 0, err
+	}
 	return int(n), nil
 }
 
@@ -640,16 +696,16 @@ func BuildJerarquia(reservas []models.ReservaPGCompleta) []models.LocalReservas 
 		slot := slotKey{horaDesde: rv.HoraDesde, horaHasta: rv.HoraHasta}
 
 		item := models.ReservaItem{
-			ID:             rv.ID,
-			Tipo:           tipoLetraANombre(rv.TipoEspacio),
-			Cliente:        rv.Cliente,
-			Local:          rv.LocalNombre,
-			Fecha:          rv.Fecha.Format("2006-01-02"),
-			HoraDesde:      rv.HoraDesde,
-			HoraHasta:      rv.HoraHasta,
-			HoraHastaReal:  rv.HoraHastaOriginal,
-			PlanID:         rv.PlanID,
-			Notificado:     rv.Notificado,
+			ID:            rv.ID,
+			Tipo:          tipoLetraANombre(rv.TipoEspacio),
+			Cliente:       rv.Cliente,
+			Local:         rv.LocalNombre,
+			Fecha:         rv.Fecha.Format("2006-01-02"),
+			HoraDesde:     rv.HoraDesde,
+			HoraHasta:     rv.HoraHasta,
+			HoraHastaReal: rv.HoraHastaOriginal,
+			PlanID:        rv.PlanID,
+			Notificado:    rv.Notificado,
 		}
 		if !rv.CreadoEn.IsZero() {
 			item.CreadoEn = rv.CreadoEn.Format(time.RFC3339)
@@ -815,9 +871,15 @@ func (r *ReservasRepo) GetCapacidades(localNombre string) ([]repository.Capacida
 	for rows.Next() {
 		var c repository.CapacidadLocal
 		if err := rows.Scan(&c.LocalNombre, &c.TipoEspacio, &c.Capacidad); err != nil {
-			continue
+			return nil, fmt.Errorf("error al leer capacidad: %w", err)
 		}
 		resultado = append(resultado, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error al recorrer capacidades: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("error al cerrar consulta de capacidades: %w", err)
 	}
 	return resultado, nil
 }

@@ -1,12 +1,17 @@
 package services
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
 )
+
+func (r *reservasResumenRepo) GetReservasAgendadasNoNotificadas(context.Context, string, int) ([]models.ReservaPGCompleta, error) {
+	return nil, nil
+}
 
 type reservasResumenRepo struct {
 	calls        []repository.FiltroReservasPG

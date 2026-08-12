@@ -1,9 +1,9 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -27,6 +27,7 @@ func NewReservasPGService(repo repository.ReservasPGRepository, serviciosRepo *p
 // GET
 
 type FiltroReservasPG struct {
+	Context            context.Context
 	Local              string
 	Fecha              string
 	FechaDesde         string
@@ -65,6 +66,7 @@ func (s *ReservasPGService) GetReservasFiltradas(f FiltroReservasPG) ([]models.L
 	}
 
 	filtro := repository.FiltroReservasPG{
+		Context:            f.Context,
 		LocalNombre:        f.Local,
 		Cliente:            f.Cliente,
 		NumeroTelefono:     f.NumeroTelefono,
@@ -535,6 +537,7 @@ type ResumenReservas struct {
 }
 
 type FiltroReservasSimple struct {
+	Context            context.Context
 	Local              string
 	Fecha              string
 	FechaDesde         string
@@ -548,16 +551,10 @@ type FiltroReservasSimple struct {
 }
 
 func (s *ReservasPGService) GetReservasAgendadasNoNotificadas(limit int, localNombre string) ([]ReservaSimple, error) {
-	filtro := FiltroReservasSimple{
-		Estado: "AGENDADO",
-		Local:  strings.TrimSpace(localNombre),
-	}
+	return s.GetReservasAgendadasNoNotificadasContext(context.Background(), limit, localNombre)
+}
 
-	reservas, err := s.GetReservasSimple(filtro)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *ReservasPGService) GetReservasAgendadasNoNotificadasContext(ctx context.Context, limit int, localNombre string) ([]ReservaSimple, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -565,27 +562,20 @@ func (s *ReservasPGService) GetReservasAgendadasNoNotificadas(limit int, localNo
 		limit = 100
 	}
 
+	reservas, err := s.repo.GetReservasAgendadasNoNotificadas(ctx, strings.TrimSpace(localNombre), limit)
+	if err != nil {
+		return nil, err
+	}
 	resultado := make([]ReservaSimple, 0, len(reservas))
 	for _, rv := range reservas {
-		if rv.Notificado {
-			continue
-		}
-		resultado = append(resultado, rv)
+		resultado = append(resultado, reservaSimpleDesdePG(rv))
 	}
-
-	sort.SliceStable(resultado, func(i, j int) bool {
-		return resultado[i].CreadoEn > resultado[j].CreadoEn
-	})
-
-	if len(resultado) > limit {
-		resultado = resultado[:limit]
-	}
-
 	return resultado, nil
 }
 
 func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]ReservaSimple, error) {
 	filtro := repository.FiltroReservasPG{
+		Context:            f.Context,
 		LocalNombre:        f.Local,
 		Cliente:            f.Cliente,
 		NumeroTelefono:     f.NumeroTelefono,
@@ -624,28 +614,36 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 	reservas = filterReservasPorEstado(reservas, f.Estado)
 	resultado := make([]ReservaSimple, 0, len(reservas))
 	for _, rv := range reservas {
-		resultado = append(resultado, ReservaSimple{
-			ID:                 rv.ID,
-			Local:              rv.LocalNombre,
-			Tipo:               tipoLetraANombreService(rv.TipoEspacio),
-			Fecha:              rv.Fecha.Format("2006-01-02"),
-			HoraDesde:          formatHoraService(rv.HoraDesde),
-			HoraHasta:          formatHoraService(rv.HoraHasta),
-			Cliente:            rv.Cliente,
-			Estado:             rv.Estado,
-			NumeroTelefono:     rv.NumeroTelefono,
-			PlanID:             rv.PlanID,
-			Servicio:           rv.ServicioNombre,
-			ServicioSolicitado: rv.ServicioSolicitado,
-			ServicioConfirmado: rv.ServicioConfirmado,
-			Precio:             rv.Precio,
-			Notas:              rv.Notas,
-			Notificado:         rv.Notificado,
-			CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
-			ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
-		})
+		resultado = append(resultado, reservaSimpleDesdePG(rv))
 	}
 	return resultado, nil
+}
+
+func reservaSimpleDesdePG(rv models.ReservaPGCompleta) ReservaSimple {
+	return ReservaSimple{
+		ID:                 rv.ID,
+		Local:              rv.LocalNombre,
+		Tipo:               tipoLetraANombreService(rv.TipoEspacio),
+		Fecha:              rv.Fecha.Format("2006-01-02"),
+		HoraDesde:          formatHoraService(rv.HoraDesde),
+		HoraHasta:          formatHoraService(rv.HoraHasta),
+		Cliente:            rv.Cliente,
+		Estado:             rv.Estado,
+		NumeroTelefono:     rv.NumeroTelefono,
+		PlanID:             rv.PlanID,
+		Servicio:           rv.ServicioNombre,
+		ServicioSolicitado: rv.ServicioSolicitado,
+		ServicioConfirmado: rv.ServicioConfirmado,
+		Precio:             rv.Precio,
+		Notas:              rv.Notas,
+		Notificado:         rv.Notificado,
+		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
+		ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
+	}
+}
+
+func (s *ReservasPGService) GetResumenReservasContext(ctx context.Context, fecha time.Time, localNombre string, localID *int) (*ResumenReservas, error) {
+	return s.getResumenReservas(ctx, fecha, localNombre, localID)
 }
 
 func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple, error) {
@@ -726,6 +724,10 @@ func (s *ReservasPGService) ActualizarNotificacionReservas(ids []int, notificado
 }
 
 func (s *ReservasPGService) GetResumenReservas(fecha time.Time, localNombre string, localID *int) (*ResumenReservas, error) {
+	return s.getResumenReservas(context.Background(), fecha, localNombre, localID)
+}
+
+func (s *ReservasPGService) getResumenReservas(ctx context.Context, fecha time.Time, localNombre string, localID *int) (*ResumenReservas, error) {
 	fecha = fecha.Truncate(24 * time.Hour)
 	if fecha.Weekday() == time.Sunday {
 		fecha = fecha.AddDate(0, 0, -1)
@@ -743,6 +745,7 @@ func (s *ReservasPGService) GetResumenReservas(fecha time.Time, localNombre stri
 	}
 
 	reservasDia, err := s.repo.GetReservas(repository.FiltroReservasPG{
+		Context:     ctx,
 		LocalID:     localID,
 		LocalNombre: localNombre,
 		Fecha:       &fecha,
@@ -754,6 +757,7 @@ func (s *ReservasPGService) GetResumenReservas(fecha time.Time, localNombre stri
 
 	lunes := inicioSemana(fecha)
 	reservasSemana, err := s.repo.GetReservas(repository.FiltroReservasPG{
+		Context:     ctx,
 		LocalID:     localID,
 		LocalNombre: localNombre,
 		FechaDesde:  &lunes,
@@ -765,6 +769,7 @@ func (s *ReservasPGService) GetResumenReservas(fecha time.Time, localNombre stri
 	}
 
 	resumenPagos, err := s.repo.GetResumenPagosReservas(repository.FiltroResumenPagosReservas{
+		Context:     ctx,
 		LocalID:     localID,
 		LocalNombre: localNombre,
 		Fecha:       fecha,
