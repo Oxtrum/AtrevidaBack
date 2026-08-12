@@ -9,6 +9,12 @@ type FiltroClientes struct {
 	Nombre         string
 	Apellido       string
 	NumeroTelefono string
+	Busqueda       string
+	PageLimit      int
+	CursorSet      bool
+	CursorApellido string
+	CursorNombre   string
+	CursorID       int
 }
 
 type CrearClienteInput struct {
@@ -30,6 +36,7 @@ type ActualizarClienteInput struct {
 
 type ClientesRepository interface {
 	GetClientes(filtro FiltroClientes) ([]models.ClientePG, error)
+	CountClientes(filtro FiltroClientes) (int, error)
 	GetClienteByID(id int) (*models.ClientePG, error)
 	CreateCliente(input CrearClienteInput) (int, error)
 	UpdateCliente(input ActualizarClienteInput) error

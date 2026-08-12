@@ -21,15 +21,32 @@ type FiltroClientes struct {
 	Nombre         string
 	Apellido       string
 	NumeroTelefono string
+	Busqueda       string
+	PageLimit      int
+	CursorSet      bool
+	CursorApellido string
+	CursorNombre   string
+	CursorID       int
 }
 
 func (s *ClientesService) GetClientes(filtro FiltroClientes) ([]models.ClientePG, error) {
-	return s.repo.GetClientes(repository.FiltroClientes{
+	return s.repo.GetClientes(toRepositoryFiltroClientes(filtro))
+}
+
+func (s *ClientesService) CountClientes(filtro FiltroClientes) (int, error) {
+	return s.repo.CountClientes(toRepositoryFiltroClientes(filtro))
+}
+
+func toRepositoryFiltroClientes(filtro FiltroClientes) repository.FiltroClientes {
+	return repository.FiltroClientes{
 		Context:        filtro.Context,
 		Nombre:         strings.TrimSpace(filtro.Nombre),
 		Apellido:       strings.TrimSpace(filtro.Apellido),
 		NumeroTelefono: strings.TrimSpace(filtro.NumeroTelefono),
-	})
+		Busqueda:       strings.TrimSpace(filtro.Busqueda),
+		PageLimit:      filtro.PageLimit, CursorSet: filtro.CursorSet,
+		CursorApellido: filtro.CursorApellido, CursorNombre: filtro.CursorNombre, CursorID: filtro.CursorID,
+	}
 }
 
 func (s *ClientesService) GetClienteByID(id int) (*models.ClientePG, error) {

@@ -16,6 +16,10 @@ func (f *fakeClientesRepo) GetClientes(filtro repository.FiltroClientes) ([]mode
 	return nil, nil
 }
 
+func (f *fakeClientesRepo) CountClientes(filtro repository.FiltroClientes) (int, error) {
+	return 0, nil
+}
+
 func (f *fakeClientesRepo) GetClienteByID(id int) (*models.ClientePG, error) {
 	return nil, nil
 }

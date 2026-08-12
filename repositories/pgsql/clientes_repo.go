@@ -24,24 +24,17 @@ func NewClientesRepo(db *sqlx.DB) *ClientesRepo {
 }
 
 func (r *ClientesRepo) GetClientes(filtro repository.FiltroClientes) ([]models.ClientePG, error) {
-	conditions := []string{"1=1"}
-	args := []interface{}{}
-	idx := 1
-
-	if filtro.Nombre != "" {
-		conditions = append(conditions, fmt.Sprintf("nombre ILIKE $%d", idx))
-		args = append(args, "%"+filtro.Nombre+"%")
-		idx++
+	conditions, args := clienteFilterConditions(filtro)
+	idx := len(args) + 1
+	if filtro.CursorSet {
+		conditions = append(conditions, fmt.Sprintf("(apellido, nombre, id) > ($%d, $%d, $%d)", idx, idx+1, idx+2))
+		args = append(args, filtro.CursorApellido, filtro.CursorNombre, filtro.CursorID)
+		idx += 3
 	}
-	if filtro.Apellido != "" {
-		conditions = append(conditions, fmt.Sprintf("apellido ILIKE $%d", idx))
-		args = append(args, "%"+filtro.Apellido+"%")
-		idx++
-	}
-	if filtro.NumeroTelefono != "" {
-		conditions = append(conditions, fmt.Sprintf("numero_telefono ILIKE $%d", idx))
-		args = append(args, "%"+filtro.NumeroTelefono+"%")
-		idx++
+	limitClause := ""
+	if filtro.PageLimit > 0 {
+		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		args = append(args, filtro.PageLimit)
 	}
 
 	query := fmt.Sprintf(`
@@ -49,15 +42,49 @@ func (r *ClientesRepo) GetClientes(filtro repository.FiltroClientes) ([]models.C
 		       COALESCE(ci, '') AS ci, COALESCE(nit, '') AS nit
 		FROM clientes
 		WHERE %s
-		ORDER BY apellido, nombre, id
-	`, strings.Join(conditions, " AND "))
+		ORDER BY apellido, nombre, id%s
+	`, strings.Join(conditions, " AND "), limitClause)
 
 	var clientes []models.ClientePG
 	if err := r.db.SelectContext(queryContext(filtro.Context), &clientes, query, args...); err != nil {
 		return nil, fmt.Errorf("no se pudieron obtener los clientes")
 	}
+	if clientes == nil {
+		clientes = []models.ClientePG{}
+	}
 
 	return clientes, nil
+}
+
+func (r *ClientesRepo) CountClientes(filtro repository.FiltroClientes) (int, error) {
+	conditions, args := clienteFilterConditions(filtro)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM clientes WHERE %s", strings.Join(conditions, " AND "))
+	var total int
+	if err := r.db.GetContext(queryContext(filtro.Context), &total, query, args...); err != nil {
+		return 0, fmt.Errorf("no se pudo contar los clientes")
+	}
+	return total, nil
+}
+
+func clienteFilterConditions(filtro repository.FiltroClientes) ([]string, []interface{}) {
+	conditions := []string{"1=1"}
+	args := []interface{}{}
+	addLike := func(column, value string) {
+		if value == "" {
+			return
+		}
+		conditions = append(conditions, fmt.Sprintf("%s ILIKE $%d", column, len(args)+1))
+		args = append(args, "%"+value+"%")
+	}
+	addLike("nombre", filtro.Nombre)
+	addLike("apellido", filtro.Apellido)
+	addLike("numero_telefono", filtro.NumeroTelefono)
+	if filtro.Busqueda != "" {
+		idx := len(args) + 1
+		conditions = append(conditions, fmt.Sprintf("(nombre ILIKE $%d OR apellido ILIKE $%d OR (nombre || ' ' || apellido) ILIKE $%d OR numero_telefono ILIKE $%d)", idx, idx, idx, idx))
+		args = append(args, "%"+filtro.Busqueda+"%")
+	}
+	return conditions, args
 }
 
 func (r *ClientesRepo) GetClienteByID(id int) (*models.ClientePG, error) {

@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -45,29 +47,78 @@ type actualizarClienteRequest struct {
 // @Param nombre query string false "Busqueda parcial por nombre" example(Maria)
 // @Param apellido query string false "Busqueda parcial por apellido" example(Lopez)
 // @Param numero_telefono query string false "Busqueda parcial por numero de telefono" example(+59170011223)
+// @Param busqueda query string false "Busqueda parcial por nombre, apellido o telefono" example(Maria Lopez)
+// @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param include_total query bool false "Calcula el total exacto de coincidencias" example(false)
 // @Success 200 {object} utils.APIResponse{data=clienteListResponse}
+// @Failure 400 {object} utils.APIResponse "Paginacion o cursor invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/clientes [get]
 func (h *Container) GetClientes(c *gin.Context) {
-	clientes, err := h.ClientesPG.GetClientes(services.FiltroClientes{
-		Context:        c.Request.Context(),
-		Nombre:         c.Query("nombre"),
-		Apellido:       c.Query("apellido"),
-		NumeroTelefono: c.Query("numero_telefono"),
+	page, ok := parsePagination(c)
+	if !ok {
+		return
+	}
+	filters := clienteFiltrosResponse{
+		Busqueda: strings.TrimSpace(c.Query("busqueda")),
+		Nombre:   strings.TrimSpace(c.Query("nombre")), Apellido: strings.TrimSpace(c.Query("apellido")),
+		NumeroTelefono: strings.TrimSpace(c.Query("numero_telefono")),
+	}
+	includeTotal, ok := parseIncludeTotal(c)
+	if !ok {
+		return
+	}
+	serviceFilter := services.FiltroClientes{
+		Context: c.Request.Context(), Nombre: c.Query("nombre"), Apellido: c.Query("apellido"),
+		NumeroTelefono: c.Query("numero_telefono"), Busqueda: c.Query("busqueda"),
+	}
+	var after clientCursor
+	if !decodePaginationCursor(c, page, "clientes", filters, &after) || (page.Cursor != "" && after.ID < 1) {
+		if !c.IsAborted() && !c.Writer.Written() {
+			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+		}
+		return
+	}
+	serviceFilter.PageLimit = page.QueryLimit()
+	serviceFilter.CursorSet = page.Cursor != ""
+	serviceFilter.CursorApellido = after.LastName
+	serviceFilter.CursorNombre = after.Name
+	serviceFilter.CursorID = after.ID
+	clientes, err := h.ClientesPG.GetClientes(serviceFilter)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	var totalRegistros *int
+	if includeTotal {
+		countFilter := serviceFilter
+		countFilter.PageLimit = 0
+		countFilter.CursorSet = false
+		count, countErr := h.ClientesPG.CountClientes(countFilter)
+		if countErr != nil {
+			utils.RespondError(c, http.StatusInternalServerError, countErr.Error())
+			return
+		}
+		totalRegistros = &count
+	}
+	clientes, metadata, err := pagination.Build(clientes, page, "clientes", filters, func(item models.ClientePG) any {
+		return clientCursor{LastName: item.Apellido, Name: item.Nombre, ID: item.ID}
 	})
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if totalRegistros != nil {
+		pagination.AddTotal(metadata, *totalRegistros)
+	}
 
 	utils.Respond(c, http.StatusOK, clienteListResponse{
-		Total: len(clientes),
-		Filtros: clienteFiltrosResponse{
-			Nombre:         strings.TrimSpace(c.Query("nombre")),
-			Apellido:       strings.TrimSpace(c.Query("apellido")),
-			NumeroTelefono: strings.TrimSpace(c.Query("numero_telefono")),
-		},
-		Clientes: clientes,
+		Total:          len(clientes),
+		Filtros:        filters,
+		Clientes:       clientes,
+		Paginacion:     metadata,
+		TotalRegistros: totalRegistros,
 	})
 }
 
