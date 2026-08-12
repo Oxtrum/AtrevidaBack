@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
@@ -112,7 +112,7 @@ func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, er
 	`, pagoSelectColumns(), strings.Join(conditions, " AND "))
 
 	var pagos []models.PagoPG
-	if err := r.db.Select(&pagos, query, args...); err != nil {
+	if err := r.db.SelectContext(queryContext(filtro.Context), &pagos, query, args...); err != nil {
 		return nil, fmt.Errorf("no se pudieron obtener los pagos")
 	}
 
@@ -381,45 +381,83 @@ func (r *PagosRepo) DeletePago(codigoPago string) error {
 	return nil
 }
 
-func (r *PagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) ([]repository.PagoResumenRow, error) {
+func (r *PagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) (repository.PagoResumenAgregado, error) {
+	var result repository.PagoResumenAgregado
 	conditions := []string{
 		"p.activo = TRUE",
 		"p.estado = 'PAGADO'",
-		"p.fecha_creacion::date >= $1::date",
-		"p.fecha_creacion::date <= $2::date",
+		"p.fecha_creacion >= $1",
+		"p.fecha_creacion < $2",
 	}
-	args := []interface{}{filtro.FechaDesde, filtro.FechaHasta}
+	args := []interface{}{filtro.FechaDesde, filtro.FechaHasta.AddDate(0, 0, 1)}
 	idx := 3
 
 	if filtro.Local != "" {
-		conditions = append(conditions, fmt.Sprintf("UPPER(p.local_nombre) = UPPER($%d)", idx))
+		conditions = append(conditions, fmt.Sprintf(`p.local_id = (
+			SELECT l.id FROM locales l WHERE UPPER(l.nombre) = UPPER($%d) LIMIT 1
+		)`, idx))
 		args = append(args, filtro.Local)
 		idx++
 	}
 
-	query := fmt.Sprintf(`
-		SELECT
-			p.id AS pago_id,
-			p.local_nombre,
-			p.tipo_pago,
-			p.subtotal,
-			p.descuento,
-			p.total_final,
-			dp.servicio,
-			dp.cantidad,
-			dp.subtotal AS detalle_subtotal
-		FROM pagos p
-		LEFT JOIN detalle_pagos dp ON dp.pago_id = p.id
-		WHERE %s
-		ORDER BY p.local_nombre, p.id, dp.id
-	`, strings.Join(conditions, " AND "))
+	where := strings.Join(conditions, " AND ")
+	ctx := queryContext(filtro.Context)
+	tx, err := r.db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	if err != nil {
+		return result, fmt.Errorf("no se pudo iniciar el resumen de pagos: %w", err)
+	}
+	defer tx.Rollback()
 
-	var rows []repository.PagoResumenRow
-	if err := r.db.Select(&rows, query, args...); err != nil {
-		return nil, fmt.Errorf("no se pudo obtener el resumen de pagos")
+	totalesQuery := fmt.Sprintf(`WITH base AS (
+		SELECT p.id, BTRIM(p.local_nombre) local_nombre, p.subtotal, p.descuento, p.total_final
+		FROM pagos p WHERE %s
+	), detalle AS (
+		SELECT dp.pago_id, COALESCE(SUM(dp.cantidad),0)::int cantidad
+		FROM detalle_pagos dp JOIN base b ON b.id=dp.pago_id GROUP BY dp.pago_id
+	)
+	SELECT COALESCE(base.local_nombre,'') local_nombre,
+		GROUPING(base.local_nombre)::int::boolean es_general,
+		COALESCE(SUM(base.subtotal),0) subtotal, COALESCE(SUM(base.descuento),0) descuento,
+		COALESCE(SUM(base.total_final),0) total_final, COUNT(*)::int cantidad_pagos,
+		COALESCE(SUM(detalle.cantidad),0)::int cantidad_servicios_vendidos
+	FROM base LEFT JOIN detalle ON detalle.pago_id=base.id
+	GROUP BY GROUPING SETS ((), (base.local_nombre))
+	ORDER BY es_general, local_nombre`, where)
+	if err := tx.SelectContext(ctx, &result.Totales, totalesQuery, args...); err != nil {
+		return result, fmt.Errorf("no se pudo obtener totales del resumen de pagos: %w", err)
 	}
 
-	return rows, nil
+	tiposQuery := fmt.Sprintf(`WITH base AS (
+		SELECT BTRIM(p.local_nombre) local_nombre,
+			COALESCE(NULLIF(BTRIM(p.tipo_pago),''),'sin_tipo') tipo_pago, p.total_final
+		FROM pagos p WHERE %s
+	)
+	SELECT COALESCE(local_nombre,'') local_nombre,
+		GROUPING(local_nombre)::int::boolean es_general, tipo_pago,
+		COUNT(*)::int cantidad_pagos, COALESCE(SUM(total_final),0) total
+	FROM base GROUP BY GROUPING SETS ((tipo_pago),(local_nombre,tipo_pago))
+	ORDER BY es_general, local_nombre, tipo_pago`, where)
+	if err := tx.SelectContext(ctx, &result.Tipos, tiposQuery, args...); err != nil {
+		return result, fmt.Errorf("no se pudo obtener tipos del resumen de pagos: %w", err)
+	}
+
+	serviciosQuery := fmt.Sprintf(`WITH base AS (
+		SELECT p.id, BTRIM(p.local_nombre) local_nombre FROM pagos p WHERE %s
+	)
+	SELECT COALESCE(base.local_nombre,'') local_nombre,
+		GROUPING(base.local_nombre)::int::boolean es_general, BTRIM(dp.servicio) servicio,
+		COALESCE(SUM(dp.cantidad),0)::int cantidad, COALESCE(SUM(dp.subtotal),0) monto_total
+	FROM base JOIN detalle_pagos dp ON dp.pago_id=base.id
+	WHERE NULLIF(BTRIM(dp.servicio),'') IS NOT NULL
+	GROUP BY GROUPING SETS ((dp.servicio),(base.local_nombre,dp.servicio))
+	ORDER BY es_general, local_nombre, servicio`, where)
+	if err := tx.SelectContext(ctx, &result.Servicios, serviciosQuery, args...); err != nil {
+		return result, fmt.Errorf("no se pudo obtener servicios del resumen de pagos: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return result, fmt.Errorf("no se pudo confirmar el resumen de pagos: %w", err)
+	}
+	return result, nil
 }
 
 func (r *PagosRepo) getDetallePago(pagoID int) ([]models.DetallePagoPG, error) {

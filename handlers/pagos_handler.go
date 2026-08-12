@@ -114,6 +114,7 @@ type actualizarDetallePagoRequest struct {
 // @Router /bd/pagos/resumen [get]
 func (h *Container) GetResumenPagos(c *gin.Context) {
 	resumen, err := h.PagosPG.GetResumenPagos(services.ResumenPagosInput{
+		Context:    c.Request.Context(),
 		FechaDesde: c.Query("fecha_desde"),
 		FechaHasta: c.Query("fecha_hasta"),
 		Local:      c.Query("local"),
@@ -179,6 +180,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 	}
 
 	filtro := services.FiltroPagos{
+		Context:                    c.Request.Context(),
 		CodigoPago:                 c.Query("codigo_pago"),
 		LocalID:                    localID,
 		LocalNombre:                c.Query("local_nombre"),

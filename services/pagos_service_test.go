@@ -32,8 +32,8 @@ func (f *fakePagosRepo) DeletePago(codigoPago string) error {
 	return nil
 }
 
-func (f *fakePagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) ([]repository.PagoResumenRow, error) {
-	return nil, nil
+func (f *fakePagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) (repository.PagoResumenAgregado, error) {
+	return repository.PagoResumenAgregado{}, nil
 }
 
 func TestGetPagoByCodigoAplicaLocalID(t *testing.T) {

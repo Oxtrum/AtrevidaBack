@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 )
 
 type FiltroPagos struct {
+	Context       context.Context
 	CodigoPago    string
 	LocalID       *int
 	LocalNombre   string
@@ -88,9 +90,42 @@ type ActualizarDetallePagoInput struct {
 }
 
 type FiltroResumenPagos struct {
+	Context    context.Context
 	FechaDesde time.Time
 	FechaHasta time.Time
 	Local      string
+}
+
+type PagoResumenTotalRow struct {
+	LocalNombre               string  `db:"local_nombre"`
+	EsGeneral                 bool    `db:"es_general"`
+	Subtotal                  float64 `db:"subtotal"`
+	Descuento                 float64 `db:"descuento"`
+	TotalFinal                float64 `db:"total_final"`
+	CantidadPagos             int     `db:"cantidad_pagos"`
+	CantidadServiciosVendidos int     `db:"cantidad_servicios_vendidos"`
+}
+
+type PagoResumenTipoRow struct {
+	LocalNombre   string  `db:"local_nombre"`
+	EsGeneral     bool    `db:"es_general"`
+	TipoPago      string  `db:"tipo_pago"`
+	CantidadPagos int     `db:"cantidad_pagos"`
+	Total         float64 `db:"total"`
+}
+
+type PagoResumenServicioRow struct {
+	LocalNombre string  `db:"local_nombre"`
+	EsGeneral   bool    `db:"es_general"`
+	Servicio    string  `db:"servicio"`
+	Cantidad    int     `db:"cantidad"`
+	MontoTotal  float64 `db:"monto_total"`
+}
+
+type PagoResumenAgregado struct {
+	Totales   []PagoResumenTotalRow
+	Tipos     []PagoResumenTipoRow
+	Servicios []PagoResumenServicioRow
 }
 
 type PagoResumenRow struct {
@@ -111,5 +146,5 @@ type PagosRepository interface {
 	CreatePago(input CrearPagoInput) (string, error)
 	UpdatePago(input ActualizarPagoInput) error
 	DeletePago(codigoPago string) error
-	GetResumenPagos(filtro FiltroResumenPagos) ([]PagoResumenRow, error)
+	GetResumenPagos(filtro FiltroResumenPagos) (PagoResumenAgregado, error)
 }

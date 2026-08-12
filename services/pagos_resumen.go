@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"sort"
 	"strings"
@@ -10,6 +11,7 @@ import (
 )
 
 type ResumenPagosInput struct {
+	Context    context.Context
 	FechaDesde string
 	FechaHasta string
 	Local      string
@@ -90,7 +92,8 @@ func (s *PagosService) GetResumenPagos(input ResumenPagosInput) (*PagoResumenRes
 	}
 
 	local := strings.TrimSpace(input.Local)
-	rows, err := s.repo.GetResumenPagos(repository.FiltroResumenPagos{
+	agregado, err := s.repo.GetResumenPagos(repository.FiltroResumenPagos{
+		Context:    input.Context,
 		FechaDesde: fechaDesde,
 		FechaHasta: fechaHasta,
 		Local:      local,
@@ -102,22 +105,39 @@ func (s *PagosService) GetResumenPagos(input ResumenPagosInput) (*PagoResumenRes
 	general := newPagoResumenCollector()
 	locales := map[string]*pagoResumenCollector{}
 	localFiltroReal := local
-
-	for _, row := range rows {
-		general.add(row)
-
-		localNombre := strings.TrimSpace(row.LocalNombre)
-		if localNombre == "" {
-			localNombre = "Sin local"
+	collector := func(esGeneral bool, nombre string) *pagoResumenCollector {
+		if esGeneral {
+			return general
 		}
-		if local != "" && localFiltroReal == local {
-			localFiltroReal = localNombre
+		nombre = strings.TrimSpace(nombre)
+		if nombre == "" {
+			nombre = "Sin local"
 		}
-
-		if _, ok := locales[localNombre]; !ok {
-			locales[localNombre] = newPagoResumenCollector()
+		if local != "" {
+			localFiltroReal = nombre
 		}
-		locales[localNombre].add(row)
+		if locales[nombre] == nil {
+			locales[nombre] = newPagoResumenCollector()
+		}
+		return locales[nombre]
+	}
+	for _, row := range agregado.Totales {
+		c := collector(row.EsGeneral, row.LocalNombre)
+		c.subtotal, c.descuentos, c.total = row.Subtotal, row.Descuento, row.TotalFinal
+		c.cantidad, c.serviciosCantidad = row.CantidadPagos, row.CantidadServiciosVendidos
+	}
+	for _, row := range agregado.Tipos {
+		c := collector(row.EsGeneral, row.LocalNombre)
+		key := strings.TrimSpace(row.TipoPago)
+		if key == "" {
+			key = "sin_tipo"
+		}
+		c.tipoPagos[key] = &pagoResumenTipoPagoAggregate{tipoPago: key, cantidad: row.CantidadPagos, total: row.Total}
+	}
+	for _, row := range agregado.Servicios {
+		c := collector(row.EsGeneral, row.LocalNombre)
+		key := strings.ToUpper(strings.TrimSpace(row.Servicio))
+		c.servicios[key] = &pagoResumenServicioAggregate{servicio: row.Servicio, cantidad: row.Cantidad, montoTotal: row.MontoTotal}
 	}
 
 	tipoReporte := "general"

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -18,6 +19,7 @@ func NewPagosService(repo repository.PagosRepository) *PagosService {
 }
 
 type FiltroPagos struct {
+	Context       context.Context
 	CodigoPago    string
 	LocalID       *int
 	LocalNombre   string
@@ -53,6 +55,7 @@ func (s *PagosService) GetPagos(filtro FiltroPagos) ([]models.PagoPG, error) {
 	}
 
 	return s.repo.GetPagos(repository.FiltroPagos{
+		Context:                    filtro.Context,
 		CodigoPago:                 strings.TrimSpace(filtro.CodigoPago),
 		LocalID:                    filtro.LocalID,
 		LocalNombre:                strings.TrimSpace(filtro.LocalNombre),
