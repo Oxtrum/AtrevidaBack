@@ -1093,6 +1093,33 @@ const docTemplate = `{
                         "description": "Busqueda parcial por numero de telefono",
                         "name": "numero_telefono",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "Maria Lopez",
+                        "description": "Busqueda parcial por nombre, apellido o telefono",
+                        "name": "busqueda",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Calcula el total exacto de coincidencias",
+                        "name": "include_total",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1112,6 +1139,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Paginacion o cursor invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
@@ -1416,6 +1449,26 @@ const docTemplate = `{
                         "example": 1,
                         "description": "ID exacto de local",
                         "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye el total de paginas",
+                        "name": "include_total",
                         "in": "query"
                     }
                 ],
@@ -3119,6 +3172,26 @@ const docTemplate = `{
                         "description": "Busqueda parcial por username del cajero que modifico el pago por ultima vez",
                         "name": "username_cajero_modificacion",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye el total de paginas",
+                        "name": "include_total",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3599,6 +3672,26 @@ const docTemplate = `{
                         "example": true,
                         "description": "Filtrar por activo; default true",
                         "name": "activo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye el total de paginas",
+                        "name": "include_total",
                         "in": "query"
                     }
                 ],
@@ -4251,6 +4344,26 @@ const docTemplate = `{
                         "description": "Fecha de creacion hasta (YYYY-MM-DD)",
                         "name": "fecha_hasta",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye el total de paginas",
+                        "name": "include_total",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4882,6 +4995,26 @@ const docTemplate = `{
                         "example": "bicicleta",
                         "description": "Tipo de reserva",
                         "name": "tipo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye el total de paginas",
+                        "name": "include_total",
                         "in": "query"
                     }
                 ],
@@ -7102,6 +7235,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Lopez"
                 },
+                "busqueda": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
                 "nombre": {
                     "description": "Filtro aplicado: nombre del cliente",
                     "type": "string",
@@ -7145,10 +7282,18 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
+                },
                 "total": {
                     "description": "Total de clientes encontrados",
                     "type": "integer",
                     "example": 1
+                },
+                "total_registros": {
+                    "description": "Total exacto de coincidencias; solo se calcula cuando include_total=true.",
+                    "type": "integer",
+                    "example": 1250
                 }
             }
         },
@@ -7216,6 +7361,9 @@ const docTemplate = `{
                             "$ref": "#/definitions/handlers.comboCatalogoFiltrosResponse"
                         }
                     ]
+                },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
                 },
                 "total": {
                     "description": "Cantidad total de promociones que coinciden con los filtros aplicados.",
@@ -8105,6 +8253,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
+                },
                 "pagos": {
                     "description": "Lista de pagos sin detalle",
                     "type": "array",
@@ -8225,6 +8376,9 @@ const docTemplate = `{
                             "$ref": "#/definitions/handlers.paqueteFiltrosResponse"
                         }
                     ]
+                },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
                 },
                 "paquetes": {
                     "description": "Lista de paquetes del catalogo.",
@@ -8391,6 +8545,9 @@ const docTemplate = `{
             "properties": {
                 "filtros": {
                     "$ref": "#/definitions/handlers.planFiltrosResponse"
+                },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
                 },
                 "planes": {
                     "type": "array",
@@ -8755,6 +8912,9 @@ const docTemplate = `{
         "handlers.reservaSimpleListResponse": {
             "type": "object",
             "properties": {
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
+                },
                 "reservas": {
                     "description": "Lista de reservas en formato plano (sin agrupar)",
                     "type": "array",
@@ -10039,6 +10199,31 @@ const docTemplate = `{
                     "description": "Nombre de usuario.",
                     "type": "string",
                     "example": "admin"
+                }
+            }
+        },
+        "pagination.Metadata": {
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 50
+                },
+                "next_cursor": {
+                    "type": "string",
+                    "x-nullable": true
+                },
+                "total_paginas": {
+                    "type": "integer",
+                    "example": 50
+                },
+                "total_registros": {
+                    "type": "integer",
+                    "example": 2500
                 }
             }
         },

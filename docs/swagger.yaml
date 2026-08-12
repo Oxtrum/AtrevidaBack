@@ -504,6 +504,9 @@ definitions:
         description: 'Filtro aplicado: apellido del cliente'
         example: Lopez
         type: string
+      busqueda:
+        example: Maria Lopez
+        type: string
       nombre:
         description: 'Filtro aplicado: nombre del cliente'
         example: Maria
@@ -531,9 +534,15 @@ definitions:
         allOf:
         - $ref: '#/definitions/handlers.clienteFiltrosResponse'
         description: Filtros aplicados en la búsqueda
+      paginacion:
+        $ref: '#/definitions/pagination.Metadata'
       total:
         description: Total de clientes encontrados
         example: 1
+        type: integer
+      total_registros:
+        description: Total exacto de coincidencias; solo se calcula cuando include_total=true.
+        example: 1250
         type: integer
     type: object
   handlers.cobrarPlanRequest:
@@ -580,6 +589,8 @@ definitions:
         allOf:
         - $ref: '#/definitions/handlers.comboCatalogoFiltrosResponse'
         description: Filtros aplicados en la búsqueda.
+      paginacion:
+        $ref: '#/definitions/pagination.Metadata'
       total:
         description: Cantidad total de promociones que coinciden con los filtros aplicados.
         example: 3
@@ -1258,6 +1269,8 @@ definitions:
         allOf:
         - $ref: '#/definitions/handlers.pagoFiltrosResponse'
         description: Filtros aplicados en la busqueda
+      paginacion:
+        $ref: '#/definitions/pagination.Metadata'
       pagos:
         description: Lista de pagos sin detalle
         items:
@@ -1340,6 +1353,8 @@ definitions:
         allOf:
         - $ref: '#/definitions/handlers.paqueteFiltrosResponse'
         description: Filtros aplicados en la búsqueda.
+      paginacion:
+        $ref: '#/definitions/pagination.Metadata'
       paquetes:
         description: Lista de paquetes del catalogo.
         items:
@@ -1465,6 +1480,8 @@ definitions:
     properties:
       filtros:
         $ref: '#/definitions/handlers.planFiltrosResponse'
+      paginacion:
+        $ref: '#/definitions/pagination.Metadata'
       planes:
         items:
           $ref: '#/definitions/models.PlanPG'
@@ -1736,6 +1753,8 @@ definitions:
     type: object
   handlers.reservaSimpleListResponse:
     properties:
+      paginacion:
+        $ref: '#/definitions/pagination.Metadata'
       reservas:
         description: Lista de reservas en formato plano (sin agrupar)
         items:
@@ -2689,6 +2708,24 @@ definitions:
         example: admin
         type: string
     type: object
+  pagination.Metadata:
+    properties:
+      has_more:
+        example: true
+        type: boolean
+      limit:
+        example: 50
+        type: integer
+      next_cursor:
+        type: string
+        x-nullable: true
+      total_paginas:
+        example: 50
+        type: integer
+      total_registros:
+        example: 2500
+        type: integer
+    type: object
   services.PagoResumenFiltros:
     properties:
       fecha_desde:
@@ -3585,6 +3622,26 @@ paths:
         in: query
         name: numero_telefono
         type: string
+      - description: Busqueda parcial por nombre, apellido o telefono
+        example: Maria Lopez
+        in: query
+        name: busqueda
+        type: string
+      - description: Tamano de pagina opcional (1-100); sin limit ni cursor conserva
+          modo legacy
+        example: 50
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco devuelto en paginacion.next_cursor
+        in: query
+        name: cursor
+        type: string
+      - description: Calcula el total exacto de coincidencias
+        example: false
+        in: query
+        name: include_total
+        type: boolean
       produces:
       - application/json
       responses:
@@ -3597,6 +3654,10 @@ paths:
                 data:
                   $ref: '#/definitions/handlers.clienteListResponse'
               type: object
+        "400":
+          description: Paginacion o cursor invalido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
         "500":
           description: Error interno del servidor
           schema:
@@ -3798,6 +3859,21 @@ paths:
         in: query
         name: local_id
         type: integer
+      - description: Tamano de pagina opcional (1-100); sin limit ni cursor conserva
+          modo legacy
+        example: 50
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco devuelto en paginacion.next_cursor
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye el total de paginas
+        example: false
+        in: query
+        name: include_total
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4942,6 +5018,21 @@ paths:
         in: query
         name: username_cajero_modificacion
         type: string
+      - description: Tamano de pagina opcional (1-100); sin limit ni cursor conserva
+          modo legacy
+        example: 50
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco devuelto en paginacion.next_cursor
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye el total de paginas
+        example: false
+        in: query
+        name: include_total
+        type: boolean
       produces:
       - application/json
       responses:
@@ -5295,6 +5386,21 @@ paths:
         example: true
         in: query
         name: activo
+        type: boolean
+      - description: Tamano de pagina opcional (1-100); sin limit ni cursor conserva
+          modo legacy
+        example: 50
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco devuelto en paginacion.next_cursor
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye el total de paginas
+        example: false
+        in: query
+        name: include_total
         type: boolean
       produces:
       - application/json
@@ -5731,6 +5837,21 @@ paths:
         in: query
         name: fecha_hasta
         type: string
+      - description: Tamano de pagina opcional (1-100); sin limit ni cursor conserva
+          modo legacy
+        example: 50
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco devuelto en paginacion.next_cursor
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye el total de paginas
+        example: false
+        in: query
+        name: include_total
+        type: boolean
       produces:
       - application/json
       responses:
@@ -6162,6 +6283,21 @@ paths:
         in: query
         name: tipo
         type: string
+      - description: Tamano de pagina opcional (1-100); sin limit ni cursor conserva
+          modo legacy
+        example: 50
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco devuelto en paginacion.next_cursor
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye el total de paginas
+        example: false
+        in: query
+        name: include_total
+        type: boolean
       produces:
       - application/json
       responses:
