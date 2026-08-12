@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
@@ -87,6 +89,9 @@ type reemplazarServiciosComboRequest struct {
 // @Param categoria query string false "Busqueda parcial por categoria" example(Corporal)
 // @Param local query string false "Busqueda parcial por nombre de local" example(SAN MARTIN)
 // @Param local_id query int false "ID exacto de local" example(1)
+// @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param include_total query bool false "Incluye el total de paginas" example(false)
 // @Success 200 {object} utils.APIResponse{data=comboCatalogoListResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
@@ -97,22 +102,59 @@ func (h *Container) GetCombosPG(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
+	page, ok := parsePagination(c)
+	if !ok {
+		return
+	}
+	includeTotal, ok := parseIncludeTotal(c)
+	if !ok {
+		return
+	}
+	filters := comboCatalogoFiltrosResponse{
+		Nombre: strings.TrimSpace(c.Query("nombre")), Categoria: strings.TrimSpace(c.Query("categoria")),
+		Local: strings.TrimSpace(c.Query("local")), LocalID: localID,
+	}
+	var after nameCursor
+	if !decodePaginationCursor(c, page, "combos", filters, &after) || (page.Cursor != "" && after.ID < 1) {
+		if !c.Writer.Written() {
+			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+		}
+		return
+	}
 	combos, total, err := h.CombosPG.ListarCombos(services.FiltroCombos{
 		Context: c.Request.Context(),
 		Nombre:  strings.TrimSpace(c.Query("nombre")), Categoria: strings.TrimSpace(c.Query("categoria")),
 		Local: strings.TrimSpace(c.Query("local")), LocalID: localID,
+		PageLimit: page.QueryLimit(), CursorSet: page.Cursor != "", CursorNombre: after.Name, CursorID: after.ID,
 	})
 	if err != nil {
 		responderErrorCombo(c, err)
 		return
 	}
+	combos, metadata, err := pagination.Build(combos, page, "combos", filters, func(item models.ComboCatalogoPG) any {
+		return nameCursor{Name: item.Nombre, ID: item.ID}
+	})
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if includeTotal {
+		count, countErr := h.CombosPG.ContarCombos(services.FiltroCombos{
+			Context: c.Request.Context(), Nombre: filters.Nombre, Categoria: filters.Categoria,
+			Local: filters.Local, LocalID: localID,
+		})
+		if countErr != nil {
+			responderErrorCombo(c, countErr)
+			return
+		}
+		pagination.AddTotal(metadata, count)
+	}
+	total = len(combos)
 	utils.Respond(c, http.StatusOK, comboCatalogoListResponse{
-		Total: total,
-		Filtros: comboCatalogoFiltrosResponse{
-			Nombre: strings.TrimSpace(c.Query("nombre")), Categoria: strings.TrimSpace(c.Query("categoria")),
-			Local: strings.TrimSpace(c.Query("local")), LocalID: localID,
-		},
-		Combos: combos,
+		Total:      total,
+		Filtros:    filters,
+		Combos:     combos,
+		Paginacion: metadata,
 	})
 }
 

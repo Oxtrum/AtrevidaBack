@@ -14,6 +14,8 @@ type fakePaquetesRepo struct {
 	getByIDErr  error
 }
 
+func (f *fakePaquetesRepo) CountPaquetes(repository.FiltroPaquetes) (int, error) { return 0, nil }
+
 func (f *fakePaquetesRepo) ListPaquetes(repository.FiltroPaquetes) ([]models.PaqueteDetalle, error) {
 	return nil, nil
 }

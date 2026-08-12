@@ -141,6 +141,11 @@ func (s *PaquetesService) ListarContext(ctx context.Context, f repository.Filtro
 	return s.Listar(f)
 }
 
+func (s *PaquetesService) ContarContext(ctx context.Context, f repository.FiltroPaquetes) (int, error) {
+	f.Context = ctx
+	return s.repo.CountPaquetes(f)
+}
+
 func (s *PaquetesService) Obtener(id int) (*models.PaqueteDetalle, error) {
 	if id < 1 {
 		return nil, fmt.Errorf("id debe ser un entero positivo: %w", ErrPaqueteInvalido)

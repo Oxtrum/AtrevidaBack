@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,6 +21,8 @@ type combosHandlerRepo struct {
 	comboID int
 }
 
+func (r *combosHandlerRepo) CountCombos(repository.FiltroCombos) (int, error) { return 0, nil }
+
 func (r *combosHandlerRepo) ListCombos(filter repository.FiltroCombos) ([]models.ComboCatalogoPG, int, error) {
 	r.filter = filter
 	return r.combos, r.total, nil
@@ -33,7 +36,7 @@ func (r *combosHandlerRepo) SetComboActivo(id int, activo bool) error {
 	r.activo = &activo
 	return nil
 }
-func (r *combosHandlerRepo) SetComboLocales(int, []int) error { return nil }
+func (r *combosHandlerRepo) SetComboLocales(int, []int) error  { return nil }
 func (r *combosHandlerRepo) SetComboImagen(int, *string) error { return nil }
 func (r *combosHandlerRepo) ReplaceComboServicios(int, []repository.ComboServicioCatalogoInput) error {
 	return nil
@@ -66,6 +69,56 @@ func TestGetCombosPGRechazaLocalIDInvalido(t *testing.T) {
 
 	handler.GetCombosPG(c)
 
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestGetCombosPGPaginaYCursorSiguiente(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &combosHandlerRepo{combos: []models.ComboCatalogoPG{{ID: 1, Nombre: "A"}, {ID: 2, Nombre: "B"}, {ID: 3, Nombre: "C"}}}
+	handler := &Container{CombosPG: services.NewCombosService(repo)}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/bd/combos?nombre=x&limit=2", nil)
+
+	handler.GetCombosPG(c)
+
+	if w.Code != http.StatusOK || repo.filter.PageLimit != 3 {
+		t.Fatalf("status = %d, page limit = %d", w.Code, repo.filter.PageLimit)
+	}
+	var response struct {
+		Data struct {
+			Total      int `json:"total"`
+			Paginacion struct {
+				HasMore    bool    `json:"has_more"`
+				NextCursor *string `json:"next_cursor"`
+			} `json:"paginacion"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Data.Total != 2 || !response.Data.Paginacion.HasMore || response.Data.Paginacion.NextCursor == nil {
+		t.Fatalf("response = %+v", response.Data)
+	}
+
+	w = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/bd/combos?nombre=x&limit=2&cursor="+*response.Data.Paginacion.NextCursor, nil)
+	handler.GetCombosPG(c)
+	if w.Code != http.StatusOK || !repo.filter.CursorSet || repo.filter.CursorNombre != "B" || repo.filter.CursorID != 2 {
+		t.Fatalf("status = %d, filter = %+v", w.Code, repo.filter)
+	}
+}
+
+func TestGetCombosPGRechazaCursorInvalido(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := &Container{CombosPG: services.NewCombosService(&combosHandlerRepo{})}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/bd/combos?limit=50&cursor=invalido", nil)
+	handler.GetCombosPG(c)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
 	}

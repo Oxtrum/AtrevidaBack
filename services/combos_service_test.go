@@ -14,6 +14,8 @@ type fakeCombosRepo struct {
 	servicesInput []repository.ComboServicioCatalogoInput
 }
 
+func (f *fakeCombosRepo) CountCombos(repository.FiltroCombos) (int, error) { return 0, nil }
+
 func (f *fakeCombosRepo) ListCombos(repository.FiltroCombos) ([]models.ComboCatalogoPG, int, error) {
 	return nil, 0, nil
 }

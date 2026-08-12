@@ -23,6 +23,17 @@ func NewCombosRepo(db *sqlx.DB) *CombosRepo {
 
 func (r *CombosRepo) ListCombos(f repository.FiltroCombos) ([]models.ComboCatalogoPG, int, error) {
 	conditions, args := comboConditions(f)
+	idx := len(args) + 1
+	if f.CursorSet {
+		conditions = append(conditions, fmt.Sprintf("(cb.nombre, cb.id) > ($%d, $%d)", idx, idx+1))
+		args = append(args, f.CursorNombre, f.CursorID)
+		idx += 2
+	}
+	limitClause := ""
+	if f.PageLimit > 0 {
+		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		args = append(args, f.PageLimit)
+	}
 	where := strings.Join(conditions, " AND ")
 
 	query := fmt.Sprintf(`
@@ -43,8 +54,8 @@ func (r *CombosRepo) ListCombos(f repository.FiltroCombos) ([]models.ComboCatalo
 		LEFT JOIN locales l ON l.id = cl.local_id
 		WHERE %s
 		GROUP BY cb.id, c.nombre
-		ORDER BY cb.nombre, cb.id
-	`, where)
+		ORDER BY cb.nombre, cb.id%s
+	`, where, limitClause)
 
 	var combos []models.ComboCatalogoPG
 	ctx := queryContext(f.Context)
@@ -58,6 +69,21 @@ func (r *CombosRepo) ListCombos(f repository.FiltroCombos) ([]models.ComboCatalo
 		return nil, 0, err
 	}
 	return combos, len(combos), nil
+}
+
+func (r *CombosRepo) CountCombos(f repository.FiltroCombos) (int, error) {
+	conditions, args := comboConditions(f)
+	query := fmt.Sprintf(`SELECT COUNT(DISTINCT cb.id)
+		FROM combos cb
+		LEFT JOIN categorias c ON c.id = cb.categoria_id
+		LEFT JOIN combo_local cl ON cl.combo_id = cb.id
+		LEFT JOIN locales l ON l.id = cl.local_id
+		WHERE %s`, strings.Join(conditions, " AND "))
+	var total int
+	if err := r.db.GetContext(queryContext(f.Context), &total, query, args...); err != nil {
+		return 0, fmt.Errorf("error al contar combos: %w", err)
+	}
+	return total, nil
 }
 
 func (r *CombosRepo) cargarDetallesCombos(ctx context.Context, combos []models.ComboCatalogoPG) error {

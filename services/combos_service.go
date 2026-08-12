@@ -25,11 +25,15 @@ var (
 )
 
 type FiltroCombos struct {
-	Context   context.Context
-	Nombre    string
-	Categoria string
-	Local     string
-	LocalID   *int
+	Context      context.Context
+	Nombre       string
+	Categoria    string
+	Local        string
+	LocalID      *int
+	PageLimit    int
+	CursorSet    bool
+	CursorNombre string
+	CursorID     int
 }
 
 type CrearComboCatalogoInput struct {
@@ -130,11 +134,21 @@ func (s *CombosService) ListarCombos(f FiltroCombos) ([]models.ComboCatalogoPG, 
 		Context: f.Context,
 		Nombre:  strings.TrimSpace(f.Nombre), Categoria: strings.TrimSpace(f.Categoria),
 		Local: strings.TrimSpace(f.Local), LocalID: f.LocalID, Activo: &activo,
+		PageLimit: f.PageLimit, CursorSet: f.CursorSet, CursorNombre: f.CursorNombre, CursorID: f.CursorID,
 	})
 	for i := range combos {
 		s.rellenarImagenURL(&combos[i])
 	}
 	return combos, total, traducirErrorRepositorioCombo(err)
+}
+
+func (s *CombosService) ContarCombos(f FiltroCombos) (int, error) {
+	activo := true
+	total, err := s.repo.CountCombos(repository.FiltroCombos{
+		Context: f.Context, Nombre: strings.TrimSpace(f.Nombre), Categoria: strings.TrimSpace(f.Categoria),
+		Local: strings.TrimSpace(f.Local), LocalID: f.LocalID, Activo: &activo,
+	})
+	return total, traducirErrorRepositorioCombo(err)
 }
 
 func (s *CombosService) ObtenerCombo(id int) (*models.ComboCatalogoPG, error) {

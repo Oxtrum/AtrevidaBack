@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
@@ -63,6 +64,9 @@ type paqueteRequest struct {
 // @Param categoria query string false "Busqueda parcial por categoria" example(Corporal)
 // @Param local query string false "Busqueda parcial por nombre de local" example(SAN MARTIN)
 // @Param activo query bool false "Filtrar por activo; default true" example(true)
+// @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param include_total query bool false "Incluye el total de paginas" example(false)
 // @Success 200 {object} utils.APIResponse{data=paqueteListResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: activo invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
@@ -75,19 +79,52 @@ func (h *Container) GetPaquetes(c *gin.Context) {
 	nombre := strings.TrimSpace(c.Query("nombre"))
 	categoria := strings.TrimSpace(c.Query("categoria"))
 	local := strings.TrimSpace(c.Query("local"))
+	page, ok := parsePagination(c)
+	if !ok {
+		return
+	}
+	includeTotal, ok := parseIncludeTotal(c)
+	if !ok {
+		return
+	}
+	filters := paqueteFiltrosResponse{Nombre: nombre, Categoria: categoria, Local: local, Activo: activo}
+	var after nameCursor
+	if !decodePaginationCursor(c, page, "paquetes", filters, &after) || (page.Cursor != "" && after.ID < 1) {
+		if !c.Writer.Written() {
+			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+		}
+		return
+	}
 	paquetes, err := h.PaquetesPG.ListarContext(c.Request.Context(), repository.FiltroPaquetes{
 		Nombre: nombre, Categoria: categoria, Local: local, Activo: activo,
+		PageLimit: page.QueryLimit(), CursorSet: page.Cursor != "", CursorNombre: after.Name, CursorID: after.ID,
 	})
 	if err != nil {
 		responderErrorPaquete(c, err)
 		return
 	}
-	utils.Respond(c, http.StatusOK, paqueteListResponse{
-		Total: len(paquetes),
-		Filtros: paqueteFiltrosResponse{
+	paquetes, metadata, err := pagination.Build(paquetes, page, "paquetes", filters, func(item models.PaqueteDetalle) any {
+		return nameCursor{Name: item.Paquete.Nombre, ID: item.Paquete.ID}
+	})
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if includeTotal {
+		count, countErr := h.PaquetesPG.ContarContext(c.Request.Context(), repository.FiltroPaquetes{
 			Nombre: nombre, Categoria: categoria, Local: local, Activo: activo,
-		},
-		Paquetes: paquetes,
+		})
+		if countErr != nil {
+			responderErrorPaquete(c, countErr)
+			return
+		}
+		pagination.AddTotal(metadata, count)
+	}
+	utils.Respond(c, http.StatusOK, paqueteListResponse{
+		Total:      len(paquetes),
+		Filtros:    filters,
+		Paquetes:   paquetes,
+		Paginacion: metadata,
 	})
 }
 

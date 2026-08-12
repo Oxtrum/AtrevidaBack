@@ -16,12 +16,16 @@ var ErrPaqueteNoEncontrado = errors.New("paquete o referencia no encontrado")
 var ErrPaqueteDatosInvalidos = errors.New("datos de paquete invalidos")
 
 type FiltroPaquetes struct {
-	Context   context.Context
-	Nombre    string
-	Categoria string
-	Local     string
-	LocalID   *int
-	Activo    *bool
+	Context      context.Context
+	Nombre       string
+	Categoria    string
+	Local        string
+	LocalID      *int
+	Activo       *bool
+	PageLimit    int
+	CursorSet    bool
+	CursorNombre string
+	CursorID     int
 }
 
 // PaqueteServicioInput es una linea del catalogo base de servicios de un
@@ -60,6 +64,7 @@ type ActualizarPaqueteInput struct {
 // sin cambios.
 type PaquetesRepository interface {
 	ListPaquetes(f FiltroPaquetes) ([]models.PaqueteDetalle, error)
+	CountPaquetes(f FiltroPaquetes) (int, error)
 	GetPaqueteByID(id int, incluirInactivo bool) (*models.PaqueteDetalle, error)
 	CrearPaquete(in CrearPaqueteInput) (int, error)
 	ActualizarPaquete(in ActualizarPaqueteInput) error

@@ -23,6 +23,17 @@ func NewPaquetesRepo(db *sqlx.DB) *PaquetesRepo {
 
 func (r *PaquetesRepo) ListPaquetes(f repository.FiltroPaquetes) ([]models.PaqueteDetalle, error) {
 	conditions, args := paqueteConditions(f)
+	idx := len(args) + 1
+	if f.CursorSet {
+		conditions = append(conditions, fmt.Sprintf("(p.nombre, p.id) > ($%d, $%d)", idx, idx+1))
+		args = append(args, f.CursorNombre, f.CursorID)
+		idx += 2
+	}
+	limitClause := ""
+	if f.PageLimit > 0 {
+		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		args = append(args, f.PageLimit)
+	}
 	where := strings.Join(conditions, " AND ")
 
 	query := fmt.Sprintf(`
@@ -34,8 +45,8 @@ func (r *PaquetesRepo) ListPaquetes(f repository.FiltroPaquetes) ([]models.Paque
 		LEFT JOIN paquete_local pl ON pl.paquete_id = p.id
 		LEFT JOIN locales l ON l.id = pl.local_id
 		WHERE %s
-		ORDER BY p.nombre, p.id
-	`, where)
+		ORDER BY p.nombre, p.id%s
+	`, where, limitClause)
 
 	var paquetes []models.PaquetePG
 	ctx := queryContext(f.Context)
@@ -51,6 +62,21 @@ func (r *PaquetesRepo) ListPaquetes(f repository.FiltroPaquetes) ([]models.Paque
 		return nil, err
 	}
 	return resultado, nil
+}
+
+func (r *PaquetesRepo) CountPaquetes(f repository.FiltroPaquetes) (int, error) {
+	conditions, args := paqueteConditions(f)
+	query := fmt.Sprintf(`SELECT COUNT(DISTINCT p.id)
+		FROM paquetes p
+		LEFT JOIN categorias c ON c.id = p.categoria_id
+		LEFT JOIN paquete_local pl ON pl.paquete_id = p.id
+		LEFT JOIN locales l ON l.id = pl.local_id
+		WHERE %s`, strings.Join(conditions, " AND "))
+	var total int
+	if err := r.db.GetContext(queryContext(f.Context), &total, query, args...); err != nil {
+		return 0, fmt.Errorf("error al contar paquetes: %w", err)
+	}
+	return total, nil
 }
 
 func (r *PaquetesRepo) GetPaqueteByID(id int, incluirInactivo bool) (*models.PaqueteDetalle, error) {

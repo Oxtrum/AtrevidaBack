@@ -16,12 +16,16 @@ var ErrComboNoEncontrado = errors.New("combo o referencia no encontrado")
 var ErrComboDatosInvalidos = errors.New("datos de combo invalidos")
 
 type FiltroCombos struct {
-	Context   context.Context
-	Nombre    string
-	Categoria string
-	Local     string
-	LocalID   *int
-	Activo    *bool
+	Context      context.Context
+	Nombre       string
+	Categoria    string
+	Local        string
+	LocalID      *int
+	Activo       *bool
+	PageLimit    int
+	CursorSet    bool
+	CursorNombre string
+	CursorID     int
 }
 
 // ComboServicioCatalogoInput es una linea del catalogo. ServicioID es solo
@@ -61,6 +65,7 @@ type ActualizarComboInput struct {
 
 type CombosRepository interface {
 	ListCombos(filtro FiltroCombos) ([]models.ComboCatalogoPG, int, error)
+	CountCombos(filtro FiltroCombos) (int, error)
 	GetComboByID(id int, incluirInactivo bool) (*models.ComboCatalogoPG, error)
 	CreateCombo(input CrearComboInput) (int, error)
 	UpdateCombo(input ActualizarComboInput) error
