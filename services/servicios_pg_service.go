@@ -15,8 +15,11 @@ func NewServiciosPGService(repo repository.ServiciosRepository) *ServiciosPGServ
 	return &ServiciosPGService{repo: repo}
 }
 
-func (s *ServiciosPGService) GetServiciosFiltrados(f FiltroServicios) []models.ServicioItem {
-	todos := s.repo.GetAllServicios()
+func (s *ServiciosPGService) GetServiciosFiltrados(f FiltroServicios) ([]models.ServicioItem, error) {
+	todos, err := s.repo.GetAllServicios(f.Context)
+	if err != nil {
+		return nil, err
+	}
 
 	var resultado []models.ServicioItem
 	for _, item := range todos {
@@ -42,7 +45,7 @@ func (s *ServiciosPGService) GetServiciosFiltrados(f FiltroServicios) []models.S
 		}
 		resultado = append(resultado, item)
 	}
-	return resultado
+	return resultado, nil
 }
 
 func (s *ServiciosPGService) GetServicioByID(id int) (*models.ServicioItem, error) {

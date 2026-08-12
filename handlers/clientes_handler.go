@@ -50,6 +50,7 @@ type actualizarClienteRequest struct {
 // @Router /bd/clientes [get]
 func (h *Container) GetClientes(c *gin.Context) {
 	clientes, err := h.ClientesPG.GetClientes(services.FiltroClientes{
+		Context:        c.Request.Context(),
 		Nombre:         c.Query("nombre"),
 		Apellido:       c.Query("apellido"),
 		NumeroTelefono: c.Query("numero_telefono"),

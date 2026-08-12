@@ -1,8 +1,8 @@
 package pgsql
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -20,7 +20,7 @@ func NewServiciosRepo(db *sqlx.DB) *ServiciosRepo {
 }
 
 // GetAllServicios (activos)
-func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
+func (r *ServiciosRepo) GetAllServicios(ctx context.Context) ([]models.ServicioItem, error) {
 	query := `
 		SELECT
 			s.id,
@@ -40,9 +40,9 @@ func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
 		WHERE s.activo = TRUE
 		ORDER BY c.nombre, s.nombre, l.nombre
 	`
-	rows, err := r.db.Queryx(query)
+	rows, err := r.db.QueryxContext(queryContext(ctx), query)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("listar servicios: %w", err)
 	}
 	defer rows.Close()
 
@@ -61,13 +61,18 @@ func (r *ServiciosRepo) GetAllServicios() []models.ServicioItem {
 			&item.RequiereEvaluacion,
 			&item.VisiblePacienteNuevo,
 		); err != nil {
-			log.Println("SCAN ERROR:", err)
-			continue
+			return nil, fmt.Errorf("leer servicio: %w", err)
 		}
 		resultado = append(resultado, item)
 		//log.Println("Obtenidas:", len(resultado))
 	}
-	return resultado
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("recorrer servicios: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("cerrar consulta de servicios: %w", err)
+	}
+	return resultado, nil
 }
 
 func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
@@ -294,7 +299,11 @@ func (r *ServiciosRepo) UpdateServicio(input repository.ActualizarServicioInput)
 	if err != nil {
 		return fmt.Errorf("error al actualizar servicio: %w", err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "actualizar servicio")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("servicio con id %d no encontrado", input.ID)
 	}
 
@@ -484,7 +493,11 @@ func (r *ServiciosRepo) SetVisiblePacienteNuevoEnLocal(servicioID, localID int, 
 		return fmt.Errorf("error al actualizar visibilidad: %w", err)
 	}
 
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "actualizar visibilidad de servicio")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("relación servicio_local no encontrada")
 	}
 
@@ -500,7 +513,11 @@ func (r *ServiciosRepo) DeleteServicio(id int) error {
 		return fmt.Errorf("error al eliminar servicio: %w", err)
 	}
 
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "eliminar servicio")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("servicio con id %d no encontrado o inactivo", id)
 	}
 

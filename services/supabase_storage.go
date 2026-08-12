@@ -60,7 +60,10 @@ func (s *SupabaseStorage) CrearURLSubida(path string) (SubidaFirmada, error) {
 		return SubidaFirmada{}, fmt.Errorf("error al contactar Supabase Storage: %w", err)
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return SubidaFirmada{}, fmt.Errorf("error al leer respuesta de Supabase Storage: %w", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return SubidaFirmada{}, fmt.Errorf("Supabase Storage respondio %d: %s", resp.StatusCode, string(body))
 	}
@@ -95,7 +98,10 @@ func (s *SupabaseStorage) Eliminar(path string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("error al leer respuesta de Supabase Storage al borrar: %w", err)
+		}
 		return fmt.Errorf("Supabase Storage respondio %d al borrar: %s", resp.StatusCode, string(body))
 	}
 	return nil

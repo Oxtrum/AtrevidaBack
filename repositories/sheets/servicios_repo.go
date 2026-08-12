@@ -1,7 +1,9 @@
 package sheets
 
+import "context"
+
 import "atrevida-agenda-api/models"
 
-func (r *ReservasRepo) GetAllServicios() []models.ServicioItem {
-	return []models.ServicioItem{}
+func (r *ReservasRepo) GetAllServicios(_ context.Context) ([]models.ServicioItem, error) {
+	return []models.ServicioItem{}, nil
 }

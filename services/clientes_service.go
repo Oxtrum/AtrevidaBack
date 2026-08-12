@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"strings"
 
 	"atrevida-agenda-api/models"
@@ -16,6 +17,7 @@ func NewClientesService(repo repository.ClientesRepository) *ClientesService {
 }
 
 type FiltroClientes struct {
+	Context        context.Context
 	Nombre         string
 	Apellido       string
 	NumeroTelefono string
@@ -23,6 +25,7 @@ type FiltroClientes struct {
 
 func (s *ClientesService) GetClientes(filtro FiltroClientes) ([]models.ClientePG, error) {
 	return s.repo.GetClientes(repository.FiltroClientes{
+		Context:        filtro.Context,
 		Nombre:         strings.TrimSpace(filtro.Nombre),
 		Apellido:       strings.TrimSpace(filtro.Apellido),
 		NumeroTelefono: strings.TrimSpace(filtro.NumeroTelefono),

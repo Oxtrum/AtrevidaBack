@@ -35,12 +35,12 @@ type planItemResponse struct {
 }
 
 type planServicioManualRequest struct {
-	ServicioIDOrigen       *int     `json:"servicio_id_origen,omitempty" example:"8"`
+	ServicioIDOrigen    *int     `json:"servicio_id_origen,omitempty" example:"8"`
 	NombreTexto         string   `json:"nombre_snapshot" example:"Masaje relajante"`
 	TiempoTexto         *string  `json:"tiempo_snapshot,omitempty" example:"01:00"`
 	PrecioUnitarioTexto *float64 `json:"precio_unitario_snapshot,omitempty" example:"200"`
-	SesionesContratadas    int      `json:"sesiones_contratadas" example:"2"`
-	Orden                  int      `json:"orden" example:"0"`
+	SesionesContratadas int      `json:"sesiones_contratadas" example:"2"`
+	Orden               int      `json:"orden" example:"0"`
 	// Numero de sesion dentro del servicio (para seguimiento por sesion); default 1 si no se especifica.
 	SesionNumero int `json:"sesion_numero,omitempty" example:"1"`
 }
@@ -134,6 +134,7 @@ func (h *Container) GetPlanes(c *gin.Context) {
 	}
 
 	planes, err := h.PlanesPG.ListarPlanes(services.FiltroPlanes{
+		Context:        c.Request.Context(),
 		Cliente:        strings.TrimSpace(c.Query("cliente")),
 		Local:          strings.TrimSpace(c.Query("local")),
 		LocalID:        filtroLocalID,
@@ -225,7 +226,11 @@ func (h *Container) CreatePlan(c *gin.Context) {
 		return
 	}
 
-	userID, _ := authenticatedUserID(c)
+	userID, ok := authenticatedUserID(c)
+	if !ok {
+		utils.RespondError(c, http.StatusUnauthorized, "token invalido")
+		return
+	}
 
 	var fechaInicio, fechaFin *time.Time
 	if req.FechaInicio != nil {
@@ -254,13 +259,13 @@ func (h *Container) CreatePlan(c *gin.Context) {
 	if req.Servicios != nil {
 		for _, s := range req.Servicios {
 			servicios = append(servicios, services.PlanServicioInput{
-				ServicioIDOrigen:       s.ServicioIDOrigen,
+				ServicioIDOrigen:    s.ServicioIDOrigen,
 				NombreTexto:         s.NombreTexto,
 				TiempoTexto:         s.TiempoTexto,
 				PrecioUnitarioTexto: s.PrecioUnitarioTexto,
-				SesionesContratadas:    s.SesionesContratadas,
-				Orden:                  s.Orden,
-				SesionNumero:           s.SesionNumero,
+				SesionesContratadas: s.SesionesContratadas,
+				Orden:               s.Orden,
+				SesionNumero:        s.SesionNumero,
 			})
 		}
 	}
@@ -377,7 +382,11 @@ func (h *Container) PatchPlanEstado(c *gin.Context) {
 		return
 	}
 
-	userID, _ := authenticatedUserID(c)
+	userID, ok := authenticatedUserID(c)
+	if !ok {
+		utils.RespondError(c, http.StatusUnauthorized, "token invalido")
+		return
+	}
 
 	err = h.PlanesPG.CambiarEstado(services.CambiarEstadoInput{
 		ID: id, Estado: req.Estado, UsuarioID: &userID,

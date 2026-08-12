@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
@@ -53,7 +53,7 @@ func (r *ClientesRepo) GetClientes(filtro repository.FiltroClientes) ([]models.C
 	`, strings.Join(conditions, " AND "))
 
 	var clientes []models.ClientePG
-	if err := r.db.Select(&clientes, query, args...); err != nil {
+	if err := r.db.SelectContext(queryContext(filtro.Context), &clientes, query, args...); err != nil {
 		return nil, fmt.Errorf("no se pudieron obtener los clientes")
 	}
 

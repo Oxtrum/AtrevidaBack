@@ -1,6 +1,7 @@
 package pgsql
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -22,9 +23,9 @@ func NewCategoriasRepo(db *sqlx.DB) *CategoriasRepo {
 	return &CategoriasRepo{db: db}
 }
 
-func (r *CategoriasRepo) GetAllCategorias() ([]models.CategoriaPG, error) {
+func (r *CategoriasRepo) GetAllCategorias(ctx context.Context) ([]models.CategoriaPG, error) {
 	var categorias []models.CategoriaPG
-	err := r.db.Select(&categorias, `
+	err := r.db.SelectContext(queryContext(ctx), &categorias, `
 		SELECT id, nombre 
 		FROM categorias
 		ORDER BY nombre
@@ -36,7 +37,7 @@ func (r *CategoriasRepo) GetAllCategorias() ([]models.CategoriaPG, error) {
 	return categorias, nil
 }
 
-func (r *CategoriasRepo) GetCategoriasByLocal(localNombre string, localID *int) ([]models.CategoriaPG, error) {
+func (r *CategoriasRepo) GetCategoriasByLocal(ctx context.Context, localNombre string, localID *int) ([]models.CategoriaPG, error) {
 	conditions := []string{"l.activo = TRUE"}
 	args := []interface{}{}
 	idx := 1
@@ -53,7 +54,7 @@ func (r *CategoriasRepo) GetCategoriasByLocal(localNombre string, localID *int) 
 	}
 
 	var categorias []models.CategoriaPG
-	err := r.db.Select(&categorias, fmt.Sprintf(`
+	err := r.db.SelectContext(queryContext(ctx), &categorias, fmt.Sprintf(`
 		SELECT c.id, c.nombre
 		FROM categorias c
 		JOIN categorias_locales cl ON cl.categoria_id = c.id
@@ -117,7 +118,11 @@ func (r *CategoriasRepo) UpdateCategoria(id int, nombre string) error {
 	if err != nil {
 		return fmt.Errorf("error al actualizar categoria: %w", err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "actualizar categoria")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("categoria con id %d no encontrada", id)
 	}
 
@@ -136,16 +141,20 @@ func (r *CategoriasRepo) DeleteCategoria(id int) error {
 		}
 		return fmt.Errorf("error al eliminar categoria: %w", err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "eliminar categoria")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("categoria con id %d no encontrada", id)
 	}
 
 	return nil
 }
 
-func (r *CategoriasRepo) GetLocalesByCategoria(categoriaID int) ([]models.LocalPG, error) {
+func (r *CategoriasRepo) GetLocalesByCategoria(ctx context.Context, categoriaID int) ([]models.LocalPG, error) {
 	var locales []models.LocalPG
-	err := r.db.Select(&locales, `
+	err := r.db.SelectContext(queryContext(ctx), &locales, `
 		SELECT l.id, l.nombre, l.activo
 		FROM locales l
 		JOIN categorias_locales cl ON cl.local_id = l.id
@@ -188,7 +197,11 @@ func (r *CategoriasRepo) DeleteCategoriaLocal(categoriaID, localID int) error {
 	if err != nil {
 		return fmt.Errorf("error al eliminar asociacion categoria-local: %w", err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "eliminar asociacion categoria-local")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("asociacion categoria-local no encontrada")
 	}
 

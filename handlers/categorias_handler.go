@@ -41,6 +41,7 @@ func (h *Container) GetCategorias(c *gin.Context) {
 	}
 
 	resultado, err := h.CategoriasPG.GetCategoriasFiltradas(services.FiltroCategorias{
+		Context: c.Request.Context(),
 		Local:   c.Query("local"),
 		LocalID: localID,
 	})
@@ -197,7 +198,7 @@ func (h *Container) GetCategoriaLocales(c *gin.Context) {
 		return
 	}
 
-	locales, err := h.CategoriasPG.GetLocalesByCategoria(id)
+	locales, err := h.CategoriasPG.GetLocalesByCategoria(c.Request.Context(), id)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return

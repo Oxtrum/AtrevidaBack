@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"strings"
 
 	"atrevida-agenda-api/models"
@@ -8,6 +9,7 @@ import (
 )
 
 type FiltroServicios struct {
+	Context            context.Context
 	Nombre             string // búsqueda parcial, case-insensitive
 	Categoria          string // búsqueda parcial, case-insensitive
 	Local              string // "ARANJUEZ", "CENTRO" — exacto, case-insensitive
@@ -24,8 +26,11 @@ func NewServiciosService(repo repository.ServiciosRepository) *ServiciosService 
 	return &ServiciosService{repo: repo}
 }
 
-func (s *ServiciosService) GetServiciosFiltrados(f FiltroServicios) []models.ServicioItem {
-	todos := s.repo.GetAllServicios()
+func (s *ServiciosService) GetServiciosFiltrados(f FiltroServicios) ([]models.ServicioItem, error) {
+	todos, err := s.repo.GetAllServicios(f.Context)
+	if err != nil {
+		return nil, err
+	}
 
 	var resultado []models.ServicioItem
 	for _, item := range todos {
@@ -52,5 +57,5 @@ func (s *ServiciosService) GetServiciosFiltrados(f FiltroServicios) []models.Ser
 		resultado = append(resultado, item)
 	}
 
-	return resultado
+	return resultado, nil
 }

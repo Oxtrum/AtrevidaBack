@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -16,11 +17,12 @@ func NewCategoriasService(repo repository.CategoriasRepository) *CategoriasServi
 	return &CategoriasService{repo: repo}
 }
 
-func (s *CategoriasService) GetCategorias() ([]models.CategoriaPG, error) {
-	return s.repo.GetAllCategorias()
+func (s *CategoriasService) GetCategorias(ctx context.Context) ([]models.CategoriaPG, error) {
+	return s.repo.GetAllCategorias(ctx)
 }
 
 type FiltroCategorias struct {
+	Context context.Context
 	Local   string
 	LocalID *int
 }
@@ -28,10 +30,10 @@ type FiltroCategorias struct {
 func (s *CategoriasService) GetCategoriasFiltradas(filtro FiltroCategorias) ([]models.CategoriaPG, error) {
 	local := strings.TrimSpace(filtro.Local)
 	if local == "" && filtro.LocalID == nil {
-		return s.repo.GetAllCategorias()
+		return s.repo.GetAllCategorias(filtro.Context)
 	}
 
-	return s.repo.GetCategoriasByLocal(local, filtro.LocalID)
+	return s.repo.GetCategoriasByLocal(filtro.Context, local, filtro.LocalID)
 }
 
 type CrearCategoriaInput struct {
@@ -72,12 +74,12 @@ func (s *CategoriasService) DeleteCategoria(id int) error {
 	return s.repo.DeleteCategoria(id)
 }
 
-func (s *CategoriasService) GetLocalesByCategoria(categoriaID int) ([]models.LocalPG, error) {
+func (s *CategoriasService) GetLocalesByCategoria(ctx context.Context, categoriaID int) ([]models.LocalPG, error) {
 	if categoriaID < 1 {
 		return nil, errors.New("id debe ser un entero positivo")
 	}
 
-	return s.repo.GetLocalesByCategoria(categoriaID)
+	return s.repo.GetLocalesByCategoria(ctx, categoriaID)
 }
 
 type CategoriaLocalInput struct {

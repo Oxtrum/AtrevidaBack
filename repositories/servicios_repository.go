@@ -1,6 +1,10 @@
 package repository
 
-import "atrevida-agenda-api/models"
+import (
+	"context"
+
+	"atrevida-agenda-api/models"
+)
 
 type CrearServicioInput struct {
 	Nombre               string
@@ -26,7 +30,7 @@ type ActualizarServicioInput struct {
 }
 
 type ServiciosRepository interface {
-	GetAllServicios() []models.ServicioItem
+	GetAllServicios(ctx context.Context) ([]models.ServicioItem, error)
 	GetServicioByID(id int) (*models.ServicioItem, error)
 	GetServicioByNombre(nombre string) (*models.ServicioItem, error)
 	CreateServicio(input CrearServicioInput) (int, error)

@@ -69,6 +69,7 @@ func (h *Container) GetServicios(c *gin.Context) {
 	}
 
 	filtro := services.FiltroServicios{
+		Context:            c.Request.Context(),
 		Nombre:             strings.TrimSpace(c.Query("nombre")),
 		Categoria:          strings.TrimSpace(c.Query("categoria")),
 		Local:              local,
@@ -76,7 +77,11 @@ func (h *Container) GetServicios(c *gin.Context) {
 		RequiereEvaluacion: requiereEvaluacion,
 	}
 
-	resultado := h.ServiciosPG.GetServiciosFiltrados(filtro)
+	resultado, err := h.ServiciosPG.GetServiciosFiltrados(filtro)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
 	if resultado == nil {
 		resultado = []models.ServicioItem{}
 	}

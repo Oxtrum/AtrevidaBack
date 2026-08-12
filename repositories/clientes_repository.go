@@ -1,8 +1,11 @@
 package repository
 
+import "context"
+
 import "atrevida-agenda-api/models"
 
 type FiltroClientes struct {
+	Context        context.Context
 	Nombre         string
 	Apellido       string
 	NumeroTelefono string
