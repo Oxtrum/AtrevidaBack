@@ -26,6 +26,10 @@ type FiltroPagos struct {
 	IDCajeroModificacion       *int
 	NombreCajeroModificacion   string
 	UsernameCajeroModificacion string
+	PageLimit                  int
+	CursorSet                  bool
+	CursorFecha                time.Time
+	CursorID                   int
 }
 
 type CrearPagoInput struct {
@@ -142,6 +146,7 @@ type PagoResumenRow struct {
 
 type PagosRepository interface {
 	GetPagos(filtro FiltroPagos) ([]models.PagoPG, error)
+	CountPagos(filtro FiltroPagos) (int, error)
 	GetPagoByCodigo(codigoPago string) (*models.PagoCompletoPG, error)
 	CreatePago(input CrearPagoInput) (string, error)
 	UpdatePago(input ActualizarPagoInput) error

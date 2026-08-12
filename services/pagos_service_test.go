@@ -12,6 +12,8 @@ type fakePagosRepo struct {
 	pago *models.PagoCompletoPG
 }
 
+func (f *fakePagosRepo) CountPagos(repository.FiltroPagos) (int, error) { return 0, nil }
+
 func (f *fakePagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, error) {
 	return nil, nil
 }

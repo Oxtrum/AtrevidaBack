@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
@@ -36,25 +37,45 @@ type FiltroPagos struct {
 	IDCajeroModificacion       *int
 	NombreCajeroModificacion   string
 	UsernameCajeroModificacion string
+	PageLimit                  int
+	CursorSet                  bool
+	CursorFecha                time.Time
+	CursorID                   int
 }
 
 func (s *PagosService) GetPagos(filtro FiltroPagos) ([]models.PagoPG, error) {
-	estado, err := normalizarEstadoPagoOpcional(filtro.Estado)
+	repositoryFilter, err := toRepositoryFiltroPagos(filtro)
 	if err != nil {
 		return nil, err
+	}
+	return s.repo.GetPagos(repositoryFilter)
+}
+
+func (s *PagosService) CountPagos(filtro FiltroPagos) (int, error) {
+	repositoryFilter, err := toRepositoryFiltroPagos(filtro)
+	if err != nil {
+		return 0, err
+	}
+	return s.repo.CountPagos(repositoryFilter)
+}
+
+func toRepositoryFiltroPagos(filtro FiltroPagos) (repository.FiltroPagos, error) {
+	estado, err := normalizarEstadoPagoOpcional(filtro.Estado)
+	if err != nil {
+		return repository.FiltroPagos{}, err
 	}
 	tipoPago, err := normalizarTipoPagoOpcional(filtro.TipoPago)
 	if err != nil {
-		return nil, err
+		return repository.FiltroPagos{}, err
 	}
 	if filtro.IDCajero != nil && *filtro.IDCajero <= 0 {
-		return nil, errors.New("id_cajero invalido")
+		return repository.FiltroPagos{}, errors.New("id_cajero invalido")
 	}
 	if filtro.IDCajeroModificacion != nil && *filtro.IDCajeroModificacion <= 0 {
-		return nil, errors.New("id_cajero_modificacion invalido")
+		return repository.FiltroPagos{}, errors.New("id_cajero_modificacion invalido")
 	}
 
-	return s.repo.GetPagos(repository.FiltroPagos{
+	return repository.FiltroPagos{
 		Context:                    filtro.Context,
 		CodigoPago:                 strings.TrimSpace(filtro.CodigoPago),
 		LocalID:                    filtro.LocalID,
@@ -71,7 +92,9 @@ func (s *PagosService) GetPagos(filtro FiltroPagos) ([]models.PagoPG, error) {
 		IDCajeroModificacion:       filtro.IDCajeroModificacion,
 		NombreCajeroModificacion:   strings.TrimSpace(filtro.NombreCajeroModificacion),
 		UsernameCajeroModificacion: strings.TrimSpace(filtro.UsernameCajeroModificacion),
-	})
+		PageLimit:                  filtro.PageLimit, CursorSet: filtro.CursorSet,
+		CursorFecha: filtro.CursorFecha, CursorID: filtro.CursorID,
+	}, nil
 }
 
 func (s *PagosService) GetPagoByCodigo(codigoPago string, localID *int) (*models.PagoCompletoPG, error) {

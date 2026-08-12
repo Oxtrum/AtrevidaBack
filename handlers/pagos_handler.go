@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -152,6 +154,9 @@ func (h *Container) GetResumenPagos(c *gin.Context) {
 // @Param id_cajero_modificacion query int false "ID del cajero que modifico el pago por ultima vez" example(2)
 // @Param nombre_cajero_modificacion query string false "Busqueda parcial por nombre del cajero que modifico el pago por ultima vez" example(Ana)
 // @Param username_cajero_modificacion query string false "Busqueda parcial por username del cajero que modifico el pago por ultima vez" example(ana)
+// @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param include_total query bool false "Incluye el total de paginas" example(false)
 // @Success 200 {object} utils.APIResponse{data=pagoListResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
@@ -178,6 +183,30 @@ func (h *Container) GetPagos(c *gin.Context) {
 	if !ok {
 		return
 	}
+	page, ok := parsePagination(c)
+	if !ok {
+		return
+	}
+	includeTotal, ok := parseIncludeTotal(c)
+	if !ok {
+		return
+	}
+	filters := pagoFiltrosResponse{
+		CodigoPago: strings.TrimSpace(c.Query("codigo_pago")), LocalID: localID,
+		LocalNombre: strings.TrimSpace(c.Query("local_nombre")), ClienteID: clienteID,
+		ClienteNIT: strings.TrimSpace(c.Query("cliente_nit")), ClienteNombre: strings.TrimSpace(c.Query("cliente_nombre")),
+		TipoPago: strings.ToLower(strings.TrimSpace(c.Query("tipo_pago"))), Estado: strings.TrimSpace(c.Query("estado")), Activo: activo,
+		IDCajero: idCajero, NombreCajero: strings.TrimSpace(c.Query("nombre_cajero")), UsernameCajero: strings.TrimSpace(c.Query("username_cajero")),
+		IDCajeroModificacion: idCajeroModificacion, NombreCajeroModificacion: strings.TrimSpace(c.Query("nombre_cajero_modificacion")),
+		UsernameCajeroModificacion: strings.TrimSpace(c.Query("username_cajero_modificacion")),
+	}
+	var after timeCursor
+	if !decodePaginationCursor(c, page, "pagos", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.CreatedAt.IsZero())) {
+		if !c.Writer.Written() {
+			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+		}
+		return
+	}
 
 	filtro := services.FiltroPagos{
 		Context:                    c.Request.Context(),
@@ -196,6 +225,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 		IDCajeroModificacion:       idCajeroModificacion,
 		NombreCajeroModificacion:   c.Query("nombre_cajero_modificacion"),
 		UsernameCajeroModificacion: c.Query("username_cajero_modificacion"),
+		PageLimit:                  page.QueryLimit(), CursorSet: page.Cursor != "", CursorFecha: after.CreatedAt, CursorID: after.ID,
 	}
 
 	pagos, err := h.PagosPG.GetPagos(filtro)
@@ -203,27 +233,29 @@ func (h *Container) GetPagos(c *gin.Context) {
 		utils.RespondError(c, statusPagoError(err), err.Error())
 		return
 	}
+	pagos, metadata, err := pagination.Build(pagos, page, "pagos", filters, func(item models.PagoPG) any {
+		return timeCursor{CreatedAt: item.FechaCreacion, ID: item.ID}
+	})
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if includeTotal {
+		filtro.PageLimit = 0
+		filtro.CursorSet = false
+		count, countErr := h.PagosPG.CountPagos(filtro)
+		if countErr != nil {
+			utils.RespondError(c, statusPagoError(countErr), countErr.Error())
+			return
+		}
+		pagination.AddTotal(metadata, count)
+	}
 
 	utils.Respond(c, http.StatusOK, pagoListResponse{
-		Total: len(pagos),
-		Filtros: pagoFiltrosResponse{
-			CodigoPago:                 strings.TrimSpace(c.Query("codigo_pago")),
-			LocalID:                    localID,
-			LocalNombre:                strings.TrimSpace(c.Query("local_nombre")),
-			ClienteID:                  clienteID,
-			ClienteNIT:                 strings.TrimSpace(c.Query("cliente_nit")),
-			ClienteNombre:              strings.TrimSpace(c.Query("cliente_nombre")),
-			TipoPago:                   strings.ToLower(strings.TrimSpace(c.Query("tipo_pago"))),
-			Estado:                     strings.TrimSpace(c.Query("estado")),
-			Activo:                     activo,
-			IDCajero:                   idCajero,
-			NombreCajero:               strings.TrimSpace(c.Query("nombre_cajero")),
-			UsernameCajero:             strings.TrimSpace(c.Query("username_cajero")),
-			IDCajeroModificacion:       idCajeroModificacion,
-			NombreCajeroModificacion:   strings.TrimSpace(c.Query("nombre_cajero_modificacion")),
-			UsernameCajeroModificacion: strings.TrimSpace(c.Query("username_cajero_modificacion")),
-		},
-		Pagos: pagos,
+		Total:      len(pagos),
+		Filtros:    filters,
+		Pagos:      pagos,
+		Paginacion: metadata,
 	})
 }
 

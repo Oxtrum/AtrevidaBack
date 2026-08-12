@@ -24,99 +24,100 @@ func NewPagosRepo(db *sqlx.DB) *PagosRepo {
 }
 
 func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, error) {
-	conditions := []string{"1=1"}
-	args := []interface{}{}
-	idx := 1
-
-	if filtro.CodigoPago != "" {
-		conditions = append(conditions, fmt.Sprintf("p.codigo_pago ILIKE $%d", idx))
-		args = append(args, "%"+filtro.CodigoPago+"%")
-		idx++
+	conditions, args := pagoConditions(filtro)
+	idx := len(args) + 1
+	if filtro.CursorSet {
+		conditions = append(conditions, fmt.Sprintf("(p.fecha_creacion, p.id) < ($%d, $%d)", idx, idx+1))
+		args = append(args, filtro.CursorFecha, filtro.CursorID)
+		idx += 2
 	}
-	if filtro.LocalID != nil {
-		conditions = append(conditions, fmt.Sprintf("p.local_id = $%d", idx))
-		args = append(args, *filtro.LocalID)
-		idx++
-	}
-	if filtro.LocalNombre != "" {
-		conditions = append(conditions, fmt.Sprintf("p.local_nombre ILIKE $%d", idx))
-		args = append(args, "%"+filtro.LocalNombre+"%")
-		idx++
-	}
-	if filtro.ClienteID != nil {
-		conditions = append(conditions, fmt.Sprintf("p.cliente_id = $%d", idx))
-		args = append(args, *filtro.ClienteID)
-		idx++
-	}
-	if filtro.ClienteNIT != "" {
-		conditions = append(conditions, fmt.Sprintf("p.cliente_nit ILIKE $%d", idx))
-		args = append(args, "%"+filtro.ClienteNIT+"%")
-		idx++
-	}
-	if filtro.ClienteNombre != "" {
-		conditions = append(conditions, fmt.Sprintf("p.cliente_nombre ILIKE $%d", idx))
-		args = append(args, "%"+filtro.ClienteNombre+"%")
-		idx++
-	}
-	if filtro.TipoPago != "" {
-		conditions = append(conditions, fmt.Sprintf("p.tipo_pago = $%d", idx))
-		args = append(args, filtro.TipoPago)
-		idx++
-	}
-	if filtro.Estado != "" {
-		conditions = append(conditions, fmt.Sprintf("p.estado = $%d", idx))
-		args = append(args, filtro.Estado)
-		idx++
-	}
-	if filtro.Activo != nil {
-		conditions = append(conditions, fmt.Sprintf("p.activo = $%d", idx))
-		args = append(args, *filtro.Activo)
-		idx++
-	}
-	if filtro.IDCajero != nil {
-		conditions = append(conditions, fmt.Sprintf("p.id_cajero = $%d", idx))
-		args = append(args, *filtro.IDCajero)
-		idx++
-	}
-	if filtro.NombreCajero != "" {
-		conditions = append(conditions, fmt.Sprintf("p.nombre_cajero ILIKE $%d", idx))
-		args = append(args, "%"+filtro.NombreCajero+"%")
-		idx++
-	}
-	if filtro.UsernameCajero != "" {
-		conditions = append(conditions, fmt.Sprintf("p.username_cajero ILIKE $%d", idx))
-		args = append(args, "%"+filtro.UsernameCajero+"%")
-		idx++
-	}
-	if filtro.IDCajeroModificacion != nil {
-		conditions = append(conditions, fmt.Sprintf("p.id_cajero_modificacion = $%d", idx))
-		args = append(args, *filtro.IDCajeroModificacion)
-		idx++
-	}
-	if filtro.NombreCajeroModificacion != "" {
-		conditions = append(conditions, fmt.Sprintf("p.nombre_cajero_modificacion ILIKE $%d", idx))
-		args = append(args, "%"+filtro.NombreCajeroModificacion+"%")
-		idx++
-	}
-	if filtro.UsernameCajeroModificacion != "" {
-		conditions = append(conditions, fmt.Sprintf("p.username_cajero_modificacion ILIKE $%d", idx))
-		args = append(args, "%"+filtro.UsernameCajeroModificacion+"%")
-		idx++
+	limitClause := ""
+	if filtro.PageLimit > 0 {
+		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		args = append(args, filtro.PageLimit)
 	}
 
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM pagos p
 		WHERE %s
-		ORDER BY p.fecha_creacion DESC, p.id DESC
-	`, pagoSelectColumns(), strings.Join(conditions, " AND "))
+		ORDER BY p.fecha_creacion DESC, p.id DESC%s
+	`, pagoSelectColumns(), strings.Join(conditions, " AND "), limitClause)
 
 	var pagos []models.PagoPG
 	if err := r.db.SelectContext(queryContext(filtro.Context), &pagos, query, args...); err != nil {
 		return nil, fmt.Errorf("no se pudieron obtener los pagos")
 	}
+	if pagos == nil {
+		pagos = []models.PagoPG{}
+	}
 
 	return pagos, nil
+}
+
+func (r *PagosRepo) CountPagos(filtro repository.FiltroPagos) (int, error) {
+	conditions, args := pagoConditions(filtro)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM pagos p WHERE %s", strings.Join(conditions, " AND "))
+	var total int
+	if err := r.db.GetContext(queryContext(filtro.Context), &total, query, args...); err != nil {
+		return 0, fmt.Errorf("no se pudieron contar los pagos")
+	}
+	return total, nil
+}
+
+func pagoConditions(f repository.FiltroPagos) ([]string, []interface{}) {
+	conditions := []string{"1=1"}
+	args := []interface{}{}
+	add := func(condition string, value interface{}) {
+		conditions = append(conditions, fmt.Sprintf(condition, len(args)+1))
+		args = append(args, value)
+	}
+	if f.CodigoPago != "" {
+		add("p.codigo_pago ILIKE $%d", "%"+f.CodigoPago+"%")
+	}
+	if f.LocalID != nil {
+		add("p.local_id = $%d", *f.LocalID)
+	}
+	if f.LocalNombre != "" {
+		add("p.local_nombre ILIKE $%d", "%"+f.LocalNombre+"%")
+	}
+	if f.ClienteID != nil {
+		add("p.cliente_id = $%d", *f.ClienteID)
+	}
+	if f.ClienteNIT != "" {
+		add("p.cliente_nit ILIKE $%d", "%"+f.ClienteNIT+"%")
+	}
+	if f.ClienteNombre != "" {
+		add("p.cliente_nombre ILIKE $%d", "%"+f.ClienteNombre+"%")
+	}
+	if f.TipoPago != "" {
+		add("p.tipo_pago = $%d", f.TipoPago)
+	}
+	if f.Estado != "" {
+		add("p.estado = $%d", f.Estado)
+	}
+	if f.Activo != nil {
+		add("p.activo = $%d", *f.Activo)
+	}
+	if f.IDCajero != nil {
+		add("p.id_cajero = $%d", *f.IDCajero)
+	}
+	if f.NombreCajero != "" {
+		add("p.nombre_cajero ILIKE $%d", "%"+f.NombreCajero+"%")
+	}
+	if f.UsernameCajero != "" {
+		add("p.username_cajero ILIKE $%d", "%"+f.UsernameCajero+"%")
+	}
+	if f.IDCajeroModificacion != nil {
+		add("p.id_cajero_modificacion = $%d", *f.IDCajeroModificacion)
+	}
+	if f.NombreCajeroModificacion != "" {
+		add("p.nombre_cajero_modificacion ILIKE $%d", "%"+f.NombreCajeroModificacion+"%")
+	}
+	if f.UsernameCajeroModificacion != "" {
+		add("p.username_cajero_modificacion ILIKE $%d", "%"+f.UsernameCajeroModificacion+"%")
+	}
+	return conditions, args
 }
 
 func (r *PagosRepo) GetPagoByCodigo(codigoPago string) (*models.PagoCompletoPG, error) {
