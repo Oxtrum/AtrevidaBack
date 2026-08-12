@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	"atrevida-agenda-api/services"
 )
 
@@ -74,6 +75,7 @@ type reservaPGFiltrosResponse struct {
 }
 
 type clienteFiltrosResponse struct {
+	Busqueda string `json:"busqueda,omitempty" example:"Maria Lopez"`
 	// Filtro aplicado: nombre del cliente
 	Nombre string `json:"nombre" example:"Maria"`
 	// Filtro aplicado: apellido del cliente
@@ -142,7 +144,10 @@ type clienteListResponse struct {
 	// Filtros aplicados en la búsqueda
 	Filtros clienteFiltrosResponse `json:"filtros"`
 	// Lista de clientes
-	Clientes []models.ClientePG `json:"clientes"`
+	Clientes   []models.ClientePG   `json:"clientes"`
+	Paginacion *pagination.Metadata `json:"paginacion,omitempty"`
+	// Total exacto de coincidencias; solo se calcula cuando include_total=true.
+	TotalRegistros *int `json:"total_registros,omitempty" example:"1250"`
 }
 
 type servicioListResponse struct {
@@ -169,7 +174,8 @@ type comboCatalogoListResponse struct {
 	// Filtros aplicados en la búsqueda.
 	Filtros comboCatalogoFiltrosResponse `json:"filtros"`
 	// Lista de promociones activas del catalogo.
-	Combos []models.ComboCatalogoPG `json:"combos"`
+	Combos     []models.ComboCatalogoPG `json:"combos"`
+	Paginacion *pagination.Metadata     `json:"paginacion,omitempty"`
 }
 
 type comboCatalogoFiltrosResponse struct {
@@ -200,7 +206,8 @@ type paqueteListResponse struct {
 	// Filtros aplicados en la búsqueda.
 	Filtros paqueteFiltrosResponse `json:"filtros"`
 	// Lista de paquetes del catalogo.
-	Paquetes []models.PaqueteDetalle `json:"paquetes"`
+	Paquetes   []models.PaqueteDetalle `json:"paquetes"`
+	Paginacion *pagination.Metadata    `json:"paginacion,omitempty"`
 }
 
 type comboServicioListResponse struct {
@@ -234,7 +241,8 @@ type reservaSimpleListResponse struct {
 	// Total de reservas encontradas
 	Total int `json:"total" example:"15"`
 	// Lista de reservas en formato plano (sin agrupar)
-	Reservas []services.ReservaSimple `json:"reservas"`
+	Reservas   []services.ReservaSimple `json:"reservas"`
+	Paginacion *pagination.Metadata     `json:"paginacion,omitempty"`
 }
 
 type reservaNotificacionListResponse struct {
@@ -266,7 +274,8 @@ type pagoListResponse struct {
 	// Filtros aplicados en la busqueda
 	Filtros pagoFiltrosResponse `json:"filtros"`
 	// Lista de pagos sin detalle
-	Pagos []models.PagoPG `json:"pagos"`
+	Pagos      []models.PagoPG      `json:"pagos"`
+	Paginacion *pagination.Metadata `json:"paginacion,omitempty"`
 }
 
 type pagoResumenResponse struct {
