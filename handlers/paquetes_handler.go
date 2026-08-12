@@ -75,7 +75,7 @@ func (h *Container) GetPaquetes(c *gin.Context) {
 	nombre := strings.TrimSpace(c.Query("nombre"))
 	categoria := strings.TrimSpace(c.Query("categoria"))
 	local := strings.TrimSpace(c.Query("local"))
-	paquetes, err := h.PaquetesPG.Listar(repository.FiltroPaquetes{
+	paquetes, err := h.PaquetesPG.ListarContext(c.Request.Context(), repository.FiltroPaquetes{
 		Nombre: nombre, Categoria: categoria, Local: local, Activo: activo,
 	})
 	if err != nil {

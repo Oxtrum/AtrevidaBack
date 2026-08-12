@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -133,6 +134,11 @@ func (s *PaquetesService) Listar(f repository.FiltroPaquetes) ([]models.PaqueteD
 		s.rellenarImagenURLPaquete(&paquetes[i])
 	}
 	return paquetes, nil
+}
+
+func (s *PaquetesService) ListarContext(ctx context.Context, f repository.FiltroPaquetes) ([]models.PaqueteDetalle, error) {
+	f.Context = ctx
+	return s.Listar(f)
 }
 
 func (s *PaquetesService) Obtener(id int) (*models.PaqueteDetalle, error) {

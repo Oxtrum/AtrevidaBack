@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -15,6 +16,7 @@ var (
 )
 
 type FiltroPlanes struct {
+	Context        context.Context
 	Cliente        string
 	ClienteID      *int
 	LocalID        *int
@@ -26,33 +28,33 @@ type FiltroPlanes struct {
 }
 
 type CrearPlanInput struct {
-	ClienteID           int
-	LocalID             int
-	ComboIDOrigen       *int
+	ClienteID        int
+	LocalID          int
+	ComboIDOrigen    *int
 	ComboNombreTexto *string
-	FechaInicio         *time.Time
-	FechaFin            *time.Time
-	Estado              string
-	TipoPago            string
-	Subtotal            float64
-	Descuento           float64
-	PrecioTotal         float64
-	Moneda              string
-	Notas               *string
-	CreadoPor           *int
-	Servicios           []CrearPlanServicioInput
-	Cuotas              []CrearPlanCuotaInput
-	PagoCodigo          *string
+	FechaInicio      *time.Time
+	FechaFin         *time.Time
+	Estado           string
+	TipoPago         string
+	Subtotal         float64
+	Descuento        float64
+	PrecioTotal      float64
+	Moneda           string
+	Notas            *string
+	CreadoPor        *int
+	Servicios        []CrearPlanServicioInput
+	Cuotas           []CrearPlanCuotaInput
+	PagoCodigo       *string
 }
 
 type CrearPlanServicioInput struct {
-	ServicioIDOrigen       *int
+	ServicioIDOrigen    *int
 	NombreTexto         string
 	TiempoTexto         *string
 	PrecioUnitarioTexto *float64
-	SesionesContratadas    int
-	Orden                  int
-	SesionNumero           int
+	SesionesContratadas int
+	Orden               int
+	SesionNumero        int
 }
 
 type CrearPlanCuotaInput struct {

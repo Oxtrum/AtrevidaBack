@@ -1,6 +1,7 @@
 package pgsql
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -37,17 +38,17 @@ func (r *PaquetesRepo) ListPaquetes(f repository.FiltroPaquetes) ([]models.Paque
 	`, where)
 
 	var paquetes []models.PaquetePG
-	if err := r.db.Select(&paquetes, query, args...); err != nil {
+	ctx := queryContext(f.Context)
+	if err := r.db.SelectContext(ctx, &paquetes, query, args...); err != nil {
 		return nil, fmt.Errorf("error al listar paquetes: %w", err)
 	}
 
-	resultado := make([]models.PaqueteDetalle, 0, len(paquetes))
-	for _, p := range paquetes {
-		detalle, err := r.cargarDetallePaquete(p)
-		if err != nil {
-			return nil, err
-		}
-		resultado = append(resultado, detalle)
+	resultado := make([]models.PaqueteDetalle, len(paquetes))
+	for i := range paquetes {
+		resultado[i].Paquete = paquetes[i]
+	}
+	if err := r.cargarDetallesPaquetes(ctx, resultado); err != nil {
+		return nil, err
 	}
 	return resultado, nil
 }
@@ -69,11 +70,11 @@ func (r *PaquetesRepo) GetPaqueteByID(id int, incluirInactivo bool) (*models.Paq
 	if err != nil {
 		return nil, fmt.Errorf("%w: paquete con id %d", repository.ErrPaqueteNoEncontrado, id)
 	}
-	detalle, err := r.cargarDetallePaquete(paquete)
-	if err != nil {
+	detalles := []models.PaqueteDetalle{{Paquete: paquete}}
+	if err := r.cargarDetallesPaquetes(context.Background(), detalles); err != nil {
 		return nil, err
 	}
-	return &detalle, nil
+	return &detalles[0], nil
 }
 
 func (r *PaquetesRepo) CrearPaquete(in repository.CrearPaqueteInput) (int, error) {
@@ -144,7 +145,11 @@ func (r *PaquetesRepo) ActualizarPaquete(in repository.ActualizarPaqueteInput) e
 	if err != nil {
 		return fmt.Errorf("error al actualizar paquete: %w", err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "actualizar paquete")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("%w: paquete con id %d", repository.ErrPaqueteNoEncontrado, in.ID)
 	}
 
@@ -180,7 +185,11 @@ func (r *PaquetesRepo) EliminarPaquete(id int) error {
 	if err != nil {
 		return fmt.Errorf("error al eliminar paquete: %w", err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "eliminar paquete")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("%w: paquete con id %d", repository.ErrPaqueteNoEncontrado, id)
 	}
 	if _, err := tx.Exec(`UPDATE combos SET activo = FALSE, actualizado_en = NOW() WHERE paquete_id = $1`, id); err != nil {
@@ -194,7 +203,11 @@ func (r *PaquetesRepo) SetPaqueteImagen(id int, path *string) error {
 	if err != nil {
 		return fmt.Errorf("error al actualizar imagen de paquete: %w", err)
 	}
-	if n, _ := result.RowsAffected(); n == 0 {
+	n, err := affectedRows(result, "actualizar imagen de paquete")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("%w: paquete con id %d", repository.ErrPaqueteNoEncontrado, id)
 	}
 	return nil
@@ -203,67 +216,82 @@ func (r *PaquetesRepo) SetPaqueteImagen(id int, path *string) error {
 // cargarDetallePaquete arma el detalle de un paquete ya cargado: su catalogo
 // base de servicios, sus locales y sus tiers (combos materializados activos).
 func (r *PaquetesRepo) cargarDetallePaquete(paquete models.PaquetePG) (models.PaqueteDetalle, error) {
-	detalle := models.PaqueteDetalle{Paquete: paquete}
+	detalles := []models.PaqueteDetalle{{Paquete: paquete}}
+	if err := r.cargarDetallesPaquetes(context.Background(), detalles); err != nil {
+		return models.PaqueteDetalle{}, err
+	}
+	return detalles[0], nil
+}
 
+func (r *PaquetesRepo) cargarDetallesPaquetes(ctx context.Context, detalles []models.PaqueteDetalle) error {
+	if len(detalles) == 0 {
+		return nil
+	}
+	ids := make([]int, 0, len(detalles))
+	indices := make(map[int]int, len(detalles))
+	for i := range detalles {
+		id := detalles[i].Paquete.ID
+		ids = append(ids, id)
+		indices[id] = i
+		detalles[i].ServiciosBase = []models.PaqueteServicioPG{}
+		detalles[i].Locales = []models.LocalPG{}
+		detalles[i].Tiers = []models.ComboCatalogoPG{}
+	}
+	q, args, err := sqlx.In(`SELECT id,paquete_id,servicio_id,servicio_texto,costo,orden FROM paquete_servicios
+		WHERE paquete_id IN (?) AND activo=TRUE ORDER BY paquete_id,orden,id`, ids)
+	if err != nil {
+		return fmt.Errorf("error al preparar servicios base de paquetes: %w", err)
+	}
 	var servicios []models.PaqueteServicioPG
-	if err := r.db.Select(&servicios, `
-		SELECT id, paquete_id, servicio_id, servicio_texto, costo, orden
-		FROM paquete_servicios
-		WHERE paquete_id = $1 AND activo = TRUE
-		ORDER BY orden, id
-	`, paquete.ID); err != nil {
-		return detalle, fmt.Errorf("error al cargar servicios base de paquete: %w", err)
+	if err = r.db.SelectContext(queryContext(ctx), &servicios, r.db.Rebind(q), args...); err != nil {
+		return fmt.Errorf("error al cargar servicios base de paquetes: %w", err)
 	}
-	if servicios == nil {
-		servicios = []models.PaqueteServicioPG{}
+	for _, s := range servicios {
+		if i, ok := indices[s.PaqueteID]; ok {
+			detalles[i].ServiciosBase = append(detalles[i].ServiciosBase, s)
+		}
 	}
-	detalle.ServiciosBase = servicios
-
-	var locales []models.LocalPG
-	if err := r.db.Select(&locales, `
-		SELECT l.id, l.nombre, l.activo
-		FROM locales l JOIN paquete_local pl ON pl.local_id = l.id
-		WHERE pl.paquete_id = $1 ORDER BY l.nombre
-	`, paquete.ID); err != nil {
-		return detalle, fmt.Errorf("error al cargar locales de paquete: %w", err)
+	q, args, err = sqlx.In(`SELECT pl.paquete_id,l.id,l.nombre,l.activo FROM paquete_local pl JOIN locales l ON l.id=pl.local_id
+		WHERE pl.paquete_id IN (?) ORDER BY pl.paquete_id,l.nombre`, ids)
+	if err != nil {
+		return fmt.Errorf("error al preparar locales de paquetes: %w", err)
 	}
-	if locales == nil {
-		locales = []models.LocalPG{}
+	var locales []struct {
+		PaqueteID int `db:"paquete_id"`
+		models.LocalPG
 	}
-	detalle.Locales = locales
-
+	if err = r.db.SelectContext(queryContext(ctx), &locales, r.db.Rebind(q), args...); err != nil {
+		return fmt.Errorf("error al cargar locales de paquetes: %w", err)
+	}
+	for _, l := range locales {
+		if i, ok := indices[l.PaqueteID]; ok {
+			detalles[i].Locales = append(detalles[i].Locales, l.LocalPG)
+		}
+	}
+	q, args, err = sqlx.In(`SELECT cb.id,cb.nombre,cb.descripcion,cb.categoria_id,COALESCE(c.nombre,'') categoria,
+		cb.tipo_precio,cb.precio_paquete,COALESCE(a.precio_items,0) precio_items,
+		CASE WHEN cb.tipo_precio='PRECIO_PAQUETE' THEN COALESCE(cb.precio_paquete,cb.costo_total,0) ELSE COALESCE(a.precio_items,0) END precio_final,
+		cb.moneda,cb.sesiones_totales,cb.duracion_min,cb.activo,cb.creado_en,cb.actualizado_en,cb.imagen_path,
+		cb.paquete_id,cb.precio_regular,cb.nota FROM combos cb LEFT JOIN categorias c ON c.id=cb.categoria_id
+		LEFT JOIN LATERAL (SELECT SUM(cs.costo*cs.sesiones) precio_items FROM combo_servicios cs WHERE cs.combo_id=cb.id AND cs.activo=TRUE) a ON TRUE
+		WHERE cb.paquete_id IN (?) AND cb.activo=TRUE ORDER BY cb.paquete_id,cb.sesiones_totales,cb.id`, ids)
+	if err != nil {
+		return fmt.Errorf("error al preparar tiers de paquetes: %w", err)
+	}
 	var tiers []models.ComboCatalogoPG
-	if err := r.db.Select(&tiers, `
-		SELECT
-			cb.id, cb.nombre, cb.descripcion, cb.categoria_id,
-			COALESCE(c.nombre, '') AS categoria,
-			cb.tipo_precio, cb.precio_paquete,
-			COALESCE((SELECT SUM(cs2.costo * cs2.sesiones) FROM combo_servicios cs2 WHERE cs2.combo_id = cb.id AND cs2.activo = TRUE), 0) AS precio_items,
-			CASE
-				WHEN cb.tipo_precio = 'PRECIO_PAQUETE' THEN COALESCE(cb.precio_paquete, cb.costo_total, 0)
-				ELSE COALESCE((SELECT SUM(cs2.costo * cs2.sesiones) FROM combo_servicios cs2 WHERE cs2.combo_id = cb.id AND cs2.activo = TRUE), 0)
-			END AS precio_final,
-			cb.moneda, cb.sesiones_totales, cb.duracion_min, cb.activo, cb.creado_en, cb.actualizado_en, cb.imagen_path,
-			cb.paquete_id, cb.precio_regular, cb.nota
-		FROM combos cb
-		LEFT JOIN categorias c ON c.id = cb.categoria_id
-		WHERE cb.paquete_id = $1 AND cb.activo = TRUE
-		ORDER BY cb.sesiones_totales
-	`, paquete.ID); err != nil {
-		return detalle, fmt.Errorf("error al cargar tiers de paquete: %w", err)
+	if err = r.db.SelectContext(queryContext(ctx), &tiers, r.db.Rebind(q), args...); err != nil {
+		return fmt.Errorf("error al cargar tiers de paquetes: %w", err)
 	}
 	for i := range tiers {
-		// Locales/servicios del tier son un espejo materializado de los del
-		// paquete y de servicios_base x sesiones; no se recargan aqui.
 		tiers[i].Locales = []models.LocalPG{}
 		tiers[i].Servicios = []models.ComboServicioDetallePG{}
+		if tiers[i].PaqueteID != nil {
+			if j, ok := indices[*tiers[i].PaqueteID]; ok {
+				detalles[j].Tiers = append(detalles[j].Tiers, tiers[i])
+			}
+		}
 	}
-	if tiers == nil {
-		tiers = []models.ComboCatalogoPG{}
-	}
-	detalle.Tiers = tiers
-
-	return detalle, nil
+	return nil
 }
 
 func paqueteConditions(f repository.FiltroPaquetes) ([]string, []interface{}) {
@@ -298,15 +326,42 @@ func paqueteConditions(f repository.FiltroPaquetes) ([]string, []interface{}) {
 // servicios (debe existir y estar activo) y copia nombre/costo cuando la
 // linea no los trae; si no trae servicio_id, exige servicio_texto no vacio.
 func insertarServiciosBaseTx(tx *sqlx.Tx, paqueteID int, servicios []repository.PaqueteServicioInput) error {
+	type catalogo struct {
+		ID     int      `db:"id"`
+		Nombre string   `db:"nombre"`
+		Costo  *float64 `db:"costo"`
+	}
+	ids := []int{}
+	seen := map[int]bool{}
+	for _, s := range servicios {
+		if s.ServicioID != nil && !seen[*s.ServicioID] {
+			seen[*s.ServicioID] = true
+			ids = append(ids, *s.ServicioID)
+		}
+	}
+	porID := map[int]catalogo{}
+	if len(ids) > 0 {
+		var rows []catalogo
+		if err := tx.Select(&rows, `SELECT id,nombre,costo FROM servicios WHERE id=ANY($1) AND activo=TRUE`, ids); err != nil {
+			return fmt.Errorf("error al validar servicios base: %w", err)
+		}
+		for _, row := range rows {
+			porID[row.ID] = row
+		}
+	}
+	type fila struct {
+		sid   *int
+		texto string
+		costo float64
+		orden int
+	}
+	filas := make([]fila, 0, len(servicios))
 	for _, s := range servicios {
 		servicioTexto := strings.TrimSpace(pointerString(s.ServicioTexto))
 		costo := s.Costo
 		if s.ServicioID != nil {
-			var servicio struct {
-				Nombre string   `db:"nombre"`
-				Costo  *float64 `db:"costo"`
-			}
-			if err := tx.Get(&servicio, `SELECT nombre, costo FROM servicios WHERE id = $1 AND activo = TRUE`, *s.ServicioID); err != nil {
+			servicio, ok := porID[*s.ServicioID]
+			if !ok {
 				return fmt.Errorf("%w: servicio con id %d no encontrado o inactivo", repository.ErrComboNoEncontrado, *s.ServicioID)
 			}
 			if servicioTexto == "" {
@@ -319,21 +374,30 @@ func insertarServiciosBaseTx(tx *sqlx.Tx, paqueteID int, servicios []repository.
 		if servicioTexto == "" {
 			return fmt.Errorf("servicio_texto no puede quedar vacio")
 		}
-		if _, err := tx.Exec(`
-			INSERT INTO paquete_servicios (paquete_id, servicio_id, servicio_texto, costo, orden, activo)
-			VALUES ($1,$2,$3,$4,$5,TRUE)
-		`, paqueteID, s.ServicioID, nullStr(servicioTexto), costo, s.Orden); err != nil {
-			return fmt.Errorf("error al insertar servicio base de paquete: %w", err)
+		filas = append(filas, fila{s.ServicioID, servicioTexto, costo, s.Orden})
+	}
+	if len(filas) > 0 {
+		args := make([]interface{}, 0, len(filas)*5)
+		for _, f := range filas {
+			args = append(args, paqueteID, f.sid, nullStr(f.texto), f.costo, f.orden)
+		}
+		if _, err := tx.Exec(`INSERT INTO paquete_servicios (paquete_id,servicio_id,servicio_texto,costo,orden) VALUES `+batchValuesPlaceholders(len(filas), 5), args...); err != nil {
+			return fmt.Errorf("error al insertar servicios base de paquete: %w", err)
 		}
 	}
 	return nil
 }
 
 func insertarLocalesPaqueteTx(tx *sqlx.Tx, paqueteID int, localIDs []int) error {
-	for _, localID := range localIDs {
-		if _, err := tx.Exec(`INSERT INTO paquete_local (paquete_id, local_id) VALUES ($1,$2)`, paqueteID, localID); err != nil {
-			return fmt.Errorf("error al asociar local con paquete: %w", err)
-		}
+	if len(localIDs) == 0 {
+		return nil
+	}
+	args := make([]interface{}, 0, len(localIDs)*2)
+	for _, id := range localIDs {
+		args = append(args, paqueteID, id)
+	}
+	if _, err := tx.Exec(`INSERT INTO paquete_local (paquete_id,local_id) VALUES `+batchValuesPlaceholders(len(localIDs), 2), args...); err != nil {
+		return fmt.Errorf("error al asociar locales con paquete: %w", err)
 	}
 	return nil
 }
@@ -427,7 +491,11 @@ func upsertTierComboTx(tx *sqlx.Tx, paqueteID int, paqueteNombre, moneda string,
 		if err != nil {
 			return 0, fmt.Errorf("error al actualizar tier de paquete: %w", err)
 		}
-		if n, _ := res.RowsAffected(); n == 0 {
+		n, err := affectedRows(res, "actualizar tier de paquete")
+		if err != nil {
+			return 0, err
+		}
+		if n == 0 {
 			return 0, fmt.Errorf("%w: tier con id %d para paquete %d", repository.ErrPaqueteNoEncontrado, *tier.ID, paqueteID)
 		}
 		return *tier.ID, nil

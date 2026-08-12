@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"strings"
 
 	"atrevida-agenda-api/models"
@@ -15,8 +16,8 @@ func NewLocalesService(repo repository.LocalesRepository) *LocalesService {
 	return &LocalesService{repo: repo}
 }
 
-func (s *LocalesService) GetLocales() ([]models.LocalConEspacios, error) {
-	return s.repo.GetAllLocales()
+func (s *LocalesService) GetLocales(ctx context.Context) ([]models.LocalConEspacios, error) {
+	return s.repo.GetAllLocales(ctx)
 }
 
 func (s *LocalesService) GetLocalById(id int) (*models.LocalConEspacios, error) {

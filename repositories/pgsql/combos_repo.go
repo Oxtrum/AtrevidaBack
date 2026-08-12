@@ -1,6 +1,7 @@
 package pgsql
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -46,18 +47,67 @@ func (r *CombosRepo) ListCombos(f repository.FiltroCombos) ([]models.ComboCatalo
 	`, where)
 
 	var combos []models.ComboCatalogoPG
-	if err := r.db.Select(&combos, query, args...); err != nil {
+	ctx := queryContext(f.Context)
+	if err := r.db.SelectContext(ctx, &combos, query, args...); err != nil {
 		return nil, 0, fmt.Errorf("error al listar combos: %w", err)
 	}
 	if combos == nil {
 		combos = []models.ComboCatalogoPG{}
 	}
-	for i := range combos {
-		if err := r.cargarDetalleCombo(&combos[i], false); err != nil {
-			return nil, 0, err
-		}
+	if err := r.cargarDetallesCombos(ctx, combos); err != nil {
+		return nil, 0, err
 	}
 	return combos, len(combos), nil
+}
+
+func (r *CombosRepo) cargarDetallesCombos(ctx context.Context, combos []models.ComboCatalogoPG) error {
+	if len(combos) == 0 {
+		return nil
+	}
+	ids := make([]int, 0, len(combos))
+	indices := make(map[int]int, len(combos))
+	for i := range combos {
+		ids = append(ids, combos[i].ID)
+		indices[combos[i].ID] = i
+		combos[i].Locales = []models.LocalPG{}
+		combos[i].Servicios = []models.ComboServicioDetallePG{}
+	}
+	q, args, err := sqlx.In(`SELECT cl.combo_id, l.id, l.nombre, l.activo
+		FROM combo_local cl JOIN locales l ON l.id=cl.local_id
+		WHERE cl.combo_id IN (?) ORDER BY cl.combo_id,l.nombre`, ids)
+	if err != nil {
+		return fmt.Errorf("error al preparar locales de combos: %w", err)
+	}
+	var locales []struct {
+		ComboID int `db:"combo_id"`
+		models.LocalPG
+	}
+	if err := r.db.SelectContext(ctx, &locales, r.db.Rebind(q), args...); err != nil {
+		return fmt.Errorf("error al cargar locales de combos: %w", err)
+	}
+	for _, item := range locales {
+		if i, ok := indices[item.ComboID]; ok {
+			combos[i].Locales = append(combos[i].Locales, item.LocalPG)
+		}
+	}
+	q, args, err = sqlx.In(`SELECT cs.id,cs.combo_id,cb.nombre combo_nombre,cs.servicio_id,
+		cs.servicio_texto,COALESCE(cs.servicio_texto,'') servicio_nombre,cs.tiempo,cs.costo,
+		cs.sesiones,cs.sesion_numero,cs.orden,cs.activo
+		FROM combo_servicios cs JOIN combos cb ON cb.id=cs.combo_id
+		WHERE cs.combo_id IN (?) AND cs.activo=TRUE ORDER BY cs.combo_id,cs.orden,cs.id`, ids)
+	if err != nil {
+		return fmt.Errorf("error al preparar servicios de combos: %w", err)
+	}
+	var servicios []models.ComboServicioDetallePG
+	if err := r.db.SelectContext(ctx, &servicios, r.db.Rebind(q), args...); err != nil {
+		return fmt.Errorf("error al cargar servicios de combos: %w", err)
+	}
+	for _, item := range servicios {
+		if i, ok := indices[item.ComboID]; ok {
+			combos[i].Servicios = append(combos[i].Servicios, item)
+		}
+	}
+	return nil
 }
 
 func (r *CombosRepo) GetComboByID(id int, incluirInactivo bool) (*models.ComboCatalogoPG, error) {
@@ -226,7 +276,11 @@ func (r *CombosRepo) SetComboImagen(id int, path *string) error {
 	if err != nil {
 		return fmt.Errorf("error al actualizar imagen de combo: %w", err)
 	}
-	if n, _ := result.RowsAffected(); n == 0 {
+	n, err := affectedRows(result, "actualizar imagen de combo")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("%w: combo con id %d", repository.ErrComboNoEncontrado, id)
 	}
 	return nil
@@ -237,7 +291,11 @@ func (r *CombosRepo) SetComboActivo(id int, activo bool) error {
 	if err != nil {
 		return fmt.Errorf("error al actualizar estado de combo: %w", err)
 	}
-	if n, _ := result.RowsAffected(); n == 0 {
+	n, err := affectedRows(result, "actualizar estado de combo")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("%w: combo con id %d", repository.ErrComboNoEncontrado, id)
 	}
 	return nil
@@ -369,16 +427,36 @@ type servicioMaterializado struct {
 }
 
 func materializarServiciosTx(tx *sqlx.Tx, inputs []repository.ComboServicioCatalogoInput) ([]servicioMaterializado, error) {
+	ids := make([]int, 0, len(inputs))
+	vistos := map[int]bool{}
+	for _, input := range inputs {
+		if input.ServicioID != nil && !vistos[*input.ServicioID] {
+			vistos[*input.ServicioID] = true
+			ids = append(ids, *input.ServicioID)
+		}
+	}
+	type catalogo struct {
+		ID     int      `db:"id"`
+		Nombre string   `db:"nombre"`
+		Tiempo *string  `db:"tiempo"`
+		Costo  *float64 `db:"costo"`
+	}
+	porID := map[int]catalogo{}
+	if len(ids) > 0 {
+		var encontrados []catalogo
+		if err := tx.Select(&encontrados, `SELECT id,nombre,tiempo,costo FROM servicios WHERE id=ANY($1) AND activo=TRUE`, ids); err != nil {
+			return nil, fmt.Errorf("error al validar servicios: %w", err)
+		}
+		for _, s := range encontrados {
+			porID[s.ID] = s
+		}
+	}
 	resultado := make([]servicioMaterializado, 0, len(inputs))
 	for _, input := range inputs {
 		item := servicioMaterializado{ServicioID: input.ServicioID, ServicioTexto: input.ServicioTexto, Tiempo: input.Tiempo, Costo: input.Costo, Sesiones: input.Sesiones, SesionNumero: input.SesionNumero, Orden: input.Orden}
 		if input.ServicioID != nil {
-			var servicio struct {
-				Nombre string   `db:"nombre"`
-				Tiempo *string  `db:"tiempo"`
-				Costo  *float64 `db:"costo"`
-			}
-			if err := tx.Get(&servicio, `SELECT nombre, tiempo, costo FROM servicios WHERE id = $1 AND activo = TRUE`, *input.ServicioID); err != nil {
+			servicio, ok := porID[*input.ServicioID]
+			if !ok {
 				return nil, fmt.Errorf("%w: servicio con id %d no encontrado o inactivo", repository.ErrComboNoEncontrado, *input.ServicioID)
 			}
 			if strings.TrimSpace(item.ServicioTexto) == "" {
@@ -424,13 +502,16 @@ func resumenServicios(servicios []servicioMaterializado) (float64, int) {
 }
 
 func insertarServiciosTx(tx *sqlx.Tx, comboID int, servicios []servicioMaterializado) error {
+	if len(servicios) == 0 {
+		return nil
+	}
+	args := make([]interface{}, 0, len(servicios)*8)
 	for _, servicio := range servicios {
-		if _, err := tx.Exec(`
-			INSERT INTO combo_servicios (combo_id, servicio_id, servicio_texto, tiempo, costo, sesiones, sesion_numero, orden, activo)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE)
-		`, comboID, servicio.ServicioID, servicio.ServicioTexto, pointerString(servicio.Tiempo), servicio.Costo, servicio.Sesiones, servicio.SesionNumero, servicio.Orden); err != nil {
-			return fmt.Errorf("error al insertar servicio de combo: %w", err)
-		}
+		args = append(args, comboID, servicio.ServicioID, servicio.ServicioTexto, pointerString(servicio.Tiempo), servicio.Costo, servicio.Sesiones, servicio.SesionNumero, servicio.Orden)
+	}
+	q := `INSERT INTO combo_servicios (combo_id,servicio_id,servicio_texto,tiempo,costo,sesiones,sesion_numero,orden) VALUES ` + batchValuesPlaceholders(len(servicios), 8)
+	if _, err := tx.Exec(q, args...); err != nil {
+		return fmt.Errorf("error al insertar servicios de combo: %w", err)
 	}
 	return nil
 }
@@ -491,23 +572,35 @@ func validarCategoriaTx(tx *sqlx.Tx, categoriaID *int) error {
 }
 
 func validarLocalesTx(tx *sqlx.Tx, localIDs []int) error {
-	for _, localID := range localIDs {
-		var existe bool
-		if err := tx.Get(&existe, `SELECT EXISTS(SELECT 1 FROM locales WHERE id = $1 AND activo = TRUE)`, localID); err != nil {
-			return fmt.Errorf("error al validar local: %w", err)
-		}
-		if !existe {
-			return fmt.Errorf("%w: local con id %d no encontrado o inactivo", repository.ErrComboNoEncontrado, localID)
+	if len(localIDs) == 0 {
+		return nil
+	}
+	var encontrados []int
+	if err := tx.Select(&encontrados, `SELECT id FROM locales WHERE id=ANY($1) AND activo=TRUE`, localIDs); err != nil {
+		return fmt.Errorf("error al validar locales: %w", err)
+	}
+	set := map[int]bool{}
+	for _, id := range encontrados {
+		set[id] = true
+	}
+	for _, id := range localIDs {
+		if !set[id] {
+			return fmt.Errorf("%w: local con id %d no encontrado o inactivo", repository.ErrComboNoEncontrado, id)
 		}
 	}
 	return nil
 }
 
 func insertarLocalesTx(tx *sqlx.Tx, comboID int, localIDs []int) error {
-	for _, localID := range localIDs {
-		if _, err := tx.Exec(`INSERT INTO combo_local (combo_id, local_id) VALUES ($1,$2)`, comboID, localID); err != nil {
-			return fmt.Errorf("error al asociar local con combo: %w", err)
-		}
+	if len(localIDs) == 0 {
+		return nil
+	}
+	args := make([]interface{}, 0, len(localIDs)*2)
+	for _, id := range localIDs {
+		args = append(args, comboID, id)
+	}
+	if _, err := tx.Exec(`INSERT INTO combo_local (combo_id,local_id) VALUES `+batchValuesPlaceholders(len(localIDs), 2), args...); err != nil {
+		return fmt.Errorf("error al asociar locales con combo: %w", err)
 	}
 	return nil
 }

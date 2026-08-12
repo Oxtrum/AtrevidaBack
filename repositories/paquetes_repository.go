@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 
 	"atrevida-agenda-api/models"
@@ -15,6 +16,7 @@ var ErrPaqueteNoEncontrado = errors.New("paquete o referencia no encontrado")
 var ErrPaqueteDatosInvalidos = errors.New("datos de paquete invalidos")
 
 type FiltroPaquetes struct {
+	Context   context.Context
 	Nombre    string
 	Categoria string
 	Local     string

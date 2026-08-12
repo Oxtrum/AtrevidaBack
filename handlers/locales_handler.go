@@ -20,7 +20,7 @@ import (
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/locales [get]
 func (h *Container) GetLocales(c *gin.Context) {
-	resultado, err := h.LocalesPG.GetLocales()
+	resultado, err := h.LocalesPG.GetLocales(c.Request.Context())
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
 		return

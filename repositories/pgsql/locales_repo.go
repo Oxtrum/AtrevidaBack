@@ -1,6 +1,7 @@
 package pgsql
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -19,9 +20,9 @@ func NewLocalesRepo(db *sqlx.DB) *LocalesRepo {
 	return &LocalesRepo{db: db}
 }
 
-func (r *LocalesRepo) GetAllLocales() ([]models.LocalConEspacios, error) {
+func (r *LocalesRepo) GetAllLocales(ctx context.Context) ([]models.LocalConEspacios, error) {
 	var locales []models.LocalConEspacios
-	err := r.db.Select(&locales, `
+	err := r.db.SelectContext(queryContext(ctx), &locales, `
 		SELECT id, nombre, activo
 		FROM locales
 		WHERE activo = TRUE
@@ -31,12 +32,26 @@ func (r *LocalesRepo) GetAllLocales() ([]models.LocalConEspacios, error) {
 		return nil, fmt.Errorf("error al consultar locales: %w", err)
 	}
 
+	indices := make(map[int]int, len(locales))
 	for i := range locales {
-		espacios, err := r.getEspacios(locales[i].ID)
-		if err != nil {
-			return nil, err
+		indices[locales[i].ID] = i
+		locales[i].Espacios = []models.TipoEspacioLocal{}
+	}
+	if len(locales) > 0 {
+		var espacios []struct {
+			LocalID int `db:"local_id"`
+			models.TipoEspacioLocal
 		}
-		locales[i].Espacios = espacios
+		if err := r.db.SelectContext(queryContext(ctx), &espacios, `SELECT local_id,tipo_espacio,cantidad_espacios
+			FROM tipos_espacio_locales WHERE local_id IN (SELECT id FROM locales WHERE activo=TRUE)
+			ORDER BY local_id,tipo_espacio`); err != nil {
+			return nil, fmt.Errorf("error al consultar espacios de locales: %w", err)
+		}
+		for _, e := range espacios {
+			if i, ok := indices[e.LocalID]; ok {
+				locales[i].Espacios = append(locales[i].Espacios, e.TipoEspacioLocal)
+			}
+		}
 	}
 
 	return locales, nil
@@ -169,7 +184,11 @@ func (r *LocalesRepo) UpdateLocal(id int, nombre *string, activo *bool) error {
 	if err != nil {
 		return fmt.Errorf("error al actualizar local: %w", err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "actualizar local")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("local con id %d no encontrado", id)
 	}
 	return nil
@@ -184,7 +203,11 @@ func (r *LocalesRepo) DeleteLocal(id int) error {
 		return fmt.Errorf("error al eliminar local: %w", err)
 	}
 
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := affectedRows(res, "eliminar local")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return fmt.Errorf("local con id %d no encontrado o inactivo", id)
 	}
 

@@ -83,7 +83,7 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 	`, strings.Join(conditions, " AND "))
 
 	var planes []models.PlanPG
-	if err := r.db.Select(&planes, query, args...); err != nil {
+	if err := r.db.SelectContext(queryContext(f.Context), &planes, query, args...); err != nil {
 		return nil, fmt.Errorf("error al listar planes: %w", err)
 	}
 	if planes == nil {
@@ -174,23 +174,28 @@ func (r *PlanesRepo) CreatePlan(input repository.CrearPlanInput) (int, error) {
 		return 0, fmt.Errorf("error al crear plan: %w", err)
 	}
 
-	for _, s := range input.Servicios {
+	if len(input.Servicios) > 0 {
+		args := make([]interface{}, 0, len(input.Servicios)*8)
+		for _, s := range input.Servicios {
+			args = append(args, planID, s.ServicioIDOrigen, s.NombreTexto, pointerString(s.TiempoTexto), s.PrecioUnitarioTexto, s.SesionesContratadas, s.Orden, s.SesionNumero)
+		}
 		if _, err := tx.Exec(`
 			INSERT INTO plan_servicios (
 				plan_id, servicio_id_origen, nombre_texto, tiempo_texto,
 				precio_unitario_texto, sesiones_contratadas, orden, sesion_numero
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-		`, planID, s.ServicioIDOrigen, s.NombreTexto, pointerString(s.TiempoTexto),
-			s.PrecioUnitarioTexto, s.SesionesContratadas, s.Orden, s.SesionNumero); err != nil {
+			) VALUES `+batchValuesPlaceholders(len(input.Servicios), 8), args...); err != nil {
 			return 0, fmt.Errorf("error al insertar servicio del plan: %w", err)
 		}
 	}
 
-	for _, c := range input.Cuotas {
+	if len(input.Cuotas) > 0 {
+		args := make([]interface{}, 0, len(input.Cuotas)*4)
+		for _, c := range input.Cuotas {
+			args = append(args, planID, c.Numero, nullStr(pointerString(c.Vencimiento)), c.Monto)
+		}
 		if _, err := tx.Exec(`
-			INSERT INTO plan_cuotas (plan_id, numero, vencimiento, monto, estado)
-			VALUES ($1,$2,$3,$4,'PENDIENTE')
-		`, planID, c.Numero, nullStr(pointerString(c.Vencimiento)), c.Monto); err != nil {
+			INSERT INTO plan_cuotas (plan_id, numero, vencimiento, monto)
+			VALUES `+batchValuesPlaceholders(len(input.Cuotas), 4), args...); err != nil {
 			return 0, fmt.Errorf("error al insertar cuota del plan: %w", err)
 		}
 	}
@@ -366,7 +371,10 @@ func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, erro
 	if err != nil {
 		return 0, fmt.Errorf("error al marcar sesion del plan: %w", err)
 	}
-	n, _ := res.RowsAffected()
+	n, err := affectedRows(res, "marcar sesion del plan")
+	if err != nil {
+		return 0, err
+	}
 	if n == 0 {
 		// Sesión inexistente: no tocar el estado del plan.
 		if err := tx.Commit(); err != nil {

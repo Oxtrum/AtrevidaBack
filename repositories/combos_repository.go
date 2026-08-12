@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 
 	"atrevida-agenda-api/models"
@@ -15,6 +16,7 @@ var ErrComboNoEncontrado = errors.New("combo o referencia no encontrado")
 var ErrComboDatosInvalidos = errors.New("datos de combo invalidos")
 
 type FiltroCombos struct {
+	Context   context.Context
 	Nombre    string
 	Categoria string
 	Local     string

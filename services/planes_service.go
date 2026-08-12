@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -30,6 +31,7 @@ var (
 )
 
 type FiltroPlanes struct {
+	Context        context.Context
 	Cliente        string
 	ClienteID      *int
 	LocalID        *int
@@ -41,13 +43,13 @@ type FiltroPlanes struct {
 }
 
 type PlanServicioInput struct {
-	ServicioIDOrigen       *int
+	ServicioIDOrigen    *int
 	NombreTexto         string
 	TiempoTexto         *string
 	PrecioUnitarioTexto *float64
-	SesionesContratadas    int
-	Orden                  int
-	SesionNumero           int
+	SesionesContratadas int
+	Orden               int
+	SesionNumero        int
 }
 
 type CrearPlanInput struct {
@@ -89,6 +91,7 @@ func NewPlanesService(repo repository.PlanesRepository, combosRepo repository.Co
 
 func (s *PlanesService) ListarPlanes(f FiltroPlanes) ([]models.PlanPG, error) {
 	planes, err := s.repo.ListPlanes(repository.FiltroPlanes{
+		Context:        f.Context,
 		Cliente:        strings.TrimSpace(f.Cliente),
 		ClienteID:      f.ClienteID,
 		LocalID:        f.LocalID,
@@ -130,11 +133,11 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 	}
 
 	var (
-		servicios           []repository.CrearPlanServicioInput
-		comboIDOrigen       *int
+		servicios        []repository.CrearPlanServicioInput
+		comboIDOrigen    *int
 		comboNombreTexto *string
-		subtotal            float64
-		moneda              = "BOB"
+		subtotal         float64
+		moneda           = "BOB"
 	)
 
 	if input.ComboID != nil {
@@ -152,13 +155,13 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 				pu = &zero
 			}
 			servicios = append(servicios, repository.CrearPlanServicioInput{
-				ServicioIDOrigen:       cs.ServicioID,
+				ServicioIDOrigen:    cs.ServicioID,
 				NombreTexto:         cs.ServicioNombre,
 				TiempoTexto:         cs.Tiempo,
 				PrecioUnitarioTexto: pu,
-				SesionesContratadas:    cs.Sesiones,
-				Orden:                  cs.Orden,
-				SesionNumero:           cs.SesionNumero,
+				SesionesContratadas: cs.Sesiones,
+				Orden:               cs.Orden,
+				SesionNumero:        cs.SesionNumero,
 			})
 			subtotal += *pu * float64(cs.Sesiones)
 		}
@@ -185,13 +188,13 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 				sesionNumero = 1
 			}
 			servicios = append(servicios, repository.CrearPlanServicioInput{
-				ServicioIDOrigen:       s.ServicioIDOrigen,
+				ServicioIDOrigen:    s.ServicioIDOrigen,
 				NombreTexto:         s.NombreTexto,
 				TiempoTexto:         s.TiempoTexto,
 				PrecioUnitarioTexto: pu,
-				SesionesContratadas:    s.SesionesContratadas,
-				Orden:                  s.Orden,
-				SesionNumero:           sesionNumero,
+				SesionesContratadas: s.SesionesContratadas,
+				Orden:               s.Orden,
+				SesionNumero:        sesionNumero,
 			})
 			subtotal += *pu * float64(s.SesionesContratadas)
 		}
@@ -232,23 +235,23 @@ func (s *PlanesService) CrearPlan(input CrearPlanInput) (int, error) {
 	}
 
 	id, err := s.repo.CreatePlan(repository.CrearPlanInput{
-		ClienteID:           input.ClienteID,
-		LocalID:             input.LocalID,
-		ComboIDOrigen:       comboIDOrigen,
+		ClienteID:        input.ClienteID,
+		LocalID:          input.LocalID,
+		ComboIDOrigen:    comboIDOrigen,
 		ComboNombreTexto: comboNombreTexto,
-		FechaInicio:         input.FechaInicio,
-		FechaFin:            input.FechaFin,
-		Estado:              estadoInicial,
-		TipoPago:            input.TipoPago,
-		Subtotal:            subtotal,
-		Descuento:           input.Descuento,
-		PrecioTotal:         precioTotal,
-		Moneda:              moneda,
-		Notas:               input.Notas,
-		CreadoPor:           input.CreadoPor,
-		Servicios:           servicios,
-		Cuotas:              cuotas,
-		PagoCodigo:          input.PagoCodigo,
+		FechaInicio:      input.FechaInicio,
+		FechaFin:         input.FechaFin,
+		Estado:           estadoInicial,
+		TipoPago:         input.TipoPago,
+		Subtotal:         subtotal,
+		Descuento:        input.Descuento,
+		PrecioTotal:      precioTotal,
+		Moneda:           moneda,
+		Notas:            input.Notas,
+		CreadoPor:        input.CreadoPor,
+		Servicios:        servicios,
+		Cuotas:           cuotas,
+		PagoCodigo:       input.PagoCodigo,
 	})
 	return id, traducirErrorRepositorioPlan(err)
 }

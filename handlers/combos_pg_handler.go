@@ -98,7 +98,8 @@ func (h *Container) GetCombosPG(c *gin.Context) {
 		return
 	}
 	combos, total, err := h.CombosPG.ListarCombos(services.FiltroCombos{
-		Nombre: strings.TrimSpace(c.Query("nombre")), Categoria: strings.TrimSpace(c.Query("categoria")),
+		Context: c.Request.Context(),
+		Nombre:  strings.TrimSpace(c.Query("nombre")), Categoria: strings.TrimSpace(c.Query("categoria")),
 		Local: strings.TrimSpace(c.Query("local")), LocalID: localID,
 	})
 	if err != nil {

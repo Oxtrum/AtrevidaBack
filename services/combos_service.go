@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -24,6 +25,7 @@ var (
 )
 
 type FiltroCombos struct {
+	Context   context.Context
 	Nombre    string
 	Categoria string
 	Local     string
@@ -125,7 +127,8 @@ func (s *CombosService) EliminarImagen(comboID int) error {
 func (s *CombosService) ListarCombos(f FiltroCombos) ([]models.ComboCatalogoPG, int, error) {
 	activo := true
 	combos, total, err := s.repo.ListCombos(repository.FiltroCombos{
-		Nombre: strings.TrimSpace(f.Nombre), Categoria: strings.TrimSpace(f.Categoria),
+		Context: f.Context,
+		Nombre:  strings.TrimSpace(f.Nombre), Categoria: strings.TrimSpace(f.Categoria),
 		Local: strings.TrimSpace(f.Local), LocalID: f.LocalID, Activo: &activo,
 	})
 	for i := range combos {
