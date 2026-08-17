@@ -16,19 +16,22 @@ var (
 )
 
 type FiltroPlanes struct {
-	Context        context.Context
-	Cliente        string
-	ClienteID      *int
-	LocalID        *int
-	Local          string
-	Estado         string
-	EstadoCobranza string
-	FechaDesde     *time.Time
-	FechaHasta     *time.Time
-	PageLimit      int
-	CursorSet      bool
-	CursorFecha    time.Time
-	CursorID       int
+	Context              context.Context
+	Busqueda             string
+	Cliente              string
+	ClienteID            *int
+	LocalID              *int
+	Local                string
+	Estado               string
+	EstadoCobranza       string
+	FechaDesde           *time.Time
+	FechaHasta           *time.Time
+	OrdenPrioridadEstado bool
+	PageLimit            int
+	CursorSet            bool
+	CursorEstadoRank     int
+	CursorFecha          time.Time
+	CursorID             int
 }
 
 type CrearPlanInput struct {

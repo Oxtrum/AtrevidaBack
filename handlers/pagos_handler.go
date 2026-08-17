@@ -139,6 +139,7 @@ func (h *Container) GetResumenPagos(c *gin.Context) {
 // @Tags Pagos
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param busqueda query string false "Busqueda combinada por codigo, cliente, NIT, local o cajero" example(Maria)
 // @Param codigo_pago query string false "Busqueda parcial por codigo de pago" example(PAGO-000001)
 // @Param local_id query int false "ID del local" example(1)
 // @Param local_nombre query string false "Busqueda parcial por nombre del local" example(SAN MARTIN)
@@ -192,6 +193,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 		return
 	}
 	filters := pagoFiltrosResponse{
+		Busqueda:   strings.TrimSpace(c.Query("busqueda")),
 		CodigoPago: strings.TrimSpace(c.Query("codigo_pago")), LocalID: localID,
 		LocalNombre: strings.TrimSpace(c.Query("local_nombre")), ClienteID: clienteID,
 		ClienteNIT: strings.TrimSpace(c.Query("cliente_nit")), ClienteNombre: strings.TrimSpace(c.Query("cliente_nombre")),
@@ -210,6 +212,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 
 	filtro := services.FiltroPagos{
 		Context:                    c.Request.Context(),
+		Busqueda:                   c.Query("busqueda"),
 		CodigoPago:                 c.Query("codigo_pago"),
 		LocalID:                    localID,
 		LocalNombre:                c.Query("local_nombre"),

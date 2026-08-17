@@ -10,6 +10,7 @@ import (
 
 type FiltroPagos struct {
 	Context       context.Context
+	Busqueda      string
 	CodigoPago    string
 	LocalID       *int
 	LocalNombre   string

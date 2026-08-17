@@ -31,19 +31,22 @@ var (
 )
 
 type FiltroPlanes struct {
-	Context        context.Context
-	Cliente        string
-	ClienteID      *int
-	LocalID        *int
-	Local          string
-	Estado         string
-	EstadoCobranza string
-	FechaDesde     *time.Time
-	FechaHasta     *time.Time
-	PageLimit      int
-	CursorSet      bool
-	CursorFecha    time.Time
-	CursorID       int
+	Context              context.Context
+	Busqueda             string
+	Cliente              string
+	ClienteID            *int
+	LocalID              *int
+	Local                string
+	Estado               string
+	EstadoCobranza       string
+	FechaDesde           *time.Time
+	FechaHasta           *time.Time
+	OrdenPrioridadEstado bool
+	PageLimit            int
+	CursorSet            bool
+	CursorEstadoRank     int
+	CursorFecha          time.Time
+	CursorID             int
 }
 
 type PlanServicioInput struct {
@@ -100,16 +103,19 @@ func (s *PlanesService) ListarPlanes(f FiltroPlanes) ([]models.PlanPG, error) {
 
 func toRepositoryFiltroPlanes(f FiltroPlanes) repository.FiltroPlanes {
 	return repository.FiltroPlanes{
-		Context:        f.Context,
-		Cliente:        strings.TrimSpace(f.Cliente),
-		ClienteID:      f.ClienteID,
-		LocalID:        f.LocalID,
-		Local:          strings.TrimSpace(f.Local),
-		Estado:         strings.TrimSpace(f.Estado),
-		EstadoCobranza: strings.TrimSpace(f.EstadoCobranza),
-		FechaDesde:     f.FechaDesde,
-		FechaHasta:     f.FechaHasta,
-		PageLimit:      f.PageLimit, CursorSet: f.CursorSet, CursorFecha: f.CursorFecha, CursorID: f.CursorID,
+		Context:              f.Context,
+		Busqueda:             strings.TrimSpace(f.Busqueda),
+		Cliente:              strings.TrimSpace(f.Cliente),
+		ClienteID:            f.ClienteID,
+		LocalID:              f.LocalID,
+		Local:                strings.TrimSpace(f.Local),
+		Estado:               strings.TrimSpace(f.Estado),
+		EstadoCobranza:       strings.TrimSpace(f.EstadoCobranza),
+		FechaDesde:           f.FechaDesde,
+		FechaHasta:           f.FechaHasta,
+		OrdenPrioridadEstado: f.OrdenPrioridadEstado,
+		PageLimit:            f.PageLimit, CursorSet: f.CursorSet, CursorEstadoRank: f.CursorEstadoRank,
+		CursorFecha: f.CursorFecha, CursorID: f.CursorID,
 	}
 }
 

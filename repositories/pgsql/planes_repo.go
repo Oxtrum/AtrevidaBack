@@ -24,9 +24,10 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 	conditions, args := planConditions(f)
 	idx := len(args) + 1
 	if f.CursorSet {
-		conditions = append(conditions, fmt.Sprintf("(p.creado_en, p.id) < ($%d, $%d)", idx, idx+1))
-		args = append(args, f.CursorFecha, f.CursorID)
-		idx += 2
+		condition, cursorArgs, nextIndex := planCursorCondition(f, idx)
+		conditions = append(conditions, condition)
+		args = append(args, cursorArgs...)
+		idx = nextIndex
 	}
 	limitClause := ""
 	if f.PageLimit > 0 {
@@ -47,8 +48,8 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 			p.creado_por, p.actualizado_por, p.actualizado_en
 		FROM planes p
 		WHERE %s
-		ORDER BY p.creado_en DESC, p.id DESC%s
-	`, strings.Join(conditions, " AND "), limitClause)
+		ORDER BY %s%s
+	`, strings.Join(conditions, " AND "), planOrderClause(f), limitClause)
 
 	var planes []models.PlanPG
 	if err := r.db.SelectContext(queryContext(f.Context), &planes, query, args...); err != nil {
@@ -58,6 +59,35 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 		planes = []models.PlanPG{}
 	}
 	return planes, nil
+}
+
+func planCursorCondition(f repository.FiltroPlanes, idx int) (string, []interface{}, int) {
+	if f.OrdenPrioridadEstado {
+		return fmt.Sprintf(`(
+			%s > $%d OR
+			(%s = $%d AND (p.creado_en, p.id) < ($%d, $%d))
+		)`, planStateRankSQL(), idx, planStateRankSQL(), idx, idx+1, idx+2),
+			[]interface{}{f.CursorEstadoRank, f.CursorFecha, f.CursorID}, idx + 3
+	}
+	return fmt.Sprintf("(p.creado_en, p.id) < ($%d, $%d)", idx, idx+1),
+		[]interface{}{f.CursorFecha, f.CursorID}, idx + 2
+}
+
+func planStateRankSQL() string {
+	return `CASE p.estado
+		WHEN 'RESERVADO' THEN 0
+		WHEN 'ACTIVO' THEN 1
+		WHEN 'COMPLETADO' THEN 2
+		WHEN 'VENCIDO' THEN 3
+		WHEN 'CANCELADO' THEN 4
+		ELSE 5 END`
+}
+
+func planOrderClause(f repository.FiltroPlanes) string {
+	if f.OrdenPrioridadEstado {
+		return planStateRankSQL() + ", p.creado_en DESC, p.id DESC"
+	}
+	return "p.creado_en DESC, p.id DESC"
 }
 
 func (r *PlanesRepo) CountPlanes(f repository.FiltroPlanes) (int, error) {
@@ -76,6 +106,12 @@ func planConditions(f repository.FiltroPlanes) ([]string, []interface{}) {
 	add := func(condition string, value interface{}) {
 		conditions = append(conditions, fmt.Sprintf(condition, len(args)+1))
 		args = append(args, value)
+	}
+	if f.Busqueda != "" {
+		add(`TRANSLATE(LOWER(CONCAT_WS(' ',
+			p.codigo, p.cliente, p.cliente_nombre_texto, p.local_nombre_texto,
+			p.combo_nombre, p.combo_nombre_texto, p.estado, p.estado_cobranza
+		)), 'áéíóúüñ', 'aeiouun') LIKE TRANSLATE(LOWER($%d), 'áéíóúüñ', 'aeiouun')`, "%"+f.Busqueda+"%")
 	}
 	if f.Cliente != "" {
 		add("p.cliente_nombre_texto ILIKE $%d", "%"+f.Cliente+"%")

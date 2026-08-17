@@ -92,6 +92,8 @@ type horarioFiltrosResponse struct {
 }
 
 type pagoFiltrosResponse struct {
+	// Filtro combinado aplicado sobre codigo, cliente, NIT, local y cajero
+	Busqueda string `json:"busqueda" example:"Maria"`
 	// Filtro aplicado: codigo del pago
 	CodigoPago string `json:"codigo_pago" example:"PAGO-000001"`
 	// Filtro aplicado: ID del local

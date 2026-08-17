@@ -16,6 +16,7 @@ import (
 )
 
 type planFiltrosResponse struct {
+	Busqueda       string `json:"busqueda" example:"Maria Plan Relax"`
 	Cliente        string `json:"cliente" example:"Maria"`
 	Local          string `json:"local" example:"SAN MARTIN"`
 	LocalID        *int   `json:"local_id,omitempty" example:"1"`
@@ -23,6 +24,7 @@ type planFiltrosResponse struct {
 	EstadoCobranza string `json:"estado_cobranza" example:"PENDIENTE"`
 	FechaDesde     string `json:"fecha_desde" example:"2026-07-01"`
 	FechaHasta     string `json:"fecha_hasta" example:"2026-07-31"`
+	Orden          string `json:"orden" example:"prioridad_estado"`
 }
 
 type planListResponse struct {
@@ -34,6 +36,23 @@ type planListResponse struct {
 
 type planItemResponse struct {
 	Plan *models.PlanCompletoPG `json:"plan"`
+}
+
+func planStateRank(estado string) int {
+	switch strings.ToUpper(strings.TrimSpace(estado)) {
+	case services.EstadoPlanReservado:
+		return 0
+	case services.EstadoPlanActivo:
+		return 1
+	case services.EstadoPlanCompletado:
+		return 2
+	case services.EstadoPlanVencido:
+		return 3
+	case services.EstadoPlanCancelado:
+		return 4
+	default:
+		return 5
+	}
 }
 
 type planServicioManualRequest struct {
@@ -87,6 +106,7 @@ type cobrarPlanRequest struct {
 // @Tags Planes BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param busqueda query string false "Busqueda combinada por codigo, cliente, local, combo o estado" example(Maria)
 // @Param cliente query string false "Busqueda parcial por nombre del cliente" example(Maria)
 // @Param local query string false "Busqueda parcial por nombre del local" example(SAN MARTIN)
 // @Param local_id query int false "ID exacto del local" example(1)
@@ -94,6 +114,7 @@ type cobrarPlanRequest struct {
 // @Param estado_cobranza query string false "Filtrar por estado de cobranza: PENDIENTE, PARCIAL, PAGADO, VENCIDO" example(PENDIENTE)
 // @Param fecha_desde query string false "Fecha de creacion desde (YYYY-MM-DD)" example(2026-07-01)
 // @Param fecha_hasta query string false "Fecha de creacion hasta (YYYY-MM-DD)" example(2026-07-31)
+// @Param orden query string false "Orden opcional; prioridad_estado ordena RESERVADO, ACTIVO, COMPLETADO, VENCIDO y CANCELADO" Enums(prioridad_estado)
 // @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
 // @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
 // @Param include_total query bool false "Incluye el total de paginas" example(false)
@@ -145,13 +166,29 @@ func (h *Container) GetPlanes(c *gin.Context) {
 	if !ok {
 		return
 	}
+	orden := strings.ToLower(strings.TrimSpace(c.Query("orden")))
+	if orden != "" && orden != "prioridad_estado" {
+		utils.RespondError(c, http.StatusBadRequest, "orden invalido; use prioridad_estado")
+		return
+	}
 	filters := planFiltrosResponse{
-		Cliente: strings.TrimSpace(c.Query("cliente")), Local: strings.TrimSpace(c.Query("local")), LocalID: filtroLocalID,
+		Busqueda: strings.TrimSpace(c.Query("busqueda")),
+		Cliente:  strings.TrimSpace(c.Query("cliente")), Local: strings.TrimSpace(c.Query("local")), LocalID: filtroLocalID,
 		Estado: strings.TrimSpace(c.Query("estado")), EstadoCobranza: strings.TrimSpace(c.Query("estado_cobranza")),
 		FechaDesde: c.Query("fecha_desde"), FechaHasta: c.Query("fecha_hasta"),
+		Orden: orden,
 	}
-	var after timeCursor
-	if !decodePaginationCursor(c, page, "planes", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.CreatedAt.IsZero())) {
+	var after planPriorityCursor
+	if orden == "" {
+		var legacyAfter timeCursor
+		if !decodePaginationCursor(c, page, "planes", filters, &legacyAfter) {
+			return
+		}
+		after = planPriorityCursor{CreatedAt: legacyAfter.CreatedAt, ID: legacyAfter.ID}
+	} else if !decodePaginationCursor(c, page, "planes", filters, &after) {
+		return
+	}
+	if page.Cursor != "" && (after.ID < 1 || after.CreatedAt.IsZero() || (orden != "" && (after.StateRank < 0 || after.StateRank > 5))) {
 		if !c.Writer.Written() {
 			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
 		}
@@ -159,15 +196,18 @@ func (h *Container) GetPlanes(c *gin.Context) {
 	}
 
 	serviceFilter := services.FiltroPlanes{
-		Context:        c.Request.Context(),
-		Cliente:        strings.TrimSpace(c.Query("cliente")),
-		Local:          strings.TrimSpace(c.Query("local")),
-		LocalID:        filtroLocalID,
-		Estado:         strings.TrimSpace(c.Query("estado")),
-		EstadoCobranza: strings.TrimSpace(c.Query("estado_cobranza")),
-		FechaDesde:     fechaDesde,
-		FechaHasta:     fechaHasta,
-		PageLimit:      page.QueryLimit(), CursorSet: page.Cursor != "", CursorFecha: after.CreatedAt, CursorID: after.ID,
+		Context:              c.Request.Context(),
+		Busqueda:             strings.TrimSpace(c.Query("busqueda")),
+		Cliente:              strings.TrimSpace(c.Query("cliente")),
+		Local:                strings.TrimSpace(c.Query("local")),
+		LocalID:              filtroLocalID,
+		Estado:               strings.TrimSpace(c.Query("estado")),
+		EstadoCobranza:       strings.TrimSpace(c.Query("estado_cobranza")),
+		FechaDesde:           fechaDesde,
+		FechaHasta:           fechaHasta,
+		OrdenPrioridadEstado: orden == "prioridad_estado",
+		PageLimit:            page.QueryLimit(), CursorSet: page.Cursor != "", CursorEstadoRank: after.StateRank,
+		CursorFecha: after.CreatedAt, CursorID: after.ID,
 	}
 	planes, err := h.PlanesPG.ListarPlanes(serviceFilter)
 	if err != nil {
@@ -175,6 +215,9 @@ func (h *Container) GetPlanes(c *gin.Context) {
 		return
 	}
 	planes, metadata, err := pagination.Build(planes, page, "planes", filters, func(item models.PlanPG) any {
+		if orden == "prioridad_estado" {
+			return planPriorityCursor{StateRank: planStateRank(item.Estado), CreatedAt: item.CreadoEn, ID: item.ID}
+		}
 		return timeCursor{CreatedAt: item.CreadoEn, ID: item.ID}
 	})
 	if err != nil {

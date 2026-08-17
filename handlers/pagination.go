@@ -41,6 +41,12 @@ type timeCursor struct {
 	ID        int       `json:"i"`
 }
 
+type planPriorityCursor struct {
+	StateRank int       `json:"r"`
+	CreatedAt time.Time `json:"t"`
+	ID        int       `json:"i"`
+}
+
 type reservationCursor struct {
 	Local string    `json:"l"`
 	Date  time.Time `json:"d"`

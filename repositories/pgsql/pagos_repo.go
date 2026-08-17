@@ -72,6 +72,13 @@ func pagoConditions(f repository.FiltroPagos) ([]string, []interface{}) {
 		conditions = append(conditions, fmt.Sprintf(condition, len(args)+1))
 		args = append(args, value)
 	}
+	if f.Busqueda != "" {
+		add(`TRANSLATE(LOWER(CONCAT_WS(' ',
+			p.codigo_pago, p.local_nombre, p.cliente_nombre, p.cliente_nit,
+			p.nombre_cajero, p.username_cajero, p.nombre_cajero_modificacion,
+			p.username_cajero_modificacion, p.tipo_pago, p.estado
+		)), 'áéíóúüñ', 'aeiouun') LIKE TRANSLATE(LOWER($%d), 'áéíóúüñ', 'aeiouun')`, "%"+f.Busqueda+"%")
+	}
 	if f.CodigoPago != "" {
 		add("p.codigo_pago ILIKE $%d", "%"+f.CodigoPago+"%")
 	}

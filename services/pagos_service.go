@@ -21,6 +21,7 @@ func NewPagosService(repo repository.PagosRepository) *PagosService {
 
 type FiltroPagos struct {
 	Context       context.Context
+	Busqueda      string
 	CodigoPago    string
 	LocalID       *int
 	LocalNombre   string
@@ -77,6 +78,7 @@ func toRepositoryFiltroPagos(filtro FiltroPagos) (repository.FiltroPagos, error)
 
 	return repository.FiltroPagos{
 		Context:                    filtro.Context,
+		Busqueda:                   strings.TrimSpace(filtro.Busqueda),
 		CodigoPago:                 strings.TrimSpace(filtro.CodigoPago),
 		LocalID:                    filtro.LocalID,
 		LocalNombre:                strings.TrimSpace(filtro.LocalNombre),
