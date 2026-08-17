@@ -37,7 +37,7 @@ const allowEstadoOverrideTemporal = true
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta) example(mesa)
 // @Param reservados query bool false "Filtrar por estado reservado" example(true)
 // @Success 200 {object} utils.APIResponse{data=reservaCalendarioResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: tipo invalido, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: tipo, estado, orden, vigencia, paginacion o cursor invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/calendario [get]
 func (h *Container) GetReservasPG(c *gin.Context) {
@@ -475,7 +475,7 @@ func float64Ptr(v float64) *float64 {
 
 // GetReservasSimplePG godoc
 // @Summary Listar reservas simples
-// @Description Devuelve reservas en formato plano (sin agrupar por local). Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional). Response: total (int total de reservas), reservas ([]ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).
+// @Description Devuelve reservas en formato plano (sin agrupar por local). La paginacion es opcional. Los filtros de busqueda y vigencia se aplican antes de LIMIT y del conteo. `orden=cronologico` ordena por fecha, hora, local e ID; sin ese parametro conserva el orden legacy por local.
 // @Tags Reservas BD
 // @Produce json
 // @Param local query string false "Nombre del local" example(SAN MARTIN)
@@ -486,8 +486,14 @@ func float64Ptr(v float64) *float64 {
 // @Param numero_telefono query string false "Numero de telefono" example(+59170011223)
 // @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado" example(depilacion)
 // @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado" example(depilacion laser piernas)
+// @Param busqueda query string false "Busqueda parcial por ID, cliente, telefono, servicio, local o fecha" example(Maria)
 // @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(COMPLETADO)
+// @Param excluir_estado query string false "Estado que se excluye del resultado" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(COMPLETADO)
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta) example(bicicleta)
+// @Param vigente_fecha query string false "Fecha local desde la que una reserva sigue vigente; requiere vigente_hora" example(2026-08-12)
+// @Param vigente_hora query string false "Hora local HH:MM desde la que una reserva sigue vigente; requiere vigente_fecha" example(15:30)
+// @Param vigencia_solo_pendientes query bool false "Aplica la vigencia solo a reservas PENDIENTE" example(false)
+// @Param orden query string false "Orden estable del listado" Enums(cronologico) example(cronologico)
 // @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
 // @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
 // @Param include_total query bool false "Incluye el total de paginas" example(false)
@@ -502,6 +508,40 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 			"tipo invÃ¡lido, valores permitidos: mesa, bicicleta")
 		return
 	}
+	orden := strings.ToLower(strings.TrimSpace(c.Query("orden")))
+	if orden != "" && orden != "cronologico" {
+		utils.RespondError(c, http.StatusBadRequest, "orden invalido, valor permitido: cronologico")
+		return
+	}
+	vigenteFecha := strings.TrimSpace(c.Query("vigente_fecha"))
+	vigenteHora := strings.TrimSpace(c.Query("vigente_hora"))
+	if (vigenteFecha == "") != (vigenteHora == "") {
+		utils.RespondError(c, http.StatusBadRequest, "vigente_fecha y vigente_hora deben enviarse juntos")
+		return
+	}
+	if vigenteFecha != "" {
+		if _, err := time.Parse("2006-01-02", vigenteFecha); err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "formato de vigente_fecha invalido, use YYYY-MM-DD")
+			return
+		}
+		if _, err := time.Parse("15:04", vigenteHora); err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "formato de vigente_hora invalido, use HH:MM")
+			return
+		}
+	}
+	vigenciaPendientes := false
+	if raw := strings.TrimSpace(c.Query("vigencia_solo_pendientes")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "vigencia_solo_pendientes debe ser true o false")
+			return
+		}
+		vigenciaPendientes = value
+	}
+	if vigenciaPendientes && vigenteFecha == "" {
+		utils.RespondError(c, http.StatusBadRequest, "vigencia_solo_pendientes requiere vigente_fecha y vigente_hora")
+		return
+	}
 
 	filtro := services.FiltroReservasSimple{
 		Context:            c.Request.Context(),
@@ -513,8 +553,14 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		NumeroTelefono:     strings.TrimSpace(c.Query("numero_telefono")),
 		ServicioSolicitado: strings.TrimSpace(c.Query("servicio_solicitado")),
 		ServicioConfirmado: strings.TrimSpace(c.Query("servicio_confirmado")),
+		Busqueda:           strings.TrimSpace(c.Query("busqueda")),
 		Estado:             strings.TrimSpace(c.Query("estado")),
+		ExcluirEstado:      strings.TrimSpace(c.Query("excluir_estado")),
 		Tipo:               paramTipo,
+		VigenteFecha:       vigenteFecha,
+		VigenteHora:        vigenteHora,
+		VigenciaPendientes: vigenciaPendientes,
+		Orden:              orden,
 	}
 	if filtro.Estado != "" {
 		estado, err := services.NormalizarEstadoReserva(filtro.Estado)
@@ -523,6 +569,14 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 			return
 		}
 		filtro.Estado = estado
+	}
+	if filtro.ExcluirEstado != "" {
+		estado, err := services.NormalizarEstadoReserva(filtro.ExcluirEstado)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		filtro.ExcluirEstado = estado
 	}
 	page, ok := parsePagination(c)
 	if !ok {
@@ -535,7 +589,10 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 	filters := map[string]string{
 		"local": filtro.Local, "fecha": filtro.Fecha, "fecha_desde": filtro.FechaDesde, "fecha_hasta": filtro.FechaHasta,
 		"cliente": filtro.Cliente, "numero_telefono": filtro.NumeroTelefono, "servicio_solicitado": filtro.ServicioSolicitado,
-		"servicio_confirmado": filtro.ServicioConfirmado, "estado": filtro.Estado, "tipo": filtro.Tipo,
+		"servicio_confirmado": filtro.ServicioConfirmado, "busqueda": filtro.Busqueda,
+		"estado": filtro.Estado, "excluir_estado": filtro.ExcluirEstado, "tipo": filtro.Tipo,
+		"vigente_fecha": filtro.VigenteFecha, "vigente_hora": filtro.VigenteHora,
+		"vigencia_solo_pendientes": strconv.FormatBool(filtro.VigenciaPendientes), "orden": filtro.Orden,
 	}
 	var after reservationCursor
 	if !decodePaginationCursor(c, page, "reservas", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.Date.IsZero() || after.Time == "")) {

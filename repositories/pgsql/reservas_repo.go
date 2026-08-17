@@ -29,8 +29,13 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 	conditions, args := reservaConditions(f)
 	idx := len(args) + 1
 	if f.CursorSet {
-		conditions = append(conditions, fmt.Sprintf("(r.local_nombre, r.fecha, r.hora_desde, r.id) > ($%d, $%d, $%d, $%d)", idx, idx+1, idx+2, idx+3))
-		args = append(args, f.CursorLocal, f.CursorFecha, f.CursorHora, f.CursorID)
+		if f.OrdenCronologico {
+			conditions = append(conditions, fmt.Sprintf("(r.fecha, r.hora_desde, r.local_nombre, r.id) > ($%d, $%d, $%d, $%d)", idx, idx+1, idx+2, idx+3))
+			args = append(args, f.CursorFecha, f.CursorHora, f.CursorLocal, f.CursorID)
+		} else {
+			conditions = append(conditions, fmt.Sprintf("(r.local_nombre, r.fecha, r.hora_desde, r.id) > ($%d, $%d, $%d, $%d)", idx, idx+1, idx+2, idx+3))
+			args = append(args, f.CursorLocal, f.CursorFecha, f.CursorHora, f.CursorID)
+		}
 		idx += 4
 	}
 	limitClause := ""
@@ -49,8 +54,8 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
-		ORDER BY r.local_nombre, r.fecha, r.hora_desde, r.id%s
-	`, strings.Join(conditions, " AND "), limitClause)
+		ORDER BY %s%s
+	`, strings.Join(conditions, " AND "), reservaOrderClause(f), limitClause)
 
 	rows, err := r.db.QueryxContext(queryContext(f.Context), query, args...)
 	if err != nil {
@@ -74,6 +79,13 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 	}
 
 	return reservas, nil
+}
+
+func reservaOrderClause(f repository.FiltroReservasPG) string {
+	if f.OrdenCronologico {
+		return "r.fecha, r.hora_desde, r.local_nombre, r.id"
+	}
+	return "r.local_nombre, r.fecha, r.hora_desde, r.id"
 }
 
 func (r *ReservasRepo) CountReservas(f repository.FiltroReservasPG) (int, error) {
@@ -127,8 +139,17 @@ func reservaConditions(f repository.FiltroReservasPG) ([]string, []interface{}) 
 	if f.ServicioConfirmado != "" {
 		add("COALESCE(r.servicio_confirmado, '') ILIKE $%d", "%"+f.ServicioConfirmado+"%")
 	}
+	if f.Busqueda != "" {
+		add(`TRANSLATE(LOWER(CONCAT_WS(' ', r.id::text, r.cliente, r.numero_telefono, r.servicio_nombre,
+			COALESCE(r.servicio_solicitado, ''), COALESCE(r.servicio_confirmado, ''),
+			r.local_nombre, TO_CHAR(r.fecha, 'YYYY-MM-DD'))), 'áéíóúüñ', 'aeiouun')
+			LIKE TRANSLATE(LOWER($%d), 'áéíóúüñ', 'aeiouun')`, "%"+f.Busqueda+"%")
+	}
 	if f.Estado != "" {
 		add("r.estado = $%d", f.Estado)
+	}
+	if f.ExcluirEstado != "" {
+		add("r.estado <> $%d", f.ExcluirEstado)
 	}
 	if f.TipoEspacio != "" {
 		add("r.tipo_espacio = $%d", strings.ToUpper(f.TipoEspacio))
@@ -138,6 +159,15 @@ func reservaConditions(f repository.FiltroReservasPG) ([]string, []interface{}) 
 	}
 	if f.SoloActivas {
 		conditions = append(conditions, "r.activo = TRUE")
+	}
+	if f.VigenteFecha != nil && f.VigenteHora != "" {
+		idx := len(args) + 1
+		condition := fmt.Sprintf("(r.fecha > $%d OR (r.fecha = $%d AND r.hora_hasta >= $%d))", idx, idx, idx+1)
+		if f.VigenciaPendientes {
+			condition = "(r.estado <> 'PENDIENTE' OR " + condition + ")"
+		}
+		conditions = append(conditions, condition)
+		args = append(args, *f.VigenteFecha, f.VigenteHora)
 	}
 	return conditions, args
 }

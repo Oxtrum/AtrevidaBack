@@ -18,10 +18,16 @@ type FiltroReservasPG struct {
 	NumeroTelefono     string
 	ServicioSolicitado string
 	ServicioConfirmado string
+	Busqueda           string
 	Estado             string
+	ExcluirEstado      string
 	TipoEspacio        string
 	PlanID             *int
 	SoloActivas        bool
+	VigenteFecha       *time.Time
+	VigenteHora        string
+	VigenciaPendientes bool
+	OrdenCronologico   bool
 	PageLimit          int
 	CursorSet          bool
 	CursorLocal        string

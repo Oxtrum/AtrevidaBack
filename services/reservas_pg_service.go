@@ -546,8 +546,14 @@ type FiltroReservasSimple struct {
 	NumeroTelefono     string
 	ServicioSolicitado string
 	ServicioConfirmado string
+	Busqueda           string
 	Estado             string
+	ExcluirEstado      string
 	Tipo               string
+	VigenteFecha       string
+	VigenteHora        string
+	VigenciaPendientes bool
+	Orden              string
 	PageLimit          int
 	CursorSet          bool
 	CursorLocal        string
@@ -587,10 +593,13 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 		NumeroTelefono:     f.NumeroTelefono,
 		ServicioSolicitado: f.ServicioSolicitado,
 		ServicioConfirmado: f.ServicioConfirmado,
+		Busqueda:           f.Busqueda,
 		Estado:             f.Estado,
+		ExcluirEstado:      f.ExcluirEstado,
 		SoloActivas:        true,
 		PageLimit:          f.PageLimit, CursorSet: f.CursorSet, CursorLocal: f.CursorLocal,
 		CursorFecha: f.CursorFecha, CursorHora: f.CursorHora, CursorID: f.CursorID,
+		VigenciaPendientes: f.VigenciaPendientes, OrdenCronologico: f.Orden == "cronologico",
 	}
 	if f.Tipo != "" {
 		filtro.TipoEspacio = tipoNombreALetra(f.Tipo)
@@ -616,6 +625,19 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 		}
 		filtro.FechaHasta = &t
 	}
+	if f.VigenteFecha != "" {
+		t, err := time.Parse("2006-01-02", f.VigenteFecha)
+		if err != nil {
+			return nil, fmt.Errorf("formato de vigente_fecha invalido, use YYYY-MM-DD")
+		}
+		filtro.VigenteFecha = &t
+	}
+	if f.VigenteHora != "" {
+		if _, err := time.Parse("15:04", f.VigenteHora); err != nil {
+			return nil, fmt.Errorf("formato de vigente_hora invalido, use HH:MM")
+		}
+		filtro.VigenteHora = f.VigenteHora
+	}
 	reservas, err := s.repo.GetReservas(filtro)
 	if err != nil {
 		return nil, err
@@ -631,7 +653,9 @@ func (s *ReservasPGService) CountReservasSimple(f FiltroReservasSimple) (int, er
 	filtro := repository.FiltroReservasPG{
 		Context: f.Context, LocalNombre: f.Local, Cliente: f.Cliente,
 		NumeroTelefono: f.NumeroTelefono, ServicioSolicitado: f.ServicioSolicitado,
-		ServicioConfirmado: f.ServicioConfirmado, Estado: f.Estado, SoloActivas: true,
+		ServicioConfirmado: f.ServicioConfirmado, Busqueda: f.Busqueda,
+		Estado: f.Estado, ExcluirEstado: f.ExcluirEstado, SoloActivas: true,
+		VigenciaPendientes: f.VigenciaPendientes, OrdenCronologico: f.Orden == "cronologico",
 	}
 	if f.Tipo != "" {
 		filtro.TipoEspacio = tipoNombreALetra(f.Tipo)
@@ -655,6 +679,15 @@ func (s *ReservasPGService) CountReservasSimple(f FiltroReservasSimple) (int, er
 	}
 	if filtro.FechaHasta, err = parseDate(f.FechaHasta, "fecha_hasta"); err != nil {
 		return 0, err
+	}
+	if filtro.VigenteFecha, err = parseDate(f.VigenteFecha, "vigente_fecha"); err != nil {
+		return 0, err
+	}
+	if f.VigenteHora != "" {
+		if _, err = time.Parse("15:04", f.VigenteHora); err != nil {
+			return 0, fmt.Errorf("formato de vigente_hora invalido, use HH:MM")
+		}
+		filtro.VigenteHora = f.VigenteHora
 	}
 	return s.repo.CountReservas(filtro)
 }
