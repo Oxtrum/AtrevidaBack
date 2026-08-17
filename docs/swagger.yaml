@@ -1196,6 +1196,11 @@ definitions:
         description: 'Filtro aplicado: estado activo'
         example: true
         type: boolean
+      busqueda:
+        description: Filtro combinado aplicado sobre codigo, cliente, NIT, local y
+          cajero
+        example: Maria
+        type: string
       cliente_id:
         description: 'Filtro aplicado: ID del cliente'
         example: 12
@@ -1449,6 +1454,9 @@ definitions:
     type: object
   handlers.planFiltrosResponse:
     properties:
+      busqueda:
+        example: Maria Plan Relax
+        type: string
       cliente:
         example: Maria
         type: string
@@ -1470,6 +1478,9 @@ definitions:
       local_id:
         example: 1
         type: integer
+      orden:
+        example: prioridad_estado
+        type: string
     type: object
   handlers.planItemResponse:
     properties:
@@ -4934,6 +4945,11 @@ paths:
         name: Authorization
         required: true
         type: string
+      - description: Busqueda combinada por codigo, cliente, NIT, local o cajero
+        example: Maria
+        in: query
+        name: busqueda
+        type: string
       - description: Busqueda parcial por codigo de pago
         example: PAGO-000001
         in: query
@@ -5800,6 +5816,11 @@ paths:
         name: Authorization
         required: true
         type: string
+      - description: Busqueda combinada por codigo, cliente, local, combo o estado
+        example: Maria
+        in: query
+        name: busqueda
+        type: string
       - description: Busqueda parcial por nombre del cliente
         example: Maria
         in: query
@@ -5836,6 +5857,13 @@ paths:
         example: "2026-07-31"
         in: query
         name: fecha_hasta
+        type: string
+      - description: Orden opcional; prioridad_estado ordena RESERVADO, ACTIVO, COMPLETADO,
+          VENCIDO y CANCELADO
+        enum:
+        - prioridad_estado
+        in: query
+        name: orden
         type: string
       - description: Tamano de pagina opcional (1-100); sin limit ni cursor conserva
           modo legacy
@@ -6215,15 +6243,10 @@ paths:
       - Planes BD
   /bd/reservas:
     get:
-      description: 'Devuelve reservas en formato plano (sin agrupar por local). Filtros:
-        local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango
-        (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado
-        busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional),
-        estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta
-        (opcional). Response: total (int total de reservas), reservas ([]ReservaSimple
-        con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado,
-        numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio,
-        notas, notificado, creado_en, actualizado_en).'
+      description: Devuelve reservas en formato plano (sin agrupar por local). La
+        paginacion es opcional. Los filtros de busqueda y vigencia se aplican antes
+        de LIMIT y del conteo. `orden=cronologico` ordena por fecha, hora, local e
+        ID; sin ese parametro conserva el orden legacy por local.
       parameters:
       - description: Nombre del local
         example: SAN MARTIN
@@ -6265,6 +6288,12 @@ paths:
         in: query
         name: servicio_confirmado
         type: string
+      - description: Busqueda parcial por ID, cliente, telefono, servicio, local o
+          fecha
+        example: Maria
+        in: query
+        name: busqueda
+        type: string
       - description: Estado de la reserva
         enum:
         - PENDIENTE
@@ -6275,6 +6304,16 @@ paths:
         in: query
         name: estado
         type: string
+      - description: Estado que se excluye del resultado
+        enum:
+        - PENDIENTE
+        - RECHAZADO
+        - AGENDADO
+        - COMPLETADO
+        example: COMPLETADO
+        in: query
+        name: excluir_estado
+        type: string
       - description: Tipo de reserva
         enum:
         - mesa
@@ -6282,6 +6321,30 @@ paths:
         example: bicicleta
         in: query
         name: tipo
+        type: string
+      - description: Fecha local desde la que una reserva sigue vigente; requiere
+          vigente_hora
+        example: "2026-08-12"
+        in: query
+        name: vigente_fecha
+        type: string
+      - description: Hora local HH:MM desde la que una reserva sigue vigente; requiere
+          vigente_fecha
+        example: "15:30"
+        in: query
+        name: vigente_hora
+        type: string
+      - description: Aplica la vigencia solo a reservas PENDIENTE
+        example: false
+        in: query
+        name: vigencia_solo_pendientes
+        type: boolean
+      - description: Orden estable del listado
+        enum:
+        - cronologico
+        example: cronologico
+        in: query
+        name: orden
         type: string
       - description: Tamano de pagina opcional (1-100); sin limit ni cursor conserva
           modo legacy
@@ -6623,7 +6686,8 @@ paths:
                   $ref: '#/definitions/handlers.reservaCalendarioResponse'
               type: object
         "400":
-          description: 'Error de validacion: tipo invalido, estado invalido'
+          description: 'Error de validacion: tipo, estado, orden, vigencia, paginacion
+            o cursor invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":

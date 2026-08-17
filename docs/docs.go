@@ -3061,6 +3061,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "Maria",
+                        "description": "Busqueda combinada por codigo, cliente, NIT, local o cajero",
+                        "name": "busqueda",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "example": "PAGO-000001",
                         "description": "Busqueda parcial por codigo de pago",
                         "name": "codigo_pago",
@@ -4299,6 +4306,13 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "example": "Maria",
+                        "description": "Busqueda combinada por codigo, cliente, local, combo o estado",
+                        "name": "busqueda",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "Maria",
                         "description": "Busqueda parcial por nombre del cliente",
                         "name": "cliente",
                         "in": "query"
@@ -4343,6 +4357,15 @@ const docTemplate = `{
                         "example": "2026-07-31",
                         "description": "Fecha de creacion hasta (YYYY-MM-DD)",
                         "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "prioridad_estado"
+                        ],
+                        "type": "string",
+                        "description": "Orden opcional; prioridad_estado ordena RESERVADO, ACTIVO, COMPLETADO, VENCIDO y CANCELADO",
+                        "name": "orden",
                         "in": "query"
                     },
                     {
@@ -4908,7 +4931,7 @@ const docTemplate = `{
         },
         "/bd/reservas": {
             "get": {
-                "description": "Devuelve reservas en formato plano (sin agrupar por local). Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional). Response: total (int total de reservas), reservas ([]ReservaSimple con: id, local, tipo M/B, fecha, hora_desde, hora_hasta, cliente, estado, numero_telefono, servicio, servicio_solicitado, servicio_confirmado, precio, notas, notificado, creado_en, actualizado_en).",
+                "description": "Devuelve reservas en formato plano (sin agrupar por local). La paginacion es opcional. Los filtros de busqueda y vigencia se aplican antes de LIMIT y del conteo. ` + "`" + `orden=cronologico` + "`" + ` ordena por fecha, hora, local e ID; sin ese parametro conserva el orden legacy por local.",
                 "produces": [
                     "application/json"
                 ],
@@ -4974,6 +4997,13 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "example": "Maria",
+                        "description": "Busqueda parcial por ID, cliente, telefono, servicio, local o fecha",
+                        "name": "busqueda",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "PENDIENTE",
                             "RECHAZADO",
@@ -4988,6 +5018,19 @@ const docTemplate = `{
                     },
                     {
                         "enum": [
+                            "PENDIENTE",
+                            "RECHAZADO",
+                            "AGENDADO",
+                            "COMPLETADO"
+                        ],
+                        "type": "string",
+                        "example": "COMPLETADO",
+                        "description": "Estado que se excluye del resultado",
+                        "name": "excluir_estado",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
                             "mesa",
                             "bicicleta"
                         ],
@@ -4995,6 +5038,37 @@ const docTemplate = `{
                         "example": "bicicleta",
                         "description": "Tipo de reserva",
                         "name": "tipo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-08-12",
+                        "description": "Fecha local desde la que una reserva sigue vigente; requiere vigente_hora",
+                        "name": "vigente_fecha",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "15:30",
+                        "description": "Hora local HH:MM desde la que una reserva sigue vigente; requiere vigente_fecha",
+                        "name": "vigente_hora",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Aplica la vigencia solo a reservas PENDIENTE",
+                        "name": "vigencia_solo_pendientes",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "cronologico"
+                        ],
+                        "type": "string",
+                        "example": "cronologico",
+                        "description": "Orden estable del listado",
+                        "name": "orden",
                         "in": "query"
                     },
                     {
@@ -5312,7 +5386,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: tipo invalido, estado invalido",
+                        "description": "Error de validacion: tipo, estado, orden, vigencia, paginacion o cursor invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -8157,6 +8231,11 @@ const docTemplate = `{
                     "type": "boolean",
                     "example": true
                 },
+                "busqueda": {
+                    "description": "Filtro combinado aplicado sobre codigo, cliente, NIT, local y cajero",
+                    "type": "string",
+                    "example": "Maria"
+                },
                 "cliente_id": {
                     "description": "Filtro aplicado: ID del cliente",
                     "type": "integer",
@@ -8502,6 +8581,10 @@ const docTemplate = `{
         "handlers.planFiltrosResponse": {
             "type": "object",
             "properties": {
+                "busqueda": {
+                    "type": "string",
+                    "example": "Maria Plan Relax"
+                },
                 "cliente": {
                     "type": "string",
                     "example": "Maria"
@@ -8529,6 +8612,10 @@ const docTemplate = `{
                 "local_id": {
                     "type": "integer",
                     "example": 1
+                },
+                "orden": {
+                    "type": "string",
+                    "example": "prioridad_estado"
                 }
             }
         },
