@@ -205,6 +205,7 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 			strings.Contains(errLower, "requiere evaluaci") {
 			status = http.StatusBadRequest
 		} else if strings.Contains(errLower, "no hay espacios") ||
+			strings.Contains(errLower, "no hay ambientes") ||
 			strings.Contains(errLower, "no está disponible") ||
 			strings.Contains(errLower, "no estÃ¡ disponible") {
 			status = http.StatusConflict

@@ -687,26 +687,85 @@ func (r *ReservasRepo) validarCapacidad(
 		WHERE local_id = $1 AND tipo_espacio = $2
 	`, localID, tipo).Scan(&capacidad)
 	if err != nil {
-		return fmt.Errorf("el tipo '%s' no está disponible en este local", tipo)
+		// El texto "no está disponible" es el que el handler mapea a 409.
+		return fmt.Errorf(
+			"este servicio necesita %s, y esta sucursal no está disponible para ese tipo de ambiente. Elige otra sucursal u otro servicio",
+			nombreTipoEspacio(tipo, 2),
+		)
 	}
 
 	var ocupados int
-	err = tx.QueryRowx(`
-		SELECT COUNT(*) FROM reservas
-		WHERE local_id = $1 AND tipo_espacio = $2 AND fecha = $3
-		  AND activo = TRUE
-		  AND hora_desde < $5::time AND hora_hasta > $4::time
-		  AND id != $6
-	`, localID, tipo, fecha, horaDesde, horaHasta, excludeID).Scan(&ocupados)
+	err = tx.QueryRowx(consultaMaxConcurrencia(),
+		localID, tipo, fecha, horaDesde, horaHasta, excludeID).Scan(&ocupados)
 	if err != nil {
 		return fmt.Errorf("error al verificar disponibilidad: %w", err)
 	}
 
 	if ocupados >= capacidad {
-		return fmt.Errorf("No hay ambientes disponibles para este servicio en esa fecha y horario")
+		// El prefijo "No hay ambientes" es el que el handler mapea a 409: no
+		// cambiarlo sin ajustar también handlers/reservas_pg_handler.go.
+		return fmt.Errorf(
+			"No hay ambientes disponibles: %s de esta sucursal (%d en total) ya están ocupados en algún momento entre las %s y las %s del %s. Elige otro horario, acorta la duración o revisa la agenda del día",
+			nombreTipoEspacio(tipo, capacidad), capacidad,
+			horaCorta(horaDesde), horaCorta(horaHasta), fecha.Format("02/01/2006"),
+		)
 	}
 	return nil
 
+}
+
+// nombreTipoEspacio traduce el código guardado ('M'/'B') a algo legible para el
+// staff, concordando en número con la capacidad del local.
+func nombreTipoEspacio(tipo string, capacidad int) string {
+	singular, plural := "el ambiente", "los ambientes"
+	switch tipo {
+	case "M":
+		singular, plural = "la mesa", "las mesas"
+	case "B":
+		singular, plural = "la bicicleta", "las bicicletas"
+	}
+	if capacidad == 1 {
+		return singular
+	}
+	return plural
+}
+
+// horaCorta recorta los segundos que PostgreSQL agrega a las columnas TIME
+// ("15:00:00" → "15:00") para que el mensaje se lea natural.
+func horaCorta(hora string) string {
+	if len(hora) >= 5 {
+		return hora[:5]
+	}
+	return hora
+}
+
+// consultaMaxConcurrencia mide la concurrencia máxima de reservas activas en
+// cualquier instante dentro del rango [hora_desde, hora_hasta). Contar todas las
+// reservas que solapan el rango sobrestima la ocupación cuando sub-bloques
+// distintos están ocupados por reservas distintas (ej: 12:00-12:30 y 12:30-13:00
+// con capacidad 2): cada instante tiene 1 ocupada de 2 y una nueva de 60min
+// debería entrar. Se evalúa en cada instante relevante (inicio del rango pedido y
+// horarios de inicio de las reservas existentes que solapan) y se toma el máximo.
+func consultaMaxConcurrencia() string {
+	return `
+		SELECT COALESCE(MAX(depth), 0)
+		FROM (
+			SELECT (
+				SELECT COUNT(*)
+				FROM reservas r
+				WHERE r.local_id = $1 AND r.tipo_espacio = $2 AND r.fecha = $3
+				  AND r.activo = TRUE AND r.id != $6
+				  AND r.hora_desde <= t.instant AND r.hora_hasta > t.instant
+			) AS depth
+			FROM (
+				SELECT $4::time AS instant
+				UNION
+				SELECT hora_desde FROM reservas r2
+				WHERE r2.local_id = $1 AND r2.tipo_espacio = $2 AND r2.fecha = $3
+				  AND r2.activo = TRUE AND r2.id != $6
+				  AND r2.hora_desde < $5::time AND r2.hora_hasta > $4::time
+			) t
+		) s`
 }
 
 // BuildJerarquia (Derivado de la que se tenia )
