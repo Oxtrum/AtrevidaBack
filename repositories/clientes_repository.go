@@ -21,17 +21,20 @@ type CrearClienteInput struct {
 	Nombre         string
 	Apellido       string
 	NumeroTelefono string
+	TelefonoE164   *string
 	CI             string
 	NIT            string
 }
 
 type ActualizarClienteInput struct {
-	ID             int
-	Nombre         *string
-	Apellido       *string
-	NumeroTelefono *string
-	CI             *string
-	NIT            *string
+	ID              int
+	Nombre          *string
+	Apellido        *string
+	NumeroTelefono  *string
+	TelefonoE164    *string
+	TelefonoE164Set bool
+	CI              *string
+	NIT             *string
 }
 
 type ClientesRepository interface {

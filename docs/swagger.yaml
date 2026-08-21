@@ -47,6 +47,10 @@ definitions:
         description: Nuevo numero de telefono (opcional)
         example: "+59170011224"
         type: string
+      telefono_e164:
+        description: Nueva forma internacional E.164 opcional.
+        example: "+59170011224"
+        type: string
     type: object
   handlers.actualizarComboCatalogoRequest:
     properties:
@@ -309,6 +313,10 @@ definitions:
       nuevo_servicio_solicitado:
         description: Nuevo detalle de lo que solicito el cliente (opcional)
         example: Evaluacion corporal completa
+        type: string
+      nuevo_telefono_e164:
+        description: Nueva forma internacional E.164 opcional.
+        example: "+59170011224"
         type: string
       nuevo_tipo:
         description: 'Nuevo tipo de espacio: M (mesa) o B (bicicleta), opcional'
@@ -688,6 +696,10 @@ definitions:
         description: Numero de telefono del cliente
         example: "+59170011223"
         type: string
+      telefono_e164:
+        description: Forma internacional E.164 opcional; no reemplaza el campo legacy.
+        example: "+59170011223"
+        type: string
     type: object
   handlers.crearComboCatalogoRequest:
     properties:
@@ -947,6 +959,10 @@ definitions:
         description: 'Detalle de lo que solicito el cliente (ej: "Piernas completas").
           Si se omite, se copia de "servicio".'
         example: Piernas completas
+        type: string
+      telefono_e164:
+        description: Forma internacional E.164 opcional; no reemplaza el campo legacy.
+        example: "+59170011223"
         type: string
       tipo:
         description: 'Tipo de espacio: M (mesa) o B (bicicleta)'
@@ -1869,6 +1885,11 @@ definitions:
       numero_telefono:
         example: "+59170011223"
         type: string
+      telefono_e164:
+        description: TelefonoE164 es la forma internacional canónica opcional durante
+          la transición.
+        example: "+59170011223"
+        type: string
     type: object
   models.ComboCatalogoPG:
     properties:
@@ -2620,6 +2641,9 @@ definitions:
       servicio_solicitado:
         example: Piernas completas
         type: string
+      telefono_e164:
+        example: "+59170011223"
+        type: string
       tipo:
         example: M
         type: string
@@ -2882,6 +2906,9 @@ definitions:
         type: string
       servicio_solicitado:
         example: Piernas completas
+        type: string
+      telefono_e164:
+        example: "+59170011223"
         type: string
       tipo:
         example: M
@@ -3614,9 +3641,10 @@ paths:
     get:
       description: 'Devuelve clientes de BD con filtros. Filtros: nombre busqueda
         parcial (opcional), apellido busqueda parcial (opcional), numero_telefono
-        busqueda parcial (opcional). Response: total (int), filtros (objeto con nombre,
-        apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido,
-        numero_telefono, ci, nit).'
+        acepta formato nacional, internacional y separadores (opcional). Response:
+        total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes
+        ([]ClientePG con: id, nombre, apellido, numero_telefono, telefono_e164, ci,
+        nit).'
       parameters:
       - description: Busqueda parcial por nombre
         example: Maria
@@ -3628,7 +3656,7 @@ paths:
         in: query
         name: apellido
         type: string
-      - description: Busqueda parcial por numero de telefono
+      - description: Busqueda por telefono; acepta 70011223, 59170011223 o +591 700-11223
         example: "+59170011223"
         in: query
         name: numero_telefono
@@ -6273,7 +6301,7 @@ paths:
         in: query
         name: cliente
         type: string
-      - description: Numero de telefono
+      - description: Numero de telefono; acepta 70011223, 59170011223 o +591 700-11223
         example: "+59170011223"
         in: query
         name: numero_telefono
@@ -6635,7 +6663,7 @@ paths:
         in: query
         name: cliente
         type: string
-      - description: Numero de telefono
+      - description: Numero de telefono; acepta 70011223, 59170011223 o +591 700-11223
         example: "+59170011223"
         in: query
         name: numero_telefono

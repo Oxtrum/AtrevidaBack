@@ -48,7 +48,7 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 		SELECT
 			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre,
+			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
 			r.creado_en, r.actualizado_en
@@ -130,8 +130,8 @@ func reservaConditions(f repository.FiltroReservasPG) ([]string, []interface{}) 
 			last8 = last8[len(last8)-8:]
 		}
 		idx := len(args) + 1
-		conditions = append(conditions, fmt.Sprintf("(BTRIM(COALESCE(r.numero_telefono, '')) = BTRIM($%d) OR regexp_replace(COALESCE(r.numero_telefono, ''), '\\D', '', 'g') = $%d OR RIGHT(regexp_replace(COALESCE(r.numero_telefono, ''), '\\D', '', 'g'), 8) = $%d)", idx, idx+1, idx+2))
-		args = append(args, f.NumeroTelefono, digitos, last8)
+		conditions = append(conditions, fmt.Sprintf("(regexp_replace(COALESCE(r.telefono_e164, ''), '\\D', '', 'g') = $%d OR RIGHT(regexp_replace(COALESCE(r.telefono_e164, ''), '\\D', '', 'g'), 8) = $%d OR BTRIM(COALESCE(r.numero_telefono, '')) = BTRIM($%d) OR regexp_replace(COALESCE(r.numero_telefono, ''), '\\D', '', 'g') = $%d OR RIGHT(regexp_replace(COALESCE(r.numero_telefono, ''), '\\D', '', 'g'), 8) = $%d)", idx, idx+1, idx+2, idx+3, idx+4))
+		args = append(args, digitos, last8, f.NumeroTelefono, digitos, last8)
 	}
 	if f.ServicioSolicitado != "" {
 		add("COALESCE(r.servicio_solicitado, '') ILIKE $%d", "%"+f.ServicioSolicitado+"%")
@@ -140,7 +140,7 @@ func reservaConditions(f repository.FiltroReservasPG) ([]string, []interface{}) 
 		add("COALESCE(r.servicio_confirmado, '') ILIKE $%d", "%"+f.ServicioConfirmado+"%")
 	}
 	if f.Busqueda != "" {
-		add(`TRANSLATE(LOWER(CONCAT_WS(' ', r.id::text, r.cliente, r.numero_telefono, r.servicio_nombre,
+		add(`TRANSLATE(LOWER(CONCAT_WS(' ', r.id::text, r.cliente, r.numero_telefono, r.telefono_e164, r.servicio_nombre,
 			COALESCE(r.servicio_solicitado, ''), COALESCE(r.servicio_confirmado, ''),
 			r.local_nombre, TO_CHAR(r.fecha, 'YYYY-MM-DD'))), 'áéíóúüñ', 'aeiouun')
 			LIKE TRANSLATE(LOWER($%d), 'áéíóúüñ', 'aeiouun')`, "%"+f.Busqueda+"%")
@@ -185,7 +185,7 @@ func (r *ReservasRepo) GetReservasAgendadasNoNotificadas(ctx context.Context, lo
 	query := fmt.Sprintf(`
 		SELECT r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre,
+			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
 			r.creado_en, r.actualizado_en
@@ -207,7 +207,7 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 		SELECT
 			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.estado, r.numero_telefono, r.plan_id, r.servicio_nombre,
+			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
 			r.creado_en, r.actualizado_en
@@ -327,14 +327,14 @@ func (r *ReservasRepo) CreateReserva(input repository.CreateReservaInput) (int, 
 		INSERT INTO reservas (
 			local_id, local_nombre, tipo_espacio,
 			fecha, hora_desde, hora_hasta,
-			cliente, estado, numero_telefono, plan_id, servicio_nombre,
+			cliente, estado, numero_telefono, telefono_e164, plan_id, servicio_nombre,
 			servicio_solicitado, servicio_confirmado, precio, notas
-		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
 		RETURNING id
 	`,
 		localID, input.LocalNombre, strings.ToUpper(input.TipoEspacio),
 		input.Fecha, input.HoraDesde, input.HoraHasta,
-		input.Cliente, input.Estado, nullStr(input.NumeroTelefono), input.PlanID,
+		input.Cliente, input.Estado, nullStr(input.NumeroTelefono), input.TelefonoE164, input.PlanID,
 		nullStr(input.ServicioNombre), nullStr(input.ServicioSolicitado),
 		input.ServicioConfirmado, input.Precio, nullStr(input.Notas),
 	).Scan(&reservaID)
@@ -498,6 +498,11 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 	if input.NuevoNumeroTelefono != nil {
 		sets = append(sets, fmt.Sprintf("numero_telefono = $%d", idx))
 		args = append(args, *input.NuevoNumeroTelefono)
+		idx++
+	}
+	if input.NuevoTelefonoE164Set {
+		sets = append(sets, fmt.Sprintf("telefono_e164 = $%d", idx))
+		args = append(args, input.NuevoTelefonoE164)
 		idx++
 	}
 	if input.NuevoPrecio != nil {
@@ -819,6 +824,9 @@ func BuildJerarquia(reservas []models.ReservaPGCompleta) []models.LocalReservas 
 		}
 		if rv.NumeroTelefono != nil {
 			item.NumeroTelefono = *rv.NumeroTelefono
+		}
+		if rv.TelefonoE164 != nil {
+			item.TelefonoE164 = *rv.TelefonoE164
 		}
 
 		if localesMap[local] == nil {

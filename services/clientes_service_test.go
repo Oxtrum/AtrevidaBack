@@ -64,6 +64,23 @@ func TestCreateClienteRecortaEspaciosDeCIyNIT(t *testing.T) {
 	if repo.crearInput.Nombre != "Maria" {
 		t.Errorf("Nombre = %q, want %q", repo.crearInput.Nombre, "Maria")
 	}
+	if repo.crearInput.TelefonoE164 == nil || *repo.crearInput.TelefonoE164 != "+59170011223" {
+		t.Errorf("TelefonoE164 = %v, want +59170011223", repo.crearInput.TelefonoE164)
+	}
+}
+
+func TestCreateClienteAceptaE164Explicito(t *testing.T) {
+	repo := &fakeClientesRepo{}
+	service := NewClientesService(repo)
+	e164 := "+5491123456789"
+	if _, err := service.CreateCliente(CrearClienteInput{
+		Nombre: "Ana", Apellido: "Perez", NumeroTelefono: "1123456789", TelefonoE164: &e164,
+	}); err != nil {
+		t.Fatalf("CreateCliente() error = %v", err)
+	}
+	if repo.crearInput.TelefonoE164 == nil || *repo.crearInput.TelefonoE164 != e164 {
+		t.Fatalf("TelefonoE164 = %v, want %q", repo.crearInput.TelefonoE164, e164)
+	}
 }
 
 func TestUpdateClientePermiteVaciarElNIT(t *testing.T) {
@@ -82,5 +99,20 @@ func TestUpdateClientePermiteVaciarElNIT(t *testing.T) {
 	}
 	if repo.actualizarInput.CI != nil {
 		t.Errorf("CI = %v, want nil (no se envio)", repo.actualizarInput.CI)
+	}
+}
+
+func TestUpdateClienteLegacyNoNormalizableLimpiaE164(t *testing.T) {
+	repo := &fakeClientesRepo{}
+	service := NewClientesService(repo)
+	legacy := "1234567"
+	if err := service.UpdateCliente(ActualizarClienteInput{ID: 3, NumeroTelefono: &legacy}); err != nil {
+		t.Fatalf("UpdateCliente() error = %v", err)
+	}
+	if !repo.actualizarInput.TelefonoE164Set {
+		t.Fatal("TelefonoE164Set = false, want true")
+	}
+	if repo.actualizarInput.TelefonoE164 != nil {
+		t.Fatalf("TelefonoE164 = %v, want nil", *repo.actualizarInput.TelefonoE164)
 	}
 }

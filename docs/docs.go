@@ -1064,7 +1064,7 @@ const docTemplate = `{
         },
         "/bd/clientes": {
             "get": {
-                "description": "Devuelve clientes de BD con filtros. Filtros: nombre busqueda parcial (opcional), apellido busqueda parcial (opcional), numero_telefono busqueda parcial (opcional). Response: total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido, numero_telefono, ci, nit).",
+                "description": "Devuelve clientes de BD con filtros. Filtros: nombre busqueda parcial (opcional), apellido busqueda parcial (opcional), numero_telefono acepta formato nacional, internacional y separadores (opcional). Response: total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido, numero_telefono, telefono_e164, ci, nit).",
                 "produces": [
                     "application/json"
                 ],
@@ -1090,7 +1090,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "example": "+59170011223",
-                        "description": "Busqueda parcial por numero de telefono",
+                        "description": "Busqueda por telefono; acepta 70011223, 59170011223 o +591 700-11223",
                         "name": "numero_telefono",
                         "in": "query"
                     },
@@ -4978,7 +4978,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "example": "+59170011223",
-                        "description": "Numero de telefono",
+                        "description": "Numero de telefono; acepta 70011223, 59170011223 o +591 700-11223",
                         "name": "numero_telefono",
                         "in": "query"
                     },
@@ -5316,7 +5316,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "example": "+59170011223",
-                        "description": "Numero de telefono",
+                        "description": "Numero de telefono; acepta 70011223, 59170011223 o +591 700-11223",
                         "name": "numero_telefono",
                         "in": "query"
                     },
@@ -6712,6 +6712,11 @@ const docTemplate = `{
                     "description": "Nuevo numero de telefono (opcional)",
                     "type": "string",
                     "example": "+59170011224"
+                },
+                "telefono_e164": {
+                    "description": "Nueva forma internacional E.164 opcional.",
+                    "type": "string",
+                    "example": "+59170011224"
                 }
             }
         },
@@ -7053,6 +7058,11 @@ const docTemplate = `{
                     "description": "Nuevo detalle de lo que solicito el cliente (opcional)",
                     "type": "string",
                     "example": "Evaluacion corporal completa"
+                },
+                "nuevo_telefono_e164": {
+                    "description": "Nueva forma internacional E.164 opcional.",
+                    "type": "string",
+                    "example": "+59170011224"
                 },
                 "nuevo_tipo": {
                     "description": "Nuevo tipo de espacio: M (mesa) o B (bicicleta), opcional",
@@ -7561,6 +7571,11 @@ const docTemplate = `{
                     "description": "Numero de telefono del cliente",
                     "type": "string",
                     "example": "+59170011223"
+                },
+                "telefono_e164": {
+                    "description": "Forma internacional E.164 opcional; no reemplaza el campo legacy.",
+                    "type": "string",
+                    "example": "+59170011223"
                 }
             }
         },
@@ -7900,6 +7915,11 @@ const docTemplate = `{
                     "description": "Detalle de lo que solicito el cliente (ej: \"Piernas completas\"). Si se omite, se copia de \"servicio\".",
                     "type": "string",
                     "example": "Piernas completas"
+                },
+                "telefono_e164": {
+                    "description": "Forma internacional E.164 opcional; no reemplaza el campo legacy.",
+                    "type": "string",
+                    "example": "+59170011223"
                 },
                 "tipo": {
                     "description": "Tipo de espacio: M (mesa) o B (bicicleta)",
@@ -9147,6 +9167,11 @@ const docTemplate = `{
                 "numero_telefono": {
                     "type": "string",
                     "example": "+59170011223"
+                },
+                "telefono_e164": {
+                    "description": "TelefonoE164 es la forma internacional canónica opcional durante la transición.",
+                    "type": "string",
+                    "example": "+59170011223"
                 }
             }
         },
@@ -10152,6 +10177,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Piernas completas"
                 },
+                "telefono_e164": {
+                    "type": "string",
+                    "example": "+59170011223"
+                },
                 "tipo": {
                     "type": "string",
                     "example": "M"
@@ -10512,6 +10541,10 @@ const docTemplate = `{
                 "servicio_solicitado": {
                     "type": "string",
                     "example": "Piernas completas"
+                },
+                "telefono_e164": {
+                    "type": "string",
+                    "example": "+59170011223"
                 },
                 "tipo": {
                     "type": "string",

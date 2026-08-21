@@ -20,6 +20,8 @@ type crearClienteRequest struct {
 	Apellido string `json:"apellido" example:"Lopez"`
 	// Numero de telefono del cliente
 	NumeroTelefono string `json:"numero_telefono" example:"+59170011223"`
+	// Forma internacional E.164 opcional; no reemplaza el campo legacy.
+	TelefonoE164 *string `json:"telefono_e164,omitempty" example:"+59170011223"`
 	// Cedula de identidad del cliente (opcional)
 	CI string `json:"ci" example:"8765432"`
 	// NIT de facturacion por defecto del cliente (opcional)
@@ -33,6 +35,8 @@ type actualizarClienteRequest struct {
 	Apellido *string `json:"apellido" example:"Lopez Aguilar"`
 	// Nuevo numero de telefono (opcional)
 	NumeroTelefono *string `json:"numero_telefono" example:"+59170011224"`
+	// Nueva forma internacional E.164 opcional.
+	TelefonoE164 *string `json:"telefono_e164,omitempty" example:"+59170011224"`
 	// Nueva cedula de identidad (opcional; cadena vacia la borra)
 	CI *string `json:"ci" example:"8765432"`
 	// Nuevo NIT de facturacion (opcional; cadena vacia lo borra)
@@ -41,12 +45,12 @@ type actualizarClienteRequest struct {
 
 // GetClientes godoc
 // @Summary Listar clientes
-// @Description Devuelve clientes de BD con filtros. Filtros: nombre busqueda parcial (opcional), apellido busqueda parcial (opcional), numero_telefono busqueda parcial (opcional). Response: total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido, numero_telefono, ci, nit).
+// @Description Devuelve clientes de BD con filtros. Filtros: nombre busqueda parcial (opcional), apellido busqueda parcial (opcional), numero_telefono acepta formato nacional, internacional y separadores (opcional). Response: total (int), filtros (objeto con nombre, apellido, numero_telefono), clientes ([]ClientePG con: id, nombre, apellido, numero_telefono, telefono_e164, ci, nit).
 // @Tags Clientes
 // @Produce json
 // @Param nombre query string false "Busqueda parcial por nombre" example(Maria)
 // @Param apellido query string false "Busqueda parcial por apellido" example(Lopez)
-// @Param numero_telefono query string false "Busqueda parcial por numero de telefono" example(+59170011223)
+// @Param numero_telefono query string false "Busqueda por telefono; acepta 70011223, 59170011223 o +591 700-11223" example(+59170011223)
 // @Param busqueda query string false "Busqueda parcial por nombre, apellido o telefono" example(Maria Lopez)
 // @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
 // @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
@@ -182,14 +186,17 @@ func (h *Container) CreateCliente(c *gin.Context) {
 	id, err := h.ClientesPG.CreateCliente(services.CrearClienteInput{
 		Nombre:         req.Nombre,
 		Apellido:       req.Apellido,
-		NumeroTelefono: req.NumeroTelefono,
-		CI:             req.CI,
-		NIT:            req.NIT,
+		NumeroTelefono: req.NumeroTelefono, TelefonoE164: req.TelefonoE164,
+		CI:  req.CI,
+		NIT: req.NIT,
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
-		if strings.Contains(strings.ToLower(err.Error()), "ya existe") {
+		lower := strings.ToLower(err.Error())
+		if strings.Contains(lower, "ya existe") {
 			status = http.StatusConflict
+		} else if strings.Contains(lower, "telefono_e164") {
+			status = http.StatusBadRequest
 		}
 		utils.RespondError(c, status, err.Error())
 		return
@@ -225,7 +232,7 @@ func (h *Container) PatchCliente(c *gin.Context) {
 		return
 	}
 
-	if req.Nombre == nil && req.Apellido == nil && req.NumeroTelefono == nil &&
+	if req.Nombre == nil && req.Apellido == nil && req.NumeroTelefono == nil && req.TelefonoE164 == nil &&
 		req.CI == nil && req.NIT == nil {
 		utils.RespondError(c, http.StatusBadRequest, "debe especificarse al menos un campo a modificar")
 		return
@@ -248,9 +255,9 @@ func (h *Container) PatchCliente(c *gin.Context) {
 		ID:             id,
 		Nombre:         req.Nombre,
 		Apellido:       req.Apellido,
-		NumeroTelefono: req.NumeroTelefono,
-		CI:             req.CI,
-		NIT:            req.NIT,
+		NumeroTelefono: req.NumeroTelefono, TelefonoE164: req.TelefonoE164,
+		CI:  req.CI,
+		NIT: req.NIT,
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -262,6 +269,9 @@ func (h *Container) PatchCliente(c *gin.Context) {
 			status = http.StatusConflict
 		}
 		if strings.Contains(lower, "debe especificarse") {
+			status = http.StatusBadRequest
+		}
+		if strings.Contains(lower, "telefono_e164") {
 			status = http.StatusBadRequest
 		}
 		utils.RespondError(c, status, err.Error())

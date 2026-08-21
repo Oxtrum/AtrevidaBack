@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"atrevida-agenda-api/internal/telefono"
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
 )
@@ -57,15 +58,21 @@ type CrearClienteInput struct {
 	Nombre         string
 	Apellido       string
 	NumeroTelefono string
+	TelefonoE164   *string
 	CI             string
 	NIT            string
 }
 
 func (s *ClientesService) CreateCliente(input CrearClienteInput) (int, error) {
+	e164, err := telefono.ResolveE164(input.NumeroTelefono, input.TelefonoE164)
+	if err != nil {
+		return 0, err
+	}
 	return s.repo.CreateCliente(repository.CrearClienteInput{
 		Nombre:         strings.TrimSpace(input.Nombre),
 		Apellido:       strings.TrimSpace(input.Apellido),
 		NumeroTelefono: strings.TrimSpace(input.NumeroTelefono),
+		TelefonoE164:   e164,
 		CI:             strings.TrimSpace(input.CI),
 		NIT:            strings.TrimSpace(input.NIT),
 	})
@@ -76,6 +83,7 @@ type ActualizarClienteInput struct {
 	Nombre         *string
 	Apellido       *string
 	NumeroTelefono *string
+	TelefonoE164   *string
 	CI             *string
 	NIT            *string
 }
@@ -89,13 +97,31 @@ func (s *ClientesService) UpdateCliente(input ActualizarClienteInput) error {
 		return &recortado
 	}
 
+	var e164 *string
+	e164Set := false
+	if input.TelefonoE164 != nil {
+		value, err := telefono.NormalizeE164(*input.TelefonoE164)
+		if err != nil {
+			return err
+		}
+		e164 = &value
+		e164Set = true
+	} else if input.NumeroTelefono != nil {
+		e164Set = true
+		if value, ok := telefono.TryNormalizeLegacy(*input.NumeroTelefono); ok {
+			e164 = &value
+		}
+	}
+
 	return s.repo.UpdateCliente(repository.ActualizarClienteInput{
-		ID:             input.ID,
-		Nombre:         trim(input.Nombre),
-		Apellido:       trim(input.Apellido),
-		NumeroTelefono: trim(input.NumeroTelefono),
-		CI:             trim(input.CI),
-		NIT:            trim(input.NIT),
+		ID:              input.ID,
+		Nombre:          trim(input.Nombre),
+		Apellido:        trim(input.Apellido),
+		NumeroTelefono:  trim(input.NumeroTelefono),
+		TelefonoE164:    e164,
+		TelefonoE164Set: e164Set,
+		CI:              trim(input.CI),
+		NIT:             trim(input.NIT),
 	})
 }
 

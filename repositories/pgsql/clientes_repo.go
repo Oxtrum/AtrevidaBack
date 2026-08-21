@@ -38,7 +38,7 @@ func (r *ClientesRepo) GetClientes(filtro repository.FiltroClientes) ([]models.C
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, nombre, apellido, numero_telefono,
+		SELECT id, nombre, apellido, numero_telefono, telefono_e164,
 		       COALESCE(ci, '') AS ci, COALESCE(nit, '') AS nit
 		FROM clientes
 		WHERE %s
@@ -78,20 +78,48 @@ func clienteFilterConditions(filtro repository.FiltroClientes) ([]string, []inte
 	}
 	addLike("nombre", filtro.Nombre)
 	addLike("apellido", filtro.Apellido)
-	addLike("numero_telefono", filtro.NumeroTelefono)
+	if filtro.NumeroTelefono != "" {
+		digitos := soloDigitosCliente(filtro.NumeroTelefono)
+		if digitos != "" {
+			ultimos := digitos
+			if len(ultimos) > 8 {
+				ultimos = ultimos[len(ultimos)-8:]
+			}
+			idx := len(args) + 1
+			// `telefono_e164` es la fuente canónica. La comparación por últimos
+			// dígitos mantiene la búsqueda con el formato boliviano histórico.
+			conditions = append(conditions, fmt.Sprintf(`(
+				regexp_replace(COALESCE(telefono_e164, ''), '\D', '', 'g') = $%d
+				OR RIGHT(regexp_replace(COALESCE(telefono_e164, ''), '\D', '', 'g'), 8) = $%d
+				OR regexp_replace(numero_telefono, '\D', '', 'g') = $%d
+				OR RIGHT(regexp_replace(numero_telefono, '\D', '', 'g'), 8) = $%d
+			)`, idx, idx+1, idx+2, idx+3))
+			args = append(args, digitos, ultimos, digitos, ultimos)
+		}
+	}
 	if filtro.Busqueda != "" {
 		idx := len(args) + 1
-		conditions = append(conditions, fmt.Sprintf("(nombre ILIKE $%d OR apellido ILIKE $%d OR (nombre || ' ' || apellido) ILIKE $%d OR numero_telefono ILIKE $%d)", idx, idx, idx, idx))
+		conditions = append(conditions, fmt.Sprintf("(nombre ILIKE $%d OR apellido ILIKE $%d OR (nombre || ' ' || apellido) ILIKE $%d OR numero_telefono ILIKE $%d OR COALESCE(telefono_e164, '') ILIKE $%d)", idx, idx, idx, idx, idx))
 		args = append(args, "%"+filtro.Busqueda+"%")
 	}
 	return conditions, args
+}
+
+func soloDigitosCliente(raw string) string {
+	var b strings.Builder
+	for _, r := range raw {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func (r *ClientesRepo) GetClienteByID(id int) (*models.ClientePG, error) {
 	var cliente models.ClientePG
 
 	err := r.db.Get(&cliente, `
-		SELECT id, nombre, apellido, numero_telefono,
+		SELECT id, nombre, apellido, numero_telefono, telefono_e164,
 		       COALESCE(ci, '') AS ci, COALESCE(nit, '') AS nit
 		FROM clientes
 		WHERE id = $1
@@ -112,10 +140,10 @@ func (r *ClientesRepo) CreateCliente(input repository.CrearClienteInput) (int, e
 	// NULLIF: una cadena vacia se guarda como NULL, no como ''. Asi la columna
 	// distingue "no registrado" de "registrado en blanco".
 	err := r.db.QueryRowx(`
-		INSERT INTO clientes (nombre, apellido, numero_telefono, ci, nit)
-		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''))
+		INSERT INTO clientes (nombre, apellido, numero_telefono, telefono_e164, ci, nit)
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''))
 		RETURNING id
-	`, input.Nombre, input.Apellido, input.NumeroTelefono, input.CI, input.NIT).Scan(&clienteID)
+	`, input.Nombre, input.Apellido, input.NumeroTelefono, input.TelefonoE164, input.CI, input.NIT).Scan(&clienteID)
 	if err != nil {
 		if esUniqueClientesError(err) {
 			return 0, fmt.Errorf("ya existe un cliente con ese nombre, apellido y numero de telefono")
@@ -144,6 +172,11 @@ func (r *ClientesRepo) UpdateCliente(input repository.ActualizarClienteInput) er
 	if input.NumeroTelefono != nil {
 		sets = append(sets, fmt.Sprintf("numero_telefono = $%d", idx))
 		args = append(args, *input.NumeroTelefono)
+		idx++
+	}
+	if input.TelefonoE164Set {
+		sets = append(sets, fmt.Sprintf("telefono_e164 = $%d", idx))
+		args = append(args, input.TelefonoE164)
 		idx++
 	}
 	if input.CI != nil {

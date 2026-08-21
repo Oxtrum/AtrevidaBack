@@ -47,6 +47,8 @@ type ClientePG struct {
 	Nombre         string `db:"nombre" json:"nombre" example:"Maria"`
 	Apellido       string `db:"apellido" json:"apellido" example:"Lopez"`
 	NumeroTelefono string `db:"numero_telefono" json:"numero_telefono" example:"+59170011223"`
+	// TelefonoE164 es la forma internacional canónica opcional durante la transición.
+	TelefonoE164 *string `db:"telefono_e164" json:"telefono_e164,omitempty" example:"+59170011223"`
 	// Cedula de identidad del cliente; vacia si no se registro.
 	CI string `db:"ci" json:"ci" example:"8765432"`
 	// NIT de facturacion por defecto del cliente; vacio si no se registro.
@@ -280,6 +282,7 @@ type ReservaPG struct {
 	Cliente            string    `db:"cliente"`
 	Estado             *string   `db:"estado"`
 	NumeroTelefono     *string   `db:"numero_telefono"`
+	TelefonoE164       *string   `db:"telefono_e164"`
 	PlanID             *int      `db:"plan_id"`
 	ServicioNombre     *string   `db:"servicio_nombre"`
 	ServicioSolicitado *string   `db:"servicio_solicitado"`

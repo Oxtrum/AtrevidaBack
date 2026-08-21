@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"atrevida-agenda-api/internal/telefono"
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
@@ -495,6 +496,7 @@ type ReservaSimple struct {
 	Cliente            string   `json:"cliente" example:"Maria Lopez"`
 	Estado             *string  `json:"estado,omitempty" example:"AGENDADO"`
 	NumeroTelefono     *string  `json:"numero_telefono,omitempty" example:"+59170011223"`
+	TelefonoE164       *string  `json:"telefono_e164,omitempty" example:"+59170011223"`
 	PlanID             *int     `json:"plan_id,omitempty" example:"21"`
 	Servicio           *string  `json:"servicio,omitempty" example:"Depilacion Laser"`
 	ServicioSolicitado *string  `json:"servicio_solicitado,omitempty" example:"Piernas completas"`
@@ -703,6 +705,7 @@ func reservaSimpleDesdePG(rv models.ReservaPGCompleta) ReservaSimple {
 		Cliente:            rv.Cliente,
 		Estado:             rv.Estado,
 		NumeroTelefono:     rv.NumeroTelefono,
+		TelefonoE164:       rv.TelefonoE164,
 		PlanID:             rv.PlanID,
 		Servicio:           rv.ServicioNombre,
 		ServicioSolicitado: rv.ServicioSolicitado,
@@ -738,6 +741,7 @@ func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple
 		Cliente:            rv.Cliente,
 		Estado:             rv.Estado,
 		NumeroTelefono:     rv.NumeroTelefono,
+		TelefonoE164:       rv.TelefonoE164,
 		PlanID:             rv.PlanID,
 		Servicio:           rv.ServicioNombre,
 		ServicioSolicitado: rv.ServicioSolicitado,
@@ -929,6 +933,7 @@ type CrearReservaPGInput struct {
 	Tipo               string
 	Cliente            string
 	Telefono           string
+	TelefonoE164       *string
 	Estado             string
 	ServicioID         *int
 	Servicio           string
@@ -940,6 +945,10 @@ type CrearReservaPGInput struct {
 }
 
 func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error) {
+	telefonoE164, err := telefono.ResolveE164(input.Telefono, input.TelefonoE164)
+	if err != nil {
+		return 0, err
+	}
 	fecha, err := time.Parse("2006-01-02", input.Fecha)
 	if err != nil {
 		return 0, fmt.Errorf("formato de fecha inválido, use YYYY-MM-DD")
@@ -1057,6 +1066,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		Cliente:            input.Cliente,
 		Estado:             estadoFinal,
 		NumeroTelefono:     input.Telefono,
+		TelefonoE164:       telefonoE164,
 		ServicioNombre:     input.Servicio,
 		ServicioSolicitado: input.ServicioSolicitado,
 		ServicioConfirmado: input.ServicioConfirmado,
@@ -1206,6 +1216,7 @@ type ActualizarReservaPGInput struct {
 	NuevoTipo               string
 	NuevoCliente            string
 	NuevoNumeroTelefono     string
+	NuevoTelefonoE164       *string
 	NuevoServicio           string
 	NuevoServicioSolicitado string
 	NuevoServicioConfirmado string
@@ -1251,6 +1262,19 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 
 	if input.NuevoNumeroTelefono != "" {
 		upd.NuevoNumeroTelefono = &input.NuevoNumeroTelefono
+	}
+	if input.NuevoTelefonoE164 != nil {
+		value, err := telefono.NormalizeE164(*input.NuevoTelefonoE164)
+		if err != nil {
+			return err
+		}
+		upd.NuevoTelefonoE164 = &value
+		upd.NuevoTelefonoE164Set = true
+	} else if input.NuevoNumeroTelefono != "" {
+		upd.NuevoTelefonoE164Set = true
+		if value, ok := telefono.TryNormalizeLegacy(input.NuevoNumeroTelefono); ok {
+			upd.NuevoTelefonoE164 = &value
+		}
 	}
 
 	if input.NuevoCliente != "" {

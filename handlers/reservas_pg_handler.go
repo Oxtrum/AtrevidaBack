@@ -30,7 +30,7 @@ const allowEstadoOverrideTemporal = true
 // @Param fecha_desde query string false "Fecha inicio rango YYYY-MM-DD" example(2026-05-19)
 // @Param fecha_hasta query string false "Fecha fin rango YYYY-MM-DD" example(2026-05-24)
 // @Param cliente query string false "Nombre del cliente" example(Maria Lopez)
-// @Param numero_telefono query string false "Numero de telefono" example(+59170011223)
+// @Param numero_telefono query string false "Numero de telefono; acepta 70011223, 59170011223 o +591 700-11223" example(+59170011223)
 // @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado" example(depilacion)
 // @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado" example(depilacion laser piernas)
 // @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(AGENDADO)
@@ -121,6 +121,8 @@ type crearReservaPGRequest struct {
 	Cliente string `json:"cliente" binding:"required" example:"Maria Lopez"`
 	// Numero de telefono del cliente
 	NumeroTelefono string `json:"numero_telefono" binding:"required" example:"+59170011223"`
+	// Forma internacional E.164 opcional; no reemplaza el campo legacy.
+	TelefonoE164 *string `json:"telefono_e164,omitempty" example:"+59170011223"`
 	// Estado inicial: PENDIENTE (default), AGENDADO
 	Estado string `json:"estado" example:"PENDIENTE"`
 	// ID del servicio seleccionado en BD. Si se envia, se usa para validar si requiere evaluacion.
@@ -174,13 +176,13 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 	}
 
 	id, err := h.ReservasPG.CrearReserva(services.CrearReservaPGInput{
-		Local:              strings.TrimSpace(req.Local),
-		Fecha:              strings.TrimSpace(req.Fecha),
-		HoraDesde:          strings.TrimSpace(req.HoraDesde),
-		HoraHasta:          strings.TrimSpace(req.HoraHasta),
-		Tipo:               tipoNorm,
-		Cliente:            strings.TrimSpace(req.Cliente),
-		Telefono:           telefono,
+		Local:     strings.TrimSpace(req.Local),
+		Fecha:     strings.TrimSpace(req.Fecha),
+		HoraDesde: strings.TrimSpace(req.HoraDesde),
+		HoraHasta: strings.TrimSpace(req.HoraHasta),
+		Tipo:      tipoNorm,
+		Cliente:   strings.TrimSpace(req.Cliente),
+		Telefono:  telefono, TelefonoE164: req.TelefonoE164,
 		Estado:             estadoFinal,
 		ServicioID:         req.ServicioID,
 		Servicio:           strings.TrimSpace(req.Servicio),
@@ -195,6 +197,7 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		status := http.StatusInternalServerError
 		errLower := strings.ToLower(err.Error())
 		if strings.Contains(errLower, "horario fuera de atenci") ||
+			strings.Contains(errLower, "telefono_e164") ||
 			strings.Contains(errLower, "hora_desde") ||
 			strings.Contains(errLower, "hora_hasta") ||
 			strings.Contains(errLower, "formato de fecha") ||
@@ -306,8 +309,8 @@ func normalizarTelefono(raw string) (string, error) {
 	if telefono == "" {
 		return "", errors.New("numero_telefono es requerido")
 	}
-	if len(telefono) > 13 {
-		return "", errors.New("numero_telefono no puede exceder 13 caracteres")
+	if len(telefono) > 20 {
+		return "", errors.New("numero_telefono no puede exceder 20 caracteres")
 	}
 	if !telefonoRegex.MatchString(telefono) {
 		return "", errors.New("numero_telefono solo puede contener digitos y un '+' inicial")
@@ -484,7 +487,7 @@ func float64Ptr(v float64) *float64 {
 // @Param fecha_desde query string false "Fecha inicio rango YYYY-MM-DD" example(2026-05-19)
 // @Param fecha_hasta query string false "Fecha fin rango YYYY-MM-DD" example(2026-05-24)
 // @Param cliente query string false "Nombre del cliente" example(Maria Lopez)
-// @Param numero_telefono query string false "Numero de telefono" example(+59170011223)
+// @Param numero_telefono query string false "Numero de telefono; acepta 70011223, 59170011223 o +591 700-11223" example(+59170011223)
 // @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado" example(depilacion)
 // @Param servicio_confirmado query string false "Busqueda parcial por servicio confirmado" example(depilacion laser piernas)
 // @Param busqueda query string false "Busqueda parcial por ID, cliente, telefono, servicio, local o fecha" example(Maria)
@@ -695,6 +698,8 @@ type actualizarReservaPGRequest struct {
 	NuevoTipo string `json:"nuevo_tipo" example:"B"`
 	// Nuevo numero de telefono, opcional
 	NuevoNumeroTelefono string `json:"nuevo_numero_telefono" example:"+59170011224"`
+	// Nueva forma internacional E.164 opcional.
+	NuevoTelefonoE164 *string `json:"nuevo_telefono_e164,omitempty" example:"+59170011224"`
 	// Nuevo nombre del servicio principal (opcional)
 	NuevoServicio string `json:"nuevo_servicio" example:"Evaluacion corporal"`
 	// Nuevo detalle de lo que solicito el cliente (opcional)
@@ -765,7 +770,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 	}
 
 	if req.NuevaFecha == "" && req.NuevaHoraDesde == "" && req.NuevaHoraHasta == "" && nuevoTipoNorm == "" &&
-		nuevoTelefono == "" && req.NuevoServicio == "" && req.NuevoServicioSolicitado == "" &&
+		nuevoTelefono == "" && req.NuevoTelefonoE164 == nil && req.NuevoServicio == "" && req.NuevoServicioSolicitado == "" &&
 		req.NuevoServicioConfirmado == "" && req.NuevoPrecio == nil && req.NuevasNotas == "" &&
 		strings.TrimSpace(req.NuevoCliente) == "" && strings.TrimSpace(req.NuevoLocal) == "" &&
 		req.NuevoPlanID == nil && !req.LimpiarPlanID {
@@ -774,14 +779,14 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 	}
 
 	err := h.ReservasPG.ActualizarReserva(services.ActualizarReservaPGInput{
-		Id:                      id,
-		Local:                   req.Local,
-		NuevaFecha:              req.NuevaFecha,
-		NuevaHoraDesde:          req.NuevaHoraDesde,
-		NuevaHoraHasta:          req.NuevaHoraHasta,
-		NuevoTipo:               nuevoTipoNorm,
-		NuevoCliente:            req.NuevoCliente,
-		NuevoNumeroTelefono:     nuevoTelefono,
+		Id:                  id,
+		Local:               req.Local,
+		NuevaFecha:          req.NuevaFecha,
+		NuevaHoraDesde:      req.NuevaHoraDesde,
+		NuevaHoraHasta:      req.NuevaHoraHasta,
+		NuevoTipo:           nuevoTipoNorm,
+		NuevoCliente:        req.NuevoCliente,
+		NuevoNumeroTelefono: nuevoTelefono, NuevoTelefonoE164: req.NuevoTelefonoE164,
 		NuevoServicio:           req.NuevoServicio,
 		NuevoServicioSolicitado: req.NuevoServicioSolicitado,
 		NuevoServicioConfirmado: req.NuevoServicioConfirmado,
@@ -806,6 +811,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 			return
 		}
 		if strings.Contains(errLower, "no está disponible en este local") ||
+			strings.Contains(errLower, "telefono_e164") ||
 			strings.Contains(errLower, "horario fuera de atenci") ||
 			strings.Contains(errLower, "hora_desde") ||
 			strings.Contains(errLower, "hora_hasta") ||

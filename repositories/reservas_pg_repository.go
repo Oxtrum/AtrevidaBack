@@ -16,6 +16,7 @@ type FiltroReservasPG struct {
 	FechaHasta         *time.Time
 	Cliente            string
 	NumeroTelefono     string
+	TelefonoE164       *string
 	ServicioSolicitado string
 	ServicioConfirmado string
 	Busqueda           string
@@ -45,6 +46,7 @@ type CreateReservaInput struct {
 	Cliente            string
 	Estado             string
 	NumeroTelefono     string
+	TelefonoE164       *string
 	PlanID             *int
 	ServicioNombre     string
 	ServicioSolicitado string
@@ -72,6 +74,8 @@ type UpdateReservaInput struct {
 	NuevoTipo               *string
 	NuevoCliente            *string
 	NuevoNumeroTelefono     *string
+	NuevoTelefonoE164       *string
+	NuevoTelefonoE164Set    bool
 	NuevoServicio           *string
 	NuevoServicioSolicitado *string
 	NuevoServicioConfirmado *string
