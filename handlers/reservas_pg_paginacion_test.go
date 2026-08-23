@@ -33,7 +33,7 @@ func (r *reservasPaginationRepo) CountReservas(f repository.FiltroReservasPG) (i
 	r.countFilter = f
 	return r.total, nil
 }
-func (r *reservasPaginationRepo) GetReservasAgendadasNoNotificadas(context.Context, string, int) ([]models.ReservaPGCompleta, error) {
+func (r *reservasPaginationRepo) GetReservasAgendadasNoNotificadas(context.Context, string, int) ([]models.ReservaNotificacionPG, error) {
 	return nil, nil
 }
 func (r *reservasPaginationRepo) GetReservaByID(int) (*models.ReservaPGCompleta, error) {

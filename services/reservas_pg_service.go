@@ -564,11 +564,11 @@ type FiltroReservasSimple struct {
 	CursorID           int
 }
 
-func (s *ReservasPGService) GetReservasAgendadasNoNotificadas(limit int, localNombre string) ([]ReservaSimple, error) {
+func (s *ReservasPGService) GetReservasAgendadasNoNotificadas(limit int, localNombre string) ([]ReservaNotificacion, error) {
 	return s.GetReservasAgendadasNoNotificadasContext(context.Background(), limit, localNombre)
 }
 
-func (s *ReservasPGService) GetReservasAgendadasNoNotificadasContext(ctx context.Context, limit int, localNombre string) ([]ReservaSimple, error) {
+func (s *ReservasPGService) GetReservasAgendadasNoNotificadasContext(ctx context.Context, limit int, localNombre string) ([]ReservaNotificacion, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -580,11 +580,43 @@ func (s *ReservasPGService) GetReservasAgendadasNoNotificadasContext(ctx context
 	if err != nil {
 		return nil, err
 	}
-	resultado := make([]ReservaSimple, 0, len(reservas))
+	resultado := make([]ReservaNotificacion, 0, len(reservas))
 	for _, rv := range reservas {
-		resultado = append(resultado, reservaSimpleDesdePG(rv))
+		resultado = append(resultado, reservaNotificacionDesdePG(rv))
 	}
 	return resultado, nil
+}
+
+// ReservaNotificacion es la respuesta mínima de la campanita. No reutiliza
+// ReservaSimple para no serializar campos ajenos a una notificación.
+type ReservaNotificacion struct {
+	ID                 int     `json:"id" example:"44"`
+	Local              string  `json:"local" example:"SAN MARTIN"`
+	Fecha              string  `json:"fecha" example:"2026-05-23"`
+	HoraDesde          string  `json:"hora_desde" example:"09:00"`
+	HoraHasta          string  `json:"hora_hasta" example:"10:00"`
+	Cliente            string  `json:"cliente" example:"Maria Lopez"`
+	NumeroTelefono     *string `json:"numero_telefono,omitempty" example:"70011223"`
+	Servicio           *string `json:"servicio,omitempty" example:"Depilacion Laser"`
+	ServicioSolicitado *string `json:"servicio_solicitado,omitempty" example:"Piernas completas"`
+	ServicioConfirmado *string `json:"servicio_confirmado,omitempty" example:"Depilacion Laser Piernas"`
+	CreadoEn           string  `json:"creado_en" example:"2026-05-23T15:04:05Z"`
+}
+
+func reservaNotificacionDesdePG(rv models.ReservaNotificacionPG) ReservaNotificacion {
+	return ReservaNotificacion{
+		ID:                 rv.ID,
+		Local:              rv.LocalNombre,
+		Fecha:              rv.Fecha.Format("2006-01-02"),
+		HoraDesde:          formatHoraService(rv.HoraDesde),
+		HoraHasta:          formatHoraService(rv.HoraHasta),
+		Cliente:            rv.Cliente,
+		NumeroTelefono:     rv.NumeroTelefono,
+		Servicio:           rv.ServicioNombre,
+		ServicioSolicitado: rv.ServicioSolicitado,
+		ServicioConfirmado: rv.ServicioConfirmado,
+		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
+	}
 }
 
 func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]ReservaSimple, error) {

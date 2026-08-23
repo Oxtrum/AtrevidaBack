@@ -250,8 +250,8 @@ type reservaSimpleListResponse struct {
 type reservaNotificacionListResponse struct {
 	// Total de notificaciones pendientes
 	Total int `json:"total" example:"3"`
-	// Reservas agendadas pendientes de marcar como leidas
-	Reservas []services.ReservaSimple `json:"reservas"`
+	// Notificaciones pendientes con los datos minimos que muestra la campanita.
+	Reservas []services.ReservaNotificacion `json:"reservas"`
 }
 
 type localListResponse struct {

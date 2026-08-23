@@ -9,7 +9,7 @@ import (
 	repository "atrevida-agenda-api/repositories"
 )
 
-func (r *reservasResumenRepo) GetReservasAgendadasNoNotificadas(context.Context, string, int) ([]models.ReservaPGCompleta, error) {
+func (r *reservasResumenRepo) GetReservasAgendadasNoNotificadas(context.Context, string, int) ([]models.ReservaNotificacionPG, error) {
 	return nil, nil
 }
 

@@ -127,7 +127,7 @@ type ResumenPagosReservas struct {
 type ReservasPGRepository interface {
 	GetReservas(f FiltroReservasPG) ([]models.ReservaPGCompleta, error)
 	CountReservas(f FiltroReservasPG) (int, error)
-	GetReservasAgendadasNoNotificadas(ctx context.Context, localNombre string, limit int) ([]models.ReservaPGCompleta, error)
+	GetReservasAgendadasNoNotificadas(ctx context.Context, localNombre string, limit int) ([]models.ReservaNotificacionPG, error)
 	GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 	GetLocalIDByNombre(nombre string) (int, error)
 	GetCapacidades(localNombre string) ([]CapacidadLocal, error)

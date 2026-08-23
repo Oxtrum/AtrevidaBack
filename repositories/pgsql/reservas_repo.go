@@ -172,7 +172,7 @@ func reservaConditions(f repository.FiltroReservasPG) ([]string, []interface{}) 
 	return conditions, args
 }
 
-func (r *ReservasRepo) GetReservasAgendadasNoNotificadas(ctx context.Context, localNombre string, limit int) ([]models.ReservaPGCompleta, error) {
+func (r *ReservasRepo) GetReservasAgendadasNoNotificadas(ctx context.Context, localNombre string, limit int) ([]models.ReservaNotificacionPG, error) {
 	conditions := []string{"r.activo = TRUE", "r.estado = 'AGENDADO'", "COALESCE(r.notificado, FALSE) = FALSE"}
 	args := []interface{}{}
 	if strings.TrimSpace(localNombre) != "" {
@@ -183,21 +183,19 @@ func (r *ReservasRepo) GetReservasAgendadasNoNotificadas(ctx context.Context, lo
 	}
 	args = append(args, limit)
 	query := fmt.Sprintf(`
-		SELECT r.id, r.local_id, r.local_nombre, r.tipo_espacio,
+		SELECT r.id, r.local_nombre,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
-			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
-			r.precio, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
-			r.creado_en, r.actualizado_en
+			r.cliente, r.numero_telefono, r.servicio_nombre,
+			r.servicio_solicitado, r.servicio_confirmado, r.creado_en
 		FROM reservas r WHERE %s
 		ORDER BY r.creado_en DESC, r.id DESC LIMIT $%d
 	`, strings.Join(conditions, " AND "), len(args))
-	var reservas []models.ReservaPGCompleta
+	var reservas []models.ReservaNotificacionPG
 	if err := r.db.SelectContext(queryContext(ctx), &reservas, query, args...); err != nil {
 		return nil, fmt.Errorf("error al consultar notificaciones de reservas: %w", err)
 	}
 	if reservas == nil {
-		reservas = []models.ReservaPGCompleta{}
+		reservas = []models.ReservaNotificacionPG{}
 	}
 	return reservas, nil
 }

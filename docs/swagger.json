@@ -2848,7 +2848,7 @@
         },
         "/bd/notificaciones/reservas": {
             "get": {
-                "description": "Devuelve reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Requiere token Bearer. Los usuarios con local asignado solo ven notificaciones de su local; admin_sys ve todas. Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos de la reserva agendada pendiente).",
+                "description": "Devuelve los datos minimos de reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Requiere token Bearer. Los usuarios con local asignado solo ven notificaciones de su local; admin_sys ve todas. Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas con cliente, servicio, local, fecha, horario y telefono.",
                 "produces": [
                     "application/json"
                 ],
@@ -8814,10 +8814,10 @@
             "type": "object",
             "properties": {
                 "reservas": {
-                    "description": "Reservas agendadas pendientes de marcar como leidas",
+                    "description": "Notificaciones pendientes con los datos minimos que muestra la campanita.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/services.ReservaSimple"
+                        "$ref": "#/definitions/services.ReservaNotificacion"
                     }
                 },
                 "total": {
@@ -10465,6 +10465,55 @@
                     "description": "Total final acumulado para este tipo de pago.",
                     "type": "number",
                     "example": 2500
+                }
+            }
+        },
+        "services.ReservaNotificacion": {
+            "type": "object",
+            "properties": {
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "creado_en": {
+                    "type": "string",
+                    "example": "2026-05-23T15:04:05Z"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-05-23"
+                },
+                "hora_desde": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "hora_hasta": {
+                    "type": "string",
+                    "example": "10:00"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 44
+                },
+                "local": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "numero_telefono": {
+                    "type": "string",
+                    "example": "70011223"
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                },
+                "servicio_confirmado": {
+                    "type": "string",
+                    "example": "Depilacion Laser Piernas"
+                },
+                "servicio_solicitado": {
+                    "type": "string",
+                    "example": "Piernas completas"
                 }
             }
         },

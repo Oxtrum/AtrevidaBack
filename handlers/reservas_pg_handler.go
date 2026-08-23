@@ -918,7 +918,7 @@ func (h *Container) PatchReservaNotificadoPG(c *gin.Context) {
 
 // GetNotificacionesReservasPG godoc
 // @Summary Listar notificaciones de reservas
-// @Description Devuelve reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Requiere token Bearer. Los usuarios con local asignado solo ven notificaciones de su local; admin_sys ve todas. Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos de la reserva agendada pendiente).
+// @Description Devuelve los datos minimos de reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Requiere token Bearer. Los usuarios con local asignado solo ven notificaciones de su local; admin_sys ve todas. Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas con cliente, servicio, local, fecha, horario y telefono.
 // @Tags Notificaciones
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)

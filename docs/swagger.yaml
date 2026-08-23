@@ -1626,9 +1626,10 @@ definitions:
   handlers.reservaNotificacionListResponse:
     properties:
       reservas:
-        description: Reservas agendadas pendientes de marcar como leidas
+        description: Notificaciones pendientes con los datos minimos que muestra la
+          campanita.
         items:
-          $ref: '#/definitions/services.ReservaSimple'
+          $ref: '#/definitions/services.ReservaNotificacion'
         type: array
       total:
         description: Total de notificaciones pendientes
@@ -2853,6 +2854,42 @@ definitions:
         description: Total final acumulado para este tipo de pago.
         example: 2500
         type: number
+    type: object
+  services.ReservaNotificacion:
+    properties:
+      cliente:
+        example: Maria Lopez
+        type: string
+      creado_en:
+        example: "2026-05-23T15:04:05Z"
+        type: string
+      fecha:
+        example: "2026-05-23"
+        type: string
+      hora_desde:
+        example: "09:00"
+        type: string
+      hora_hasta:
+        example: "10:00"
+        type: string
+      id:
+        example: 44
+        type: integer
+      local:
+        example: SAN MARTIN
+        type: string
+      numero_telefono:
+        example: "70011223"
+        type: string
+      servicio:
+        example: Depilacion Laser
+        type: string
+      servicio_confirmado:
+        example: Depilacion Laser Piernas
+        type: string
+      servicio_solicitado:
+        example: Piernas completas
+        type: string
     type: object
   services.ReservaSimple:
     properties:
@@ -4827,14 +4864,14 @@ paths:
       - Horarios Locales
   /bd/notificaciones/reservas:
     get:
-      description: 'Devuelve reservas activas en estado AGENDADO que aun no fueron
-        marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas
-        recientes primero). Requiere token Bearer. Los usuarios con local asignado
-        solo ven notificaciones de su local; admin_sys ve todas. Este endpoint esta
-        pensado para polling de la campanita del frontend; se puede consultar cada
-        5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default
-        20, maximo 100). Response: total (int), reservas ([]ReservaSimple con datos
-        de la reserva agendada pendiente).'
+      description: 'Devuelve los datos minimos de reservas activas en estado AGENDADO
+        que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en
+        descendente (mas recientes primero). Requiere token Bearer. Los usuarios con
+        local asignado solo ven notificaciones de su local; admin_sys ve todas. Este
+        endpoint esta pensado para polling de la campanita del frontend; se puede
+        consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional,
+        default 20, maximo 100). Response: total (int), reservas con cliente, servicio,
+        local, fecha, horario y telefono.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer

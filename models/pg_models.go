@@ -315,6 +315,23 @@ type ReservaPGCompleta struct {
 	HoraHastaOriginal string `db:"-" json:"-"`
 }
 
+// ReservaNotificacionPG contiene exclusivamente las columnas que necesita la
+// campanita de notificaciones. Evita leer y transportar datos de reserva que
+// no se muestran en ese contexto, como notas, precio y plan asociado.
+type ReservaNotificacionPG struct {
+	ID                 int       `db:"id"`
+	LocalNombre        string    `db:"local_nombre"`
+	Fecha              time.Time `db:"fecha"`
+	HoraDesde          string    `db:"hora_desde"`
+	HoraHasta          string    `db:"hora_hasta"`
+	Cliente            string    `db:"cliente"`
+	NumeroTelefono     *string   `db:"numero_telefono"`
+	ServicioNombre     *string   `db:"servicio_nombre"`
+	ServicioSolicitado *string   `db:"servicio_solicitado"`
+	ServicioConfirmado *string   `db:"servicio_confirmado"`
+	CreadoEn           time.Time `db:"creado_en"`
+}
+
 // Pagos
 
 type PagoPG struct {
