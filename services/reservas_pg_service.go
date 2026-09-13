@@ -837,9 +837,11 @@ func (s *ReservasPGService) GetResumenReservas(fecha time.Time, localNombre stri
 }
 
 func (s *ReservasPGService) getResumenReservas(ctx context.Context, fecha time.Time, localNombre string, localID *int) (*ResumenReservas, error) {
-	fecha = fecha.Truncate(24 * time.Hour)
-	if fecha.Weekday() == time.Sunday {
-		fecha = fecha.AddDate(0, 0, -1)
+	fechaDia := fecha.Truncate(24 * time.Hour)
+	esDomingo := fechaDia.Weekday() == time.Sunday
+	fechaSemanaHasta := fechaDia
+	if esDomingo {
+		fechaSemanaHasta = fechaSemanaHasta.AddDate(0, 0, -1)
 	}
 	localNombre = strings.TrimSpace(localNombre)
 	if localID != nil {
@@ -853,24 +855,28 @@ func (s *ReservasPGService) getResumenReservas(ctx context.Context, fecha time.T
 		localNombre = ""
 	}
 
-	reservasDia, err := s.repo.GetReservas(repository.FiltroReservasPG{
-		Context:     ctx,
-		LocalID:     localID,
-		LocalNombre: localNombre,
-		Fecha:       &fecha,
-		SoloActivas: true,
-	})
-	if err != nil {
-		return nil, err
+	var reservasDia []models.ReservaPGCompleta
+	if !esDomingo {
+		var err error
+		reservasDia, err = s.repo.GetReservas(repository.FiltroReservasPG{
+			Context:     ctx,
+			LocalID:     localID,
+			LocalNombre: localNombre,
+			Fecha:       &fechaDia,
+			SoloActivas: true,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	lunes := inicioSemana(fecha)
+	lunes := inicioSemana(fechaSemanaHasta)
 	reservasSemana, err := s.repo.GetReservas(repository.FiltroReservasPG{
 		Context:     ctx,
 		LocalID:     localID,
 		LocalNombre: localNombre,
 		FechaDesde:  &lunes,
-		FechaHasta:  &fecha,
+		FechaHasta:  &fechaSemanaHasta,
 		SoloActivas: true,
 	})
 	if err != nil {
@@ -881,18 +887,20 @@ func (s *ReservasPGService) getResumenReservas(ctx context.Context, fecha time.T
 		Context:     ctx,
 		LocalID:     localID,
 		LocalNombre: localNombre,
-		Fecha:       fecha,
+		Fecha:       fechaSemanaHasta,
 		FechaDesde:  lunes,
-		FechaHasta:  fecha,
+		FechaHasta:  fechaSemanaHasta,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	resumen := &ResumenReservas{}
-	resumen.IngresosDia = resumenPagos.IngresosDia
+	if !esDomingo {
+		resumen.IngresosDia = resumenPagos.IngresosDia
+		resumen.CancelacionesDia = resumenPagos.CancelacionesDia
+	}
 	resumen.IngresosSemana = resumenPagos.IngresosSemana
-	resumen.CancelacionesDia = resumenPagos.CancelacionesDia
 	resumen.Ingresos = ResumenIngresosSemana{
 		TotalIngresos: resumenPagos.IngresosSemana,
 		Lunes:         resumenPagos.IngresosLunes,

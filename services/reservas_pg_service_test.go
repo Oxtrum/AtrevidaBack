@@ -72,27 +72,38 @@ func (r *reservasResumenRepo) AnularReserva(id int) error {
 	return nil
 }
 
-func TestGetResumenReservasDomingoUsaSabadoAnterior(t *testing.T) {
-	repo := &reservasResumenRepo{}
+func TestGetResumenReservasDomingoOmiteDiaYConservaSemanaHastaSabado(t *testing.T) {
+	repo := &reservasResumenRepo{pagosResumen: repository.ResumenPagosReservas{
+		IngresosDia:      3500,
+		IngresosSemana:   12000,
+		CancelacionesDia: 6,
+		IngresosSabado:   2000,
+	}}
 	service := NewReservasPGService(repo, nil)
 	fechaDomingo := time.Date(2026, time.May, 24, 0, 0, 0, 0, time.UTC)
 
-	if _, err := service.GetResumenReservas(fechaDomingo, "", nil); err != nil {
+	resumen, err := service.GetResumenReservas(fechaDomingo, "", nil)
+	if err != nil {
 		t.Fatalf("GetResumenReservas() error = %v", err)
 	}
-	if len(repo.calls) != 2 {
-		t.Fatalf("GetReservas calls = %d, want 2", len(repo.calls))
+	if len(repo.calls) != 1 {
+		t.Fatalf("GetReservas calls = %d, want 1", len(repo.calls))
 	}
 
-	assertDate(t, repo.calls[0].Fecha, "2026-05-23", "fecha del dia")
-	assertDate(t, repo.calls[1].FechaDesde, "2026-05-18", "inicio de semana")
-	assertDate(t, repo.calls[1].FechaHasta, "2026-05-23", "fin de semana")
+	assertDate(t, repo.calls[0].FechaDesde, "2026-05-18", "inicio de semana")
+	assertDate(t, repo.calls[0].FechaHasta, "2026-05-23", "fin de semana")
 	if len(repo.paymentCalls) != 1 {
 		t.Fatalf("GetResumenPagosReservas calls = %d, want 1", len(repo.paymentCalls))
 	}
 	assertDateValue(t, repo.paymentCalls[0].Fecha, "2026-05-23", "fecha de pagos")
 	assertDateValue(t, repo.paymentCalls[0].FechaDesde, "2026-05-18", "inicio pagos")
 	assertDateValue(t, repo.paymentCalls[0].FechaHasta, "2026-05-23", "fin pagos")
+	if resumen.ReservasAgendadasDia != 0 || resumen.ServiciosCompletadosDia != 0 || resumen.IngresosDia != 0 || resumen.CancelacionesDia != 0 {
+		t.Fatalf("resumen diario en domingo = %+v, want all values in zero", resumen)
+	}
+	if resumen.IngresosSemana != 12000 || resumen.Ingresos.Sabado != 2000 {
+		t.Fatalf("resumen semanal en domingo = %+v, want totals through saturday", resumen)
+	}
 }
 
 func TestGetResumenReservasResuelveLocalNombreAID(t *testing.T) {

@@ -6860,14 +6860,14 @@ paths:
         token Bearer. Los usuarios con local asignado solo consultan su local desde
         el token; si el token no tiene local, puede filtrar por el query local o consultar
         todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha
-        es domingo, calcula el resumen con el sabado anterior para devolver la semana
-        que finaliza. Los pagos consideran registros activos con estado PAGADO en
-        la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Response:
-        reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy
-        (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse
-        con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo),
-        ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number,
-        lunes..sabado number opcionales segun el dia efectivo).'
+        es domingo, los indicadores diarios se devuelven en cero porque no hay atencion;
+        el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran
+        registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro
+        de local y rango lunes-fecha. Response: reservas_agendadas_dia (int), servicios_completados_dia
+        (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number),
+        semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado
+        int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse
+        con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -6875,8 +6875,8 @@ paths:
         name: Authorization
         required: true
         type: string
-      - description: Fecha a consultar YYYY-MM-DD; si es domingo se usa el sabado
-          anterior
+      - description: Fecha a consultar YYYY-MM-DD; si es domingo los indicadores diarios
+          son cero y la semana termina el sabado anterior
         example: "2026-05-24"
         in: query
         name: fecha
