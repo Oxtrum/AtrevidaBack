@@ -3241,7 +3241,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
+                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario de cada detalle puede diferir del precio referencial del servicio; el backend calcula su subtotal como precio_unitario por cantidad. subtotal y total_final de cabecera son opcionales y, si se envian, deben coincidir con el detalle y descuento calculados. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7646,7 +7646,7 @@ const docTemplate = `{
                     "example": 2
                 },
                 "precio_unitario": {
-                    "description": "Precio unitario del servicio.",
+                    "description": "Precio unitario cobrado; puede diferir del precio referencial del servicio.",
                     "type": "number",
                     "example": 250
                 },
@@ -7661,7 +7661,7 @@ const docTemplate = `{
                     "example": 8
                 },
                 "subtotal": {
-                    "description": "Subtotal de la linea.",
+                    "description": "Subtotal de la linea; se recalcula desde precio_unitario y cantidad.",
                     "type": "number",
                     "example": 500
                 }
@@ -7768,7 +7768,7 @@ const docTemplate = `{
                     "example": "Juan Perez"
                 },
                 "subtotal": {
-                    "description": "Subtotal del pago.",
+                    "description": "Subtotal opcional; si se envia debe coincidir con el detalle calculado.",
                     "type": "number",
                     "example": 500
                 },
@@ -7778,7 +7778,7 @@ const docTemplate = `{
                     "example": "efectivo"
                 },
                 "total_final": {
-                    "description": "Total final del pago.",
+                    "description": "Total final opcional; si se envia debe coincidir con subtotal y descuento calculados.",
                     "type": "number",
                     "example": 450
                 }

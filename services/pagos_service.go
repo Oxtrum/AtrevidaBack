@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -163,16 +164,17 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 	detalle := make([]repository.CrearDetallePagoInput, 0, len(input.Detalle))
 	sumaDetalle := 0.0
 	for _, d := range input.Detalle {
-		if err := validarDetallePago(d.ServicioID, d.Servicio, d.PrecioUnitario, d.Cantidad, d.Subtotal); err != nil {
+		precioUnitario, subtotalDetalle, err := normalizarDetallePago(d.ServicioID, d.Servicio, d.PrecioUnitario, d.Cantidad)
+		if err != nil {
 			return "", err
 		}
-		sumaDetalle += d.Subtotal
+		sumaDetalle += subtotalDetalle
 		detalle = append(detalle, repository.CrearDetallePagoInput{
 			ServicioID:     d.ServicioID,
 			Servicio:       strings.TrimSpace(d.Servicio),
-			PrecioUnitario: d.PrecioUnitario,
+			PrecioUnitario: precioUnitario,
 			Cantidad:       d.Cantidad,
-			Subtotal:       d.Subtotal,
+			Subtotal:       subtotalDetalle,
 		})
 	}
 
@@ -290,15 +292,16 @@ func (s *PagosService) UpdatePago(input ActualizarPagoInput) error {
 				continue
 			}
 
-			if err := validarDetallePago(d.ServicioID, d.Servicio, d.PrecioUnitario, d.Cantidad, d.Subtotal); err != nil {
+			precioUnitario, subtotalDetalle, err := normalizarDetallePago(d.ServicioID, d.Servicio, d.PrecioUnitario, d.Cantidad)
+			if err != nil {
 				return err
 			}
 			procesado = append(procesado, repository.ActualizarDetallePagoInput{
 				ServicioID:     d.ServicioID,
 				Servicio:       strings.TrimSpace(d.Servicio),
-				PrecioUnitario: d.PrecioUnitario,
+				PrecioUnitario: precioUnitario,
 				Cantidad:       d.Cantidad,
-				Subtotal:       d.Subtotal,
+				Subtotal:       subtotalDetalle,
 			})
 		}
 		detalle = &procesado
@@ -426,9 +429,9 @@ func validarPagoBase(localID int, localNombre string, clienteID *int, clienteNom
 }
 
 func calcularTotalesPago(subtotal, descuento, totalFinal *float64, sumaDetalle float64) (float64, float64, float64, error) {
-	subtotalCalculado := sumaDetalle
-	if subtotal != nil {
-		subtotalCalculado = *subtotal
+	subtotalCalculado := redondearMoneda(sumaDetalle)
+	if subtotal != nil && !mismoImporte(*subtotal, subtotalCalculado) {
+		return 0, 0, 0, errors.New("subtotal no coincide con el detalle del pago")
 	}
 
 	descuentoCalculado := 0.0
@@ -436,9 +439,9 @@ func calcularTotalesPago(subtotal, descuento, totalFinal *float64, sumaDetalle f
 		descuentoCalculado = *descuento
 	}
 
-	totalCalculado := subtotalCalculado - descuentoCalculado
-	if totalFinal != nil {
-		totalCalculado = *totalFinal
+	totalCalculado := redondearMoneda(subtotalCalculado - descuentoCalculado)
+	if totalFinal != nil && !mismoImporte(*totalFinal, totalCalculado) {
+		return 0, 0, 0, errors.New("total_final no coincide con subtotal y descuento")
 	}
 
 	if descuentoCalculado > subtotalCalculado {
@@ -451,24 +454,30 @@ func calcularTotalesPago(subtotal, descuento, totalFinal *float64, sumaDetalle f
 	return subtotalCalculado, descuentoCalculado, totalCalculado, nil
 }
 
-func validarDetallePago(servicioID *int, servicio string, precioUnitario float64, cantidad int, subtotal float64) error {
+func normalizarDetallePago(servicioID *int, servicio string, precioUnitario float64, cantidad int) (float64, float64, error) {
 	if servicioID != nil && *servicioID <= 0 {
-		return errors.New("servicio_id invalido")
+		return 0, 0, errors.New("servicio_id invalido")
 	}
 	if strings.TrimSpace(servicio) == "" {
-		return errors.New("servicio es requerido en cada detalle")
+		return 0, 0, errors.New("servicio es requerido en cada detalle")
 	}
 	if precioUnitario < 0 {
-		return errors.New("precio_unitario no puede ser negativo")
+		return 0, 0, errors.New("precio_unitario no puede ser negativo")
 	}
 	if cantidad <= 0 {
-		return errors.New("cantidad debe ser mayor a cero")
-	}
-	if subtotal < 0 {
-		return errors.New("subtotal del detalle no puede ser negativo")
+		return 0, 0, errors.New("cantidad debe ser mayor a cero")
 	}
 
-	return nil
+	precioUnitario = redondearMoneda(precioUnitario)
+	return precioUnitario, redondearMoneda(precioUnitario * float64(cantidad)), nil
+}
+
+func redondearMoneda(valor float64) float64 {
+	return math.Round(valor*100) / 100
+}
+
+func mismoImporte(a, b float64) bool {
+	return math.Abs(redondearMoneda(a)-redondearMoneda(b)) < 0.0001
 }
 
 func trimStringPtr(value *string) *string {

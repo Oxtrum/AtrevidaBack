@@ -9,7 +9,8 @@ import (
 )
 
 type fakePagosRepo struct {
-	pago *models.PagoCompletoPG
+	pago        *models.PagoCompletoPG
+	createdPago *repository.CrearPagoInput
 }
 
 func (f *fakePagosRepo) CountPagos(repository.FiltroPagos) (int, error) { return 0, nil }
@@ -23,7 +24,8 @@ func (f *fakePagosRepo) GetPagoByCodigo(codigoPago string) (*models.PagoCompleto
 }
 
 func (f *fakePagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) {
-	return "", nil
+	f.createdPago = &input
+	return "PAGO-000001", nil
 }
 
 func (f *fakePagosRepo) UpdatePago(input repository.ActualizarPagoInput) error {
@@ -64,4 +66,73 @@ func TestGetPagoByCodigoAplicaLocalID(t *testing.T) {
 	if _, err := service.GetPagoByCodigo("PAGO-000001", &scopeLocalID); err != nil {
 		t.Fatalf("GetPagoByCodigo() error = %v, want nil", err)
 	}
+}
+
+func TestCreatePagoCalculaDetalleDesdePrecioYCantidad(t *testing.T) {
+	repo := &fakePagosRepo{}
+	service := NewPagosService(repo)
+
+	_, err := service.CreatePago(CrearPagoInput{
+		LocalID:       1,
+		LocalNombre:   "SAN MARTIN",
+		ClienteNombre: "Maria Lopez",
+		Descuento:     floatPtr(10),
+		TipoPago:      "efectivo",
+		Estado:        "PAGADO",
+		Activo:        true,
+		Cajero:        CajeroAuditoriaInput{Nombre: "admin"},
+		Detalle: []CrearDetallePagoInput{{
+			Servicio:       "Servicio reevaluado",
+			PrecioUnitario: 99.999,
+			Cantidad:       3,
+			Subtotal:       1,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("CreatePago() error = %v", err)
+	}
+	if repo.createdPago == nil {
+		t.Fatal("CreatePago() did not call repository")
+	}
+	if got := repo.createdPago.Detalle[0].PrecioUnitario; got != 100 {
+		t.Fatalf("precio_unitario = %v, want 100", got)
+	}
+	if got := repo.createdPago.Detalle[0].Subtotal; got != 300 {
+		t.Fatalf("subtotal detalle = %v, want 300", got)
+	}
+	if got := *repo.createdPago.Subtotal; got != 300 {
+		t.Fatalf("subtotal pago = %v, want 300", got)
+	}
+	if got := *repo.createdPago.TotalFinal; got != 290 {
+		t.Fatalf("total_final = %v, want 290", got)
+	}
+}
+
+func TestCreatePagoRechazaSubtotalDeCabeceraInconsistente(t *testing.T) {
+	service := NewPagosService(&fakePagosRepo{})
+
+	_, err := service.CreatePago(CrearPagoInput{
+		LocalID:       1,
+		LocalNombre:   "SAN MARTIN",
+		ClienteNombre: "Maria Lopez",
+		Subtotal:      floatPtr(1),
+		Descuento:     floatPtr(0),
+		TipoPago:      "qr",
+		Estado:        "PAGADO",
+		Activo:        true,
+		Cajero:        CajeroAuditoriaInput{Nombre: "admin"},
+		Detalle: []CrearDetallePagoInput{{
+			Servicio:       "Servicio reevaluado",
+			PrecioUnitario: 100,
+			Cantidad:       1,
+			Subtotal:       100,
+		}},
+	})
+	if err == nil || err.Error() != "subtotal no coincide con el detalle del pago" {
+		t.Fatalf("CreatePago() error = %v, want subtotal inconsistente", err)
+	}
+}
+
+func floatPtr(value float64) *float64 {
+	return &value
 }

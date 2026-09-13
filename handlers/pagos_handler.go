@@ -19,11 +19,11 @@ type crearDetallePagoRequest struct {
 	ServicioID *int `json:"servicio_id" example:"8"`
 	// Texto del servicio cobrado.
 	Servicio *string `json:"servicio" example:"Limpieza facial"`
-	// Precio unitario del servicio.
+	// Precio unitario cobrado; puede diferir del precio referencial del servicio.
 	PrecioUnitario *float64 `json:"precio_unitario" example:"250"`
 	// Cantidad cobrada.
 	Cantidad *int `json:"cantidad" example:"2"`
-	// Subtotal de la linea.
+	// Subtotal de la linea; se recalcula desde precio_unitario y cantidad.
 	Subtotal *float64 `json:"subtotal" example:"500"`
 }
 
@@ -38,11 +38,11 @@ type crearPagoRequest struct {
 	ClienteNIT *string `json:"cliente_nit,omitempty" example:"1234567"`
 	// Nombre del cliente.
 	ClienteNombre *string `json:"cliente_nombre" example:"Maria Lopez"`
-	// Subtotal del pago.
+	// Subtotal opcional; si se envia debe coincidir con el detalle calculado.
 	Subtotal *float64 `json:"subtotal" example:"500"`
 	// Descuento aplicado.
 	Descuento *float64 `json:"descuento" example:"50"`
-	// Total final del pago.
+	// Total final opcional; si se envia debe coincidir con subtotal y descuento calculados.
 	TotalFinal *float64 `json:"total_final" example:"450"`
 	// Tipo de pago utilizado: efectivo o qr.
 	TipoPago *string `json:"tipo_pago" example:"efectivo"`
@@ -300,7 +300,7 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 
 // CreatePago godoc
 // @Summary Crear pago
-// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final son opcionales: si no se envian, se calculan desde la suma de subtotales del detalle y el descuento. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
+// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario de cada detalle puede diferir del precio referencial del servicio; el backend calcula su subtotal como precio_unitario por cantidad. subtotal y total_final de cabecera son opcionales y, si se envian, deben coincidir con el detalle y descuento calculados. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
 // @Tags Pagos
 // @Accept json
 // @Produce json

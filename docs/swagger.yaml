@@ -752,7 +752,8 @@ definitions:
         example: 2
         type: integer
       precio_unitario:
-        description: Precio unitario del servicio.
+        description: Precio unitario cobrado; puede diferir del precio referencial
+          del servicio.
         example: 250
         type: number
       servicio:
@@ -764,7 +765,7 @@ definitions:
         example: 8
         type: integer
       subtotal:
-        description: Subtotal de la linea.
+        description: Subtotal de la linea; se recalcula desde precio_unitario y cantidad.
         example: 500
         type: number
     type: object
@@ -846,7 +847,8 @@ definitions:
         example: Juan Perez
         type: string
       subtotal:
-        description: Subtotal del pago.
+        description: Subtotal opcional; si se envia debe coincidir con el detalle
+          calculado.
         example: 500
         type: number
       tipo_pago:
@@ -854,7 +856,8 @@ definitions:
         example: efectivo
         type: string
       total_final:
-        description: Total final del pago.
+        description: Total final opcional; si se envia debe coincidir con subtotal
+          y descuento calculados.
         example: 450
         type: number
     type: object
@@ -5154,9 +5157,11 @@ paths:
         cajero; si se omite o viene vacio se usa el username del token. id_cajero
         y username_cajero se toman del token y los campos de auditoria no son editables.
         cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como
-        null. tipo_pago es requerido y solo acepta efectivo o qr. subtotal y total_final
-        son opcionales: si no se envian, se calculan desde la suma de subtotales del
-        detalle y el descuento. Cada item de detalle debe incluir servicio_id (puede
+        null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario
+        de cada detalle puede diferir del precio referencial del servicio; el backend
+        calcula su subtotal como precio_unitario por cantidad. subtotal y total_final
+        de cabecera son opcionales y, si se envian, deben coincidir con el detalle
+        y descuento calculados. Cada item de detalle debe incluir servicio_id (puede
         ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago
         generado incrementalmente.'
       parameters:
