@@ -2,6 +2,8 @@ package pgsql
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -28,6 +30,7 @@ func (r *ServiciosRepo) GetAllServicios(ctx context.Context) ([]models.ServicioI
 			COALESCE(c.nombre, '')      AS categoria,
 			COALESCE(s.tiempo, '')      AS tiempo,
 			COALESCE(s.costo::text, '') AS costo,
+			s.costo_variable,
 			s.sesiones,
 			COALESCE(l.nombre, '')      AS local,
 			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios,
@@ -55,6 +58,7 @@ func (r *ServiciosRepo) GetAllServicios(ctx context.Context) ([]models.ServicioI
 			&item.Categoria,
 			&item.Tiempo,
 			&item.Costo,
+			&item.CostoVariable,
 			&item.Sesiones,
 			&item.Local,
 			&item.TipoEspacio,
@@ -83,6 +87,7 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 			COALESCE(c.nombre, '')      AS categoria,
 			COALESCE(s.tiempo, '')      AS tiempo,
 			COALESCE(s.costo::text, '') AS costo,
+			s.costo_variable,
 			s.sesiones,
 			COALESCE(l.nombre, '')      AS local,
 			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios,
@@ -104,6 +109,7 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 		&item.Categoria,
 		&item.Tiempo,
 		&item.Costo,
+		&item.CostoVariable,
 		&item.Sesiones,
 		&item.Local,
 		&item.TipoEspacio,
@@ -124,6 +130,7 @@ func (r *ServiciosRepo) GetServicioByNombre(nombre string) (*models.ServicioItem
 		SELECT
 			s.nombre,
 			COALESCE(s.costo::text, '') AS costo,
+			s.costo_variable,
 			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacio,
 			s.requiere_evaluacion
 		FROM servicios s
@@ -138,6 +145,7 @@ func (r *ServiciosRepo) GetServicioByNombre(nombre string) (*models.ServicioItem
 	err := r.db.QueryRowx(query, strings.TrimSpace(nombre)).Scan(
 		&item.Nombre,
 		&item.Costo,
+		&item.CostoVariable,
 		&item.TipoEspacio,
 		&item.RequiereEvaluacion,
 	)
@@ -162,6 +170,10 @@ type CreateServicioInput struct {
 }
 
 func (r *ServiciosRepo) CreateServicio(input repository.CrearServicioInput) (int, error) {
+	costo, err := repository.NormalizarCostoServicio(input.Costo, input.CostoVariable)
+	if err != nil {
+		return 0, err
+	}
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return 0, err
@@ -193,17 +205,18 @@ func (r *ServiciosRepo) CreateServicio(input repository.CrearServicioInput) (int
 
 	var servicioID int
 	err = tx.QueryRowx(`
-		INSERT INTO servicios (nombre, categoria_id, tiempo, costo, sesiones, tipo_espacio_requerido, requiere_evaluacion)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO servicios (nombre, categoria_id, tiempo, costo, sesiones, tipo_espacio_requerido, requiere_evaluacion, costo_variable)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id
 	`,
 		strings.TrimSpace(input.Nombre),
 		catID,
 		nullStr(input.Tiempo),
-		input.Costo,
+		costo,
 		input.Sesiones,
 		input.TipoEspacioRequerido,
 		input.RequiereEvaluacion,
+		input.CostoVariable,
 	).Scan(&servicioID)
 	if err != nil {
 		return 0, fmt.Errorf("error al crear servicio: %w", err)
@@ -224,6 +237,20 @@ func (r *ServiciosRepo) UpdateServicio(input repository.ActualizarServicioInput)
 		return err
 	}
 	defer tx.Rollback()
+	if input.Costo != nil || input.CostoVariable != nil {
+		var variableActual bool
+		if err := tx.Get(&variableActual, `SELECT costo_variable FROM servicios WHERE id = $1 FOR UPDATE`, input.ID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("servicio con id %d no encontrado", input.ID)
+			}
+			return fmt.Errorf("error al consultar modalidad de costo del servicio: %w", err)
+		}
+		costo, err := repository.ResolverCostoServicio(variableActual, input.Costo, input.CostoVariable)
+		if err != nil {
+			return err
+		}
+		input.Costo = costo
+	}
 
 	sets := []string{}
 	args := []interface{}{}
@@ -258,6 +285,11 @@ func (r *ServiciosRepo) UpdateServicio(input repository.ActualizarServicioInput)
 	if input.Costo != nil {
 		sets = append(sets, fmt.Sprintf("costo = $%d", idx))
 		args = append(args, *input.Costo)
+		idx++
+	}
+	if input.CostoVariable != nil {
+		sets = append(sets, fmt.Sprintf("costo_variable = $%d", idx))
+		args = append(args, *input.CostoVariable)
 		idx++
 	}
 	if input.Sesiones != nil {

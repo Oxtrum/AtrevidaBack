@@ -23,6 +23,7 @@ const allowEstadoOverrideTemporal = true
 // GetReservasPG godoc
 // @Summary Listar reservas desde base de datos
 // @Description Devuelve reservas agrupadas por local con filtros opcionales. Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional), reservados true/false (opcional). Response: total_locales (int), filtros (objeto con los filtros aplicados), reservas ([]LocalReservas cada uno con: local string, semanas []Semana con titulo y slots []ReservaSlot con hora y map dia->[]ReservaItem con tipo M/B, cliente, servicio, servicio_solicitado, servicio_confirmado, estado, numero_telefono, notificado, creado_en, actualizado_en).
+// @Description Cada ReservaItem incluye costo_variable historico cuando se conoce; no expone el importe acordado en el calendario publico.
 // @Tags Reservas BD
 // @Produce json
 // @Param local query string false "Nombre del local" example(SAN MARTIN)
@@ -147,6 +148,7 @@ type crearReservaPGRequest struct {
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
+// @Description costo_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.
 // @Param payload body crearReservaPGRequest true "Datos de la reserva"
 // @Success 201 {object} utils.APIResponse{data=reservaCreatedResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion"
@@ -708,6 +710,8 @@ type actualizarReservaPGRequest struct {
 	NuevoServicioConfirmado string `json:"nuevo_servicio_confirmado" example:"Evaluacion corporal"`
 	// Nuevo precio, opcional
 	NuevoPrecio *float64 `json:"nuevo_precio" example:"180"`
+	// Borra el importe de la reserva; no se puede combinar con nuevo_precio.
+	LimpiarPrecio bool `json:"limpiar_precio" example:"false"`
 	// Nuevas notas u observaciones, opcional
 	NuevasNotas string `json:"nuevas_notas" example:"Reagendada por solicitud del cliente"`
 	// Nuevo nombre del cliente, opcional
@@ -727,6 +731,7 @@ type actualizarReservaPGRequest struct {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Description limpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.
 // @Param payload body actualizarReservaPGRequest true "Datos para actualizar la reserva"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar, fecha pasada u horario fuera de atencion"
@@ -771,7 +776,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 
 	if req.NuevaFecha == "" && req.NuevaHoraDesde == "" && req.NuevaHoraHasta == "" && nuevoTipoNorm == "" &&
 		nuevoTelefono == "" && req.NuevoTelefonoE164 == nil && req.NuevoServicio == "" && req.NuevoServicioSolicitado == "" &&
-		req.NuevoServicioConfirmado == "" && req.NuevoPrecio == nil && req.NuevasNotas == "" &&
+		req.NuevoServicioConfirmado == "" && req.NuevoPrecio == nil && !req.LimpiarPrecio && req.NuevasNotas == "" &&
 		strings.TrimSpace(req.NuevoCliente) == "" && strings.TrimSpace(req.NuevoLocal) == "" &&
 		req.NuevoPlanID == nil && !req.LimpiarPlanID {
 		utils.RespondError(c, http.StatusBadRequest, "no hay cambios para actualizar")
@@ -791,6 +796,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		NuevoServicioSolicitado: req.NuevoServicioSolicitado,
 		NuevoServicioConfirmado: req.NuevoServicioConfirmado,
 		NuevoPrecio:             req.NuevoPrecio,
+		LimpiarPrecio:           req.LimpiarPrecio,
 		NuevasNotas:             req.NuevasNotas,
 		NuevoLocal:              req.NuevoLocal,
 		NuevoPlanID:             req.NuevoPlanID,
@@ -811,6 +817,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 			return
 		}
 		if strings.Contains(errLower, "no está disponible en este local") ||
+			strings.Contains(errLower, "limpiar_precio") ||
 			strings.Contains(errLower, "telefono_e164") ||
 			strings.Contains(errLower, "horario fuera de atenci") ||
 			strings.Contains(errLower, "hora_desde") ||
@@ -837,6 +844,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Description Confirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.
 // @Param payload body actualizarEstadoReservaPGRequest true "Nuevo estado de la reserva"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: estado invalido, transicion no permitida, campo requerido faltante"

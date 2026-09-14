@@ -105,6 +105,7 @@ type ServicioPG struct {
 	CategoriaID        *int     `db:"categoria_id"`
 	Tiempo             *string  `db:"tiempo"`
 	Costo              *float64 `db:"costo"`
+	CostoVariable      bool     `db:"costo_variable"`
 	Sesiones           int      `db:"sesiones"`
 	Activo             bool     `db:"activo"`
 	RequiereEvaluacion bool     `db:"requiere_evaluacion"`
@@ -289,6 +290,7 @@ type ReservaPG struct {
 	ServicioConfirmado *string   `db:"servicio_confirmado"`
 	ServicioTiempo     *string   `db:"servicio_tiempo"`
 	Precio             *float64  `db:"precio"`
+	CostoVariable      *bool     `db:"costo_variable"`
 	Notas              *string   `db:"notas"`
 	Activo             bool      `db:"activo"`
 	Notificado         bool      `db:"notificado"`

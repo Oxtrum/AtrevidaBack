@@ -5126,7 +5126,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).",
+                "description": "Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).\ncosto_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5193,7 +5193,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).",
+                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).\nlimpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5269,7 +5269,7 @@ const docTemplate = `{
         },
         "/bd/reservas/calendario": {
             "get": {
-                "description": "Devuelve reservas agrupadas por local con filtros opcionales. Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional), reservados true/false (opcional). Response: total_locales (int), filtros (objeto con los filtros aplicados), reservas ([]LocalReservas cada uno con: local string, semanas []Semana con titulo y slots []ReservaSlot con hora y map dia-\u003e[]ReservaItem con tipo M/B, cliente, servicio, servicio_solicitado, servicio_confirmado, estado, numero_telefono, notificado, creado_en, actualizado_en).",
+                "description": "Devuelve reservas agrupadas por local con filtros opcionales. Filtros: local (opcional), fecha YYYY-MM-DD (opcional), fecha_desde/fecha_hasta rango (opcional), cliente (opcional), numero_telefono (opcional), servicio_solicitado busqueda parcial (opcional), servicio_confirmado busqueda parcial (opcional), estado PENDIENTE/RECHAZADO/AGENDADO/COMPLETADO (opcional), tipo mesa/bicicleta (opcional), reservados true/false (opcional). Response: total_locales (int), filtros (objeto con los filtros aplicados), reservas ([]LocalReservas cada uno con: local string, semanas []Semana con titulo y slots []ReservaSlot con hora y map dia-\u003e[]ReservaItem con tipo M/B, cliente, servicio, servicio_solicitado, servicio_confirmado, estado, numero_telefono, notificado, creado_en, actualizado_en).\nCada ReservaItem incluye costo_variable historico cuando se conoce; no expone el importe acordado en el calendario publico.",
                 "produces": [
                     "application/json"
                 ],
@@ -5407,7 +5407,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO, RECHAZADO→PENDIENTE. COMPLETADO no admite cambios.",
+                "description": "Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO, RECHAZADO→PENDIENTE. COMPLETADO no admite cambios.\nConfirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5766,7 +5766,7 @@ const docTemplate = `{
         },
         "/bd/servicios": {
             "get": {
-                "description": "Devuelve servicios desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional), paciente_nuevo true/false (opcional) filtrar solo servicios visibles para nuevos pacientes. Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion, paciente_nuevo), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion, visible_paciente_nuevo).",
+                "description": "Cada servicio incluye costo_variable. Cuando es true, costo es cero por compatibilidad y no representa un servicio gratuito.\nDevuelve servicios desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional), paciente_nuevo true/false (opcional) filtrar solo servicios visibles para nuevos pacientes. Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion, paciente_nuevo), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion, visible_paciente_nuevo).",
                 "produces": [
                     "application/json"
                 ],
@@ -5856,7 +5856,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un servicio en PostgreSQL y opcionalmente lo asocia a un local. Si se envia local, la categoria del servicio debe estar asociada a ese local en categorias_locales. Body: nombre (requerido), categoria (requerido), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false default true (opcional), local para activar (opcional). Response: id (int ID del servicio creado).",
+                "description": "costo_variable es opcional y default false. Si es true, costo se normaliza a cero. El costo recibido debe ser finito, no negativo y no superar 99999999.99; se redondea a dos decimales. Se conserva costo opcional para consumidores anteriores.\nCrea un servicio en PostgreSQL y opcionalmente lo asocia a un local. Si se envia local, la categoria del servicio debe estar asociada a ese local en categorias_locales. Body: nombre (requerido), categoria (requerido), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false default true (opcional), local para activar (opcional). Response: id (int ID del servicio creado).",
                 "consumes": [
                     "application/json"
                 ],
@@ -5898,7 +5898,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: nombre/categoria requerido, tipo_espacio_requerido invalido, local no encontrado, categoria no disponible para el local, local sin espacios",
+                        "description": "Error de validacion: nombre/categoria requerido, costo invalido, tipo_espacio_requerido invalido, local no encontrado, categoria no disponible para el local, local sin espacios",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5980,7 +5980,7 @@ const docTemplate = `{
         },
         "/bd/servicios/{id}": {
             "get": {
-                "description": "Devuelve un servicio por su ID. Param: id (requerido, path). Response: servicio (ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).",
+                "description": "Incluye costo_variable; true indica que el costo se define al cobrar y costo es cero por compatibilidad.\nDevuelve un servicio por su ID. Param: id (requerido, path). Response: servicio (ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).",
                 "produces": [
                     "application/json"
                 ],
@@ -6096,7 +6096,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza un servicio existente. Solo se actualizan los campos enviados. Si se cambia categoria y el servicio ya esta asociado a locales, la nueva categoria se asocia automaticamente a esos locales en categorias_locales dentro de la misma transaccion. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.",
+                "description": "Omitir costo_variable conserva la modalidad actual. Una modalidad variable siempre guarda costo cero incluso en requests antiguos. Pasar de variable a fijo exige enviar costo explicitamente (cero es valido). El costo recibido debe ser finito, no negativo y no superar 99999999.99; se redondea a dos decimales.\nActualiza un servicio existente. Solo se actualizan los campos enviados. Si se cambia categoria y el servicio ya esta asociado a locales, la nueva categoria se asocia automaticamente a esos locales en categorias_locales dentro de la misma transaccion. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6146,7 +6146,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: id invalido, tipo_espacio_requerido invalido o sin campos a modificar",
+                        "description": "Error de validacion: id invalido, costo invalido o ausente al pasar de variable a fijo, categoria no disponible, tipo_espacio_requerido invalido o sin campos a modificar",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -6543,7 +6543,7 @@ const docTemplate = `{
         },
         "/servicios": {
             "get": {
-                "description": "Devuelve servicios desde catalogo Sheets con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local ARANJUEZ/CENTRO/SAN MARTIN (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).",
+                "description": "La respuesta incluye costo_variable; true indica costo a definir al cobrar, no gratuidad.\nDevuelve servicios desde catalogo Sheets con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local ARANJUEZ/CENTRO/SAN MARTIN (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).",
                 "produces": [
                     "application/json"
                 ],
@@ -6994,6 +6994,11 @@ const docTemplate = `{
                     "type": "boolean",
                     "example": false
                 },
+                "limpiar_precio": {
+                    "description": "Borra el importe de la reserva; no se puede combinar con nuevo_precio.",
+                    "type": "boolean",
+                    "example": false
+                },
                 "local": {
                     "description": "Nombre del local (siempre requerido para validar existencia)",
                     "type": "string",
@@ -7156,6 +7161,11 @@ const docTemplate = `{
                     "description": "Nuevo costo (opcional)",
                     "type": "number",
                     "example": 420
+                },
+                "costo_variable": {
+                    "description": "Modalidad variable; omitirla conserva la actual y false permite volver a fijo.",
+                    "type": "boolean",
+                    "example": true
                 },
                 "nombre": {
                     "description": "Nuevo nombre (opcional)",
@@ -7997,6 +8007,11 @@ const docTemplate = `{
                     "description": "Costo del servicio",
                     "type": "number",
                     "example": 350
+                },
+                "costo_variable": {
+                    "description": "Modalidad variable (default false); al activarla se guarda costo cero.",
+                    "type": "boolean",
+                    "example": false
                 },
                 "local": {
                     "description": "Nombre del local donde activar el servicio (opcional)",
@@ -10117,6 +10132,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Maria Lopez"
                 },
+                "costo_variable": {
+                    "description": "Modalidad historica del servicio; ausente cuando no se conoce.",
+                    "type": "boolean",
+                    "example": true
+                },
                 "creado_en": {
                     "type": "string",
                     "example": "2026-05-23T15:04:05Z"
@@ -10230,6 +10250,11 @@ const docTemplate = `{
                 "costo": {
                     "type": "string",
                     "example": "350"
+                },
+                "costo_variable": {
+                    "description": "Indica que el costo se define al cobrar; costo conserva cero por compatibilidad.",
+                    "type": "boolean",
+                    "example": false
                 },
                 "id": {
                     "type": "integer",
@@ -10530,6 +10555,11 @@ const docTemplate = `{
                 "cliente": {
                     "type": "string",
                     "example": "Maria Lopez"
+                },
+                "costo_variable": {
+                    "description": "Modalidad del servicio guardada en la reserva; ausente en historicos desconocidos.",
+                    "type": "boolean",
+                    "example": true
                 },
                 "creado_en": {
                     "type": "string",

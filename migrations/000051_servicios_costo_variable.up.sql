@@ -1,0 +1,2 @@
+ALTER TABLE servicios
+    ADD COLUMN costo_variable BOOLEAN NOT NULL DEFAULT FALSE;

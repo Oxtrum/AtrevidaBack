@@ -22,6 +22,7 @@ import (
 //
 // GetServicios godoc
 // @Summary Listar servicios
+// @Description La respuesta incluye costo_variable; true indica costo a definir al cobrar, no gratuidad.
 // @Description Devuelve servicios desde catalogo Sheets con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local ARANJUEZ/CENTRO/SAN MARTIN (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional). Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).
 // @Tags Catalogo
 // @Produce json

@@ -15,7 +15,9 @@ type ReservaItem struct {
 	// (p.ej. "16:30"), HoraHastaReal el fin real de la reserva (p.ej. "17:00").
 	HoraHastaReal string `json:"reserva_hora_hasta,omitempty" example:"17:00"`
 	// ID del plan asociado, si la reserva consume un paquete.
-	PlanID             *int   `json:"plan_id,omitempty" example:"5"`
+	PlanID *int `json:"plan_id,omitempty" example:"5"`
+	// Modalidad historica del servicio; ausente cuando no se conoce.
+	CostoVariable      *bool  `json:"costo_variable,omitempty" example:"true"`
 	Servicio           string `json:"servicio,omitempty" example:"Depilacion Laser"`
 	ServicioSolicitado string `json:"servicio_solicitado,omitempty" example:"Piernas completas"`
 	ServicioConfirmado string `json:"servicio_confirmado,omitempty" example:"Depilacion Laser Piernas"`

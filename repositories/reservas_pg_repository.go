@@ -52,6 +52,7 @@ type CreateReservaInput struct {
 	ServicioSolicitado string
 	ServicioConfirmado *string
 	Precio             *float64
+	CostoVariable      *bool
 	Notas              string
 	Detalle            []CrearDetalleInput
 }
@@ -80,6 +81,9 @@ type UpdateReservaInput struct {
 	NuevoServicioSolicitado *string
 	NuevoServicioConfirmado *string
 	NuevoPrecio             *float64
+	NuevoPrecioSet          bool
+	NuevoCostoVariable      *bool
+	NuevoCostoVariableSet   bool
 	NuevasNotas             *string
 	NuevoLocal              *string
 	NuevoPlanID             *int
@@ -94,6 +98,9 @@ type UpdateReservaEstadoInput struct {
 	Estado             string
 	ServicioConfirmado *string
 	Precio             *float64
+	PrecioSet          bool
+	CostoVariable      *bool
+	CostoVariableSet   bool
 	TipoEspacio        *string
 }
 

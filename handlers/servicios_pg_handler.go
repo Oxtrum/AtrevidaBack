@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"atrevida-agenda-api/models"
+	repository "atrevida-agenda-api/repositories"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -14,6 +16,7 @@ import (
 
 // GetServiciosPG godoc
 // @Summary Listar servicios desde base de datos
+// @Description Cada servicio incluye costo_variable. Cuando es true, costo es cero por compatibilidad y no representa un servicio gratuito.
 // @Description Devuelve servicios desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional), paciente_nuevo true/false (opcional) filtrar solo servicios visibles para nuevos pacientes. Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion, paciente_nuevo), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion, visible_paciente_nuevo).
 // @Tags Servicios BD
 // @Produce json
@@ -103,6 +106,7 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 
 // GetServicioPGByID godoc
 // @Summary Obtener servicio por ID
+// @Description Incluye costo_variable; true indica que el costo se define al cobrar y costo es cero por compatibilidad.
 // @Description Devuelve un servicio por su ID. Param: id (requerido, path). Response: servicio (ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion).
 // @Tags Servicios BD
 // @Produce json
@@ -138,6 +142,8 @@ type crearServicioRequest struct {
 	Tiempo string `json:"tiempo" example:"01:00"`
 	// Costo del servicio
 	Costo *float64 `json:"costo" example:"350"`
+	// Modalidad variable (default false); al activarla se guarda costo cero.
+	CostoVariable bool `json:"costo_variable" example:"false"`
 	// Cantidad de sesiones (default 1)
 	Sesiones int `json:"sesiones" example:"6"`
 	// Tipo de espacio requerido: M (mesa) o B (bicicleta)
@@ -150,13 +156,14 @@ type crearServicioRequest struct {
 
 // CreateServicio godoc
 // @Summary Crear servicio
+// @Description costo_variable es opcional y default false. Si es true, costo se normaliza a cero. El costo recibido debe ser finito, no negativo y no superar 99999999.99; se redondea a dos decimales. Se conserva costo opcional para consumidores anteriores.
 // @Description Crea un servicio en PostgreSQL y opcionalmente lo asocia a un local. Si se envia local, la categoria del servicio debe estar asociada a ese local en categorias_locales. Body: nombre (requerido), categoria (requerido), tiempo HH:MM (opcional), costo (opcional), sesiones entero positivo default 1 (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false default true (opcional), local para activar (opcional). Response: id (int ID del servicio creado).
 // @Tags Servicios BD
 // @Accept json
 // @Produce json
 // @Param payload body crearServicioRequest true "Datos del servicio"
 // @Success 200 {object} utils.APIResponse{data=idResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: nombre/categoria requerido, tipo_espacio_requerido invalido, local no encontrado, categoria no disponible para el local, local sin espacios"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: nombre/categoria requerido, costo invalido, tipo_espacio_requerido invalido, local no encontrado, categoria no disponible para el local, local sin espacios"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios [post]
 func (h *Container) CreateServicio(c *gin.Context) {
@@ -189,6 +196,7 @@ func (h *Container) CreateServicio(c *gin.Context) {
 		CategoriaNombre:      req.CategoriaNombre,
 		Tiempo:               req.Tiempo,
 		Costo:                req.Costo,
+		CostoVariable:        req.CostoVariable,
 		Sesiones:             sesiones,
 		TipoEspacioRequerido: req.TipoEspacioRequerido,
 		RequiereEvaluacion:   requiereEvaluacion,
@@ -196,7 +204,7 @@ func (h *Container) CreateServicio(c *gin.Context) {
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
-		if strings.Contains(err.Error(), "no encontrada") ||
+		if errors.Is(err, repository.ErrCostoServicioInvalido) || strings.Contains(err.Error(), "no encontrada") ||
 			strings.Contains(err.Error(), "no tiene espacios") ||
 			strings.Contains(err.Error(), "no disponible") {
 			status = http.StatusBadRequest
@@ -218,6 +226,8 @@ type actualizarServicioRequest struct {
 	Tiempo *string `json:"tiempo" example:"01:15"`
 	// Nuevo costo (opcional)
 	Costo *float64 `json:"costo" example:"420"`
+	// Modalidad variable; omitirla conserva la actual y false permite volver a fijo.
+	CostoVariable *bool `json:"costo_variable" example:"true"`
 	// Nueva cantidad de sesiones (opcional)
 	Sesiones *int `json:"sesiones" example:"8"`
 	// Nuevo tipo de espacio requerido M/B (opcional)
@@ -230,6 +240,7 @@ type actualizarServicioRequest struct {
 
 // UpdateServicio godoc
 // @Summary Actualizar servicio
+// @Description Omitir costo_variable conserva la modalidad actual. Una modalidad variable siempre guarda costo cero incluso en requests antiguos. Pasar de variable a fijo exige enviar costo explicitamente (cero es valido). El costo recibido debe ser finito, no negativo y no superar 99999999.99; se redondea a dos decimales.
 // @Description Actualiza un servicio existente. Solo se actualizan los campos enviados. Si se cambia categoria y el servicio ya esta asociado a locales, la nueva categoria se asocia automaticamente a esos locales en categorias_locales dentro de la misma transaccion. Param: id (requerido, path). Body: nombre (opcional), categoria (opcional), tiempo HH:MM (opcional), costo (opcional), sesiones (opcional), tipo_espacio_requerido M/B (opcional), requiere_evaluacion true/false (opcional), activo true/false (opcional). Response: mensaje string.
 // @Tags Servicios BD
 // @Accept json
@@ -237,7 +248,7 @@ type actualizarServicioRequest struct {
 // @Param id path int true "ID del servicio" example(8)
 // @Param payload body actualizarServicioRequest true "Campos a actualizar (todos opcionales, al menos uno requerido)"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, tipo_espacio_requerido invalido o sin campos a modificar"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, costo invalido o ausente al pasar de variable a fijo, categoria no disponible, tipo_espacio_requerido invalido o sin campos a modificar"
 // @Failure 404 {object} utils.APIResponse "Servicio no encontrado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios/{id} [patch]
@@ -255,7 +266,7 @@ func (h *Container) UpdateServicio(c *gin.Context) {
 	}
 
 	if req.Nombre == nil && req.CategoriaNombre == nil && req.Tiempo == nil &&
-		req.Costo == nil && req.Sesiones == nil &&
+		req.Costo == nil && req.CostoVariable == nil && req.Sesiones == nil &&
 		req.TipoEspacioRequerido == nil && req.RequiereEvaluacion == nil && req.Activo == nil {
 		utils.RespondError(c, http.StatusBadRequest,
 			"debe especificarse al menos un campo a modificar")
@@ -277,6 +288,7 @@ func (h *Container) UpdateServicio(c *gin.Context) {
 		CategoriaNombre:      req.CategoriaNombre,
 		Tiempo:               req.Tiempo,
 		Costo:                req.Costo,
+		CostoVariable:        req.CostoVariable,
 		Sesiones:             req.Sesiones,
 		TipoEspacioRequerido: req.TipoEspacioRequerido,
 		RequiereEvaluacion:   req.RequiereEvaluacion,
@@ -287,7 +299,7 @@ func (h *Container) UpdateServicio(c *gin.Context) {
 		if strings.Contains(err.Error(), "no encontrad") {
 			status = http.StatusNotFound
 		}
-		if strings.Contains(err.Error(), "no disponible") {
+		if errors.Is(err, repository.ErrCostoServicioInvalido) || strings.Contains(err.Error(), "no disponible") {
 			status = http.StatusBadRequest
 		}
 		utils.RespondError(c, status, err.Error())

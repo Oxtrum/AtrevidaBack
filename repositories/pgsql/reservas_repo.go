@@ -50,7 +50,7 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
 			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
-			r.precio, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
+			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
@@ -207,7 +207,7 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
 			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
-			r.precio, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
+			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE r.id = $1
@@ -326,15 +326,15 @@ func (r *ReservasRepo) CreateReserva(input repository.CreateReservaInput) (int, 
 			local_id, local_nombre, tipo_espacio,
 			fecha, hora_desde, hora_hasta,
 			cliente, estado, numero_telefono, telefono_e164, plan_id, servicio_nombre,
-			servicio_solicitado, servicio_confirmado, precio, notas
-		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+			servicio_solicitado, servicio_confirmado, precio, notas, costo_variable
+		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
 		RETURNING id
 	`,
 		localID, input.LocalNombre, strings.ToUpper(input.TipoEspacio),
 		input.Fecha, input.HoraDesde, input.HoraHasta,
 		input.Cliente, input.Estado, nullStr(input.NumeroTelefono), input.TelefonoE164, input.PlanID,
 		nullStr(input.ServicioNombre), nullStr(input.ServicioSolicitado),
-		input.ServicioConfirmado, input.Precio, nullStr(input.Notas),
+		input.ServicioConfirmado, input.Precio, nullStr(input.Notas), input.CostoVariable,
 	).Scan(&reservaID)
 	if err != nil {
 		return 0, fmt.Errorf("error al insertar reserva: %w", err)
@@ -503,9 +503,14 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 		args = append(args, input.NuevoTelefonoE164)
 		idx++
 	}
-	if input.NuevoPrecio != nil {
+	if input.NuevoPrecio != nil || input.NuevoPrecioSet {
 		sets = append(sets, fmt.Sprintf("precio = $%d", idx))
-		args = append(args, *input.NuevoPrecio)
+		args = append(args, input.NuevoPrecio)
+		idx++
+	}
+	if input.NuevoCostoVariableSet {
+		sets = append(sets, fmt.Sprintf("costo_variable = $%d", idx))
+		args = append(args, input.NuevoCostoVariable)
 		idx++
 	}
 	if input.NuevasNotas != nil {
@@ -645,9 +650,14 @@ func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoI
 		args = append(args, *input.ServicioConfirmado)
 		idx++
 	}
-	if input.Precio != nil {
+	if input.Precio != nil || input.PrecioSet {
 		sets = append(sets, fmt.Sprintf("precio = $%d", idx))
-		args = append(args, *input.Precio)
+		args = append(args, input.Precio)
+		idx++
+	}
+	if input.CostoVariableSet {
+		sets = append(sets, fmt.Sprintf("costo_variable = $%d", idx))
+		args = append(args, input.CostoVariable)
 		idx++
 	}
 	if input.TipoEspacio != nil {
@@ -800,6 +810,7 @@ func BuildJerarquia(reservas []models.ReservaPGCompleta) []models.LocalReservas 
 			HoraHasta:     rv.HoraHasta,
 			HoraHastaReal: rv.HoraHastaOriginal,
 			PlanID:        rv.PlanID,
+			CostoVariable: rv.CostoVariable,
 			Notificado:    rv.Notificado,
 		}
 		if !rv.CreadoEn.IsZero() {

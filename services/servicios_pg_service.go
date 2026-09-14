@@ -57,6 +57,7 @@ type CrearServicioPGInput struct {
 	CategoriaNombre      string
 	Tiempo               string
 	Costo                *float64
+	CostoVariable        bool
 	Sesiones             int
 	TipoEspacioRequerido *string
 	RequiereEvaluacion   bool
@@ -64,6 +65,10 @@ type CrearServicioPGInput struct {
 }
 
 func (s *ServiciosPGService) CreateServicio(input CrearServicioPGInput) (int, error) {
+	costo, err := repository.NormalizarCostoServicio(input.Costo, input.CostoVariable)
+	if err != nil {
+		return 0, err
+	}
 	var tipoEspacio *string
 	if input.TipoEspacioRequerido != nil {
 		t := strings.ToUpper(*input.TipoEspacioRequerido)
@@ -74,7 +79,8 @@ func (s *ServiciosPGService) CreateServicio(input CrearServicioPGInput) (int, er
 		Nombre:               strings.TrimSpace(input.Nombre),
 		CategoriaNombre:      strings.TrimSpace(input.CategoriaNombre),
 		Tiempo:               strings.TrimSpace(input.Tiempo),
-		Costo:                input.Costo,
+		Costo:                costo,
+		CostoVariable:        input.CostoVariable,
 		Sesiones:             input.Sesiones,
 		TipoEspacioRequerido: tipoEspacio,
 		RequiereEvaluacion:   input.RequiereEvaluacion,
@@ -88,6 +94,7 @@ type ActualizarServicioPGInput struct {
 	CategoriaNombre      *string
 	Tiempo               *string
 	Costo                *float64
+	CostoVariable        *bool
 	Sesiones             *int
 	TipoEspacioRequerido *string
 	RequiereEvaluacion   *bool
@@ -95,6 +102,9 @@ type ActualizarServicioPGInput struct {
 }
 
 func (s *ServiciosPGService) UpdateServicio(input ActualizarServicioPGInput) error {
+	if _, err := repository.NormalizarCostoServicio(input.Costo, false); err != nil {
+		return err
+	}
 	var tipoEspacio *string
 	if input.TipoEspacioRequerido != nil {
 		t := strings.ToUpper(*input.TipoEspacioRequerido)
@@ -107,6 +117,7 @@ func (s *ServiciosPGService) UpdateServicio(input ActualizarServicioPGInput) err
 		CategoriaNombre:      input.CategoriaNombre,
 		Tiempo:               input.Tiempo,
 		Costo:                input.Costo,
+		CostoVariable:        input.CostoVariable,
 		Sesiones:             input.Sesiones,
 		TipoEspacioRequerido: tipoEspacio,
 		RequiereEvaluacion:   input.RequiereEvaluacion,

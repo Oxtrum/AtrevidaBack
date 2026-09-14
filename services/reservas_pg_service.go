@@ -502,10 +502,12 @@ type ReservaSimple struct {
 	ServicioSolicitado *string  `json:"servicio_solicitado,omitempty" example:"Piernas completas"`
 	ServicioConfirmado *string  `json:"servicio_confirmado,omitempty" example:"Depilacion Laser Piernas"`
 	Precio             *float64 `json:"precio,omitempty" example:"350"`
-	Notas              *string  `json:"notas,omitempty" example:"Primera sesion del plan"`
-	Notificado         bool     `json:"notificado" example:"false"`
-	CreadoEn           string   `json:"creado_en" example:"2026-05-23T15:04:05Z"`
-	ActualizadoEn      string   `json:"actualizado_en" example:"2026-05-23T16:04:05Z"`
+	// Modalidad del servicio guardada en la reserva; ausente en historicos desconocidos.
+	CostoVariable *bool   `json:"costo_variable,omitempty" example:"true"`
+	Notas         *string `json:"notas,omitempty" example:"Primera sesion del plan"`
+	Notificado    bool    `json:"notificado" example:"false"`
+	CreadoEn      string  `json:"creado_en" example:"2026-05-23T15:04:05Z"`
+	ActualizadoEn string  `json:"actualizado_en" example:"2026-05-23T16:04:05Z"`
 }
 
 type ResumenReservasSemana struct {
@@ -743,6 +745,7 @@ func reservaSimpleDesdePG(rv models.ReservaPGCompleta) ReservaSimple {
 		ServicioSolicitado: rv.ServicioSolicitado,
 		ServicioConfirmado: rv.ServicioConfirmado,
 		Precio:             rv.Precio,
+		CostoVariable:      rv.CostoVariable,
 		Notas:              rv.Notas,
 		Notificado:         rv.Notificado,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
@@ -779,6 +782,7 @@ func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple
 		ServicioSolicitado: rv.ServicioSolicitado,
 		ServicioConfirmado: rv.ServicioConfirmado,
 		Precio:             rv.Precio,
+		CostoVariable:      rv.CostoVariable,
 		Notas:              rv.Notas,
 		Notificado:         rv.Notificado,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
@@ -1049,6 +1053,11 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 	}
 
 	servicioReserva, servicioEncontrado := s.servicioParaReserva(input)
+	var costoVariable *bool
+	if servicioEncontrado {
+		variable := servicioReserva.CostoVariable
+		costoVariable = &variable
+	}
 	requiereEvaluacion := true
 	servicioDirectoManual := ""
 	if servicioEncontrado {
@@ -1111,6 +1120,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		ServicioSolicitado: input.ServicioSolicitado,
 		ServicioConfirmado: input.ServicioConfirmado,
 		Precio:             input.Precio,
+		CostoVariable:      costoVariable,
 		Notas:              input.Notas,
 		PlanID:             input.PlanID,
 	})
@@ -1236,11 +1246,16 @@ func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReserv
 		servicioConfirmado = &servicio
 	}
 
+	costoVariable, actualizarCosto := s.modalidadCostoParaCambio(current, servicioConfirmado, true)
+	limpiarPrecio := actualizarCosto && costoVariable != nil && *costoVariable && input.Precio == nil
 	return s.repo.UpdateReservaEstado(repository.UpdateReservaEstadoInput{
 		ID:                 input.Id,
 		Estado:             estado,
 		ServicioConfirmado: servicioConfirmado,
 		Precio:             input.Precio,
+		PrecioSet:          limpiarPrecio,
+		CostoVariable:      costoVariable,
+		CostoVariableSet:   actualizarCosto,
 		TipoEspacio:        tipoEspacio,
 	})
 }
@@ -1261,6 +1276,7 @@ type ActualizarReservaPGInput struct {
 	NuevoServicioSolicitado string
 	NuevoServicioConfirmado string
 	NuevoPrecio             *float64
+	LimpiarPrecio           bool
 	NuevasNotas             string
 	NuevoLocal              string
 	NuevoPlanID             *int
@@ -1270,6 +1286,10 @@ type ActualizarReservaPGInput struct {
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
 	upd := repository.UpdateReservaInput{Id: input.Id}
+	if input.LimpiarPrecio && input.NuevoPrecio != nil {
+		return errors.New("limpiar_precio no puede combinarse con nuevo_precio")
+	}
+	upd.NuevoPrecioSet = input.LimpiarPrecio
 
 	if input.NuevaFecha != "" {
 		t, err := time.Parse("2006-01-02", input.NuevaFecha)
@@ -1430,6 +1450,14 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 				}
 			}
 		}
+	}
+	servicioCambio := upd.NuevoServicioConfirmado
+	if servicioCambio == nil {
+		servicioCambio = upd.NuevoServicio
+	}
+	upd.NuevoCostoVariable, upd.NuevoCostoVariableSet = s.modalidadCostoParaCambio(current, servicioCambio, false)
+	if upd.NuevoCostoVariableSet && upd.NuevoCostoVariable != nil && *upd.NuevoCostoVariable && upd.NuevoPrecio == nil {
+		upd.NuevoPrecioSet = true
 	}
 
 	// Reprogramar invalida la confirmación ya enviada: se devuelve al feed de

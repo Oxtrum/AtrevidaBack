@@ -11,6 +11,7 @@ type CrearServicioInput struct {
 	CategoriaNombre      string
 	Tiempo               string
 	Costo                *float64
+	CostoVariable        bool
 	Sesiones             int
 	TipoEspacioRequerido *string // "M" | "B" | nil
 	RequiereEvaluacion   bool
@@ -23,6 +24,7 @@ type ActualizarServicioInput struct {
 	CategoriaNombre      *string
 	Tiempo               *string
 	Costo                *float64
+	CostoVariable        *bool
 	Sesiones             *int
 	TipoEspacioRequerido *string
 	RequiereEvaluacion   *bool
