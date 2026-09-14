@@ -136,3 +136,30 @@ func TestCreatePagoRechazaSubtotalDeCabeceraInconsistente(t *testing.T) {
 func floatPtr(value float64) *float64 {
 	return &value
 }
+
+func TestPagoMixtoCantidadesYDescuentos(t *testing.T) {
+	for _, descuento := range []float64{0, 10.25, 490.5, -1, 491} {
+		repo := &fakePagosRepo{}
+		svc := NewPagosService(repo)
+		_, err := svc.CreatePago(CrearPagoInput{
+			LocalID: 1, LocalNombre: "SAN MARTIN", ClienteNombre: "Prueba", Descuento: &descuento,
+			TipoPago: "qr", Estado: "PAGADO", Activo: true, Cajero: CajeroAuditoriaInput{Nombre: "admin"},
+			Detalle: []CrearDetallePagoInput{
+				{Servicio: "Fijo", PrecioUnitario: 70.25, Cantidad: 2},
+				{Servicio: "Variable acordado cero", PrecioUnitario: 0, Cantidad: 1},
+				{Servicio: "Paquete", PrecioUnitario: 350, Cantidad: 1},
+			},
+		})
+		valido := descuento >= 0 && descuento <= 490.5
+		if (err == nil) != valido {
+			t.Fatalf("descuento %v: %v", descuento, err)
+		}
+		if valido {
+			if *repo.createdPago.Subtotal != 490.5 || *repo.createdPago.TotalFinal != redondearMoneda(490.5-descuento) {
+				t.Fatal("total incorrecto")
+			}
+		} else if repo.createdPago != nil {
+			t.Fatal("pago invalido llego al repositorio")
+		}
+	}
+}

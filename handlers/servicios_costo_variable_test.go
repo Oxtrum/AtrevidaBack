@@ -77,6 +77,26 @@ func TestServicioCostoInvalidoResponde400(t *testing.T) {
 	}
 }
 
+func TestPatchServicioAnteriorOmiteModalidad(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, body := range []string{`{"nombre":"Nuevo nombre"}`, `{"costo":70}`} {
+		repo := &serviciosCostoTestRepo{}
+		h := &Container{ServiciosPG: services.NewServiciosPGService(repo)}
+		router := gin.New()
+		router.PATCH("/bd/servicios/:id", h.UpdateServicio)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPatch, "/bd/servicios/71", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d: %s", w.Code, w.Body.String())
+		}
+		if repo.actualizado.CostoVariable != nil {
+			t.Fatal("PATCH omitido no debe convertirse en false")
+		}
+	}
+}
+
 func TestPatchServicioModalidadFalseEsCampoYErroresSon400(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, errUpdate := range []error{nil, repository.ErrCostoServicioInvalido} {
