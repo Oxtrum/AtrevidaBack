@@ -752,8 +752,9 @@ func horaCorta(hora string) string {
 	return hora
 }
 
-// consultaMaxConcurrencia mide la concurrencia máxima de reservas activas en
-// cualquier instante dentro del rango [hora_desde, hora_hasta). Contar todas las
+// consultaMaxConcurrencia mide la concurrencia máxima de reservas activas que
+// ocupan capacidad en cualquier instante dentro del rango [hora_desde, hora_hasta).
+// Contar todas las
 // reservas que solapan el rango sobrestima la ocupación cuando sub-bloques
 // distintos están ocupados por reservas distintas (ej: 12:00-12:30 y 12:30-13:00
 // con capacidad 2): cada instante tiene 1 ocupada de 2 y una nueva de 60min
@@ -768,6 +769,7 @@ func consultaMaxConcurrencia() string {
 				FROM reservas r
 				WHERE r.local_id = $1 AND r.tipo_espacio = $2 AND r.fecha = $3
 				  AND r.activo = TRUE AND r.id != $6
+				  AND UPPER(BTRIM(COALESCE(r.estado, 'PENDIENTE'))) NOT IN ('RECHAZADO', 'COMPLETADO')
 				  AND r.hora_desde <= t.instant AND r.hora_hasta > t.instant
 			) AS depth
 			FROM (
@@ -776,6 +778,7 @@ func consultaMaxConcurrencia() string {
 				SELECT hora_desde FROM reservas r2
 				WHERE r2.local_id = $1 AND r2.tipo_espacio = $2 AND r2.fecha = $3
 				  AND r2.activo = TRUE AND r2.id != $6
+				  AND UPPER(BTRIM(COALESCE(r2.estado, 'PENDIENTE'))) NOT IN ('RECHAZADO', 'COMPLETADO')
 				  AND r2.hora_desde < $5::time AND r2.hora_hasta > $4::time
 			) t
 		) s`

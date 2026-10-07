@@ -20,6 +20,8 @@ func TestConsultaMaxConcurrencia_MideInstanteNoRangoCompleto(t *testing.T) {
 		"r.hora_hasta > t.instant",
 		"$4::time AS instant",
 		"UNION",
+		"UPPER(BTRIM(COALESCE(r.estado, 'PENDIENTE'))) NOT IN ('RECHAZADO', 'COMPLETADO')",
+		"UPPER(BTRIM(COALESCE(r2.estado, 'PENDIENTE'))) NOT IN ('RECHAZADO', 'COMPLETADO')",
 	} {
 		if !strings.Contains(sql, frag) {
 			t.Fatalf("la consulta no contiene %q:\n%s", frag, sql)

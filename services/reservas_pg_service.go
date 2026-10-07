@@ -134,7 +134,7 @@ func (s *ReservasPGService) getCalendarioCompleto(
 		return nil, err
 	}
 
-	reservasExpandidas := transformReservasEnSlots(reservasDB)
+	reservasExpandidas := transformReservasEnSlots(filterReservasQueOcupanCapacidad(reservasDB))
 	reservasExpandidasFiltradas := transformReservasEnSlots(filterReservasPorEstado(reservasDB, f.Estado))
 
 	// Indexar ocupados
@@ -311,6 +311,9 @@ func (s *ReservasPGService) getEspaciosLibresRaw(f FiltroReservasPG, desde, hast
 	type rangoHora struct{ desde, hasta string }
 	ocupadosIdx := map[string]map[string]map[string][]rangoHora{}
 	for _, rv := range ocupadas {
+		if !reservaOcupaCapacidad(rv) {
+			continue
+		}
 		local := rv.LocalNombre
 		fecha := rv.Fecha.Format("2006-01-02")
 		tipo := strings.ToUpper(rv.TipoEspacio)
@@ -1593,6 +1596,9 @@ func (s *ReservasPGService) validarDisponibilidad(local string, fecha *time.Time
 			if excludeID != nil && r.ID == *excludeID {
 				continue
 			}
+			if !reservaOcupaCapacidad(r) {
+				continue
+			}
 			rInicio := toMin(r.HoraDesde)
 			rFin := toMin(r.HoraHasta)
 			if m >= rInicio && m < rFin {
@@ -1655,6 +1661,29 @@ func filterReservasPorEstado(reservas []models.ReservaPGCompleta, estado string)
 	for _, rv := range reservas {
 		if rv.Estado != nil && strings.EqualFold(strings.TrimSpace(*rv.Estado), estado) {
 			resultado = append(resultado, rv)
+		}
+	}
+	return resultado
+}
+
+// reservaOcupaCapacidad conserva una política tolerante con registros legacy:
+// solo los estados finales explícitos liberan el ambiente. Un estado nulo o
+// desconocido continúa ocupando para no habilitar sobre-reservas por datos
+// antiguos o incompletos.
+func reservaOcupaCapacidad(reserva models.ReservaPGCompleta) bool {
+	if reserva.Estado == nil {
+		return true
+	}
+
+	estado := strings.ToUpper(strings.TrimSpace(*reserva.Estado))
+	return estado != "RECHAZADO" && estado != "COMPLETADO"
+}
+
+func filterReservasQueOcupanCapacidad(reservas []models.ReservaPGCompleta) []models.ReservaPGCompleta {
+	resultado := make([]models.ReservaPGCompleta, 0, len(reservas))
+	for _, reserva := range reservas {
+		if reservaOcupaCapacidad(reserva) {
+			resultado = append(resultado, reserva)
 		}
 	}
 	return resultado
