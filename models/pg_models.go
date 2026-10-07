@@ -351,6 +351,10 @@ type PagoPG struct {
 	ClienteNIT string `db:"cliente_nit" json:"cliente_nit" example:"1234567"`
 	// Nombre del cliente al momento de registrar el pago.
 	ClienteNombre string `db:"cliente_nombre" json:"cliente_nombre" example:"Maria Lopez"`
+	// Primer producto del detalle, para mostrar un resumen sin cargar todas las lineas.
+	PrimerProducto string `db:"primer_producto" json:"primer_producto" example:"Limpieza facial"`
+	// Cantidad de lineas de productos registradas en el detalle.
+	CantidadProductos int `db:"cantidad_productos" json:"cantidad_productos" example:"2"`
 	// Subtotal del pago antes del descuento.
 	Subtotal float64 `db:"subtotal" json:"subtotal" example:"500"`
 	// Descuento aplicado al pago.

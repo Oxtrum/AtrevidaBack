@@ -106,6 +106,8 @@ type pagoFiltrosResponse struct {
 	ClienteNIT string `json:"cliente_nit" example:"1234567"`
 	// Filtro aplicado: nombre del cliente
 	ClienteNombre string `json:"cliente_nombre" example:"Maria"`
+	// Filtro aplicado: texto del producto cobrado
+	Producto string `json:"producto" example:"Limpieza facial"`
 	// Filtro aplicado: tipo de pago
 	TipoPago string `json:"tipo_pago" example:"efectivo"`
 	// Filtro aplicado: estado del pago
@@ -275,7 +277,7 @@ type pagoListResponse struct {
 	Total int `json:"total" example:"3"`
 	// Filtros aplicados en la busqueda
 	Filtros pagoFiltrosResponse `json:"filtros"`
-	// Lista de pagos sin detalle
+	// Lista de pagos con resumen de productos, sin el detalle completo
 	Pagos      []models.PagoPG      `json:"pagos"`
 	Paginacion *pagination.Metadata `json:"paginacion,omitempty"`
 }

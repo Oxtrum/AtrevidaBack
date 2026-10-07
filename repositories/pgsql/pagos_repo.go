@@ -40,9 +40,10 @@ func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, er
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM pagos p
+		%s
 		WHERE %s
 		ORDER BY p.fecha_creacion DESC, p.id DESC%s
-	`, pagoSelectColumns(), strings.Join(conditions, " AND "), limitClause)
+	`, pagoSelectColumns(), pagoProductosJoin(), strings.Join(conditions, " AND "), limitClause)
 
 	var pagos []models.PagoPG
 	if err := r.db.SelectContext(queryContext(filtro.Context), &pagos, query, args...); err != nil {
@@ -97,6 +98,14 @@ func pagoConditions(f repository.FiltroPagos) ([]string, []interface{}) {
 	if f.ClienteNombre != "" {
 		add("p.cliente_nombre ILIKE $%d", "%"+f.ClienteNombre+"%")
 	}
+	if f.Producto != "" {
+		add(`EXISTS (
+			SELECT 1 FROM detalle_pagos dp_filtro
+			WHERE dp_filtro.pago_id = p.id
+			  AND TRANSLATE(LOWER(dp_filtro.servicio), 'áéíóúüñ', 'aeiouun')
+			      LIKE TRANSLATE(LOWER($%d), 'áéíóúüñ', 'aeiouun')
+		)`, "%"+f.Producto+"%")
+	}
 	if f.TipoPago != "" {
 		add("p.tipo_pago = $%d", f.TipoPago)
 	}
@@ -132,9 +141,10 @@ func (r *PagosRepo) GetPagoByCodigo(codigoPago string) (*models.PagoCompletoPG, 
 	err := r.db.Get(&pago, fmt.Sprintf(`
 		SELECT %s
 		FROM pagos p
+		%s
 		WHERE p.codigo_pago = $1
 		  AND p.activo = TRUE
-	`, pagoSelectColumns()), codigoPago)
+	`, pagoSelectColumns(), pagoProductosJoin()), codigoPago)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("pago no encontrado")
@@ -561,6 +571,8 @@ func pagoSelectColumns() string {
 		p.cliente_id,
 		COALESCE(p.cliente_nit, '') AS cliente_nit,
 		p.cliente_nombre,
+		COALESCE(productos.primer_producto, '') AS primer_producto,
+		COALESCE(productos.cantidad_productos, 0) AS cantidad_productos,
 		p.subtotal,
 		p.descuento,
 		p.total_final,
@@ -576,6 +588,16 @@ func pagoSelectColumns() string {
 		p.fecha_creacion,
 		p.fecha_modificacion
 	`
+}
+
+func pagoProductosJoin() string {
+	return `LEFT JOIN LATERAL (
+		SELECT
+			COALESCE((ARRAY_AGG(dp.servicio ORDER BY dp.id))[1], '') AS primer_producto,
+			COUNT(*)::int AS cantidad_productos
+		FROM detalle_pagos dp
+		WHERE dp.pago_id = p.id
+	) productos ON TRUE`
 }
 
 func pagoInsertError(err error) error {

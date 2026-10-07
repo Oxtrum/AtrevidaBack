@@ -29,6 +29,7 @@ type FiltroPagos struct {
 	ClienteID     *int
 	ClienteNIT    string
 	ClienteNombre string
+	Producto      string
 	TipoPago      string
 	Estado        string
 	Activo        *bool
@@ -86,6 +87,7 @@ func toRepositoryFiltroPagos(filtro FiltroPagos) (repository.FiltroPagos, error)
 		ClienteID:                  filtro.ClienteID,
 		ClienteNIT:                 strings.TrimSpace(filtro.ClienteNIT),
 		ClienteNombre:              strings.TrimSpace(filtro.ClienteNombre),
+		Producto:                   strings.TrimSpace(filtro.Producto),
 		TipoPago:                   tipoPago,
 		Estado:                     estado,
 		Activo:                     filtro.Activo,

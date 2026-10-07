@@ -11,12 +11,25 @@ import (
 type fakePagosRepo struct {
 	pago        *models.PagoCompletoPG
 	createdPago *repository.CrearPagoInput
+	filtro      repository.FiltroPagos
 }
 
 func (f *fakePagosRepo) CountPagos(repository.FiltroPagos) (int, error) { return 0, nil }
 
 func (f *fakePagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, error) {
+	f.filtro = filtro
 	return nil, nil
+}
+
+func TestGetPagosNormalizaFiltroProducto(t *testing.T) {
+	repo := &fakePagosRepo{}
+	service := NewPagosService(repo)
+	if _, err := service.GetPagos(FiltroPagos{Producto: "  Limpieza facial  "}); err != nil {
+		t.Fatal(err)
+	}
+	if repo.filtro.Producto != "Limpieza facial" {
+		t.Fatalf("producto = %q", repo.filtro.Producto)
+	}
 }
 
 func (f *fakePagosRepo) GetPagoByCodigo(codigoPago string) (*models.PagoCompletoPG, error) {

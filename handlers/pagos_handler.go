@@ -135,7 +135,7 @@ func (h *Container) GetResumenPagos(c *gin.Context) {
 
 // GetPagos godoc
 // @Summary Listar pagos
-// @Description Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Incluye auditoria de creacion y modificacion: fecha_creacion, fecha_modificacion, id_cajero, nombre_cajero, username_cajero, id_cajero_modificacion, nombre_cajero_modificacion y username_cajero_modificacion. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, tipo_pago efectivo/qr, estado PAGADO/BORRADOR/PENDIENTE, activo true/false, cajero de creacion y cajero de modificacion. Si activo no se envia, lista solo pagos activos.
+// @Description Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Retorna la cabecera y un resumen de productos, sin el detalle completo. Incluye auditoria de creacion y modificacion. Filtros: codigo_pago, local, cliente, NIT, producto cobrado, tipo_pago, estado, activo y cajeros. Si activo no se envia, lista solo pagos activos.
 // @Tags Pagos
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -146,6 +146,7 @@ func (h *Container) GetResumenPagos(c *gin.Context) {
 // @Param cliente_id query int false "ID del cliente" example(12)
 // @Param cliente_nit query string false "Busqueda parcial por NIT del cliente" example(1234567)
 // @Param cliente_nombre query string false "Busqueda parcial por nombre del cliente" example(Maria)
+// @Param producto query string false "Busqueda parcial por nombre de cualquier producto del pago" example(Limpieza)
 // @Param tipo_pago query string false "Tipo de pago" Enums(efectivo,qr) example(efectivo)
 // @Param estado query string false "Estado del pago" Enums(PAGADO,BORRADOR,PENDIENTE) example(PENDIENTE)
 // @Param activo query bool false "Filtrar por activo; default true" example(true)
@@ -158,6 +159,7 @@ func (h *Container) GetResumenPagos(c *gin.Context) {
 // @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
 // @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
 // @Param include_total query bool false "Incluye el total de paginas" example(false)
+// @Description Cada pago incluye primer_producto y cantidad_productos como resumen del detalle, sin cargar todas sus lineas. El detalle completo se consulta por codigo.
 // @Success 200 {object} utils.APIResponse{data=pagoListResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
@@ -197,6 +199,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 		CodigoPago: strings.TrimSpace(c.Query("codigo_pago")), LocalID: localID,
 		LocalNombre: strings.TrimSpace(c.Query("local_nombre")), ClienteID: clienteID,
 		ClienteNIT: strings.TrimSpace(c.Query("cliente_nit")), ClienteNombre: strings.TrimSpace(c.Query("cliente_nombre")),
+		Producto: strings.TrimSpace(c.Query("producto")),
 		TipoPago: strings.ToLower(strings.TrimSpace(c.Query("tipo_pago"))), Estado: strings.TrimSpace(c.Query("estado")), Activo: activo,
 		IDCajero: idCajero, NombreCajero: strings.TrimSpace(c.Query("nombre_cajero")), UsernameCajero: strings.TrimSpace(c.Query("username_cajero")),
 		IDCajeroModificacion: idCajeroModificacion, NombreCajeroModificacion: strings.TrimSpace(c.Query("nombre_cajero_modificacion")),
@@ -219,6 +222,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 		ClienteID:                  clienteID,
 		ClienteNIT:                 c.Query("cliente_nit"),
 		ClienteNombre:              c.Query("cliente_nombre"),
+		Producto:                   c.Query("producto"),
 		TipoPago:                   c.Query("tipo_pago"),
 		Estado:                     c.Query("estado"),
 		Activo:                     activo,

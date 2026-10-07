@@ -17,6 +17,7 @@ type FiltroPagos struct {
 	ClienteID     *int
 	ClienteNIT    string
 	ClienteNombre string
+	Producto      string
 	TipoPago      string
 	Estado        string
 	Activo        *bool

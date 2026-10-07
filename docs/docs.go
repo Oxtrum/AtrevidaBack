@@ -3042,7 +3042,7 @@ const docTemplate = `{
         },
         "/bd/pagos": {
             "get": {
-                "description": "Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Solo retorna la informacion base del pago, sin detalle. Incluye auditoria de creacion y modificacion: fecha_creacion, fecha_modificacion, id_cajero, nombre_cajero, username_cajero, id_cajero_modificacion, nombre_cajero_modificacion y username_cajero_modificacion. Filtros: codigo_pago busqueda parcial, local_id, local_nombre busqueda parcial, cliente_id, cliente_nit busqueda parcial, cliente_nombre busqueda parcial, tipo_pago efectivo/qr, estado PAGADO/BORRADOR/PENDIENTE, activo true/false, cajero de creacion y cajero de modificacion. Si activo no se envia, lista solo pagos activos.",
+                "description": "Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Retorna la cabecera y un resumen de productos, sin el detalle completo. Incluye auditoria de creacion y modificacion. Filtros: codigo_pago, local, cliente, NIT, producto cobrado, tipo_pago, estado, activo y cajeros. Si activo no se envia, lista solo pagos activos.\nCada pago incluye primer_producto y cantidad_productos como resumen del detalle, sin cargar todas sus lineas. El detalle completo se consulta por codigo.",
                 "produces": [
                     "application/json"
                 ],
@@ -3106,6 +3106,13 @@ const docTemplate = `{
                         "example": "Maria",
                         "description": "Busqueda parcial por nombre del cliente",
                         "name": "cliente_nombre",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "Limpieza",
+                        "description": "Busqueda parcial por nombre de cualquier producto del pago",
+                        "name": "producto",
                         "in": "query"
                     },
                     {
@@ -8326,6 +8333,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Ana"
                 },
+                "producto": {
+                    "description": "Filtro aplicado: texto del producto cobrado",
+                    "type": "string",
+                    "example": "Limpieza facial"
+                },
                 "tipo_pago": {
                     "description": "Filtro aplicado: tipo de pago",
                     "type": "string",
@@ -8371,7 +8383,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/pagination.Metadata"
                 },
                 "pagos": {
-                    "description": "Lista de pagos sin detalle",
+                    "description": "Lista de pagos con resumen de productos, sin el detalle completo",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.PagoPG"
@@ -9470,6 +9482,11 @@ const docTemplate = `{
                     "type": "boolean",
                     "example": true
                 },
+                "cantidad_productos": {
+                    "description": "Cantidad de lineas de productos registradas en el detalle.",
+                    "type": "integer",
+                    "example": 2
+                },
                 "cliente_id": {
                     "description": "ID opcional del cliente registrado.",
                     "type": "integer",
@@ -9547,6 +9564,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Ana Perez"
                 },
+                "primer_producto": {
+                    "description": "Primer producto del detalle, para mostrar un resumen sin cargar todas las lineas.",
+                    "type": "string",
+                    "example": "Limpieza facial"
+                },
                 "subtotal": {
                     "description": "Subtotal del pago antes del descuento.",
                     "type": "number",
@@ -9581,6 +9603,11 @@ const docTemplate = `{
                     "description": "Estado activo para borrado logico.",
                     "type": "boolean",
                     "example": true
+                },
+                "cantidad_productos": {
+                    "description": "Cantidad de lineas de productos registradas en el detalle.",
+                    "type": "integer",
+                    "example": 2
                 },
                 "cliente_id": {
                     "description": "ID opcional del cliente registrado.",
@@ -9651,6 +9678,11 @@ const docTemplate = `{
                     "description": "Nombre completo opcional del cajero que modifico el pago por ultima vez.",
                     "type": "string",
                     "example": "Ana Perez"
+                },
+                "primer_producto": {
+                    "description": "Primer producto del detalle, para mostrar un resumen sin cargar todas las lineas.",
+                    "type": "string",
+                    "example": "Limpieza facial"
                 },
                 "subtotal": {
                     "description": "Subtotal del pago antes del descuento.",
