@@ -10,6 +10,7 @@ import (
 
 	"atrevida-agenda-api/models"
 	"atrevida-agenda-api/pagination"
+	repository "atrevida-agenda-api/repositories"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -198,7 +199,9 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 	if err != nil {
 		status := http.StatusInternalServerError
 		errLower := strings.ToLower(err.Error())
-		if strings.Contains(errLower, "horario fuera de atenci") ||
+		if errors.Is(err, repository.ErrCapacidadNoDisponible) {
+			status = http.StatusConflict
+		} else if strings.Contains(errLower, "horario fuera de atenci") ||
 			strings.Contains(errLower, "telefono_e164") ||
 			strings.Contains(errLower, "hora_desde") ||
 			strings.Contains(errLower, "hora_hasta") ||
@@ -209,11 +212,6 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 			strings.Contains(errLower, "requiere evaluación") ||
 			strings.Contains(errLower, "requiere evaluaci") {
 			status = http.StatusBadRequest
-		} else if strings.Contains(errLower, "no hay espacios") ||
-			strings.Contains(errLower, "no hay ambientes") ||
-			strings.Contains(errLower, "no está disponible") ||
-			strings.Contains(errLower, "no estÃ¡ disponible") {
-			status = http.StatusConflict
 		}
 		utils.RespondError(c, status, err.Error())
 		return
@@ -722,6 +720,8 @@ type actualizarReservaPGRequest struct {
 	NuevoPlanID *int `json:"nuevo_plan_id" example:"7"`
 	// Desvincula la reserva de su plan actual; tiene prioridad sobre nuevo_plan_id, opcional
 	LimpiarPlanID bool `json:"limpiar_plan_id" example:"false"`
+	// Confirma la reserva en la misma transacción que los cambios enviados.
+	NuevoEstado string `json:"nuevo_estado,omitempty" example:"AGENDADO"`
 }
 
 // PatchReservaPG godoc
@@ -778,7 +778,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		nuevoTelefono == "" && req.NuevoTelefonoE164 == nil && req.NuevoServicio == "" && req.NuevoServicioSolicitado == "" &&
 		req.NuevoServicioConfirmado == "" && req.NuevoPrecio == nil && !req.LimpiarPrecio && req.NuevasNotas == "" &&
 		strings.TrimSpace(req.NuevoCliente) == "" && strings.TrimSpace(req.NuevoLocal) == "" &&
-		req.NuevoPlanID == nil && !req.LimpiarPlanID {
+		req.NuevoPlanID == nil && !req.LimpiarPlanID && strings.TrimSpace(req.NuevoEstado) == "" {
 		utils.RespondError(c, http.StatusBadRequest, "no hay cambios para actualizar")
 		return
 	}
@@ -801,18 +801,21 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		NuevoLocal:              req.NuevoLocal,
 		NuevoPlanID:             req.NuevoPlanID,
 		LimpiarPlanID:           req.LimpiarPlanID,
+		NuevoEstado:             req.NuevoEstado,
 	})
 
 	if err != nil {
+		if errors.Is(err, repository.ErrCapacidadNoDisponible) || errors.Is(err, repository.ErrEstadoReservaModificado) {
+			utils.RespondError(c, http.StatusConflict, err.Error())
+			return
+		}
 		errLower := strings.ToLower(err.Error())
 		if strings.Contains(errLower, "no se pudo encontrar la reserva") ||
 			strings.Contains(errLower, "reserva no encontrada") {
 			utils.RespondError(c, http.StatusNotFound, "No se pudo encontrar la reserva")
 			return
 		}
-		if strings.Contains(errLower, "no se puede editar una reserva completada") ||
-			strings.Contains(errLower, "no hay ambientes disponibles") ||
-			strings.Contains(errLower, "no hay espacios disponibles") {
+		if strings.Contains(errLower, "no se puede editar una reserva completada") {
 			utils.RespondError(c, http.StatusConflict, err.Error())
 			return
 		}
@@ -850,6 +853,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 // @Failure 400 {object} utils.APIResponse "Error de validacion: estado invalido, transicion no permitida, campo requerido faltante"
 // @Failure 401 {object} utils.APIResponse "Token ausente o invalido"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
+// @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles para confirmar la reserva"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/estado [patch]
 func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
@@ -873,6 +877,10 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 		Tipo:               req.Tipo,
 	})
 	if err != nil {
+		if errors.Is(err, repository.ErrCapacidadNoDisponible) || errors.Is(err, repository.ErrEstadoReservaModificado) {
+			utils.RespondError(c, http.StatusConflict, err.Error())
+			return
+		}
 		if strings.Contains(strings.ToLower(err.Error()), "no se pudo encontrar la reserva") {
 			utils.RespondError(c, http.StatusNotFound, "No se pudo encontrar la reserva")
 			return

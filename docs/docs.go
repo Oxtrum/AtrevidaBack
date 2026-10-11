@@ -5473,6 +5473,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "409": {
+                        "description": "Conflicto: no hay espacios disponibles para confirmar la reserva",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "500": {
                         "description": "Error interno del servidor",
                         "schema": {
@@ -7035,6 +7041,11 @@ const docTemplate = `{
                     "description": "Nuevo nombre del cliente, opcional",
                     "type": "string",
                     "example": "Maria Lopez"
+                },
+                "nuevo_estado": {
+                    "description": "Confirma la reserva en la misma transacción que los cambios enviados.",
+                    "type": "string",
+                    "example": "AGENDADO"
                 },
                 "nuevo_local": {
                     "description": "Nuevo local al que se mueve la reserva, opcional",

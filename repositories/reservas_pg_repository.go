@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"atrevida-agenda-api/models"
@@ -91,17 +92,29 @@ type UpdateReservaInput struct {
 	LimpiarPlanID bool
 	// ResetNotificado marca la reserva como no notificada para reavisar al cliente.
 	ResetNotificado bool
+	// EstadoActualEsperado protege la escritura contra cambios de estado
+	// concurrentes entre la lectura del servicio y esta transacción.
+	EstadoActualEsperado string
+	// NuevoEstado permite adquirir capacidad y guardar confirmación junto con
+	// los demás cambios de la reserva, dentro de la misma transacción.
+	NuevoEstado *string
 }
 
+var (
+	ErrCapacidadNoDisponible   = errors.New("capacidad de reserva no disponible")
+	ErrEstadoReservaModificado = errors.New("el estado de la reserva cambió concurrentemente")
+)
+
 type UpdateReservaEstadoInput struct {
-	ID                 int
-	Estado             string
-	ServicioConfirmado *string
-	Precio             *float64
-	PrecioSet          bool
-	CostoVariable      *bool
-	CostoVariableSet   bool
-	TipoEspacio        *string
+	ID                   int
+	Estado               string
+	ServicioConfirmado   *string
+	Precio               *float64
+	PrecioSet            bool
+	CostoVariable        *bool
+	CostoVariableSet     bool
+	TipoEspacio          *string
+	EstadoActualEsperado string
 }
 
 type CapacidadLocal struct {

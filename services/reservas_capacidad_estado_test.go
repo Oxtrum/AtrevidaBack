@@ -14,13 +14,13 @@ func TestReservaOcupaCapacidad(t *testing.T) {
 		valor  *string
 		ocupa  bool
 	}{
-		{nombre: "pendiente", valor: estado("PENDIENTE"), ocupa: true},
+		{nombre: "pendiente", valor: estado("PENDIENTE"), ocupa: false},
 		{nombre: "agendado", valor: estado("AGENDADO"), ocupa: true},
 		{nombre: "rechazado", valor: estado("RECHAZADO"), ocupa: false},
 		{nombre: "completado", valor: estado("COMPLETADO"), ocupa: false},
 		{nombre: "estado final normalizado", valor: estado(" completado "), ocupa: false},
-		{nombre: "legacy nulo", valor: nil, ocupa: true},
-		{nombre: "legacy desconocido", valor: estado("OTRO"), ocupa: true},
+		{nombre: "legacy nulo", valor: nil, ocupa: false},
+		{nombre: "legacy desconocido", valor: estado("OTRO"), ocupa: false},
 	}
 
 	for _, caso := range casos {
@@ -34,16 +34,17 @@ func TestReservaOcupaCapacidad(t *testing.T) {
 }
 
 func TestFilterReservasQueOcupanCapacidad(t *testing.T) {
-	pendiente, rechazado, completado := "PENDIENTE", "RECHAZADO", "COMPLETADO"
+	pendiente, agendado, rechazado, completado := "PENDIENTE", "AGENDADO", "RECHAZADO", "COMPLETADO"
 	reservas := []models.ReservaPGCompleta{
 		{ReservaPG: models.ReservaPG{ID: 1, Estado: &pendiente}},
-		{ReservaPG: models.ReservaPG{ID: 2, Estado: &rechazado}},
-		{ReservaPG: models.ReservaPG{ID: 3, Estado: &completado}},
-		{ReservaPG: models.ReservaPG{ID: 4, Estado: nil}},
+		{ReservaPG: models.ReservaPG{ID: 2, Estado: &agendado}},
+		{ReservaPG: models.ReservaPG{ID: 3, Estado: &rechazado}},
+		{ReservaPG: models.ReservaPG{ID: 4, Estado: &completado}},
+		{ReservaPG: models.ReservaPG{ID: 5, Estado: nil}},
 	}
 
 	filtradas := filterReservasQueOcupanCapacidad(reservas)
-	if len(filtradas) != 2 || filtradas[0].ID != 1 || filtradas[1].ID != 4 {
+	if len(filtradas) != 1 || filtradas[0].ID != 2 {
 		t.Fatalf("reservas ocupantes inesperadas: %+v", filtradas)
 	}
 }
