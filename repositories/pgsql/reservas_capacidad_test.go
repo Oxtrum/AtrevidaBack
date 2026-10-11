@@ -28,6 +28,12 @@ func TestConsultaMaxConcurrencia_MideInstanteNoRangoCompleto(t *testing.T) {
 		}
 	}
 
+	// Los instantes evaluados deben estar dentro del rango pedido: una reserva
+	// que empieza antes de $4 no puede aportar un instante previo al inicio.
+	if !strings.Contains(sql, "r2.hora_desde > $4::time AND r2.hora_desde < $5::time") {
+		t.Fatalf("los instantes deben limitarse al rango solicitado:\n%s", sql)
+	}
+
 	old := "SELECT COUNT(*) FROM reservas\n" +
 		"\t\tWHERE local_id = $1 AND tipo_espacio = $2 AND fecha = $3\n" +
 		"\t\t  AND activo = TRUE\n" +

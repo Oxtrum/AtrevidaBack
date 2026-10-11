@@ -770,7 +770,9 @@ func horaCorta(hora string) string {
 // distintos están ocupados por reservas distintas (ej: 12:00-12:30 y 12:30-13:00
 // con capacidad 2): cada instante tiene 1 ocupada de 2 y una nueva de 60min
 // debería entrar. Se evalúa en cada instante relevante (inicio del rango pedido y
-// horarios de inicio de las reservas existentes que solapan) y se toma el máximo.
+// horarios de inicio de las reservas existentes que empiezan dentro del rango) y
+// se toma el máximo. Los instantes anteriores al inicio pedido no se evalúan:
+// contarían reservas que terminan antes de que empiece la nueva.
 func consultaMaxConcurrencia() string {
 	return `
 		SELECT COALESCE(MAX(depth), 0)
@@ -790,7 +792,7 @@ func consultaMaxConcurrencia() string {
 				WHERE r2.local_id = $1 AND r2.tipo_espacio = $2 AND r2.fecha = $3
 				  AND r2.activo = TRUE AND r2.id != $6
 				  AND UPPER(BTRIM(COALESCE(r2.estado, 'PENDIENTE'))) NOT IN ('RECHAZADO', 'COMPLETADO')
-				  AND r2.hora_desde < $5::time AND r2.hora_hasta > $4::time
+				  AND r2.hora_desde > $4::time AND r2.hora_desde < $5::time
 			) t
 		) s`
 }
