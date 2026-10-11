@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -715,6 +716,16 @@ func (r *ReservasRepo) validarCapacidad(
 	}
 
 	if ocupados >= capacidad {
+		// TEMPORAL: diagnóstico del 409 en producción. Quitar al resolverlo.
+		var ids []int
+		_ = tx.Select(&ids, `
+			SELECT id FROM reservas
+			WHERE local_id = $1 AND tipo_espacio = $2 AND fecha = $3 AND activo = TRUE
+			  AND UPPER(BTRIM(COALESCE(estado, 'PENDIENTE'))) NOT IN ('RECHAZADO', 'COMPLETADO')
+			  AND hora_desde < $5::time AND hora_hasta > $4::time AND id != $6`,
+			localID, tipo, fecha, horaDesde, horaHasta, excludeID)
+		log.Printf("[CAPACIDAD] 409 localID=%d tipo=%s capacidad=%d ocupados=%d fecha=%s desde=%s hasta=%s excludeID=%d idsSolapados=%v",
+			localID, tipo, capacidad, ocupados, fecha.Format(time.RFC3339), horaDesde, horaHasta, excludeID, ids)
 		// El prefijo "No hay ambientes" es el que el handler mapea a 409: no
 		// cambiarlo sin ajustar también handlers/reservas_pg_handler.go.
 		return fmt.Errorf(
