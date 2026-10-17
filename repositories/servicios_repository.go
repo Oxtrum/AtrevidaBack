@@ -33,6 +33,7 @@ type ActualizarServicioInput struct {
 
 type ServiciosRepository interface {
 	GetAllServicios(ctx context.Context) ([]models.ServicioItem, error)
+	GetAllServiciosConInactivos(ctx context.Context) ([]models.ServicioItem, error)
 	GetServicioByID(id int) (*models.ServicioItem, error)
 	GetServicioByNombre(nombre string) (*models.ServicioItem, error)
 	CreateServicio(input CrearServicioInput) (int, error)

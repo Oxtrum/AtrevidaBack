@@ -13,4 +13,6 @@ type ServicioItem struct {
 	TipoEspacio          string `json:"tipoEspacio" example:"M"`
 	RequiereEvaluacion   bool   `json:"requiere_evaluacion" example:"true"`
 	VisiblePacienteNuevo bool   `json:"visible_paciente_nuevo" example:"true"`
+	// false cuando el servicio fue dado de baja (solo aparece con estado=inactivos|todos)
+	Activo bool `json:"activo" example:"true"`
 }

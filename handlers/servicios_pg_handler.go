@@ -22,12 +22,13 @@ import (
 // @Produce json
 // @Param nombre query string false "Busqueda parcial por nombre" example(depila)
 // @Param categoria query string false "Busqueda parcial por categoria" example(Corporal)
-// @Param local query string false "Local" Enums(SAN MARTIN,PASEO ARANJUEZ) example(SAN MARTIN)
+// @Param local query string false "Local" example(SAN MARTIN)
 // @Param sesiones query int false "Numero exacto de sesiones" example(6)
 // @Param requiere_evaluacion query bool false "Filtrar por servicios que requieren evaluacion" example(true)
 // @Param paciente_nuevo query bool false "Filtrar solo servicios visibles para pacientes nuevos" example(true)
+// @Param estado query string false "activos (default), inactivos o todos; un servicio dado de baja se reactiva con PATCH activo=true" Enums(activos,inactivos,todos) example(inactivos)
 // @Success 200 {object} utils.APIResponse{data=servicioListResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: sesiones debe ser entero positivo, local invalido, requiere_evaluacion debe ser true/false"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: sesiones debe ser entero positivo, requiere_evaluacion debe ser true/false, estado invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/servicios [get]
 func (h *Container) GetServiciosPG(c *gin.Context) {
@@ -64,11 +65,23 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 		pacienteNuevo = &v
 	}
 
+	// Los locales se administran en BD: no se limita a una lista fija, para que
+	// un local nuevo funcione. Un local inexistente simplemente no devuelve filas.
 	local := strings.ToUpper(strings.TrimSpace(c.Query("local")))
-	if local != "" && local != "SAN MARTIN" && local != "PASEO ARANJUEZ" {
-		utils.RespondError(c, http.StatusBadRequest,
-			"local inválido, valores permitidos: SAN MARTIN, PASEO ARANJUEZ")
+
+	estado := strings.ToLower(strings.TrimSpace(c.Query("estado")))
+	switch estado {
+	case "", "activos", "inactivos", "todos":
+	default:
+		utils.RespondError(c, http.StatusBadRequest, "estado debe ser activos, inactivos o todos")
 		return
+	}
+	// Ver servicios dados de baja es solo para el panel de administracion.
+	if estado == "inactivos" || estado == "todos" {
+		h.AuthRequired(c)
+		if c.IsAborted() {
+			return
+		}
 	}
 
 	filtro := services.FiltroServicios{
@@ -79,6 +92,7 @@ func (h *Container) GetServiciosPG(c *gin.Context) {
 		Sesiones:           sesiones,
 		RequiereEvaluacion: requiereEvaluacion,
 		PacienteNuevo:      pacienteNuevo,
+		Estado:             estado,
 	}
 
 	resultado, err := h.ServiciosPG.GetServiciosFiltrados(filtro)

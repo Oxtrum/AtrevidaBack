@@ -16,7 +16,14 @@ func NewServiciosPGService(repo repository.ServiciosRepository) *ServiciosPGServ
 }
 
 func (s *ServiciosPGService) GetServiciosFiltrados(f FiltroServicios) ([]models.ServicioItem, error) {
-	todos, err := s.repo.GetAllServicios(f.Context)
+	var todos []models.ServicioItem
+	var err error
+	switch f.Estado {
+	case "todos", "inactivos":
+		todos, err = s.repo.GetAllServiciosConInactivos(f.Context)
+	default:
+		todos, err = s.repo.GetAllServicios(f.Context)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +48,9 @@ func (s *ServiciosPGService) GetServiciosFiltrados(f FiltroServicios) ([]models.
 			continue
 		}
 		if f.PacienteNuevo != nil && *f.PacienteNuevo && !item.VisiblePacienteNuevo {
+			continue
+		}
+		if f.Estado == "inactivos" && item.Activo {
 			continue
 		}
 		resultado = append(resultado, item)

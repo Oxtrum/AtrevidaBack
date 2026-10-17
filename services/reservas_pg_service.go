@@ -1173,7 +1173,7 @@ func servicioNoRequiereEvaluacionManual(input CrearReservaPGInput) (string, bool
 	for _, nombre := range candidatos {
 		nombre = strings.TrimSpace(nombre)
 		switch normalizarNombreServicio(nombre) {
-		case "evaluacion gratuita", "limpieza facial", "limpieza facial premium":
+		case "evaluacion", "limpieza facial", "limpieza facial premium":
 			return nombre, true
 		}
 	}

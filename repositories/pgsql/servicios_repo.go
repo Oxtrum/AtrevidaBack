@@ -23,6 +23,15 @@ func NewServiciosRepo(db *sqlx.DB) *ServiciosRepo {
 
 // GetAllServicios (activos)
 func (r *ServiciosRepo) GetAllServicios(ctx context.Context) ([]models.ServicioItem, error) {
+	return r.listarServicios(ctx, false)
+}
+
+// GetAllServiciosConInactivos incluye los servicios dados de baja (para reactivarlos desde el panel).
+func (r *ServiciosRepo) GetAllServiciosConInactivos(ctx context.Context) ([]models.ServicioItem, error) {
+	return r.listarServicios(ctx, true)
+}
+
+func (r *ServiciosRepo) listarServicios(ctx context.Context, incluirInactivos bool) ([]models.ServicioItem, error) {
 	query := `
 		SELECT
 			s.id,
@@ -35,15 +44,16 @@ func (r *ServiciosRepo) GetAllServicios(ctx context.Context) ([]models.ServicioI
 			COALESCE(l.nombre, '')      AS local,
 			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios,
 			s.requiere_evaluacion,
-			COALESCE(sl.visible_paciente_nuevo, FALSE) AS visible_paciente_nuevo
+			COALESCE(sl.visible_paciente_nuevo, FALSE) AS visible_paciente_nuevo,
+			s.activo
 		FROM servicios s
 		LEFT JOIN categorias c      ON c.id = s.categoria_id
 		LEFT JOIN servicio_local sl ON sl.servicio_id = s.id
 		LEFT JOIN locales l         ON l.id = sl.local_id
-		WHERE s.activo = TRUE
+		WHERE ($1 OR s.activo = TRUE)
 		ORDER BY c.nombre, s.nombre, l.nombre
 	`
-	rows, err := r.db.QueryxContext(queryContext(ctx), query)
+	rows, err := r.db.QueryxContext(queryContext(ctx), query, incluirInactivos)
 	if err != nil {
 		return nil, fmt.Errorf("listar servicios: %w", err)
 	}
@@ -64,6 +74,7 @@ func (r *ServiciosRepo) GetAllServicios(ctx context.Context) ([]models.ServicioI
 			&item.TipoEspacio,
 			&item.RequiereEvaluacion,
 			&item.VisiblePacienteNuevo,
+			&item.Activo,
 		); err != nil {
 			return nil, fmt.Errorf("leer servicio: %w", err)
 		}
@@ -92,7 +103,8 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 			COALESCE(l.nombre, '')      AS local,
 			COALESCE(s.tipo_espacio_requerido, '') AS tipoEspacios,
 			s.requiere_evaluacion,
-			COALESCE(sl.visible_paciente_nuevo, FALSE) AS visible_paciente_nuevo
+			COALESCE(sl.visible_paciente_nuevo, FALSE) AS visible_paciente_nuevo,
+			s.activo
 		FROM servicios s
 		LEFT JOIN categorias c      ON c.id = s.categoria_id
 		LEFT JOIN servicio_local sl ON sl.servicio_id = s.id
@@ -115,6 +127,7 @@ func (r *ServiciosRepo) GetServicioByID(id int) (*models.ServicioItem, error) {
 		&item.TipoEspacio,
 		&item.RequiereEvaluacion,
 		&item.VisiblePacienteNuevo,
+		&item.Activo,
 	)
 
 	if err != nil {

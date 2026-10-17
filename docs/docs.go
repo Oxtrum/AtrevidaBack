@@ -5803,10 +5803,6 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "enum": [
-                            "SAN MARTIN",
-                            "PASEO ARANJUEZ"
-                        ],
                         "type": "string",
                         "example": "SAN MARTIN",
                         "description": "Local",
@@ -5833,6 +5829,18 @@ const docTemplate = `{
                         "description": "Filtrar solo servicios visibles para pacientes nuevos",
                         "name": "paciente_nuevo",
                         "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "activos",
+                            "inactivos",
+                            "todos"
+                        ],
+                        "type": "string",
+                        "example": "inactivos",
+                        "description": "activos (default), inactivos o todos; un servicio dado de baja se reactiva con PATCH activo=true",
+                        "name": "estado",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5855,7 +5863,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: sesiones debe ser entero positivo, local invalido, requiere_evaluacion debe ser true/false",
+                        "description": "Error de validacion: sesiones debe ser entero positivo, requiere_evaluacion debe ser true/false, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -10286,6 +10294,11 @@ const docTemplate = `{
         "models.ServicioItem": {
             "type": "object",
             "properties": {
+                "activo": {
+                    "description": "false cuando el servicio fue dado de baja (solo aparece con estado=inactivos|todos)",
+                    "type": "boolean",
+                    "example": true
+                },
                 "categoria": {
                     "type": "string",
                     "example": "Corporal"

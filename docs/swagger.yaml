@@ -2720,6 +2720,10 @@ definitions:
     type: object
   models.ServicioItem:
     properties:
+      activo:
+        description: false cuando el servicio fue dado de baja (solo aparece con estado=inactivos|todos)
+        example: true
+        type: boolean
       categoria:
         example: Corporal
         type: string
@@ -6966,9 +6970,6 @@ paths:
         name: categoria
         type: string
       - description: Local
-        enum:
-        - SAN MARTIN
-        - PASEO ARANJUEZ
         example: SAN MARTIN
         in: query
         name: local
@@ -6988,6 +6989,16 @@ paths:
         in: query
         name: paciente_nuevo
         type: boolean
+      - description: activos (default), inactivos o todos; un servicio dado de baja
+          se reactiva con PATCH activo=true
+        enum:
+        - activos
+        - inactivos
+        - todos
+        example: inactivos
+        in: query
+        name: estado
+        type: string
       produces:
       - application/json
       responses:
@@ -7001,8 +7012,8 @@ paths:
                   $ref: '#/definitions/handlers.servicioListResponse'
               type: object
         "400":
-          description: 'Error de validacion: sesiones debe ser entero positivo, local
-            invalido, requiere_evaluacion debe ser true/false'
+          description: 'Error de validacion: sesiones debe ser entero positivo, requiere_evaluacion
+            debe ser true/false, estado invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":

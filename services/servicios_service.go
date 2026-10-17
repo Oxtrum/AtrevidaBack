@@ -16,6 +16,7 @@ type FiltroServicios struct {
 	Sesiones           int    // 0 = sin filtro; >0 = exacto
 	RequiereEvaluacion *bool  // nil = sin filtro
 	PacienteNuevo      *bool  // nil = sin filtro; true = solo servicios visibles para nuevos
+	Estado             string // "" o "activos" (default), "inactivos" o "todos"
 }
 
 type ServiciosService struct {
