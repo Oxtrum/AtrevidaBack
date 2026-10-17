@@ -317,8 +317,12 @@ func (r *ReservasRepo) CreateReserva(input repository.CreateReservaInput) (int, 
 		return 0, fmt.Errorf("local '%s' no encontrado", input.LocalNombre)
 	}
 
-	if err := r.validarCapacidad(tx, localID, input.TipoEspacio, input.Fecha, input.HoraDesde, input.HoraHasta, 0); err != nil {
-		return 0, err
+	// Las solicitudes PENDIENTE se pueden registrar aunque el horario esté
+	// lleno. La capacidad se adquiere recién al confirmar la reserva.
+	if strings.EqualFold(strings.TrimSpace(input.Estado), "AGENDADO") {
+		if err := r.validarCapacidad(tx, localID, input.TipoEspacio, input.Fecha, input.HoraDesde, input.HoraHasta, 0); err != nil {
+			return 0, err
+		}
 	}
 
 	var reservaID int
@@ -369,6 +373,7 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 	var horaDesdeActual string
 	var horaHastaActual string
 	var tipoActual string
+	var estadoActual string
 
 	err = tx.QueryRowx(`
 		SELECT
@@ -377,11 +382,13 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 			r.fecha,
 			r.hora_desde::text,
 			r.hora_hasta::text,
-			r.tipo_espacio
+			r.tipo_espacio,
+			COALESCE(r.estado, 'PENDIENTE')
 		FROM reservas r
 		WHERE r.id = $1
 		AND r.activo = TRUE
 		LIMIT 1
+		FOR UPDATE
 	`, input.Id).Scan(
 		&reservaID,
 		&localID,
@@ -389,10 +396,15 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 		&horaDesdeActual,
 		&horaHastaActual,
 		&tipoActual,
+		&estadoActual,
 	)
 
 	if err != nil {
 		return fmt.Errorf("Reserva no encontrada")
+	}
+	estadoActual = strings.ToUpper(strings.TrimSpace(estadoActual))
+	if input.EstadoActualEsperado != "" && estadoActual != strings.ToUpper(strings.TrimSpace(input.EstadoActualEsperado)) {
+		return repository.ErrEstadoReservaModificado
 	}
 
 	// Un cambio de local mueve la reserva a otro conjunto de espacios: la
@@ -441,18 +453,24 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 		tipoFinal = strings.ToUpper(*input.NuevoTipo)
 	}
 
-	err = r.validarCapacidad(
-		tx,
-		localID,
-		tipoFinal,
-		fechaFinal,
-		horaDesdeFinal,
-		horaHastaFinal,
-		reservaID,
-	)
+	estadoFinal := estadoActual
+	if input.NuevoEstado != nil {
+		estadoFinal = strings.ToUpper(strings.TrimSpace(*input.NuevoEstado))
+	}
+	if estadoFinal == "AGENDADO" && (estadoActual != "AGENDADO" || input.NuevaFecha != nil || input.NuevaHoraDesde != nil || input.NuevaHoraHasta != nil || input.NuevoTipo != nil || input.NuevoLocal != nil) {
+		err = r.validarCapacidad(
+			tx,
+			localID,
+			tipoFinal,
+			fechaFinal,
+			horaDesdeFinal,
+			horaHastaFinal,
+			reservaID,
+		)
 
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
 	sets := []string{"actualizado_en = NOW()"}
@@ -542,6 +560,11 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 	if input.ResetNotificado {
 		sets = append(sets, "notificado = FALSE")
 	}
+	if input.NuevoEstado != nil {
+		sets = append(sets, fmt.Sprintf("estado = $%d", idx))
+		args = append(args, strings.ToUpper(strings.TrimSpace(*input.NuevoEstado)))
+		idx++
+	}
 
 	args = append(args, reservaID)
 	_, err = tx.Exec(
@@ -622,26 +645,36 @@ func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoI
 	}
 	defer tx.Rollback()
 
-	if input.TipoEspacio != nil {
-		var localID int
-		var fecha time.Time
-		var horaDesde string
-		var horaHasta string
+	var localID int
+	var fecha time.Time
+	var horaDesde string
+	var horaHasta string
+	var tipoActual string
+	var estadoActual string
 
-		err = tx.QueryRowx(`
-			SELECT local_id, fecha, hora_desde::text, hora_hasta::text
+	err = tx.QueryRowx(`
+			SELECT local_id, fecha, hora_desde::text, hora_hasta::text, tipo_espacio, COALESCE(estado, 'PENDIENTE')
 			FROM reservas
 			WHERE id = $1 AND activo = TRUE
-		`, input.ID).Scan(&localID, &fecha, &horaDesde, &horaHasta)
-		if err != nil {
-			return fmt.Errorf("reserva no encontrada")
-		}
+			FOR UPDATE
+		`, input.ID).Scan(&localID, &fecha, &horaDesde, &horaHasta, &tipoActual, &estadoActual)
+	if err != nil {
+		return fmt.Errorf("reserva no encontrada")
+	}
+	estadoActual = strings.ToUpper(strings.TrimSpace(estadoActual))
+	if input.EstadoActualEsperado != "" && estadoActual != strings.ToUpper(strings.TrimSpace(input.EstadoActualEsperado)) {
+		return repository.ErrEstadoReservaModificado
+	}
 
-		if err := r.validarCapacidad(tx, localID, *input.TipoEspacio, fecha, horaDesde, horaHasta, input.ID); err != nil {
+	tipoFinal := tipoActual
+	if input.TipoEspacio != nil {
+		tipoFinal = *input.TipoEspacio
+	}
+	if strings.EqualFold(strings.TrimSpace(input.Estado), "AGENDADO") && (estadoActual != "AGENDADO" || input.TipoEspacio != nil) {
+		if err := r.validarCapacidad(tx, localID, tipoFinal, fecha, horaDesde, horaHasta, input.ID); err != nil {
 			return err
 		}
 	}
-
 	sets := []string{"estado = $1", "actualizado_en = NOW()"}
 	args := []interface{}{input.Estado}
 	idx := 2
@@ -694,6 +727,12 @@ func (r *ReservasRepo) validarCapacidad(
 	fecha time.Time, horaDesde, horaHasta string, excludeID int,
 ) error {
 	tipo := strings.ToUpper(tipoEspacio)
+	// Serializa altas, aprobaciones y reprogramaciones que compiten por el
+	// mismo conjunto de ambientes. El lock vive solo durante esta transacción.
+	lockKey := fmt.Sprintf("reservas-capacidad:%d:%s:%s", localID, tipo, fecha.Format("2006-01-02"))
+	if _, err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtext($1))`, lockKey); err != nil {
+		return fmt.Errorf("error al bloquear capacidad: %w", err)
+	}
 
 	var capacidad int
 	err := tx.QueryRowx(`
@@ -703,7 +742,8 @@ func (r *ReservasRepo) validarCapacidad(
 	if err != nil {
 		// El texto "no está disponible" es el que el handler mapea a 409.
 		return fmt.Errorf(
-			"este servicio necesita %s, y esta sucursal no está disponible para ese tipo de ambiente. Elige otra sucursal u otro servicio",
+			"%w: este servicio necesita %s, y esta sucursal no está disponible para ese tipo de ambiente. Elige otra sucursal u otro servicio",
+			repository.ErrCapacidadNoDisponible,
 			nombreTipoEspacio(tipo, 2),
 		)
 	}
@@ -729,7 +769,8 @@ func (r *ReservasRepo) validarCapacidad(
 		// El prefijo "No hay ambientes" es el que el handler mapea a 409: no
 		// cambiarlo sin ajustar también handlers/reservas_pg_handler.go.
 		return fmt.Errorf(
-			"No hay ambientes disponibles: %s de esta sucursal (%d en total) ya están ocupados en algún momento entre las %s y las %s del %s. Elige otro horario, acorta la duración o revisa la agenda del día",
+			"%w: No hay ambientes disponibles: %s de esta sucursal (%d en total) ya están ocupados en algún momento entre las %s y las %s del %s. Elige otro horario, acorta la duración o revisa la agenda del día",
+			repository.ErrCapacidadNoDisponible,
 			nombreTipoEspacio(tipo, capacidad), capacidad,
 			horaCorta(horaDesde), horaCorta(horaHasta), fecha.Format("02/01/2006"),
 		)
@@ -782,7 +823,7 @@ func consultaMaxConcurrencia() string {
 				FROM reservas r
 				WHERE r.local_id = $1 AND r.tipo_espacio = $2 AND r.fecha = $3
 				  AND r.activo = TRUE AND r.id != $6
-				  AND UPPER(BTRIM(COALESCE(r.estado, 'PENDIENTE'))) NOT IN ('RECHAZADO', 'COMPLETADO')
+				  AND UPPER(BTRIM(COALESCE(r.estado, ''))) = 'AGENDADO'
 				  AND r.hora_desde <= t.instant AND r.hora_hasta > t.instant
 			) AS depth
 			FROM (
@@ -791,8 +832,9 @@ func consultaMaxConcurrencia() string {
 				SELECT hora_desde FROM reservas r2
 				WHERE r2.local_id = $1 AND r2.tipo_espacio = $2 AND r2.fecha = $3
 				  AND r2.activo = TRUE AND r2.id != $6
-				  AND UPPER(BTRIM(COALESCE(r2.estado, 'PENDIENTE'))) NOT IN ('RECHAZADO', 'COMPLETADO')
+				  AND UPPER(BTRIM(COALESCE(r2.estado, ''))) = 'AGENDADO'
 				  AND r2.hora_desde > $4::time AND r2.hora_desde < $5::time
+				  AND r2.hora_hasta > $4::time
 			) t
 		) s`
 }

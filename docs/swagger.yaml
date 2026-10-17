@@ -290,6 +290,10 @@ definitions:
         description: Nuevo nombre del cliente, opcional
         example: Maria Lopez
         type: string
+      nuevo_estado:
+        description: Confirma la reserva en la misma transacción que los cambios enviados.
+        example: AGENDADO
+        type: string
       nuevo_local:
         description: Nuevo local al que se mueve la reserva, opcional
         example: PASEO ARANJUEZ
@@ -6820,6 +6824,10 @@ paths:
             $ref: '#/definitions/utils.APIResponse'
         "404":
           description: Reserva no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: 'Conflicto: no hay espacios disponibles para confirmar la reserva'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":

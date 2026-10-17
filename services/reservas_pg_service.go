@@ -1252,14 +1252,15 @@ func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReserv
 	costoVariable, actualizarCosto := s.modalidadCostoParaCambio(current, servicioConfirmado, true)
 	limpiarPrecio := actualizarCosto && costoVariable != nil && *costoVariable && input.Precio == nil
 	return s.repo.UpdateReservaEstado(repository.UpdateReservaEstadoInput{
-		ID:                 input.Id,
-		Estado:             estado,
-		ServicioConfirmado: servicioConfirmado,
-		Precio:             input.Precio,
-		PrecioSet:          limpiarPrecio,
-		CostoVariable:      costoVariable,
-		CostoVariableSet:   actualizarCosto,
-		TipoEspacio:        tipoEspacio,
+		ID:                   input.Id,
+		Estado:               estado,
+		EstadoActualEsperado: estadoActual,
+		ServicioConfirmado:   servicioConfirmado,
+		Precio:               input.Precio,
+		PrecioSet:            limpiarPrecio,
+		CostoVariable:        costoVariable,
+		CostoVariableSet:     actualizarCosto,
+		TipoEspacio:          tipoEspacio,
 	})
 }
 
@@ -1285,6 +1286,7 @@ type ActualizarReservaPGInput struct {
 	NuevoPlanID             *int
 	// LimpiarPlanID desvincula la reserva de su plan (plan_id = NULL).
 	LimpiarPlanID bool
+	NuevoEstado   string
 }
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
@@ -1432,11 +1434,27 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 	if err != nil {
 		return err
 	}
+	// La transacción del repositorio vuelve a leer y bloquear el estado actual;
+	// así decide con los datos serializados si debe validar capacidad.
 	// Una reserva COMPLETADO ya se cobró: cambiarle servicio o precio dejaría el
 	// pago emitido sin forma de reconciliarse. Las AGENDADO sí se editan porque
 	// recepción necesita reprogramar y corregir el servicio o paquete elegido.
 	if estadoActual == "COMPLETADO" {
 		return errors.New("no se puede editar una reserva completada")
+	}
+	upd.EstadoActualEsperado = estadoActual
+	if strings.TrimSpace(input.NuevoEstado) != "" {
+		estadoFinal, err := NormalizarEstadoReserva(input.NuevoEstado)
+		if err != nil {
+			return err
+		}
+		if estadoFinal != "AGENDADO" {
+			return errors.New("esta operación solo permite confirmar una reserva; usa la operación de cambio de estado para otros estados")
+		}
+		if !canTransitionReservaEstado(estadoActual, estadoFinal) {
+			return fmt.Errorf("transicion de estado invalida: %s -> %s", estadoActual, estadoFinal)
+		}
+		upd.NuevoEstado = &estadoFinal
 	}
 
 	// Una reserva AGENDADO ya tiene servicio confirmado: si cambia el servicio
@@ -1458,7 +1476,7 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 	if servicioCambio == nil {
 		servicioCambio = upd.NuevoServicio
 	}
-	upd.NuevoCostoVariable, upd.NuevoCostoVariableSet = s.modalidadCostoParaCambio(current, servicioCambio, false)
+	upd.NuevoCostoVariable, upd.NuevoCostoVariableSet = s.modalidadCostoParaCambio(current, servicioCambio, upd.NuevoEstado != nil)
 	if upd.NuevoCostoVariableSet && upd.NuevoCostoVariable != nil && *upd.NuevoCostoVariable && upd.NuevoPrecio == nil {
 		upd.NuevoPrecioSet = true
 	}
@@ -1666,17 +1684,15 @@ func filterReservasPorEstado(reservas []models.ReservaPGCompleta, estado string)
 	return resultado
 }
 
-// reservaOcupaCapacidad conserva una política tolerante con registros legacy:
-// solo los estados finales explícitos liberan el ambiente. Un estado nulo o
-// desconocido continúa ocupando para no habilitar sobre-reservas por datos
-// antiguos o incompletos.
+// reservaOcupaCapacidad aplica la regla de negocio: solo una reserva
+// confirmada (AGENDADO) ocupa un ambiente.
 func reservaOcupaCapacidad(reserva models.ReservaPGCompleta) bool {
 	if reserva.Estado == nil {
-		return true
+		return false
 	}
 
 	estado := strings.ToUpper(strings.TrimSpace(*reserva.Estado))
-	return estado != "RECHAZADO" && estado != "COMPLETADO"
+	return estado == "AGENDADO"
 }
 
 func filterReservasQueOcupanCapacidad(reservas []models.ReservaPGCompleta) []models.ReservaPGCompleta {
