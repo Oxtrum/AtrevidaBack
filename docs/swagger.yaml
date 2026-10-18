@@ -16,6 +16,28 @@ definitions:
         example: 3
         type: integer
     type: object
+  handlers.actualizarCategoriaFinancieraRequest:
+    properties:
+      activo:
+        description: Activa o inactiva
+        example: true
+        type: boolean
+      nombre:
+        description: Nuevo nombre
+        example: Alquiler de local
+        type: string
+    type: object
+  handlers.actualizarCategoriaInventarioRequest:
+    properties:
+      activo:
+        description: Activa o inactiva
+        example: true
+        type: boolean
+      nombre:
+        description: Nuevo nombre
+        example: Cremas
+        type: string
+    type: object
   handlers.actualizarCategoriaRequest:
     properties:
       nombre:
@@ -140,6 +162,84 @@ definitions:
     - estado
     - id
     type: object
+  handlers.actualizarGastoFijoRequest:
+    properties:
+      activo:
+        description: Activo
+        example: true
+        type: boolean
+      categoria_id:
+        description: Categoria
+        example: 1
+        type: integer
+      dia_cobro:
+        description: Dia de cobro
+        example: 10
+        type: integer
+      fecha_fin:
+        description: Vigente hasta (null quita el fin)
+        example: "2026-12-31"
+        type: string
+      fecha_inicio:
+        description: Vigente desde
+        example: "2026-01-01"
+        type: string
+      local_id:
+        description: Local (null = general)
+        example: 1
+        type: integer
+      metodo_pago:
+        description: Metodo de pago (null limpia)
+        example: qr
+        type: string
+      monto:
+        description: Monto mensual
+        example: 7000
+        type: number
+      nombre:
+        description: Nombre
+        example: Alquiler
+        type: string
+      notas:
+        description: Notas (null limpia)
+        example: Contrato anual
+        type: string
+      proveedor:
+        description: Proveedor (null limpia)
+        example: Inmobiliaria Sur
+        type: string
+    type: object
+  handlers.actualizarInventarioItemRequest:
+    properties:
+      activo:
+        description: Activo o desactivado (RN-07)
+        example: true
+        type: boolean
+      categoria_id:
+        description: Categoria (null limpia)
+        example: 1
+        type: integer
+      costo_referencia:
+        description: Costo de referencia (null limpia)
+        example: 0.04
+        type: number
+      descripcion:
+        description: Descripcion (null limpia)
+        example: Gel para radiofrecuencia
+        type: string
+      nombre:
+        description: Nombre del item
+        example: Gel conductor
+        type: string
+      stock_minimo:
+        description: Stock minimo
+        example: 500
+        type: number
+      unidad_medida:
+        description: 'Unidad de medida: UNIDAD, ML, GR o CAJA'
+        example: ML
+        type: string
+    type: object
   handlers.actualizarLocalHorarioRequest:
     properties:
       dia_semana:
@@ -164,6 +264,41 @@ definitions:
       nombre:
         description: Nuevo nombre del local (opcional)
         example: PASEO ARANJUEZ
+        type: string
+    type: object
+  handlers.actualizarMovimientoFinancieroRequest:
+    properties:
+      categoria_id:
+        description: Nueva categoria
+        example: 6
+        type: integer
+      descripcion:
+        description: Descripcion (null limpia)
+        example: Reparacion de camilla
+        type: string
+      estado:
+        description: PAGADO o PENDIENTE
+        example: PAGADO
+        type: string
+      fecha:
+        description: Nueva fecha YYYY-MM-DD
+        example: "2026-10-18"
+        type: string
+      local_id:
+        description: Nuevo local (null = general)
+        example: 1
+        type: integer
+      metodo_pago:
+        description: Metodo de pago (null limpia)
+        example: qr
+        type: string
+      monto:
+        description: Nuevo monto
+        example: 520
+        type: number
+      proveedor:
+        description: Proveedor (null limpia)
+        example: Taller Medina
         type: string
     type: object
   handlers.actualizarNotificadoReservaPGRequest:
@@ -456,6 +591,52 @@ definitions:
     - local_id
     - username
     type: object
+  handlers.ajusteInventarioRequest:
+    properties:
+      cantidad:
+        description: Cantidad a ajustar (siempre positiva)
+        example: 10
+        type: number
+      item_id:
+        description: ID del item
+        example: 1
+        type: integer
+      local_id:
+        description: ID del local donde se ajusta
+        example: 1
+        type: integer
+      motivo:
+        description: Motivo obligatorio (merma, vencimiento, conteo fisico)
+        example: Producto vencido
+        type: string
+      tipo:
+        description: AJUSTE_POSITIVO o AJUSTE_NEGATIVO
+        example: AJUSTE_NEGATIVO
+        type: string
+    required:
+    - cantidad
+    - item_id
+    - local_id
+    - tipo
+    type: object
+  handlers.ajusteInventarioResponse:
+    properties:
+      mensaje:
+        description: Mensaje de confirmacion
+        example: ajuste registrado correctamente
+        type: string
+      stock_resultante:
+        description: Stock resultante tras el ajuste
+        example: 340
+        type: number
+    type: object
+  handlers.anularCompraRequest:
+    properties:
+      motivo:
+        description: Motivo de la anulacion (obligatorio)
+        example: Compra duplicada
+        type: string
+    type: object
   handlers.authRequest:
     properties:
       password:
@@ -469,6 +650,19 @@ definitions:
     required:
     - password
     - username
+    type: object
+  handlers.cambiarEstadoMovimientoRequest:
+    properties:
+      estado:
+        description: PAGADO o ANULADO
+        example: ANULADO
+        type: string
+      motivo:
+        description: Motivo, obligatorio al anular
+        example: Registrado por error
+        type: string
+    required:
+    - estado
     type: object
   handlers.cambiarEstadoPlanRequest:
     properties:
@@ -517,6 +711,22 @@ definitions:
         description: Locales asociados a la categoría
         items:
           $ref: '#/definitions/models.LocalPG'
+        type: array
+    type: object
+  handlers.categoriasFinancierasResponse:
+    properties:
+      categorias:
+        description: Categorias financieras
+        items:
+          $ref: '#/definitions/models.CategoriaFinanciera'
+        type: array
+    type: object
+  handlers.categoriasInventarioResponse:
+    properties:
+      categorias:
+        description: Categorias de inventario
+        items:
+          $ref: '#/definitions/models.CategoriaInventario'
         type: array
     type: object
   handlers.clienteFiltrosResponse:
@@ -673,6 +883,72 @@ definitions:
         example: "01:00"
         type: string
     type: object
+  handlers.compraLineaRequest:
+    properties:
+      cantidad:
+        description: Cantidad comprada (en la unidad del item)
+        example: 1000
+        type: number
+      costo_unitario:
+        description: Costo unitario
+        example: 0.04
+        type: number
+      item_id:
+        description: ID del item comprado
+        example: 1
+        type: integer
+    required:
+    - cantidad
+    - item_id
+    type: object
+  handlers.compraResponse:
+    properties:
+      compra:
+        allOf:
+        - $ref: '#/definitions/models.Compra'
+        description: Compra con su detalle
+    type: object
+  handlers.comprasResponse:
+    properties:
+      compras:
+        description: Compras de inventario, mas reciente primero
+        items:
+          $ref: '#/definitions/models.Compra'
+        type: array
+    type: object
+  handlers.configuracionResponse:
+    properties:
+      configuracion:
+        additionalProperties: true
+        description: 'Parametros del sistema (clave -> valor tipado): inventario.politica_sin_stock,
+          inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido,
+          finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria,
+          finanzas.moneda'
+        type: object
+    type: object
+  handlers.crearCategoriaFinancieraRequest:
+    properties:
+      naturaleza:
+        description: INGRESO o EGRESO
+        example: EGRESO
+        type: string
+      nombre:
+        description: Nombre de la categoria
+        example: Alquiler
+        type: string
+    required:
+    - naturaleza
+    - nombre
+    type: object
+  handlers.crearCategoriaInventarioRequest:
+    properties:
+      nombre:
+        description: Nombre de la categoria
+        example: Cremas y geles
+        type: string
+    required:
+    - nombre
+    type: object
   handlers.crearCategoriaRequest:
     properties:
       local_id:
@@ -758,6 +1034,39 @@ definitions:
         example: PRECIO_PAQUETE
         type: string
     type: object
+  handlers.crearCompraRequest:
+    properties:
+      detalle:
+        description: Lineas de la compra (al menos una)
+        items:
+          $ref: '#/definitions/handlers.compraLineaRequest'
+        type: array
+      fecha:
+        description: Fecha de la compra YYYY-MM-DD
+        example: "2026-10-18"
+        type: string
+      local_id:
+        description: Local que recibe la compra
+        example: 1
+        type: integer
+      metodo_pago:
+        description: 'Metodo de pago del egreso: efectivo, qr, transferencia o debito_automatico
+          (opcional)'
+        example: efectivo
+        type: string
+      notas:
+        description: Notas (opcional)
+        example: Factura 1234
+        type: string
+      proveedor:
+        description: Proveedor (opcional)
+        example: Distribuidora Sur
+        type: string
+    required:
+    - detalle
+    - fecha
+    - local_id
+    type: object
   handlers.crearDetallePagoRequest:
     properties:
       cantidad:
@@ -781,6 +1090,35 @@ definitions:
         description: Subtotal de la linea; se recalcula desde precio_unitario y cantidad.
         example: 500
         type: number
+    type: object
+  handlers.crearInventarioItemRequest:
+    properties:
+      categoria_id:
+        description: ID de la categoria de inventario
+        example: 1
+        type: integer
+      costo_referencia:
+        description: Ultimo costo de compra (se actualiza solo con cada compra)
+        example: 0.04
+        type: number
+      descripcion:
+        description: Descripcion opcional
+        example: Gel para radiofrecuencia
+        type: string
+      nombre:
+        description: Nombre del item
+        example: Gel conductor
+        type: string
+      stock_minimo:
+        description: 'Stock minimo: por debajo se marca como bajo stock'
+        example: 500
+        type: number
+      unidad_medida:
+        description: 'Unidad de medida: UNIDAD, ML, GR o CAJA (default UNIDAD)'
+        example: ML
+        type: string
+    required:
+    - nombre
     type: object
   handlers.crearLocalHorarioRequest:
     properties:
@@ -814,6 +1152,55 @@ definitions:
         type: string
     required:
     - nombre
+    type: object
+  handlers.crearMovimientoFinancieroRequest:
+    properties:
+      categoria_id:
+        description: Categoria financiera (debe coincidir con la naturaleza)
+        example: 6
+        type: integer
+      clase:
+        description: 'Para egresos: solo VARIABLE (los FIJO se generan desde un gasto
+          fijo)'
+        example: VARIABLE
+        type: string
+      descripcion:
+        description: Descripcion (opcional)
+        example: Reparacion de camilla
+        type: string
+      estado:
+        description: PAGADO (default) o PENDIENTE
+        example: PAGADO
+        type: string
+      fecha:
+        description: Fecha YYYY-MM-DD
+        example: "2026-10-18"
+        type: string
+      local_id:
+        description: Local; null = gasto general de la empresa
+        example: 1
+        type: integer
+      metodo_pago:
+        description: efectivo, qr, transferencia o debito_automatico (opcional)
+        example: efectivo
+        type: string
+      monto:
+        description: Monto mayor a 0
+        example: 480
+        type: number
+      naturaleza:
+        description: INGRESO (otro ingreso) o EGRESO
+        example: EGRESO
+        type: string
+      proveedor:
+        description: Proveedor o beneficiario (opcional)
+        example: Taller Medina
+        type: string
+    required:
+    - categoria_id
+    - fecha
+    - monto
+    - naturaleza
     type: object
   handlers.crearPagoRequest:
     properties:
@@ -1093,6 +1480,93 @@ definitions:
     - cantidad_espacios
     - tipo_espacio
     type: object
+  handlers.gastoFijoRequest:
+    properties:
+      activo:
+        description: Activo (default true)
+        example: true
+        type: boolean
+      categoria_id:
+        description: Categoria financiera de egreso
+        example: 1
+        type: integer
+      dia_cobro:
+        description: Dia de cobro 1-31 (si el mes no tiene ese dia se usa el ultimo)
+        example: 5
+        type: integer
+      fecha_fin:
+        description: Vigente hasta YYYY-MM-DD (opcional)
+        example: "2026-12-31"
+        type: string
+      fecha_inicio:
+        description: Vigente desde YYYY-MM-DD
+        example: "2026-01-01"
+        type: string
+      local_id:
+        description: Local; null = gasto general
+        example: 1
+        type: integer
+      metodo_pago:
+        description: Metodo de pago (opcional)
+        example: transferencia
+        type: string
+      monto:
+        description: Monto mensual
+        example: 6500
+        type: number
+      nombre:
+        description: Nombre de la plantilla
+        example: Alquiler Paseo Aranjuez
+        type: string
+      notas:
+        description: Notas (opcional)
+        example: Contrato anual
+        type: string
+      proveedor:
+        description: Proveedor o beneficiario (opcional)
+        example: Inmobiliaria Sur
+        type: string
+    required:
+    - categoria_id
+    - dia_cobro
+    - fecha_inicio
+    - monto
+    - nombre
+    type: object
+  handlers.gastoFijoResponse:
+    properties:
+      gasto_fijo:
+        allOf:
+        - $ref: '#/definitions/models.GastoFijo'
+        description: Plantilla de gasto fijo
+    type: object
+  handlers.gastosFijosProximosResponse:
+    properties:
+      proximos:
+        description: Cobros que vencen dentro de los dias de aviso configurados
+        items:
+          $ref: '#/definitions/models.GastoFijoProximo'
+        type: array
+    type: object
+  handlers.gastosFijosResponse:
+    properties:
+      gastos_fijos:
+        description: Plantillas de gasto fijo
+        items:
+          $ref: '#/definitions/models.GastoFijo'
+        type: array
+    type: object
+  handlers.generarGastosFijosResponse:
+    properties:
+      generados:
+        description: Cantidad de egresos generados en esta ejecucion
+        example: 2
+        type: integer
+      mensaje:
+        description: Mensaje descriptivo
+        example: gastos fijos al dia
+        type: string
+    type: object
   handlers.horarioFiltrosResponse:
     properties:
       dia_semana:
@@ -1133,6 +1607,70 @@ definitions:
         description: ID del recurso creado
         example: 42
         type: integer
+    type: object
+  handlers.insumoRequest:
+    properties:
+      cantidad_por_sesion:
+        description: Cantidad que consume cada sesion
+        example: 30
+        type: number
+      item_id:
+        description: ID del item de inventario
+        example: 1
+        type: integer
+    required:
+    - cantidad_por_sesion
+    - item_id
+    type: object
+  handlers.insumosServicioResponse:
+    properties:
+      insumos:
+        description: Insumos que consume el servicio por sesion
+        items:
+          $ref: '#/definitions/models.ServicioInsumo'
+        type: array
+    type: object
+  handlers.inventarioImagenResponse:
+    properties:
+      imagen_url:
+        description: URL publica de la imagen
+        example: https://bucket.example.com/inventario/1/imagen
+        type: string
+    type: object
+  handlers.inventarioImagenUploadResponse:
+    properties:
+      imagen_key:
+        description: Clave del objeto (igual a path); es lo que el cliente confirma
+        example: inventario/1/imagen
+        type: string
+      path:
+        description: Path del objeto en el bucket
+        example: inventario/1/imagen
+        type: string
+      token:
+        description: Token de la subida firmada (si el storage lo usa)
+        example: abc
+        type: string
+      upload_url:
+        description: URL firmada a la que el cliente hace PUT con el archivo
+        example: https://bucket.example.com/inventario/1/imagen?X-Signature=abc
+        type: string
+    type: object
+  handlers.inventarioItemResponse:
+    properties:
+      item:
+        allOf:
+        - $ref: '#/definitions/models.InventarioItem'
+        description: Item de inventario
+    type: object
+  handlers.inventarioItemsResponse:
+    properties:
+      items:
+        description: Items de inventario con el stock del local consultado (o la suma
+          de todos)
+        items:
+          $ref: '#/definitions/models.InventarioItem'
+        type: array
     type: object
   handlers.localItemResponse:
     properties:
@@ -1215,6 +1753,29 @@ definitions:
         description: Mensaje descriptivo del resultado de la operación
         example: operacion realizada correctamente
         type: string
+    type: object
+  handlers.movimientoFinancieroResponse:
+    properties:
+      movimiento:
+        allOf:
+        - $ref: '#/definitions/models.MovimientoFinanciero'
+        description: Movimiento financiero
+    type: object
+  handlers.movimientosFinancierosResponse:
+    properties:
+      movimientos:
+        description: Egresos y otros ingresos, mas reciente primero
+        items:
+          $ref: '#/definitions/models.MovimientoFinanciero'
+        type: array
+    type: object
+  handlers.movimientosInventarioResponse:
+    properties:
+      movimientos:
+        description: Kardex filtrado, mas reciente primero
+        items:
+          $ref: '#/definitions/models.MovimientoInventario'
+        type: array
     type: object
   handlers.pagoCreatedResponse:
     properties:
@@ -1568,6 +2129,15 @@ definitions:
         example: "01:00"
         type: string
     type: object
+  handlers.reemplazarInsumosRequest:
+    properties:
+      insumos:
+        description: Lista completa de insumos del servicio (reemplaza la anterior;
+          vacia los quita todos)
+        items:
+          $ref: '#/definitions/handlers.insumoRequest'
+        type: array
+    type: object
   handlers.reemplazarLocalesComboRequest:
     properties:
       local_ids:
@@ -1614,6 +2184,22 @@ definitions:
     - rol_codigo
     - username
     type: object
+  handlers.reservaAvisosResponse:
+    properties:
+      advertencias_inventario:
+        description: 'Insumos sin stock suficiente (informativo: la operacion se aplico)'
+        items:
+          $ref: '#/definitions/models.AdvertenciaInventario'
+        type: array
+      alerta_inventario:
+        description: true si falta stock de insumos para el servicio de la reserva
+        example: false
+        type: boolean
+      mensaje:
+        description: Mensaje descriptivo del resultado
+        example: Estado de reserva actualizado correctamente
+        type: string
+    type: object
   handlers.reservaCalendarioResponse:
     properties:
       filtros:
@@ -1632,6 +2218,17 @@ definitions:
     type: object
   handlers.reservaCreatedResponse:
     properties:
+      advertencias_inventario:
+        description: 'Solo para usuarios autenticados del panel: insumos sin stock
+          suficiente. La reserva se guardo igual.'
+        items:
+          $ref: '#/definitions/models.AdvertenciaInventario'
+        type: array
+      alerta_inventario:
+        description: 'Solo para usuarios autenticados del panel: true si falta stock
+          de insumos para el servicio.'
+        example: false
+        type: boolean
       id:
         description: ID de la reserva creada
         example: 44
@@ -1880,6 +2477,87 @@ definitions:
           $ref: '#/definitions/models.UsuarioResumenPG'
         type: array
     type: object
+  models.AdvertenciaInventario:
+    properties:
+      disponible:
+        example: 10
+        type: number
+      item_id:
+        example: 1
+        type: integer
+      item_nombre:
+        example: Gel conductor
+        type: string
+      requerido:
+        example: 30
+        type: number
+      unidad:
+        example: ML
+        type: string
+    type: object
+  models.AlertaReservaInventario:
+    properties:
+      advertencias:
+        items:
+          $ref: '#/definitions/models.AdvertenciaInventario'
+        type: array
+      cliente:
+        example: Maria Lopez
+        type: string
+      fecha:
+        example: "2026-10-20"
+        type: string
+      hora_desde:
+        example: "09:00"
+        type: string
+      local:
+        example: PASEO ARANJUEZ
+        type: string
+      reserva_id:
+        example: 55
+        type: integer
+      servicio:
+        example: Masaje reductor
+        type: string
+    type: object
+  models.AlertasInventario:
+    properties:
+      items_bajo_stock:
+        items:
+          $ref: '#/definitions/models.InventarioItem'
+        type: array
+      reservas_con_alerta:
+        items:
+          $ref: '#/definitions/models.AlertaReservaInventario'
+        type: array
+    type: object
+  models.CategoriaFinanciera:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      id:
+        example: 1
+        type: integer
+      naturaleza:
+        example: EGRESO
+        type: string
+      nombre:
+        example: Alquiler
+        type: string
+    type: object
+  models.CategoriaInventario:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      id:
+        example: 1
+        type: integer
+      nombre:
+        example: Cremas y geles
+        type: string
+    type: object
   models.CategoriaPG:
     properties:
       id:
@@ -2026,6 +2704,71 @@ definitions:
         example: "01:00"
         type: string
     type: object
+  models.Compra:
+    properties:
+      codigo:
+        example: COMP-000001
+        type: string
+      detalle:
+        items:
+          $ref: '#/definitions/models.CompraDetalle'
+        type: array
+      estado:
+        example: REGISTRADA
+        type: string
+      fecha:
+        example: "2026-10-18"
+        type: string
+      id:
+        example: 1
+        type: integer
+      local_id:
+        example: 1
+        type: integer
+      local_nombre:
+        example: PASEO ARANJUEZ
+        type: string
+      movimiento_financiero_codigo:
+        type: string
+      nombre_usuario:
+        type: string
+      notas:
+        type: string
+      proveedor:
+        type: string
+      total:
+        example: 40
+        type: number
+    type: object
+  models.CompraDetalle:
+    properties:
+      cantidad:
+        example: 1000
+        type: number
+      costo_unitario:
+        example: 0.04
+        type: number
+      item_id:
+        example: 1
+        type: integer
+      item_nombre:
+        example: Gel conductor
+        type: string
+      subtotal:
+        example: 40
+        type: number
+      unidad_medida:
+        example: ML
+        type: string
+    type: object
+  models.DetalleLocalFinanciero:
+    properties:
+      local:
+        example: PASEO ARANJUEZ
+        type: string
+      resumen:
+        $ref: '#/definitions/models.ReporteFinancieroResumen'
+    type: object
   models.DetallePagoPG:
     properties:
       cantidad:
@@ -2052,6 +2795,128 @@ definitions:
         description: Subtotal de la linea.
         example: 500
         type: number
+    type: object
+  models.EgresoPorCategoria:
+    properties:
+      categoria:
+        example: Sueldos y personal
+        type: string
+      clase:
+        example: FIJO
+        type: string
+      total:
+        example: 18000
+        type: number
+    type: object
+  models.GastoFijo:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      categoria_id:
+        example: 1
+        type: integer
+      categoria_nombre:
+        example: Alquiler
+        type: string
+      dia_cobro:
+        example: 5
+        type: integer
+      fecha_fin:
+        type: string
+      fecha_inicio:
+        example: "2026-01-01"
+        type: string
+      id:
+        example: 1
+        type: integer
+      local_id:
+        type: integer
+      local_nombre:
+        type: string
+      metodo_pago:
+        example: transferencia
+        type: string
+      monto:
+        example: 6500
+        type: number
+      nombre:
+        example: Alquiler Paseo Aranjuez
+        type: string
+      notas:
+        type: string
+      proveedor:
+        type: string
+      proximo_cobro:
+        description: ProximoCobro se calcula en el servicio.
+        example: "2026-11-05"
+        type: string
+    type: object
+  models.GastoFijoProximo:
+    properties:
+      dias_restantes:
+        example: 3
+        type: integer
+      fecha_cobro:
+        example: "2026-11-05"
+        type: string
+      gasto_fijo_id:
+        example: 1
+        type: integer
+      local_nombre:
+        type: string
+      monto:
+        example: 6500
+        type: number
+      nombre:
+        example: Alquiler Paseo Aranjuez
+        type: string
+    type: object
+  models.InventarioItem:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      bajo_stock:
+        description: BajoStock es true cuando StockActual <= StockMinimo (RN-05).
+        example: false
+        type: boolean
+      categoria_id:
+        type: integer
+      categoria_nombre:
+        type: string
+      codigo:
+        example: INV-000001
+        type: string
+      costo_referencia:
+        example: 0.04
+        type: number
+      descripcion:
+        type: string
+      id:
+        example: 1
+        type: integer
+      imagen_url:
+        description: ImagenURL se calcula en el servicio a partir de ImagenKey.
+        type: string
+      nombre:
+        example: Gel conductor
+        type: string
+      stock_actual:
+        description: StockActual es el stock del local consultado, o la suma de todos
+          los locales.
+        example: 350
+        type: number
+      stock_minimo:
+        example: 500
+        type: number
+      stock_por_local:
+        items:
+          $ref: '#/definitions/models.StockLocal'
+        type: array
+      unidad_medida:
+        example: ML
+        type: string
     type: object
   models.LocalConEspacios:
     properties:
@@ -2115,6 +2980,97 @@ definitions:
         items:
           $ref: '#/definitions/models.Semana'
         type: array
+    type: object
+  models.MovimientoFinanciero:
+    properties:
+      categoria_id:
+        example: 1
+        type: integer
+      categoria_nombre:
+        example: Alquiler
+        type: string
+      clase:
+        example: VARIABLE
+        type: string
+      codigo:
+        example: MOV-000001
+        type: string
+      compra_id:
+        type: integer
+      descripcion:
+        type: string
+      estado:
+        example: PAGADO
+        type: string
+      fecha:
+        example: "2026-10-18"
+        type: string
+      gasto_fijo_id:
+        type: integer
+      id:
+        example: 1
+        type: integer
+      local_id:
+        type: integer
+      local_nombre:
+        type: string
+      metodo_pago:
+        example: efectivo
+        type: string
+      monto:
+        example: 480
+        type: number
+      motivo_anulacion:
+        type: string
+      naturaleza:
+        example: EGRESO
+        type: string
+      nombre_usuario:
+        type: string
+      periodo:
+        example: "2026-10-01"
+        type: string
+      proveedor:
+        type: string
+    type: object
+  models.MovimientoInventario:
+    properties:
+      cantidad:
+        example: 100
+        type: number
+      compra_id:
+        type: integer
+      costo_unitario:
+        type: number
+      creado_en:
+        type: string
+      id:
+        example: 10
+        type: integer
+      item_id:
+        example: 1
+        type: integer
+      item_nombre:
+        example: Gel conductor
+        type: string
+      local_id:
+        example: 1
+        type: integer
+      local_nombre:
+        example: PASEO ARANJUEZ
+        type: string
+      motivo:
+        type: string
+      reserva_id:
+        type: integer
+      stock_resultante:
+        example: 450
+        type: number
+      tipo:
+        example: ENTRADA_COMPRA
+        type: string
+      usuario_nombre:
+        type: string
     type: object
   models.PagoCompletoPG:
     properties:
@@ -2628,6 +3584,99 @@ definitions:
         example: "01:00"
         type: string
     type: object
+  models.PuntoSerieFinanciera:
+    properties:
+      egresos:
+        example: 42500
+        type: number
+      ingresos:
+        example: 86057
+        type: number
+      periodo:
+        example: 2026-10
+        type: string
+      utilidad:
+        example: 43557
+        type: number
+    type: object
+  models.ReporteFinanciero:
+    properties:
+      detalle_por_local:
+        items:
+          $ref: '#/definitions/models.DetalleLocalFinanciero'
+        type: array
+      egresos_por_categoria:
+        items:
+          $ref: '#/definitions/models.EgresoPorCategoria'
+        type: array
+      filtros:
+        $ref: '#/definitions/models.ReporteFinancieroFiltros'
+      gastos_generales:
+        example: 9000
+        type: number
+      inventario:
+        $ref: '#/definitions/models.ReporteInventarioResumen'
+      resumen:
+        $ref: '#/definitions/models.ReporteFinancieroResumen'
+      serie:
+        items:
+          $ref: '#/definitions/models.PuntoSerieFinanciera'
+        type: array
+    type: object
+  models.ReporteFinancieroFiltros:
+    properties:
+      fecha_desde:
+        example: "2026-10-01"
+        type: string
+      fecha_hasta:
+        example: "2026-10-31"
+        type: string
+      local:
+        example: PASEO ARANJUEZ
+        type: string
+    type: object
+  models.ReporteFinancieroResumen:
+    properties:
+      egresos_fijos:
+        example: 30000
+        type: number
+      egresos_pendientes:
+        example: 4000
+        type: number
+      egresos_total:
+        example: 42500
+        type: number
+      egresos_variables:
+        example: 12500
+        type: number
+      ingresos_otros:
+        example: 1200
+        type: number
+      ingresos_total:
+        example: 86057
+        type: number
+      ingresos_ventas:
+        example: 84857
+        type: number
+      margen_pct:
+        example: 50.6
+        type: number
+      utilidad_neta:
+        example: 43557
+        type: number
+    type: object
+  models.ReporteInventarioResumen:
+    properties:
+      consumo_servicios:
+        example: 2100
+        type: number
+      items_bajo_stock:
+        example: 3
+        type: integer
+      valor_stock:
+        example: 5400
+        type: number
+    type: object
   models.ReservaItem:
     properties:
       actualizado_en:
@@ -2718,6 +3767,21 @@ definitions:
         example: Semana 22
         type: string
     type: object
+  models.ServicioInsumo:
+    properties:
+      cantidad_por_sesion:
+        example: 30
+        type: number
+      item_id:
+        example: 1
+        type: integer
+      item_nombre:
+        example: Gel conductor
+        type: string
+      unidad_medida:
+        example: ML
+        type: string
+    type: object
   models.ServicioItem:
     properties:
       activo:
@@ -2759,6 +3823,18 @@ definitions:
       visible_paciente_nuevo:
         example: true
         type: boolean
+    type: object
+  models.StockLocal:
+    properties:
+      cantidad:
+        example: 120.5
+        type: number
+      local_id:
+        example: 1
+        type: integer
+      local_nombre:
+        example: PASEO ARANJUEZ
+        type: string
     type: object
   models.TipoEspacioLocal:
     properties:
@@ -2952,6 +4028,11 @@ definitions:
       actualizado_en:
         example: "2026-05-23T16:04:05Z"
         type: string
+      alerta_inventario:
+        description: AlertaInventario avisa que faltaba stock de insumos al agendar
+          (solo informativo).
+        example: false
+        type: boolean
       cliente:
         example: Maria Lopez
         type: string
@@ -4525,6 +5606,1852 @@ paths:
       summary: Reemplazar servicios de combo
       tags:
       - Combos BD
+  /bd/compras:
+    get:
+      description: Lista las compras. Los usuarios no admin_sys quedan limitados a
+        su local. Requiere token Bearer con rol admin_sys o gerencia.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.comprasResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: local_id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario o local no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar compras de inventario
+      tags:
+      - Compras
+    post:
+      consumes:
+      - application/json
+      description: 'Registra una compra en una sola transaccion: crea la compra y
+        su detalle, suma el stock de cada item en el local, actualiza el costo de
+        referencia y genera UN egreso VARIABLE (categoria Compras de inventario) por
+        el total. Si falla cualquier linea no queda nada a medias. Gerencia solo puede
+        comprar para su local. Requiere token Bearer con rol admin_sys o gerencia.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos de la compra
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearCompraRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.compraResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: local, fecha o detalle invalidos; cantidad
+            no positiva; item repetido o inactivo; metodo_pago invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario o local no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Item o local no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Registrar compra de inventario
+      tags:
+      - Compras
+  /bd/compras/{id}:
+    get:
+      description: Devuelve la compra con sus lineas y el codigo del egreso asociado.
+        Requiere token Bearer con rol admin_sys o gerencia.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la compra
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.compraResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario o local no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Compra no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Detalle de compra
+      tags:
+      - Compras
+  /bd/compras/{id}/anular:
+    patch:
+      consumes:
+      - application/json
+      description: Anula la compra y su egreso, y revierte las entradas de stock.
+        Si parte de ese stock ya se consumio y no alcanza para revertir, no cambia
+        nada y responde 409 con el detalle. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la compra
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo de la anulacion
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.anularCompraRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido, motivo requerido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Compra no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: La compra ya esta anulada o el stock ya se consumio y no puede
+            revertirse
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Anular compra de inventario
+      tags:
+      - Compras
+  /bd/configuracion:
+    get:
+      description: Devuelve los parametros de inventario y finanzas (politica ante
+        falta de stock, momento del descuento, stock negativo, aviso de gastos fijos,
+        zona horaria, moneda). Requiere token Bearer.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.configuracionResponse'
+              type: object
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Leer parametros del sistema
+      tags:
+      - Configuracion
+    patch:
+      consumes:
+      - application/json
+      description: 'Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock
+        ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo
+        y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado
+        PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria
+        zona IANA; finanzas.moneda texto de 1 a 5 caracteres. Requiere token Bearer
+        con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Parametros a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.configuracionResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: parametro desconocido o valor invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Actualizar parametros del sistema
+      tags:
+      - Configuracion
+  /bd/finanzas/categorias:
+    get:
+      description: Lista las categorias de ingresos y egresos. Requiere token Bearer
+        con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.categoriasFinancierasResponse'
+              type: object
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar categorias financieras
+      tags:
+      - Finanzas
+    post:
+      consumes:
+      - application/json
+      description: Crea una categoria de INGRESO o EGRESO. El nombre es unico por
+        naturaleza. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos de la categoria
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearCategoriaFinancieraRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: nombre o naturaleza invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Ya existe una categoria con ese nombre
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Crear categoria financiera
+      tags:
+      - Finanzas
+  /bd/finanzas/categorias/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Cambia el nombre o activa/desactiva la categoria (la naturaleza
+        no cambia). Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la categoria
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarCategoriaFinancieraRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido, sin campos, nombre invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Ya existe una categoria con ese nombre
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Editar categoria financiera
+      tags:
+      - Finanzas
+  /bd/finanzas/gastos-fijos:
+    get:
+      description: Lista las plantillas de gasto fijo (activas e inactivas) con su
+        proximo cobro. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.gastosFijosResponse'
+              type: object
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar gastos fijos
+      tags:
+      - Finanzas
+    post:
+      consumes:
+      - application/json
+      description: 'Crea una plantilla de gasto recurrente: el dia dia_cobro de cada
+        mes se genera un egreso FIJO. Si el mes no tiene ese dia se usa el ultimo
+        del mes. Los meses atrasados desde fecha_inicio se generan en la siguiente
+        ejecucion (catch-up). Requiere token Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos del gasto fijo
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.gastoFijoRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.gastoFijoResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: nombre, monto, dia_cobro, fechas, metodo_pago
+            o categoria invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Crear gasto fijo
+      tags:
+      - Finanzas
+  /bd/finanzas/gastos-fijos/{id}:
+    delete:
+      description: Desactiva la plantilla (activo=false). Deja de generarse; el historial
+        ya generado se conserva. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del gasto fijo
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Gasto fijo no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Desactivar gasto fijo
+      tags:
+      - Finanzas
+    patch:
+      consumes:
+      - application/json
+      description: 'Edita la plantilla. Afecta solo periodos futuros aun no generados:
+        los egresos ya generados no cambian (se editan uno a uno). fecha_fin permite
+        dar de baja sin perder historia. Requiere token Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del gasto fijo
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarGastoFijoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id, monto, dia_cobro, fechas o categoria
+            invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Gasto fijo no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Editar gasto fijo
+      tags:
+      - Finanzas
+  /bd/finanzas/gastos-fijos/generar:
+    post:
+      description: 'Genera, de forma idempotente, los egresos FIJO que ya vencieron
+        hasta hoy (incluye meses atrasados). Lo usan el job diario y el boton manual:
+        ejecutarlo dos veces no duplica nada. Acepta token Bearer con rol admin_sys
+        o el header X-Job-Secret configurado en el servidor.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer (admin_sys) si no se usa X-Job-Secret
+        in: header
+        name: Authorization
+        type: string
+      - description: Secreto interno del job diario
+        in: header
+        name: X-Job-Secret
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.generarGastosFijosResponse'
+              type: object
+        "401":
+          description: Token o secreto requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Generar gastos fijos pendientes
+      tags:
+      - Finanzas
+  /bd/finanzas/gastos-fijos/proximos:
+    get:
+      description: Lista los cobros que vencen dentro de finanzas.dias_aviso_gasto_fijo
+        (para el dashboard). Antes de calcular genera los gastos fijos atrasados,
+        asi el aviso es correcto aunque el job diario haya fallado. Requiere token
+        Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.gastosFijosProximosResponse'
+              type: object
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Gastos fijos por vencer
+      tags:
+      - Finanzas
+  /bd/finanzas/movimientos:
+    get:
+      description: 'Lista egresos (fijos y variables, incluidas las compras de inventario)
+        y otros ingresos. Las ventas no aparecen aqui: siguen en /bd/pagos. Filtros:
+        naturaleza, clase, categoria_id, estado, local_id, fecha_desde, fecha_hasta.
+        Requiere token Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: INGRESO o EGRESO
+        in: query
+        name: naturaleza
+        type: string
+      - description: FIJO o VARIABLE
+        in: query
+        name: clase
+        type: string
+      - description: Filtrar por categoria
+        in: query
+        name: categoria_id
+        type: integer
+      - description: PENDIENTE, PAGADO o ANULADO
+        in: query
+        name: estado
+        type: string
+      - description: Filtrar por local
+        in: query
+        name: local_id
+        type: integer
+      - description: Desde (YYYY-MM-DD)
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Hasta (YYYY-MM-DD)
+        in: query
+        name: fecha_hasta
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.movimientosFinancierosResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: parametro invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar movimientos financieros
+      tags:
+      - Finanzas
+    post:
+      consumes:
+      - application/json
+      description: Registra un egreso VARIABLE o un otro ingreso. Los egresos FIJO
+        nacen solo de una plantilla de gasto fijo y las compras de inventario de POST
+        /bd/compras. La categoria debe coincidir con la naturaleza. Requiere token
+        Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos del movimiento
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearMovimientoFinancieroRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.movimientoFinancieroResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: naturaleza, clase, monto, fecha, estado,
+            metodo_pago o categoria invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Registrar egreso variable u otro ingreso
+      tags:
+      - Finanzas
+  /bd/finanzas/movimientos/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Edita un movimiento no anulado. Editar un egreso FIJO ya generado
+        afecta solo ese mes; para cambiar los meses siguientes se edita la plantilla.
+        Los egresos de compras de inventario no se editan (se anula la compra). descripcion,
+        proveedor, metodo_pago y local_id aceptan null para limpiar. Requiere token
+        Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del movimiento
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarMovimientoFinancieroRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id, monto, fecha, estado o categoria
+            invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Movimiento no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: El movimiento esta anulado o pertenece a una compra
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Editar movimiento financiero
+      tags:
+      - Finanzas
+  /bd/finanzas/movimientos/{id}/estado:
+    patch:
+      consumes:
+      - application/json
+      description: Cambia el estado a PAGADO o ANULADO. Anular exige motivo; los movimientos
+        no se borran. Un egreso de compra de inventario se anula desde la compra.
+        Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del movimiento
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Nuevo estado
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.cambiarEstadoMovimientoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: estado invalido, motivo requerido al
+            anular'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Movimiento no encontrado o ya anulado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: El egreso pertenece a una compra de inventario
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Marcar pagado o anular movimiento
+      tags:
+      - Finanzas
+  /bd/inventario/ajustes:
+    post:
+      consumes:
+      - application/json
+      description: Registra un ajuste manual de stock (merma, vencimiento o conteo
+        fisico). El motivo es obligatorio. Un ajuste negativo no puede dejar el stock
+        bajo cero. Gerencia solo puede ajustar su local. Requiere token Bearer con
+        rol admin_sys o gerencia.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos del ajuste
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ajusteInventarioRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.ajusteInventarioResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: tipo invalido, cantidad no positiva,
+            motivo requerido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario o local no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Item no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Stock insuficiente para el ajuste negativo
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Ajustar stock
+      tags:
+      - Inventario
+  /bd/inventario/alertas:
+    get:
+      description: Devuelve los items bajo su stock minimo y las reservas futuras
+        con falta de insumos para su servicio. Los usuarios no admin_sys quedan limitados
+        a su local. Requiere token Bearer.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.AlertasInventario'
+              type: object
+        "400":
+          description: 'Error de validacion: local_id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Local no permitido para el usuario
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Alertas de inventario
+      tags:
+      - Inventario
+  /bd/inventario/categorias:
+    get:
+      description: Lista las categorias de inventario. Requiere token Bearer.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.categoriasInventarioResponse'
+              type: object
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar categorias de inventario
+      tags:
+      - Inventario
+    post:
+      consumes:
+      - application/json
+      description: Crea una categoria de inventario. El nombre es unico sin distinguir
+        mayusculas. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos de la categoria
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearCategoriaInventarioRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.idResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: nombre requerido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Ya existe una categoria con ese nombre
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Crear categoria de inventario
+      tags:
+      - Inventario
+  /bd/inventario/categorias/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Cambia el nombre o activa/desactiva la categoria. Requiere token
+        Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la categoria
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarCategoriaInventarioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido, sin campos, nombre invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Categoria no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Ya existe una categoria con ese nombre
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Editar categoria de inventario
+      tags:
+      - Inventario
+  /bd/inventario/items:
+    get:
+      description: 'Lista items con el stock del local indicado (o la suma de todos).
+        Filtros: q (nombre o codigo), categoria_id, local_id, bajo_stock=true (stock
+        <= stock_minimo), activo. Los usuarios no admin_sys quedan limitados a su
+        local. Requiere token Bearer.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Busqueda por nombre o codigo
+        in: query
+        name: q
+        type: string
+      - description: Filtrar por categoria
+        in: query
+        name: categoria_id
+        type: integer
+      - description: Stock de este local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      - description: Solo items bajo su stock minimo
+        in: query
+        name: bajo_stock
+        type: boolean
+      - description: Filtrar por activos/inactivos
+        in: query
+        name: activo
+        type: boolean
+      - description: Maximo de resultados (default 200, tope 500)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.inventarioItemsResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: parametro de consulta invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Local no permitido para el usuario
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar items de inventario
+      tags:
+      - Inventario
+    post:
+      consumes:
+      - application/json
+      description: 'Crea un item del catalogo (stock inicial 0: se carga con una compra
+        o un ajuste). El codigo INV-xxxxxx se genera solo. Requiere token Bearer con
+        rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos del item
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearInventarioItemRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.inventarioItemResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: nombre requerido, unidad_medida invalida,
+            costo o stock minimo negativos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Crear item de inventario
+      tags:
+      - Inventario
+  /bd/inventario/items/{id}:
+    delete:
+      description: 'Desactiva el item (activo=false). Nunca se borra fisicamente:
+        conserva su historial de movimientos. Requiere token Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del item
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Item no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Desactivar item de inventario
+      tags:
+      - Inventario
+    get:
+      description: Devuelve el item con su stock por local. Requiere token Bearer.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del item
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.inventarioItemResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Item no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Detalle de item de inventario
+      tags:
+      - Inventario
+    patch:
+      consumes:
+      - application/json
+      description: 'Edita datos del item. No edita stock: el stock solo cambia con
+        movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id
+        y costo_referencia aceptan null para limpiar. Requiere token Bearer con rol
+        admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del item
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarInventarioItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido, sin campos, unidad invalida,
+            valores negativos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Item no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Editar item de inventario
+      tags:
+      - Inventario
+  /bd/inventario/items/{id}/imagen:
+    delete:
+      description: Borra el objeto del storage y limpia la clave del item. Requiere
+        token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del item
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Item no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "503":
+          description: Almacenamiento de imagenes no configurado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Quitar imagen de item
+      tags:
+      - Inventario
+    put:
+      description: Persiste la clave de la imagen del item tras una subida exitosa
+        y devuelve su URL. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del item
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.inventarioImagenResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Item no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "503":
+          description: Almacenamiento de imagenes no configurado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Confirmar imagen de item subida
+      tags:
+      - Inventario
+  /bd/inventario/items/{id}/imagen/upload-url:
+    post:
+      description: Devuelve una URL firmada para que el cliente suba la imagen directo
+        al storage, sin pasar los bytes por el backend. Tras subir (PUT a upload_url),
+        confirmar con PUT /bd/inventario/items/{id}/imagen. Requiere token Bearer
+        con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del item
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.inventarioImagenUploadResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Item no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "503":
+          description: Almacenamiento de imagenes no configurado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Emitir URL firmada para subir imagen de un item
+      tags:
+      - Inventario
+  /bd/inventario/movimientos:
+    get:
+      description: 'Lista movimientos de stock (entradas, salidas por servicio, reversiones
+        y ajustes) con el stock resultante. Filtros: item_id, local_id, tipo, fecha_desde,
+        fecha_hasta (YYYY-MM-DD). Los usuarios no admin_sys quedan limitados a su
+        local. Requiere token Bearer.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filtrar por item
+        in: query
+        name: item_id
+        type: integer
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      - description: ENTRADA_COMPRA, SALIDA_SERVICIO, REVERSION_SERVICIO, AJUSTE_POSITIVO
+          o AJUSTE_NEGATIVO
+        in: query
+        name: tipo
+        type: string
+      - description: Desde (YYYY-MM-DD)
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Hasta (YYYY-MM-DD)
+        in: query
+        name: fecha_hasta
+        type: string
+      - description: Maximo de resultados (default 200, tope 500)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.movimientosInventarioResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: parametro invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Local no permitido para el usuario
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Kardex de inventario
+      tags:
+      - Inventario
   /bd/locales:
     get:
       description: 'Devuelve todos los locales registrados en BD. Sin filtros. Response:
@@ -6368,6 +9295,78 @@ paths:
       summary: Marcar una sesión del plan como realizada o pendiente
       tags:
       - Planes BD
+  /bd/reportes/financiero:
+    get:
+      description: 'Resume el periodo: ingresos (ventas pagadas + otros ingresos)
+        vs egresos (fijos y variables, incluidas compras de inventario) y utilidad
+        neta. Solo cuentan movimientos PAGADO; los pendientes se informan aparte y
+        los anulados nunca suman. Las ventas usan la misma regla que /bd/pagos/resumen.
+        Con local se filtra por local y los gastos generales (sin local) se informan
+        aparte sin prorratear. Antes de calcular genera los gastos fijos atrasados.
+        Requiere token Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Desde (YYYY-MM-DD)
+        in: query
+        name: fecha_desde
+        required: true
+        type: string
+      - description: Hasta (YYYY-MM-DD)
+        in: query
+        name: fecha_hasta
+        required: true
+        type: string
+      - description: Nombre del local
+        in: query
+        name: local
+        type: string
+      - description: dia o mes (default mes)
+        in: query
+        name: agrupar
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ReporteFinanciero'
+              type: object
+        "400":
+          description: 'Error de validacion: fechas invalidas o rango invertido, agrupar
+            invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Local no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Reporte financiero (ingresos vs egresos)
+      tags:
+      - Reportes
   /bd/reservas:
     get:
       description: Devuelve reservas en formato plano (sin agrupar por local). La
@@ -6517,6 +9516,7 @@ paths:
       description: |-
         Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).
         limpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.
+        Recalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias.
       parameters:
       - description: Datos para actualizar la reserva
         in: body
@@ -6534,7 +9534,7 @@ paths:
             - $ref: '#/definitions/utils.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/handlers.messageResponse'
+                  $ref: '#/definitions/handlers.reservaAvisosResponse'
               type: object
         "400":
           description: 'Error de validacion: id invalido, local requerido, tipo invalido,
@@ -6569,6 +9569,7 @@ paths:
       description: |-
         Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).
         costo_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.
+        Inventario: si la peticion trae token Bearer valido (panel interno) y el servicio tiene insumos sin stock suficiente en el local, la reserva se guarda igual y la respuesta incluye alerta_inventario y advertencias_inventario; con la politica inventario.politica_sin_stock=BLOQUEAR responde 409 con el texto stock insuficiente. El formulario publico (sin token) nunca recibe advertencias ni se bloquea.
       parameters:
       - description: Datos de la reserva
         in: body
@@ -6594,8 +9595,8 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
-          description: 'Conflicto: no hay espacios disponibles o el horario no esta
-            libre'
+          description: 'Conflicto: no hay espacios disponibles, el horario no esta
+            libre o stock insuficiente de insumos con politica BLOQUEAR'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
@@ -6608,7 +9609,8 @@ paths:
   /bd/reservas/{id}:
     delete:
       description: 'Eliminacion logica de una reserva (activo=false). id: ID de la
-        reserva (requerido, path).'
+        reserva (requerido, path). Si la reserva ya habia descontado insumos, se devuelve
+        el stock con movimientos REVERSION_SERVICIO en la misma transaccion.'
       parameters:
       - description: ID de la reserva
         example: 44
@@ -6798,6 +9800,7 @@ paths:
       description: |-
         Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO, RECHAZADO→PENDIENTE. COMPLETADO no admite cambios.
         Confirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.
+        Inventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.
       parameters:
       - description: Nuevo estado de la reserva
         in: body
@@ -6815,7 +9818,7 @@ paths:
             - $ref: '#/definitions/utils.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/handlers.messageResponse'
+                  $ref: '#/definitions/handlers.reservaAvisosResponse'
               type: object
         "400":
           description: 'Error de validacion: estado invalido, transicion no permitida,
@@ -6831,7 +9834,8 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
-          description: 'Conflicto: no hay espacios disponibles para confirmar la reserva'
+          description: 'Conflicto: no hay espacios disponibles para confirmar la reserva,
+            o stock insuficiente de insumos'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
@@ -7185,6 +10189,116 @@ paths:
       summary: Actualizar servicio
       tags:
       - Servicios BD
+  /bd/servicios/{id}/insumos:
+    get:
+      description: Lista los items de inventario que consume el servicio por sesion.
+        Requiere token Bearer.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del servicio
+        example: 8
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.insumosServicioResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Insumos de un servicio
+      tags:
+      - Inventario
+    put:
+      consumes:
+      - application/json
+      description: Reemplaza la lista completa de insumos del servicio (patron de
+        PUT /bd/combos/{id}/servicios). Una lista vacia quita todos. No se permiten
+        items repetidos ni cantidades no positivas. Requiere token Bearer con rol
+        admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del servicio
+        example: 8
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Insumos del servicio
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.reemplazarInsumosRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido, item repetido, cantidad
+            no positiva'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Servicio o item no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Reemplazar insumos de un servicio
+      tags:
+      - Inventario
   /bd/servicios/{id}/local/{local_id}/paciente-nuevo:
     patch:
       consumes:
