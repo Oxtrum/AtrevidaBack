@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 	"atrevida-agenda-api/services"
@@ -93,6 +94,20 @@ type actualizarCategoriaInventarioRequest struct {
 type movimientosInventarioResponse struct {
 	// Kardex filtrado, mas reciente primero
 	Movimientos []models.MovimientoInventario `json:"movimientos"`
+	// Paginacion por cursor (solo si se envia limit o cursor)
+	Paginacion *pagination.Metadata `json:"paginacion,omitempty"`
+	// Total de movimientos con los filtros (solo con include_total=true)
+	TotalRegistros *int `json:"total_registros,omitempty"`
+}
+
+// movimientosFiltrosCursor ata el cursor a los filtros: cambiar un filtro invalida el cursor.
+type movimientosFiltrosCursor struct {
+	ItemID     *int   `json:"item_id,omitempty"`
+	LocalID    *int   `json:"local_id,omitempty"`
+	Tipo       string `json:"tipo,omitempty"`
+	FechaDesde string `json:"fecha_desde,omitempty"`
+	FechaHasta string `json:"fecha_hasta,omitempty"`
+	Q          string `json:"q,omitempty"`
 }
 
 type ajusteInventarioRequest struct {
@@ -174,6 +189,11 @@ func (h *Container) GetInventarioItems(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
+	porLocal, err := queryBool(c, "por_local")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	limit, err := queryInt(c, "limit")
 	if err != nil {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
@@ -185,6 +205,7 @@ func (h *Container) GetInventarioItems(c *gin.Context) {
 	}
 	f := repository.FiltroItemsInventario{
 		Q: c.Query("q"), CategoriaID: categoriaID, LocalID: localID, BajoStock: bajo != nil && *bajo, Activo: activo,
+		PorLocal: porLocal != nil && *porLocal,
 	}
 	if limit != nil {
 		f.Limit = *limit
@@ -533,7 +554,10 @@ func (h *Container) PatchInventarioCategoria(c *gin.Context) {
 // @Param tipo query string false "ENTRADA_COMPRA, SALIDA_SERVICIO, REVERSION_SERVICIO, AJUSTE_POSITIVO o AJUSTE_NEGATIVO"
 // @Param fecha_desde query string false "Desde (YYYY-MM-DD)"
 // @Param fecha_hasta query string false "Hasta (YYYY-MM-DD)"
-// @Param limit query int false "Maximo de resultados (default 200, tope 500)"
+// @Param q query string false "Busca por item, local o motivo"
+// @Param limit query int false "Tamano de pagina (1-100); sin limit ni cursor devuelve los 200 mas recientes"
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param include_total query bool false "Incluye total_registros y total_paginas"
 // @Success 200 {object} utils.APIResponse{data=movimientosInventarioResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: parametro invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
@@ -552,9 +576,12 @@ func (h *Container) GetInventarioMovimientos(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	limit, err := queryInt(c, "limit")
-	if err != nil {
-		utils.RespondError(c, http.StatusBadRequest, err.Error())
+	page, ok := parsePagination(c)
+	if !ok {
+		return
+	}
+	includeTotal, ok := parseIncludeTotal(c)
+	if !ok {
 		return
 	}
 	desde, err := services.ParseFechaOpcional(c.Query("fecha_desde"), "fecha_desde")
@@ -573,17 +600,50 @@ func (h *Container) GetInventarioMovimientos(c *gin.Context) {
 	}
 	f := repository.FiltroMovimientosInventario{
 		ItemID: itemID, LocalID: localID, Tipo: strings.ToUpper(strings.TrimSpace(c.Query("tipo"))),
-		FechaDesde: desde, FechaHasta: hasta,
+		FechaDesde: desde, FechaHasta: hasta, Q: strings.TrimSpace(c.Query("q")),
 	}
-	if limit != nil {
-		f.Limit = *limit
+	filters := movimientosFiltrosCursor{
+		ItemID: itemID, LocalID: localID, Tipo: f.Tipo, Q: f.Q,
+		FechaDesde: c.Query("fecha_desde"), FechaHasta: c.Query("fecha_hasta"),
 	}
+	var after timeCursor
+	if !decodePaginationCursor(c, page, "inventario_movimientos", filters, &after) {
+		return
+	}
+	if page.Cursor != "" && after.ID < 1 {
+		utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+		return
+	}
+	f.PageLimit = page.QueryLimit()
+	f.CursorSet = page.Cursor != ""
+	f.CursorTime = after.CreatedAt
+	f.CursorID = after.ID
+
 	movs, err := h.Inventario.ListarMovimientos(f)
 	if err != nil {
 		respondTrastiendaError(c, err)
 		return
 	}
-	utils.Respond(c, http.StatusOK, movimientosInventarioResponse{Movimientos: movs})
+	var total *int
+	if includeTotal && page.Enabled {
+		n, err := h.Inventario.ContarMovimientos(f)
+		if err != nil {
+			respondTrastiendaError(c, err)
+			return
+		}
+		total = &n
+	}
+	movs, metadata, err := pagination.Build(movs, page, "inventario_movimientos", filters, func(m models.MovimientoInventario) any {
+		return timeCursor{CreatedAt: m.CreadoEn, ID: m.ID}
+	})
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if total != nil {
+		pagination.AddTotal(metadata, *total)
+	}
+	utils.Respond(c, http.StatusOK, movimientosInventarioResponse{Movimientos: movs, Paginacion: metadata, TotalRegistros: total})
 }
 
 // PostInventarioAjuste godoc

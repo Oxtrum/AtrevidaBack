@@ -61,9 +61,24 @@ func (r *InventarioRepo) ListItems(f repository.FiltroItemsInventario) ([]models
 	}
 
 	query := fmt.Sprintf(itemsSelectBase, localCond) + " WHERE " + strings.Join(conds, " AND ")
+	if f.PorLocal && f.LocalID == nil {
+		// Una fila por (item, local) con registro de stock; nunca se suma entre locales.
+		query = `
+	SELECT i.id, i.codigo, i.nombre, i.descripcion, i.categoria_id, c.nombre AS categoria_nombre,
+	       i.unidad_medida, i.costo_referencia, i.stock_minimo,
+	       COALESCE(s.cantidad, 0) AS stock_actual, i.imagen_key, i.activo,
+	       l.id AS local_id, l.nombre AS local_nombre
+	FROM inventario_items i
+	LEFT JOIN categorias_inventario c ON c.id = i.categoria_id
+	LEFT JOIN inventario_stock s ON s.item_id = i.id
+	LEFT JOIN locales l ON l.id = s.local_id
+	WHERE ` + strings.Join(conds, " AND ")
+	}
 	if f.BajoStock {
 		query = "SELECT * FROM (" + query + ") t WHERE t.stock_actual <= t.stock_minimo"
-		query += " ORDER BY t.nombre, t.id"
+		query += " ORDER BY t.nombre, t.local_nombre, t.id"
+	} else if f.PorLocal && f.LocalID == nil {
+		query += " ORDER BY i.nombre, l.nombre, i.id"
 	} else {
 		query += " ORDER BY i.nombre, i.id"
 	}
@@ -77,6 +92,33 @@ func (r *InventarioRepo) ListItems(f repository.FiltroItemsInventario) ([]models
 	items := []models.InventarioItem{}
 	if err := r.db.Select(&items, query, args...); err != nil {
 		return nil, fmt.Errorf("error al listar items de inventario: %w", err)
+	}
+	return items, nil
+}
+
+// ItemsBajoStockPorLocal devuelve una fila por (item, local) cuyo stock en ese local
+// esta en o bajo el minimo. Solo cuenta items con registro de stock en el local.
+func (r *InventarioRepo) ItemsBajoStockPorLocal(localID *int) ([]models.InventarioItem, error) {
+	args := []interface{}{}
+	localCond := ""
+	if localID != nil {
+		args = append(args, *localID)
+		localCond = "AND s.local_id = $1"
+	}
+	query := `
+	SELECT i.id, i.codigo, i.nombre, i.descripcion, i.categoria_id, c.nombre AS categoria_nombre,
+	       i.unidad_medida, i.costo_referencia, i.stock_minimo,
+	       s.cantidad AS stock_actual, i.imagen_key, i.activo,
+	       l.id AS local_id, l.nombre AS local_nombre
+	FROM inventario_items i
+	JOIN inventario_stock s ON s.item_id = i.id
+	JOIN locales l ON l.id = s.local_id
+	LEFT JOIN categorias_inventario c ON c.id = i.categoria_id
+	WHERE i.activo = TRUE AND l.activo = TRUE AND s.cantidad <= i.stock_minimo ` + localCond + `
+	ORDER BY l.nombre, i.nombre, i.id`
+	items := []models.InventarioItem{}
+	if err := r.db.Select(&items, query, args...); err != nil {
+		return nil, fmt.Errorf("error al listar alertas de stock por local: %w", err)
 	}
 	return items, nil
 }
@@ -316,7 +358,8 @@ func (r *InventarioRepo) Ajustar(in repository.MovimientoStockInput) (float64, e
 	return nuevo, tx.Commit()
 }
 
-func (r *InventarioRepo) ListMovimientos(f repository.FiltroMovimientosInventario) ([]models.MovimientoInventario, error) {
+// movimientosWhere arma el WHERE del kardex; con cursor excluye lo ya visto.
+func movimientosWhere(f repository.FiltroMovimientosInventario, withCursor bool) (string, []interface{}) {
 	conds := []string{"TRUE"}
 	args := []interface{}{}
 	add := func(cond string, v interface{}) {
@@ -338,9 +381,26 @@ func (r *InventarioRepo) ListMovimientos(f repository.FiltroMovimientosInventari
 	if f.FechaHasta != nil {
 		add("m.creado_en < $%d", f.FechaHasta.AddDate(0, 0, 1))
 	}
-	limit := f.Limit
-	if limit <= 0 || limit > 500 {
-		limit = 200
+	if q := strings.TrimSpace(f.Q); q != "" {
+		args = append(args, "%"+strings.ToLower(q)+"%")
+		n := len(args)
+		conds = append(conds, fmt.Sprintf("(LOWER(i.nombre) LIKE $%d OR LOWER(l.nombre) LIKE $%d OR LOWER(COALESCE(m.motivo, '')) LIKE $%d)", n, n, n))
+	}
+	if withCursor && f.CursorSet {
+		args = append(args, f.CursorTime, f.CursorID)
+		conds = append(conds, fmt.Sprintf("(m.creado_en, m.id) < ($%d, $%d)", len(args)-1, len(args)))
+	}
+	return strings.Join(conds, " AND "), args
+}
+
+func (r *InventarioRepo) ListMovimientos(f repository.FiltroMovimientosInventario) ([]models.MovimientoInventario, error) {
+	where, args := movimientosWhere(f, true)
+	limit := f.PageLimit
+	if limit <= 0 {
+		limit = f.Limit
+		if limit <= 0 || limit > 500 {
+			limit = 200
+		}
 	}
 	args = append(args, limit)
 
@@ -354,11 +414,27 @@ func (r *InventarioRepo) ListMovimientos(f repository.FiltroMovimientosInventari
 		JOIN locales l ON l.id = m.local_id
 		WHERE %s
 		ORDER BY m.creado_en DESC, m.id DESC
-		LIMIT $%d`, strings.Join(conds, " AND "), len(args)), args...)
+		LIMIT $%d`, where, len(args)), args...)
 	if err != nil {
 		return nil, fmt.Errorf("error al listar movimientos de inventario: %w", err)
 	}
 	return movs, nil
+}
+
+// CountMovimientos cuenta el kardex con los mismos filtros (sin cursor).
+func (r *InventarioRepo) CountMovimientos(f repository.FiltroMovimientosInventario) (int, error) {
+	where, args := movimientosWhere(f, false)
+	var n int
+	err := r.db.Get(&n, fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM inventario_movimientos m
+		JOIN inventario_items i ON i.id = m.item_id
+		JOIN locales l ON l.id = m.local_id
+		WHERE %s`, where), args...)
+	if err != nil {
+		return 0, fmt.Errorf("error al contar movimientos de inventario: %w", err)
+	}
+	return n, nil
 }
 
 // ─── Insumos por servicio ─────────────────────────────────────────────────────

@@ -208,6 +208,10 @@ func (s *InventarioService) ListarMovimientos(f repository.FiltroMovimientosInve
 	return s.repo.ListMovimientos(f)
 }
 
+func (s *InventarioService) ContarMovimientos(f repository.FiltroMovimientosInventario) (int, error) {
+	return s.repo.CountMovimientos(f)
+}
+
 type AjusteInput struct {
 	ItemID        int
 	LocalID       int
@@ -243,9 +247,12 @@ func (s *InventarioService) Ajustar(in AjusteInput) (float64, error) {
 // ─── Alertas ──────────────────────────────────────────────────────────────────
 
 func (s *InventarioService) Alertas(localID *int) (*models.AlertasInventario, error) {
-	items, err := s.ListarItems(repository.FiltroItemsInventario{LocalID: localID, BajoStock: true, Activo: boolPtr(true)})
+	items, err := s.repo.ItemsBajoStockPorLocal(localID)
 	if err != nil {
 		return nil, err
+	}
+	for i := range items {
+		s.completar(&items[i])
 	}
 	reservas, err := s.repo.ReservasConAlerta(localID)
 	if err != nil {

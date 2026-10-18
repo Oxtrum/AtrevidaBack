@@ -39,6 +39,9 @@ type InventarioItem struct {
 	ImagenURL     *string      `db:"-" json:"imagen_url,omitempty"`
 	Activo        bool         `db:"activo" json:"activo" example:"true"`
 	StockPorLocal []StockLocal `db:"-" json:"stock_por_local,omitempty"`
+	// LocalID/LocalNombre solo se llenan en las alertas: el stock se evalua por local.
+	LocalID     *int    `db:"local_id" json:"local_id,omitempty"`
+	LocalNombre *string `db:"local_nombre" json:"local_nombre,omitempty"`
 }
 
 // MovimientoInventario es una fila del kardex.

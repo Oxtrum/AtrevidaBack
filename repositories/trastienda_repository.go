@@ -58,6 +58,8 @@ type FiltroItemsInventario struct {
 	BajoStock   bool
 	Activo      *bool
 	Limit       int
+	// PorLocal (sin LocalID) devuelve una fila por item y local, sin sumar el stock entre locales.
+	PorLocal bool
 }
 
 // FiltroMovimientosInventario filtra el kardex.
@@ -67,7 +69,15 @@ type FiltroMovimientosInventario struct {
 	Tipo       string
 	FechaDesde *time.Time
 	FechaHasta *time.Time
-	Limit      int
+	// Q busca por item, local o motivo.
+	Q     string
+	Limit int
+	// Paginacion por cursor (creado_en DESC, id DESC): PageLimit > 0 la activa y
+	// pide una fila extra para saber si hay pagina siguiente.
+	PageLimit  int
+	CursorSet  bool
+	CursorTime time.Time
+	CursorID   int
 }
 
 // FiltroMovimientosFinancieros filtra egresos e ingresos manuales.
