@@ -14,6 +14,13 @@ type Config struct {
 	DB      DBConfig
 	Auth    AuthConfig
 	Storage StorageConfig
+	Jobs    JobsConfig
+}
+
+// JobsConfig guarda el secreto con el que un disparador externo (EventBridge) puede ejecutar
+// la generacion de gastos fijos sin token de usuario. Vacio = solo admin_sys.
+type JobsConfig struct {
+	Secret string
 }
 
 // StorageConfig apunta al bucket de Supabase Storage usado para imagenes de combos.
@@ -63,6 +70,9 @@ func Load() {
 			SupabaseURL: strings.TrimRight(os.Getenv("SUPABASE_URL"), "/"),
 			SecretKey:   os.Getenv("SUPABASE_SECRET_KEY"),
 			Bucket:      getEnvDefault("SUPABASE_STORAGE_BUCKET", "paquetes"),
+		},
+		Jobs: JobsConfig{
+			Secret: os.Getenv("JOB_SECRET"),
 		},
 	}
 }
