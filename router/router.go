@@ -177,6 +177,49 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/planes/:id/sesiones/:numero", h.AuthRequired, h.GerenciaRequired, h.MarcarSesionPlan)
 		bd.POST("/planes/:id/cobrar", h.AuthRequired, h.GerenciaRequired, h.CobrarPlan)
 
+		// Trastienda: inventario
+		bd.GET("/inventario/items", h.AuthRequired, h.GetInventarioItems)
+		bd.GET("/inventario/items/:id", h.AuthRequired, h.GetInventarioItemByID)
+		bd.POST("/inventario/items", h.AuthRequired, h.AdminSysRequired, h.CreateInventarioItem)
+		bd.PATCH("/inventario/items/:id", h.AuthRequired, h.AdminSysRequired, h.PatchInventarioItem)
+		bd.DELETE("/inventario/items/:id", h.AuthRequired, h.AdminSysRequired, h.DeleteInventarioItem)
+		bd.POST("/inventario/items/:id/imagen/upload-url", h.AuthRequired, h.AdminSysRequired, h.PostInventarioImagenUploadURL)
+		bd.PUT("/inventario/items/:id/imagen", h.AuthRequired, h.AdminSysRequired, h.PutInventarioImagen)
+		bd.DELETE("/inventario/items/:id/imagen", h.AuthRequired, h.AdminSysRequired, h.DeleteInventarioImagen)
+		bd.GET("/inventario/movimientos", h.AuthRequired, h.GetInventarioMovimientos)
+		bd.POST("/inventario/ajustes", h.AuthRequired, h.GerenciaRequired, h.PostInventarioAjuste)
+		bd.GET("/inventario/alertas", h.AuthRequired, h.GetInventarioAlertas)
+		bd.GET("/inventario/categorias", h.AuthRequired, h.GetInventarioCategorias)
+		bd.POST("/inventario/categorias", h.AuthRequired, h.AdminSysRequired, h.PostInventarioCategoria)
+		bd.PATCH("/inventario/categorias/:id", h.AuthRequired, h.AdminSysRequired, h.PatchInventarioCategoria)
+		bd.GET("/servicios/:id/insumos", h.AuthRequired, h.GetServicioInsumos)
+		bd.PUT("/servicios/:id/insumos", h.AuthRequired, h.AdminSysRequired, h.PutServicioInsumos)
+
+		// Trastienda: compras
+		bd.GET("/compras", h.AuthRequired, h.GerenciaRequired, h.GetCompras)
+		bd.POST("/compras", h.AuthRequired, h.GerenciaRequired, h.PostCompra)
+		bd.GET("/compras/:id", h.AuthRequired, h.GerenciaRequired, h.GetCompraByID)
+		bd.PATCH("/compras/:id/anular", h.AuthRequired, h.AdminSysRequired, h.PatchCompraAnular)
+
+		// Trastienda: finanzas (solo admin_sys)
+		bd.GET("/finanzas/movimientos", h.AuthRequired, h.AdminSysRequired, h.GetMovimientosFinancieros)
+		bd.POST("/finanzas/movimientos", h.AuthRequired, h.AdminSysRequired, h.PostMovimientoFinanciero)
+		bd.PATCH("/finanzas/movimientos/:id", h.AuthRequired, h.AdminSysRequired, h.PatchMovimientoFinanciero)
+		bd.PATCH("/finanzas/movimientos/:id/estado", h.AuthRequired, h.AdminSysRequired, h.PatchMovimientoFinancieroEstado)
+		bd.GET("/finanzas/categorias", h.AuthRequired, h.AdminSysRequired, h.GetCategoriasFinancieras)
+		bd.POST("/finanzas/categorias", h.AuthRequired, h.AdminSysRequired, h.PostCategoriaFinanciera)
+		bd.PATCH("/finanzas/categorias/:id", h.AuthRequired, h.AdminSysRequired, h.PatchCategoriaFinanciera)
+		bd.GET("/finanzas/gastos-fijos", h.AuthRequired, h.AdminSysRequired, h.GetGastosFijos)
+		bd.POST("/finanzas/gastos-fijos", h.AuthRequired, h.AdminSysRequired, h.PostGastoFijo)
+		bd.GET("/finanzas/gastos-fijos/proximos", h.AuthRequired, h.AdminSysRequired, h.GetGastosFijosProximos)
+		bd.POST("/finanzas/gastos-fijos/generar", h.AdminSysOrJobSecret, h.PostGenerarGastosFijos)
+		bd.PATCH("/finanzas/gastos-fijos/:id", h.AuthRequired, h.AdminSysRequired, h.PatchGastoFijo)
+		bd.DELETE("/finanzas/gastos-fijos/:id", h.AuthRequired, h.AdminSysRequired, h.DeleteGastoFijo)
+		bd.GET("/reportes/financiero", h.AuthRequired, h.AdminSysRequired, h.GetReporteFinanciero)
+
+		// Parametros del sistema: lectura para cualquier usuario autenticado, escritura solo admin_sys.
+		bd.GET("/configuracion", h.AuthRequired, h.GetConfiguracion)
+		bd.PATCH("/configuracion", h.AuthRequired, h.AdminSysRequired, h.PatchConfiguracion)
 	}
 
 	// Admin

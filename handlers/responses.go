@@ -380,6 +380,19 @@ type reservaCreatedResponse struct {
 	ID int `json:"id" example:"44"`
 	// Mensaje de confirmación
 	Mensaje string `json:"mensaje" example:"Reserva creada correctamente"`
+	// Solo para usuarios autenticados del panel: true si falta stock de insumos para el servicio.
+	AlertaInventario bool `json:"alerta_inventario,omitempty" example:"false"`
+	// Solo para usuarios autenticados del panel: insumos sin stock suficiente. La reserva se guardo igual.
+	AdvertenciasInventario []models.AdvertenciaInventario `json:"advertencias_inventario,omitempty"`
+}
+
+type reservaAvisosResponse struct {
+	// Mensaje descriptivo del resultado
+	Mensaje string `json:"mensaje" example:"Estado de reserva actualizado correctamente"`
+	// true si falta stock de insumos para el servicio de la reserva
+	AlertaInventario bool `json:"alerta_inventario" example:"false"`
+	// Insumos sin stock suficiente (informativo: la operacion se aplico)
+	AdvertenciasInventario []models.AdvertenciaInventario `json:"advertencias_inventario,omitempty"`
 }
 
 type pagoCreatedResponse struct {

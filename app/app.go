@@ -5,11 +5,13 @@ import (
 	"atrevida-agenda-api/db"
 	"atrevida-agenda-api/docs"
 	"atrevida-agenda-api/handlers"
+	repository "atrevida-agenda-api/repositories"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 	"atrevida-agenda-api/router"
 	"atrevida-agenda-api/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -38,6 +40,9 @@ func Build() (*gin.Engine, error) {
 	localesPGRepo := pgsqlrepo.NewLocalesRepo(pgDB)
 	pagosPGRepo := pgsqlrepo.NewPagosRepo(pgDB)
 	planesPGRepo := pgsqlrepo.NewPlanesRepo(pgDB)
+	configuracionRepo := pgsqlrepo.NewConfiguracionRepo(pgDB)
+	inventarioRepo := pgsqlrepo.NewInventarioRepo(pgDB)
+	finanzasRepo := pgsqlrepo.NewFinanzasRepo(pgDB)
 
 	authService := services.NewAuthService(authRepo, config.App.Auth.TokenSecret, config.App.Auth.TokenTTL)
 	categoriasPGService := services.NewCategoriasService(categoriasPGRepo)
@@ -52,7 +57,22 @@ func Build() (*gin.Engine, error) {
 	paquetesPGService.Storage = services.NewSupabaseStorage(
 		config.App.Storage.SupabaseURL, config.App.Storage.SecretKey, config.App.Storage.Bucket,
 	)
+	configuracionService := services.NewConfiguracionService(configuracionRepo)
+	inventarioService := services.NewInventarioService(inventarioRepo, configuracionService)
+	// inventarioService.Storage queda sin asignar hasta tener la implementacion S3 de ObjectStorage
+	// (ARQUITECTURA_TRASTIENDA.md): mientras tanto los endpoints de imagen responden 503.
+	inventarioConsumo := services.NewInventarioConsumo(inventarioRepo, configuracionService)
+	finanzasService := services.NewFinanzasService(finanzasRepo, configuracionService)
+	gastosFijosService := services.NewGastosFijosService(finanzasRepo, configuracionService, finanzasService)
+	reporteFinancieroService := services.NewReporteFinancieroService(finanzasRepo, inventarioRepo, gastosFijosService, configuracionService)
+
+	// Sesiones de plan marcadas a mano descuentan insumos en la misma transaccion (RN-18).
+	planesPGRepo.ConsumoSesion = func(tx *sqlx.Tx, servicioID, localID, planMovimientoID int) error {
+		return inventarioConsumo.ConsumirSesionPlan(tx, servicioID, localID, planMovimientoID, repository.ConsumoActor{})
+	}
+
 	reservasPGService := services.NewReservasPGService(reservasPGRepo, serviciosPGRepo)
+	reservasPGService.SetInventarioConsumo(inventarioConsumo)
 	localesPGService := services.NewLocalesService(localesPGRepo)
 	pagosPGService := services.NewPagosService(pagosPGRepo)
 	planesPGService := services.NewPlanesService(planesPGRepo, combosPGRepo)
@@ -70,6 +90,12 @@ func Build() (*gin.Engine, error) {
 		pagosPGService,
 		planesPGService,
 	)
+	h.Configuracion = configuracionService
+	h.Inventario = inventarioService
+	h.Finanzas = finanzasService
+	h.GastosFijos = gastosFijosService
+	h.ReporteFinanciero = reporteFinancieroService
+	h.JobSecret = config.App.Jobs.Secret
 
 	return router.Setup(h), nil
 }

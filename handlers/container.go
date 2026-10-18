@@ -16,6 +16,15 @@ type Container struct {
 	LocalesPG         *services.LocalesService
 	PagosPG           *services.PagosService
 	PlanesPG          *services.PlanesService
+
+	// Trastienda: inventario y finanzas
+	Configuracion     *services.ConfiguracionService
+	Inventario        *services.InventarioService
+	Finanzas          *services.FinanzasService
+	GastosFijos       *services.GastosFijosService
+	ReporteFinanciero *services.ReporteFinancieroService
+	// JobSecret permite al job diario generar gastos fijos sin token de usuario.
+	JobSecret string
 }
 
 func NewContainer(
