@@ -51,7 +51,7 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
 			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
-			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
+			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
@@ -208,7 +208,7 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
 			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
-			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
+			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE r.id = $1
@@ -579,7 +579,18 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 }
 
 func (r *ReservasRepo) AnularReserva(id int) error {
-	res, err := r.db.Exec(
+	return r.AnularReservaConHook(id, nil)
+}
+
+// AnularReservaConHook anula la reserva y ejecuta hook (si no es nil) en la misma transaccion.
+func (r *ReservasRepo) AnularReservaConHook(id int, hook func(tx *sqlx.Tx) error) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(
 		`UPDATE reservas SET activo = FALSE, actualizado_en = NOW() WHERE id = $1 AND activo = TRUE`, id,
 	)
 	if err != nil {
@@ -592,7 +603,12 @@ func (r *ReservasRepo) AnularReserva(id int) error {
 	if n == 0 {
 		return fmt.Errorf("reserva con id %d no encontrada o inactiva", id)
 	}
-	return nil
+	if hook != nil {
+		if err := hook(tx); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (r *ReservasRepo) UpdateReservaNotificado(id int, notificado bool) error {
@@ -715,6 +731,12 @@ func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoI
 	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("reserva no encontrada")
+	}
+
+	if input.OnApplied != nil {
+		if err := input.OnApplied(tx); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()

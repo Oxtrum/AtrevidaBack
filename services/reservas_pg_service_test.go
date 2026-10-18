@@ -7,6 +7,8 @@ import (
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
+
+	"github.com/jmoiron/sqlx"
 )
 
 func (r *reservasResumenRepo) GetReservasAgendadasNoNotificadas(context.Context, string, int) ([]models.ReservaNotificacionPG, error) {
@@ -69,6 +71,10 @@ func (r *reservasResumenRepo) UpdateReservasNotificado(ids []int, notificado boo
 }
 
 func (r *reservasResumenRepo) AnularReserva(id int) error {
+	return nil
+}
+
+func (r *reservasResumenRepo) AnularReservaConHook(id int, hook func(*sqlx.Tx) error) error {
 	return nil
 }
 

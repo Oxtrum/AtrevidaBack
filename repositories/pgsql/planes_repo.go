@@ -1,6 +1,8 @@
 package pgsql
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -14,6 +16,9 @@ var _ repository.PlanesRepository = (*PlanesRepo)(nil)
 
 type PlanesRepo struct {
 	db *sqlx.DB
+	// ConsumoSesion descuenta los insumos del servicio de una sesion marcada como
+	// realizada sin reserva ligada (RN-18). Opcional: si es nil no se toca el inventario.
+	ConsumoSesion func(tx *sqlx.Tx, servicioID, localID, planMovimientoID int) error
 }
 
 func NewPlanesRepo(db *sqlx.DB) *PlanesRepo {
@@ -431,6 +436,12 @@ func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, erro
 		return 0, nil
 	}
 
+	if realizado && r.ConsumoSesion != nil {
+		if err := r.consumirInsumosSesionTx(tx, planID, numero); err != nil {
+			return 0, err
+		}
+	}
+
 	// Avance de sesiones + estado actual para decidir la sincronización.
 	var info struct {
 		Estado string `db:"estado"`
@@ -558,4 +569,46 @@ func (r *PlanesRepo) cargarAplicaciones(planID int) ([]models.PlanPagoAplicacion
 		aplicaciones = []models.PlanPagoAplicacionPG{}
 	}
 	return aplicaciones, nil
+}
+
+// consumirInsumosSesionTx descuenta insumos de una sesion marcada a mano. Si la sesion ya
+// esta ligada a una reserva, el descuento lo hace la reserva al completarse (evita doble descuento).
+func (r *PlanesRepo) consumirInsumosSesionTx(tx *sqlx.Tx, planID, numero int) error {
+	var ses struct {
+		ID         int           `db:"id"`
+		ServicioID sql.NullInt64 `db:"servicio_id_origen"`
+		LocalID    sql.NullInt64 `db:"local_id"`
+	}
+	if err := tx.Get(&ses, `
+		SELECT ps.id, ps.servicio_id_origen, p.local_id
+		FROM plan_servicios ps JOIN planes p ON p.id = ps.plan_id
+		WHERE ps.plan_id = $1 AND ps.sesion_numero = $2`, planID, numero); err != nil {
+		return fmt.Errorf("error al leer sesion del plan: %w", err)
+	}
+	if !ses.ServicioID.Valid || !ses.LocalID.Valid {
+		return nil // sin servicio de catalogo o sin local: sin insumos que descontar
+	}
+
+	var conReserva int
+	if err := tx.Get(&conReserva,
+		`SELECT COUNT(*) FROM plan_movimientos WHERE plan_servicio_id = $1 AND reserva_id IS NOT NULL`, ses.ID); err != nil {
+		return fmt.Errorf("error al verificar reservas de la sesion: %w", err)
+	}
+	if conReserva > 0 {
+		return nil
+	}
+
+	var movID int
+	err := tx.Get(&movID, `
+		SELECT id FROM plan_movimientos
+		WHERE plan_servicio_id = $1 AND tipo = 'CONSUMO' AND reserva_id IS NULL ORDER BY id LIMIT 1`, ses.ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = tx.QueryRowx(`
+			INSERT INTO plan_movimientos (plan_servicio_id, tipo, cantidad, motivo)
+			VALUES ($1, 'CONSUMO', 1, 'Sesion marcada como realizada') RETURNING id`, ses.ID).Scan(&movID)
+	}
+	if err != nil {
+		return fmt.Errorf("error al registrar consumo de la sesion: %w", err)
+	}
+	return r.ConsumoSesion(tx, int(ses.ServicioID.Int64), int(ses.LocalID.Int64), movID)
 }

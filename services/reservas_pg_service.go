@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -11,12 +12,20 @@ import (
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type ReservasPGService struct {
 	repo          repository.ReservasPGRepository
 	serviciosRepo repository.ServiciosRepository
+	// consumo conecta con el inventario (insumos por servicio). Opcional: si es nil
+	// las reservas funcionan igual que antes, sin avisos ni descuentos de stock.
+	consumo *InventarioConsumo
 }
+
+// SetInventarioConsumo habilita la integracion con inventario (ver inventario_consumo.go).
+func (s *ReservasPGService) SetInventarioConsumo(c *InventarioConsumo) { s.consumo = c }
 
 func NewReservasPGService(repo repository.ReservasPGRepository, serviciosRepo *pgsqlrepo.ServiciosRepo) *ReservasPGService {
 	return &ReservasPGService{
@@ -509,6 +518,8 @@ type ReservaSimple struct {
 	CostoVariable *bool   `json:"costo_variable,omitempty" example:"true"`
 	Notas         *string `json:"notas,omitempty" example:"Primera sesion del plan"`
 	Notificado    bool    `json:"notificado" example:"false"`
+	// AlertaInventario avisa que faltaba stock de insumos al agendar (solo informativo).
+	AlertaInventario bool   `json:"alerta_inventario" example:"false"`
 	CreadoEn      string  `json:"creado_en" example:"2026-05-23T15:04:05Z"`
 	ActualizadoEn string  `json:"actualizado_en" example:"2026-05-23T16:04:05Z"`
 }
@@ -751,6 +762,7 @@ func reservaSimpleDesdePG(rv models.ReservaPGCompleta) ReservaSimple {
 		CostoVariable:      rv.CostoVariable,
 		Notas:              rv.Notas,
 		Notificado:         rv.Notificado,
+		AlertaInventario:   rv.AlertaInventario,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
 		ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
 	}
@@ -788,13 +800,23 @@ func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple
 		CostoVariable:      rv.CostoVariable,
 		Notas:              rv.Notas,
 		Notificado:         rv.Notificado,
+		AlertaInventario:   rv.AlertaInventario,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
 		ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
 	}, nil
 }
 
 func (s *ReservasPGService) DeleteReserva(id int) error {
-	return s.repo.AnularReserva(id)
+	return s.EliminarReserva(id, repository.ConsumoActor{})
+}
+
+// EliminarReserva anula la reserva y, si ya habia descontado insumos, devuelve el stock
+// en la misma transaccion (RN-16).
+func (s *ReservasPGService) EliminarReserva(id int, actor repository.ConsumoActor) error {
+	if s.consumo == nil {
+		return s.repo.AnularReserva(id)
+	}
+	return s.repo.AnularReservaConHook(id, s.consumo.HookEliminar(id, actor))
 }
 
 func (s *ReservasPGService) ActualizarNotificacionReserva(id int, notificado bool) error {
@@ -989,16 +1011,55 @@ type CrearReservaPGInput struct {
 	Precio             *float64
 	Notas              string
 	PlanID             *int
+	// Autenticado indica que la peticion trae un token valido (panel interno). Solo esos
+	// usuarios ven advertencias de inventario y quedan sujetos a la politica BLOQUEAR.
+	Autenticado bool
+	// Actor se usa para el kardex si el alta descuenta insumos.
+	Actor repository.ConsumoActor
+}
+
+// CrearReservaResultado es el resultado de crear una reserva.
+type CrearReservaResultado struct {
+	ID                     int
+	AlertaInventario       bool
+	AdvertenciasInventario []models.AdvertenciaInventario
 }
 
 func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error) {
+	res, err := s.CrearReservaConAvisos(input)
+	return res.ID, err
+}
+
+// CrearReservaConAvisos crea la reserva y devuelve ademas las advertencias de inventario.
+func (s *ReservasPGService) CrearReservaConAvisos(input CrearReservaPGInput) (CrearReservaResultado, error) {
+	id, estadoFinal, err := s.crearReservaBase(input)
+	if err != nil {
+		return CrearReservaResultado{ID: id}, err
+	}
+	res := CrearReservaResultado{ID: id}
+	if s.consumo != nil {
+		warns, err := s.consumo.DespuesDeCrear(id, estadoFinal, input.Actor)
+		if err != nil {
+			// La reserva ya esta guardada: un fallo del inventario no debe perderla.
+			log.Printf("[inventario] no se pudo evaluar/descontar la reserva %d: %v", id, err)
+			return res, nil
+		}
+		res.AlertaInventario = len(warns) > 0
+		if input.Autenticado {
+			res.AdvertenciasInventario = warns
+		}
+	}
+	return res, nil
+}
+
+func (s *ReservasPGService) crearReservaBase(input CrearReservaPGInput) (int, string, error) {
 	telefonoE164, err := telefono.ResolveE164(input.Telefono, input.TelefonoE164)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	fecha, err := time.Parse("2006-01-02", input.Fecha)
 	if err != nil {
-		return 0, fmt.Errorf("formato de fecha inválido, use YYYY-MM-DD")
+		return 0, "", fmt.Errorf("formato de fecha inválido, use YYYY-MM-DD")
 	}
 
 	horaHasta := input.HoraHasta
@@ -1006,7 +1067,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		horaHasta = sumar60Min(input.HoraDesde)
 	}
 	if err := validarHorarioAtencion(input.Local, fecha, input.HoraDesde, horaHasta); err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
 	/* COMENTADO HASTA QUE FRONTEND RECUPERE SERVICIOS DE LA BD
@@ -1016,7 +1077,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 
 		servicio, err := s.serviciosRepo.GetServicioByNombre(input.Servicio)
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 
 		if strings.TrimSpace(servicio.TipoEspacio) != "" {
@@ -1032,7 +1093,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 
 			_, err := fmt.Sscanf(servicio.Costo, "%f", &precio)
 			if err != nil {
-				return 0, fmt.Errorf(
+				return 0, "", fmt.Errorf(
 					"Error al convertir precio del servicio '%s'",
 					servicio.Nombre,
 				)
@@ -1086,10 +1147,10 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 	if strings.TrimSpace(input.Estado) != "" {
 		estadoRecibido, err := NormalizarEstadoReserva(input.Estado)
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 		if estadoRecibido == "RECHAZADO" || estadoRecibido == "COMPLETADO" {
-			return 0, errors.New("estado inicial inválido para una reserva nueva")
+			return 0, "", errors.New("estado inicial inválido para una reserva nueva")
 		}
 		estadoFinal = estadoRecibido
 	}
@@ -1104,8 +1165,19 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 	}
 
 	/*if err := s.validarDisponibilidad(input.Local, &fecha, input.HoraDesde, horaHasta, input.Tipo, nil); err != nil {
-		return 0, err
+		return 0, "", err
 	}*/
+
+	// Politica BLOQUEAR (solo panel interno): se evalua antes de guardar. Con ADVERTIR (default)
+	// la reserva se guarda igual y el aviso se calcula despues de crearla (RN-12/RN-13).
+	if s.consumo != nil && input.Autenticado {
+		if localID, errLocal := s.repo.GetLocalIDByNombre(input.Local); errLocal == nil {
+			nombres := []string{stringValue(input.ServicioConfirmado), input.Servicio, input.ServicioSolicitado}
+			if err := s.consumo.ValidarPoliticaAlCrear(true, localID, nombres); err != nil {
+				return 0, "", err
+			}
+		}
+	}
 
 	// When no sabes
 
@@ -1127,7 +1199,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		Notas:              input.Notas,
 		PlanID:             input.PlanID,
 	})
-	return id, err
+	return id, estadoFinal, err
 }
 
 func (s *ReservasPGService) servicioParaReserva(input CrearReservaPGInput) (*models.ServicioItem, bool) {
@@ -1205,9 +1277,41 @@ type ActualizarEstadoReservaInput struct {
 	ServicioConfirmado *string
 	Precio             *float64
 	Tipo               string
+	// Actor se registra en el kardex cuando el cambio de estado descuenta insumos.
+	Actor repository.ConsumoActor
+}
+
+// ActualizarEstadoReservaResultado informa el estado de inventario tras el cambio.
+type ActualizarEstadoReservaResultado struct {
+	AlertaInventario       bool
+	AdvertenciasInventario []models.AdvertenciaInventario
 }
 
 func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReservaInput) error {
+	_, err := s.ActualizarEstadoReservaConAvisos(input)
+	return err
+}
+
+// ActualizarEstadoReservaConAvisos cambia el estado. Al llegar al estado configurado para
+// descontar (por defecto COMPLETADO) descuenta los insumos en la misma transaccion (RN-14); si no
+// alcanza y la configuracion no permite stock negativo, el cambio no se aplica (409).
+func (s *ReservasPGService) ActualizarEstadoReservaConAvisos(input ActualizarEstadoReservaInput) (ActualizarEstadoReservaResultado, error) {
+	err := s.actualizarEstadoReservaBase(input)
+	var res ActualizarEstadoReservaResultado
+	if err != nil || s.consumo == nil {
+		return res, err
+	}
+	warns, errCalc := s.consumo.Recalcular(input.Id)
+	if errCalc != nil {
+		log.Printf("[inventario] no se pudo recalcular la alerta de la reserva %d: %v", input.Id, errCalc)
+		return res, nil
+	}
+	res.AlertaInventario = len(warns) > 0
+	res.AdvertenciasInventario = warns
+	return res, nil
+}
+
+func (s *ReservasPGService) actualizarEstadoReservaBase(input ActualizarEstadoReservaInput) error {
 	current, err := s.repo.GetReservaByID(input.Id)
 	if err != nil {
 		if esReservaNoEncontrada(err) {
@@ -1251,7 +1355,22 @@ func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReserv
 
 	costoVariable, actualizarCosto := s.modalidadCostoParaCambio(current, servicioConfirmado, true)
 	limpiarPrecio := actualizarCosto && costoVariable != nil && *costoVariable && input.Precio == nil
+
+	var onApplied func(*sqlx.Tx) error
+	if s.consumo != nil {
+		if estado == "AGENDADO" && estadoActual != "AGENDADO" {
+			if err := s.consumo.ValidarPoliticaAlAgendar(input.Id); err != nil {
+				return err
+			}
+		}
+		hook, err := s.consumo.HookCambioEstado(estado, input.Id, input.Actor)
+		if err != nil {
+			return err
+		}
+		onApplied = hook
+	}
 	return s.repo.UpdateReservaEstado(repository.UpdateReservaEstadoInput{
+		OnApplied:            onApplied,
 		ID:                   input.Id,
 		Estado:               estado,
 		EstadoActualEsperado: estadoActual,
@@ -1287,9 +1406,43 @@ type ActualizarReservaPGInput struct {
 	// LimpiarPlanID desvincula la reserva de su plan (plan_id = NULL).
 	LimpiarPlanID bool
 	NuevoEstado   string
+	// Actor se registra en el kardex si confirmar la reserva descuenta insumos.
+	Actor repository.ConsumoActor
 }
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
+	_, err := s.ActualizarReservaConAvisos(input)
+	return err
+}
+
+// ActualizarReservaConAvisos edita la reserva y recalcula la alerta de inventario (RN-17): cambiar
+// servicio, local o fecha puede cambiar la disponibilidad de insumos.
+func (s *ReservasPGService) ActualizarReservaConAvisos(input ActualizarReservaPGInput) (ActualizarEstadoReservaResultado, error) {
+	var res ActualizarEstadoReservaResultado
+	if err := s.actualizarReservaBase(input); err != nil {
+		return res, err
+	}
+	if s.consumo == nil {
+		return res, nil
+	}
+	var warns []models.AdvertenciaInventario
+	var err error
+	if strings.EqualFold(strings.TrimSpace(input.NuevoEstado), "AGENDADO") {
+		// Confirmar por esta via equivale a pasar a AGENDADO: puede descontar si asi se configuro.
+		warns, err = s.consumo.DespuesDeCrear(input.Id, "AGENDADO", input.Actor)
+	} else {
+		warns, err = s.consumo.Recalcular(input.Id)
+	}
+	if err != nil {
+		log.Printf("[inventario] no se pudo recalcular la alerta de la reserva %d: %v", input.Id, err)
+		return res, nil
+	}
+	res.AlertaInventario = len(warns) > 0
+	res.AdvertenciasInventario = warns
+	return res, nil
+}
+
+func (s *ReservasPGService) actualizarReservaBase(input ActualizarReservaPGInput) error {
 	upd := repository.UpdateReservaInput{Id: input.Id}
 	if input.LimpiarPrecio && input.NuevoPrecio != nil {
 		return errors.New("limpiar_precio no puede combinarse con nuevo_precio")

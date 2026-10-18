@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"atrevida-agenda-api/models"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type FiltroReservasPG struct {
@@ -115,6 +117,9 @@ type UpdateReservaEstadoInput struct {
 	CostoVariableSet     bool
 	TipoEspacio          *string
 	EstadoActualEsperado string
+	// OnApplied se ejecuta dentro de la misma transaccion, tras aplicar el cambio de estado y
+	// antes del commit (ej. descontar insumos). Si devuelve error se revierte todo.
+	OnApplied func(tx *sqlx.Tx) error
 }
 
 type CapacidadLocal struct {
@@ -158,4 +163,7 @@ type ReservasPGRepository interface {
 	UpdateReservaNotificado(id int, notificado bool) error
 	UpdateReservasNotificado(ids []int, notificado bool) (int, error)
 	AnularReserva(id int) error
+	// AnularReservaConHook anula la reserva y ejecuta hook en la misma transaccion
+	// (ej. revertir stock). Un error del hook revierte la anulacion.
+	AnularReservaConHook(id int, hook func(tx *sqlx.Tx) error) error
 }

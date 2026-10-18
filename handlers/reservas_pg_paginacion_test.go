@@ -14,6 +14,7 @@ import (
 	"atrevida-agenda-api/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 )
 
 type reservasPaginationRepo struct {
@@ -58,6 +59,9 @@ func (r *reservasPaginationRepo) UpdateReservasNotificado([]int, bool) (int, err
 	return 0, nil
 }
 func (r *reservasPaginationRepo) AnularReserva(int) error { return nil }
+func (r *reservasPaginationRepo) AnularReservaConHook(int, func(*sqlx.Tx) error) error {
+	return nil
+}
 
 func reservaRows(total int) []models.ReservaPGCompleta {
 	rows := make([]models.ReservaPGCompleta, 0, total)

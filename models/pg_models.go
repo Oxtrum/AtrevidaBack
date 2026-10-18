@@ -294,6 +294,8 @@ type ReservaPG struct {
 	Notas              *string   `db:"notas"`
 	Activo             bool      `db:"activo"`
 	Notificado         bool      `db:"notificado"`
+	// AlertaInventario es true si al crear/agendar faltaba stock de insumos (trastienda).
+	AlertaInventario bool      `db:"alerta_inventario"`
 	CreadoEn           time.Time `db:"creado_en"`
 	ActualizadoEn      time.Time `db:"actualizado_en"`
 }
