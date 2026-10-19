@@ -59,7 +59,7 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
-			" + estadoCobroSQL + " AS estado_cobro,
+			` + estadoCobroSQL + ` AS estado_cobro,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
