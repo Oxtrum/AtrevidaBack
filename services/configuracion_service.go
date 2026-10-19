@@ -59,6 +59,9 @@ func configPorDefecto() ConfigTrastienda {
 
 type ConfiguracionService struct {
 	repo *pgsqlrepo.ConfiguracionRepo
+	// AlCambiarDisponibilidad es opcional: se invoca cuando cambia un parametro que altera que
+	// reservas quedan en falta de stock (hoy: considerar_comprometido).
+	AlCambiarDisponibilidad func()
 }
 
 func NewConfiguracionService(repo *pgsqlrepo.ConfiguracionRepo) *ConfiguracionService {
@@ -189,6 +192,9 @@ func (s *ConfiguracionService) Update(patch map[string]interface{}) (map[string]
 	}
 	if err := s.repo.SetValores(valores); err != nil {
 		return nil, err
+	}
+	if _, cambia := valores[CfgConsiderarComprometido]; cambia && s.AlCambiarDisponibilidad != nil {
+		s.AlCambiarDisponibilidad()
 	}
 	return s.Get()
 }

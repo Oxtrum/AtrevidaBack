@@ -218,6 +218,49 @@ func (r *InventarioRepo) RecalcularAlerta(reservaID int, considerarComprometido 
 	return warnings, nil
 }
 
+// RecalcularAlertasAbiertas reevalua alerta_inventario de las reservas futuras PENDIENTE/AGENDADO.
+// El stock puede cambiar sin tocar las reservas (ajuste, vencimiento, compra, consumo de otra
+// reserva), asi que el flag guardado al agendar queda desactualizado. localID nil = todos los locales.
+func (r *InventarioRepo) RecalcularAlertasAbiertas(localID *int, considerarComprometido bool) error {
+	ids := []int{}
+	query := `
+		SELECT id FROM reservas
+		WHERE activo = TRUE AND fecha >= CURRENT_DATE
+		  AND COALESCE(estado, 'PENDIENTE') IN ('PENDIENTE', 'AGENDADO')`
+	args := []interface{}{}
+	if localID != nil {
+		query += ` AND local_id = $1`
+		args = append(args, *localID)
+	}
+	if err := r.db.Select(&ids, query+` ORDER BY fecha, hora_desde`, args...); err != nil {
+		return fmt.Errorf("error al listar reservas abiertas: %w", err)
+	}
+	for _, id := range ids {
+		if _, err := r.RecalcularAlerta(id, considerarComprometido); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// EstadoDeReserva devuelve el estado actual de la reserva.
+func (r *InventarioRepo) EstadoDeReserva(reservaID int) (string, error) {
+	info, err := leerReservaInventario(r.db, reservaID)
+	if err != nil {
+		return "", err
+	}
+	return info.Estado, nil
+}
+
+// LocalDeReserva devuelve el local de la reserva (0 si no tiene).
+func (r *InventarioRepo) LocalDeReserva(reservaID int) (int, error) {
+	info, err := leerReservaInventario(r.db, reservaID)
+	if err != nil {
+		return 0, err
+	}
+	return info.LocalID, nil
+}
+
 // ─── Consumo / reversion (RN-14, RN-15, RN-16, RN-18) ─────────────────────────
 
 func nombreItemEnError(insumo models.ServicioInsumo, err error) error {

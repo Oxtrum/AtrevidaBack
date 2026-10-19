@@ -813,10 +813,34 @@ func (s *ReservasPGService) DeleteReserva(id int) error {
 // EliminarReserva anula la reserva y, si ya habia descontado insumos, devuelve el stock
 // en la misma transaccion (RN-16).
 func (s *ReservasPGService) EliminarReserva(id int, actor repository.ConsumoActor) error {
-	if s.consumo == nil {
-		return s.repo.AnularReserva(id)
+	// Eliminar una reserva completada devuelve su sesion al paquete (y, si hay inventario, el stock).
+	hook := func(tx *sqlx.Tx) error { return pgsqlrepo.LiberarSesionPorReservaTx(tx, id) }
+	if s.consumo != nil {
+		hook = combinarHooksTx(s.consumo.HookEliminar(id, actor), hook)
 	}
-	return s.repo.AnularReservaConHook(id, s.consumo.HookEliminar(id, actor))
+	if err := s.repo.AnularReservaConHook(id, hook); err != nil {
+		return err
+	}
+	if s.consumo != nil {
+		// Si devolvio stock, otras reservas del local pueden dejar de estar en falta.
+		s.consumo.refrescarLocalDe(id)
+	}
+	return nil
+}
+
+// combinarHooksTx encadena acciones transaccionales en orden; ignora las nil.
+func combinarHooksTx(hooks ...func(*sqlx.Tx) error) func(*sqlx.Tx) error {
+	return func(tx *sqlx.Tx) error {
+		for _, h := range hooks {
+			if h == nil {
+				continue
+			}
+			if err := h(tx); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 }
 
 func (s *ReservasPGService) ActualizarNotificacionReserva(id int, notificado bool) error {
@@ -1369,6 +1393,12 @@ func (s *ReservasPGService) actualizarEstadoReservaBase(input ActualizarEstadoRe
 		}
 		onApplied = hook
 	}
+	if estado == "COMPLETADO" {
+		// Completar una reserva imputada a un paquete consume la siguiente sesion del paquete.
+		onApplied = combinarHooksTx(onApplied, func(tx *sqlx.Tx) error {
+			return pgsqlrepo.MarcarSesionPorReservaTx(tx, input.Id)
+		})
+	}
 	return s.repo.UpdateReservaEstado(repository.UpdateReservaEstadoInput{
 		OnApplied:            onApplied,
 		ID:                   input.Id,
@@ -1419,6 +1449,11 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 // servicio, local o fecha puede cambiar la disponibilidad de insumos.
 func (s *ReservasPGService) ActualizarReservaConAvisos(input ActualizarReservaPGInput) (ActualizarEstadoReservaResultado, error) {
 	var res ActualizarEstadoReservaResultado
+	if s.consumo != nil && strings.EqualFold(strings.TrimSpace(input.NuevoEstado), "AGENDADO") {
+		if err := s.consumo.ValidarDescuentoAlAgendar(input.Id); err != nil {
+			return res, err
+		}
+	}
 	if err := s.actualizarReservaBase(input); err != nil {
 		return res, err
 	}

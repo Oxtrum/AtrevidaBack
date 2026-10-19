@@ -352,6 +352,171 @@ func TestTrastiendaAdvertenciaConStockCeroYComprometido(t *testing.T) {
 	}
 }
 
+// El stock puede bajar despues de agendar (vencimiento, merma): las reservas ya agendadas deben
+// quedar marcadas, no solo las nuevas; y al reponer, volver a limpiarse.
+func TestTrastiendaAjusteDeStockRefrescaAlertasDeReservasAgendadas(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel venc", 40)
+	srv := e.nuevoServicio("Venc", map[int]float64{item: 30})
+	r1 := e.nuevaReserva(srv, "AGENDADO", 2)
+	if warns, err := e.consumo.Recalcular(r1); err != nil || len(warns) != 0 {
+		t.Fatalf("r1 con stock 40: warns=%v err=%v, quiero sin advertencias", warns, err)
+	}
+	alerta := func() bool {
+		var v bool
+		if err := e.db.Get(&v, `SELECT alerta_inventario FROM reservas WHERE id = $1`, r1); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	if alerta() {
+		t.Fatal("alerta_inventario debe empezar en false")
+	}
+
+	// Se vencen 30 ml: sin tocar la reserva, queda en falta.
+	if _, err := e.inv.Ajustar(AjusteInput{
+		ItemID: item, LocalID: e.localID, Tipo: repository.MovAjusteNegativo, Cantidad: 30, Motivo: "vencimiento",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !alerta() {
+		t.Fatal("tras bajar el stock, la reserva agendada debe quedar con alerta_inventario = true")
+	}
+
+	// Reposicion: vuelve a alcanzar.
+	if _, err := e.inv.Ajustar(AjusteInput{
+		ItemID: item, LocalID: e.localID, Tipo: repository.MovAjustePositivo, Cantidad: 50, Motivo: "reposicion",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if alerta() {
+		t.Fatal("tras reponer, la alerta debe limpiarse")
+	}
+}
+
+// Un servicio puede consumir un insumo en un local donde nunca se cargo stock: ese local debe
+// aparecer en el listado por local (stock 0) y en las alertas, para poder reponerlo.
+func TestTrastiendaInsumoSinStockEnLocalDelServicioAparece(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel sinfila", 0)
+	srv := e.nuevoServicio("SinFila", map[int]float64{item: 5})
+	mustExec(t, e.db, `INSERT INTO servicio_local (servicio_id, local_id)
+		SELECT id, $2 FROM servicios WHERE nombre = $1`, srv, e.localID)
+
+	items, err := e.inv.ListarItems(repository.FiltroItemsInventario{Q: "Gel sinfila" + e.sufijo, PorLocal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encontrado := false
+	for _, it := range items {
+		if it.LocalID != nil && *it.LocalID == e.localID {
+			encontrado = true
+			if it.StockActual != 0 {
+				t.Fatalf("stock = %v, quiero 0", it.StockActual)
+			}
+		}
+	}
+	if !encontrado {
+		t.Fatalf("el local %d debe aparecer para el item aunque no tenga fila de stock: %+v", e.localID, items)
+	}
+
+	alertas, err := e.inv.Alertas(&e.localID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	enAlerta := false
+	for _, it := range alertas.ItemsBajoStock {
+		if it.ID == item {
+			enAlerta = true
+		}
+	}
+	if !enAlerta {
+		t.Fatal("el insumo sin stock en el local del servicio debe aparecer en alertas de bajo stock")
+	}
+}
+
+// Con descuento al agendar y stock negativo no permitido, agendar sin stock debe fallar con aviso
+// (antes la reserva quedaba AGENDADA sin descontar y sin error); con stock, descuenta una sola vez.
+func TestTrastiendaAgendarSinStockBloqueaYConStockDescuenta(t *testing.T) {
+	e := setupTrastienda(t)
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgDescontarEnEstado: "AGENDADO", CfgPermitirStockNegativo: false}); err != nil {
+		t.Fatal(err)
+	}
+	item := e.nuevoItem("Gel agendar", 0)
+	srv := e.nuevoServicio("Agendar", map[int]float64{item: 30})
+	r := e.nuevaReserva(srv, "PENDIENTE", 3)
+	agendar := func() error {
+		_, err := e.reservas.ActualizarReservaConAvisos(ActualizarReservaPGInput{Id: r, Local: e.localName, NuevoEstado: "AGENDADO"})
+		return err
+	}
+
+	err := agendar()
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "stock insuficiente") {
+		t.Fatalf("sin stock debe fallar con 'stock insuficiente', err=%v", err)
+	}
+	var estado string
+	_ = e.db.Get(&estado, `SELECT estado FROM reservas WHERE id = $1`, r)
+	if estado != "PENDIENTE" {
+		t.Fatalf("la reserva no debe agendarse; estado=%s", estado)
+	}
+
+	if _, err := e.inv.Ajustar(AjusteInput{ItemID: item, LocalID: e.localID, Tipo: repository.MovAjustePositivo, Cantidad: 50, Motivo: "carga"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := agendar(); err != nil {
+		t.Fatalf("con stock debe agendar: %v", err)
+	}
+	if got := e.stock(item); got != 20 {
+		t.Fatalf("stock = %v, quiero 20 (50 - 30)", got)
+	}
+	if n := e.contarMov(r, repository.MovSalidaServicio); n != 1 {
+		t.Fatalf("salidas = %d, quiero 1", n)
+	}
+}
+
+// Completar una reserva imputada a un paquete marca la sesion del paquete como realizada (sin
+// descontar insumos dos veces) y eliminarla la devuelve a pendiente.
+func TestTrastiendaCompletarReservaDePaqueteMarcaSesion(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel paquete", 100)
+	srv := e.nuevoServicio("Paquete", map[int]float64{item: 30})
+	planID, _ := e.nuevoPlanConSesion(srv)
+	r := e.nuevaReserva(srv, "AGENDADO", 2)
+	mustExec(t, e.db, `UPDATE reservas SET plan_id = $1 WHERE id = $2`, planID, r)
+	realizada := func() bool {
+		var v bool
+		if err := e.db.Get(&v, `SELECT realizado FROM plan_servicios WHERE plan_id = $1 AND sesion_numero = 1`, planID); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: r, Estado: "COMPLETADO"}); err != nil {
+		t.Fatal(err)
+	}
+	if !realizada() {
+		t.Fatal("la sesion del paquete debe quedar realizada al completar la reserva")
+	}
+	if got := e.stock(item); got != 70 {
+		t.Fatalf("stock = %v, quiero 70 (un solo descuento)", got)
+	}
+	var estadoPlan string
+	_ = e.db.Get(&estadoPlan, `SELECT estado FROM planes WHERE id = $1`, planID)
+	if estadoPlan != "COMPLETADO" {
+		t.Fatalf("con todas las sesiones hechas el plan debe quedar COMPLETADO, es %s", estadoPlan)
+	}
+
+	if err := e.reservas.EliminarReserva(r, repository.ConsumoActor{}); err != nil {
+		t.Fatal(err)
+	}
+	if realizada() {
+		t.Fatal("al eliminar la reserva la sesion debe volver a pendiente")
+	}
+	if got := e.stock(item); got != 100 {
+		t.Fatalf("stock = %v, quiero 100 tras revertir", got)
+	}
+}
+
 func TestTrastiendaPoliticaBloquearSoloParaAutenticados(t *testing.T) {
 	e := setupTrastienda(t)
 	item := e.nuevoItem("Gel blk", 0)

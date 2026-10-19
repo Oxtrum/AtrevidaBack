@@ -239,17 +239,30 @@ func (s *InventarioService) Ajustar(in AjusteInput) (float64, error) {
 	if in.ItemID < 1 || in.LocalID < 1 {
 		return 0, errors.New("item_id y local_id son requeridos")
 	}
-	return s.repo.Ajustar(repository.MovimientoStockInput{
+	nuevo, err := s.repo.Ajustar(repository.MovimientoStockInput{
 		ItemID: in.ItemID, LocalID: in.LocalID, Tipo: in.Tipo, Cantidad: in.Cantidad,
 		Motivo: strings.TrimSpace(in.Motivo), UsuarioID: in.UsuarioID, UsuarioNombre: in.UsuarioNombre,
 		// Un ajuste manual nunca deja el stock negativo: para eso esta el descuento por servicio.
 		PermitirNegativo: false,
 	})
+	if err != nil {
+		return 0, err
+	}
+	// Merma, vencimiento o reposicion cambian la disponibilidad de las reservas ya agendadas.
+	s.RefrescarAlertas(&in.LocalID)
+	return nuevo, nil
+}
+
+// RefrescarAlertas reevalua alerta_inventario de las reservas abiertas del local (nil = todos).
+func (s *InventarioService) RefrescarAlertas(localID *int) {
+	refrescarAlertas(s.repo, s.config, localID)
 }
 
 // ─── Alertas ──────────────────────────────────────────────────────────────────
 
 func (s *InventarioService) Alertas(localID *int) (*models.AlertasInventario, error) {
+	// El flag guardado puede estar viejo (stock que cambio despues de agendar): se refresca antes de listar.
+	s.RefrescarAlertas(localID)
 	items, err := s.repo.ItemsBajoStockPorLocal(localID)
 	if err != nil {
 		return nil, err
@@ -314,7 +327,12 @@ func (s *InventarioService) ReemplazarInsumos(servicioID int, insumos []models.S
 			return fmt.Errorf("%w: id %d", repository.ErrItemNoEncontrado, in.ItemID)
 		}
 	}
-	return s.repo.ReplaceInsumos(servicioID, insumos)
+	if err := s.repo.ReplaceInsumos(servicioID, insumos); err != nil {
+		return err
+	}
+	// Cambiar lo que consume un servicio cambia que reservas quedan en falta.
+	s.RefrescarAlertas(nil)
+	return nil
 }
 
 func boolPtr(b bool) *bool { return &b }

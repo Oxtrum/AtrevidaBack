@@ -207,6 +207,17 @@ type GastoFijoProximo struct {
 	LocalNombre   *string `json:"local_nombre,omitempty"`
 }
 
+// GastoFijoPendiente es un egreso fijo ya vencido que aun no se generó (vista previa de "generar").
+type GastoFijoPendiente struct {
+	GastoFijoID int     `json:"gasto_fijo_id" example:"1"`
+	Nombre      string  `json:"nombre" example:"Alquiler Paseo Aranjuez"`
+	Categoria   string  `json:"categoria" example:"Alquiler"`
+	Periodo     string  `json:"periodo" example:"2026-09"`
+	FechaCobro  string  `json:"fecha_cobro" example:"2026-09-05"`
+	Monto       float64 `json:"monto" example:"6500"`
+	LocalNombre *string `json:"local_nombre,omitempty" example:"PASEO ARANJUEZ"`
+}
+
 // ─── Reporte financiero ───────────────────────────────────────────────────────
 
 // ReporteFinancieroResumen agrega ingresos, egresos y utilidad de un periodo.

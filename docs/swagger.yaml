@@ -236,7 +236,8 @@ definitions:
         example: 500
         type: number
       unidad_medida:
-        description: 'Unidad de medida: UNIDAD, ML, GR o CAJA'
+        description: 'Unidad de medida: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE
+          o CAJA'
         example: ML
         type: string
     type: object
@@ -1114,7 +1115,8 @@ definitions:
         example: 500
         type: number
       unidad_medida:
-        description: 'Unidad de medida: UNIDAD, ML, GR o CAJA (default UNIDAD)'
+        description: 'Unidad de medida: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE
+          o CAJA (default UNIDAD)'
         example: ML
         type: string
     required:
@@ -1540,6 +1542,14 @@ definitions:
         - $ref: '#/definitions/models.GastoFijo'
         description: Plantilla de gasto fijo
     type: object
+  handlers.gastosFijosPendientesResponse:
+    properties:
+      pendientes:
+        description: Egresos fijos vencidos que aun no se generaron
+        items:
+          $ref: '#/definitions/models.GastoFijoPendiente'
+        type: array
+    type: object
   handlers.gastosFijosProximosResponse:
     properties:
       proximos:
@@ -1776,6 +1786,13 @@ definitions:
         items:
           $ref: '#/definitions/models.MovimientoInventario'
         type: array
+      paginacion:
+        allOf:
+        - $ref: '#/definitions/pagination.Metadata'
+        description: Paginacion por cursor (solo si se envia limit o cursor)
+      total_registros:
+        description: Total de movimientos con los filtros (solo con include_total=true)
+        type: integer
     type: object
   handlers.pagoCreatedResponse:
     properties:
@@ -2526,6 +2543,12 @@ definitions:
         items:
           $ref: '#/definitions/models.InventarioItem'
         type: array
+      reposicion:
+        description: Reposicion suma lo que necesitan todas las reservas agendadas
+          futuras y lo compara con el stock.
+        items:
+          $ref: '#/definitions/models.ReposicionInsumo'
+        type: array
       reservas_con_alerta:
         items:
           $ref: '#/definitions/models.AlertaReservaInventario'
@@ -2852,6 +2875,30 @@ definitions:
         example: "2026-11-05"
         type: string
     type: object
+  models.GastoFijoPendiente:
+    properties:
+      categoria:
+        example: Alquiler
+        type: string
+      fecha_cobro:
+        example: "2026-09-05"
+        type: string
+      gasto_fijo_id:
+        example: 1
+        type: integer
+      local_nombre:
+        example: PASEO ARANJUEZ
+        type: string
+      monto:
+        example: 6500
+        type: number
+      nombre:
+        example: Alquiler Paseo Aranjuez
+        type: string
+      periodo:
+        example: 2026-09
+        type: string
+    type: object
   models.GastoFijoProximo:
     properties:
       dias_restantes:
@@ -2898,6 +2945,12 @@ definitions:
         type: integer
       imagen_url:
         description: ImagenURL se calcula en el servicio a partir de ImagenKey.
+        type: string
+      local_id:
+        description: 'LocalID/LocalNombre solo se llenan en las alertas: el stock
+          se evalua por local.'
+        type: integer
+      local_nombre:
         type: string
       nombre:
         example: Gel conductor
@@ -3676,6 +3729,41 @@ definitions:
       valor_stock:
         example: 5400
         type: number
+    type: object
+  models.ReposicionInsumo:
+    properties:
+      comprometido:
+        description: Comprometido es la suma de insumos de las reservas AGENDADAS
+          desde hoy.
+        example: 90
+        type: number
+      faltante:
+        description: Faltante = Comprometido - Stock (cuanto comprar para cubrir todas
+          las reservas).
+        example: 60
+        type: number
+      item_id:
+        type: integer
+      item_nombre:
+        example: Gel conductor
+        type: string
+      local_id:
+        type: integer
+      local_nombre:
+        type: string
+      proxima:
+        description: Proxima es la fecha de la primera reserva que lo consume (YYYY-MM-DD).
+        example: "2026-10-19"
+        type: string
+      reservas:
+        example: 3
+        type: integer
+      stock:
+        example: 30
+        type: number
+      unidad:
+        example: ML
+        type: string
     type: object
   models.ReservaItem:
     properties:
@@ -6349,6 +6437,48 @@ paths:
       summary: Generar gastos fijos pendientes
       tags:
       - Finanzas
+  /bd/finanzas/gastos-fijos/pendientes:
+    get:
+      description: Lista, sin crear nada, los egresos FIJO que ya vencieron y que
+        POST /bd/finanzas/gastos-fijos/generar crearia ahora (uno por plantilla y
+        mes atrasado). Sirve para mostrar al usuario que se va a registrar antes de
+        confirmar. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.gastosFijosPendientesResponse'
+              type: object
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Vista previa de gastos fijos por generar
+      tags:
+      - Finanzas
   /bd/finanzas/gastos-fijos/proximos:
     get:
       description: Lista los cobros que vencen dentro de finanzas.dias_aviso_gasto_fijo
@@ -7415,10 +7545,23 @@ paths:
         in: query
         name: fecha_hasta
         type: string
-      - description: Maximo de resultados (default 200, tope 500)
+      - description: Busca por item, local o motivo
+        in: query
+        name: q
+        type: string
+      - description: Tamano de pagina (1-100); sin limit ni cursor devuelve los 200
+          mas recientes
         in: query
         name: limit
         type: integer
+      - description: Cursor opaco devuelto en paginacion.next_cursor
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye total_registros y total_paginas
+        in: query
+        name: include_total
+        type: boolean
       produces:
       - application/json
       responses:
@@ -9516,7 +9659,7 @@ paths:
       description: |-
         Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).
         limpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.
-        Recalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias.
+        Recalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias. Si nuevo_estado es AGENDADO, inventario.descontar_en_estado=AGENDADO e inventario.permitir_stock_negativo=false, responde 409 con el texto stock insuficiente cuando el stock real del local no alcanza.
       parameters:
       - description: Datos para actualizar la reserva
         in: body
@@ -9550,8 +9693,9 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
-          description: Reserva completada o sin espacios disponibles en el horario
-            destino
+          description: Reserva completada, sin espacios disponibles en el horario
+            destino o, al pasar a AGENDADO con descuento al agendar y stock negativo
+            no permitido, stock insuficiente de insumos
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
@@ -10240,8 +10384,8 @@ paths:
       - application/json
       description: Reemplaza la lista completa de insumos del servicio (patron de
         PUT /bd/combos/{id}/servicios). Una lista vacia quita todos. No se permiten
-        items repetidos ni cantidades no positivas. Requiere token Bearer con rol
-        admin_sys.
+        items repetidos ni cantidades no positivas. Requiere token Bearer (mismo acceso
+        que editar el servicio).
       parameters:
       - default: Bearer <token>
         description: Token Bearer

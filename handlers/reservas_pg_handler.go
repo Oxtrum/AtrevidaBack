@@ -741,12 +741,12 @@ type actualizarReservaPGRequest struct {
 // @Security BearerAuth
 // @Description limpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.
 // @Param payload body actualizarReservaPGRequest true "Datos para actualizar la reserva"
-// @Description Recalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias.
+// @Description Recalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias. Si nuevo_estado es AGENDADO, inventario.descontar_en_estado=AGENDADO e inventario.permitir_stock_negativo=false, responde 409 con el texto stock insuficiente cuando el stock real del local no alcanza.
 // @Success 200 {object} utils.APIResponse{data=reservaAvisosResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar, fecha pasada u horario fuera de atencion"
 // @Failure 401 {object} utils.APIResponse "Token ausente o invalido"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
-// @Failure 409 {object} utils.APIResponse "Reserva completada o sin espacios disponibles en el horario destino"
+// @Failure 409 {object} utils.APIResponse "Reserva completada, sin espacios disponibles en el horario destino o, al pasar a AGENDADO con descuento al agendar y stock negativo no permitido, stock insuficiente de insumos"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [patch]
 func (h *Container) PatchReservaPG(c *gin.Context) {
@@ -815,7 +815,8 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 	})
 
 	if err != nil {
-		if errors.Is(err, repository.ErrCapacidadNoDisponible) || errors.Is(err, repository.ErrEstadoReservaModificado) {
+		if errors.Is(err, repository.ErrCapacidadNoDisponible) || errors.Is(err, repository.ErrEstadoReservaModificado) ||
+			strings.Contains(strings.ToLower(err.Error()), "stock insuficiente") {
 			utils.RespondError(c, http.StatusConflict, err.Error())
 			return
 		}

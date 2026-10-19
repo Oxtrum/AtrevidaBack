@@ -3214,6 +3214,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/finanzas/gastos-fijos/pendientes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista, sin crear nada, los egresos FIJO que ya vencieron y que POST /bd/finanzas/gastos-fijos/generar crearia ahora (uno por plantilla y mes atrasado). Sirve para mostrar al usuario que se va a registrar antes de confirmar. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Vista previa de gastos fijos por generar",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.gastosFijosPendientesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/finanzas/gastos-fijos/proximos": {
             "get": {
                 "security": [
@@ -5039,9 +5104,27 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Busca por item, local o motivo",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
-                        "description": "Maximo de resultados (default 200, tope 500)",
+                        "description": "Tamano de pagina (1-100); sin limit ni cursor devuelve los 200 mas recientes",
                         "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total_registros y total_paginas",
+                        "name": "include_total",
                         "in": "query"
                     }
                 ],
@@ -8150,7 +8233,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).\nlimpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.\nRecalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias.",
+                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).\nlimpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.\nRecalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias. Si nuevo_estado es AGENDADO, inventario.descontar_en_estado=AGENDADO e inventario.permitir_stock_negativo=false, responde 409 con el texto stock insuficiente cuando el stock real del local no alcanza.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8210,7 +8293,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Reserva completada o sin espacios disponibles en el horario destino",
+                        "description": "Reserva completada, sin espacios disponibles en el horario destino o, al pasar a AGENDADO con descuento al agendar y stock negativo no permitido, stock insuficiente de insumos",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -9215,7 +9298,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Reemplaza la lista completa de insumos del servicio (patron de PUT /bd/combos/{id}/servicios). Una lista vacia quita todos. No se permiten items repetidos ni cantidades no positivas. Requiere token Bearer con rol admin_sys.",
+                "description": "Reemplaza la lista completa de insumos del servicio (patron de PUT /bd/combos/{id}/servicios). Una lista vacia quita todos. No se permiten items repetidos ni cantidades no positivas. Requiere token Bearer (mismo acceso que editar el servicio).",
                 "consumes": [
                     "application/json"
                 ],
@@ -10097,7 +10180,7 @@ const docTemplate = `{
                     "example": 500
                 },
                 "unidad_medida": {
-                    "description": "Unidad de medida: UNIDAD, ML, GR o CAJA",
+                    "description": "Unidad de medida: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE o CAJA",
                     "type": "string",
                     "example": "ML"
                 }
@@ -11264,7 +11347,7 @@ const docTemplate = `{
                     "example": 500
                 },
                 "unidad_medida": {
-                    "description": "Unidad de medida: UNIDAD, ML, GR o CAJA (default UNIDAD)",
+                    "description": "Unidad de medida: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE o CAJA (default UNIDAD)",
                     "type": "string",
                     "example": "ML"
                 }
@@ -11799,6 +11882,18 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.gastosFijosPendientesResponse": {
+            "type": "object",
+            "properties": {
+                "pendientes": {
+                    "description": "Egresos fijos vencidos que aun no se generaron",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GastoFijoPendiente"
+                    }
+                }
+            }
+        },
         "handlers.gastosFijosProximosResponse": {
             "type": "object",
             "properties": {
@@ -12141,6 +12236,18 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.MovimientoInventario"
                     }
+                },
+                "paginacion": {
+                    "description": "Paginacion por cursor (solo si se envia limit o cursor)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total_registros": {
+                    "description": "Total de movimientos con los filtros (solo con include_total=true)",
+                    "type": "integer"
                 }
             }
         },
@@ -13162,6 +13269,13 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.InventarioItem"
                     }
                 },
+                "reposicion": {
+                    "description": "Reposicion suma lo que necesitan todas las reservas agendadas futuras y lo compara con el stock.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReposicionInsumo"
+                    }
+                },
                 "reservas_con_alerta": {
                     "type": "array",
                     "items": {
@@ -13609,6 +13723,39 @@ const docTemplate = `{
                 }
             }
         },
+        "models.GastoFijoPendiente": {
+            "type": "object",
+            "properties": {
+                "categoria": {
+                    "type": "string",
+                    "example": "Alquiler"
+                },
+                "fecha_cobro": {
+                    "type": "string",
+                    "example": "2026-09-05"
+                },
+                "gasto_fijo_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 6500
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Alquiler Paseo Aranjuez"
+                },
+                "periodo": {
+                    "type": "string",
+                    "example": "2026-09"
+                }
+            }
+        },
         "models.GastoFijoProximo": {
             "type": "object",
             "properties": {
@@ -13672,6 +13819,13 @@ const docTemplate = `{
                 },
                 "imagen_url": {
                     "description": "ImagenURL se calcula en el servicio a partir de ImagenKey.",
+                    "type": "string"
+                },
+                "local_id": {
+                    "description": "LocalID/LocalNombre solo se llenan en las alertas: el stock se evalua por local.",
+                    "type": "integer"
+                },
+                "local_nombre": {
                     "type": "string"
                 },
                 "nombre": {
@@ -14725,6 +14879,51 @@ const docTemplate = `{
                 "valor_stock": {
                     "type": "number",
                     "example": 5400
+                }
+            }
+        },
+        "models.ReposicionInsumo": {
+            "type": "object",
+            "properties": {
+                "comprometido": {
+                    "description": "Comprometido es la suma de insumos de las reservas AGENDADAS desde hoy.",
+                    "type": "number",
+                    "example": 90
+                },
+                "faltante": {
+                    "description": "Faltante = Comprometido - Stock (cuanto comprar para cubrir todas las reservas).",
+                    "type": "number",
+                    "example": 60
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "item_nombre": {
+                    "type": "string",
+                    "example": "Gel conductor"
+                },
+                "local_id": {
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string"
+                },
+                "proxima": {
+                    "description": "Proxima es la fecha de la primera reserva que lo consume (YYYY-MM-DD).",
+                    "type": "string",
+                    "example": "2026-10-19"
+                },
+                "reservas": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "stock": {
+                    "type": "number",
+                    "example": 30
+                },
+                "unidad": {
+                    "type": "string",
+                    "example": "ML"
                 }
             }
         },

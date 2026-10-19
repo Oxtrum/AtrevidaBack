@@ -442,6 +442,19 @@ func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, erro
 		}
 	}
 
+	if err := sincronizarEstadoPlanTx(tx, planID); err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+// sincronizarEstadoPlanTx alinea el estado del plan con el avance de sus sesiones: todas realizadas
+// pasa ACTIVO -> COMPLETADO; si deja de estarlo, COMPLETADO -> ACTIVO.
+func sincronizarEstadoPlanTx(tx *sqlx.Tx, planID int) error {
 	// Avance de sesiones + estado actual para decidir la sincronización.
 	var info struct {
 		Estado string `db:"estado"`
@@ -457,7 +470,7 @@ func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, erro
 		WHERE p.id = $1
 		GROUP BY p.estado
 	`, planID); err != nil {
-		return 0, fmt.Errorf("error al recalcular avance del plan: %w", err)
+		return fmt.Errorf("error al recalcular avance del plan: %w", err)
 	}
 
 	nuevoEstado := ""
@@ -470,14 +483,93 @@ func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, erro
 		if _, err := tx.Exec(`
 			UPDATE planes SET estado = $1, actualizado_en = NOW() WHERE id = $2
 		`, nuevoEstado, planID); err != nil {
-			return 0, fmt.Errorf("error al sincronizar estado del plan: %w", err)
+			return fmt.Errorf("error al sincronizar estado del plan: %w", err)
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		return 0, err
+	return nil
+}
+
+// MarcarSesionPorReservaTx marca como realizada la siguiente sesion pendiente del plan cuando se
+// completa una reserva imputada a ese plan, y deja el rastro en plan_movimientos con la reserva.
+// Como el movimiento lleva reserva_id, marcar la sesion no vuelve a descontar insumos: ya los
+// descuenta la reserva. Prefiere la sesion que incluye el servicio de la reserva. Idempotente.
+func MarcarSesionPorReservaTx(tx *sqlx.Tx, reservaID int) error {
+	var res struct {
+		PlanID     sql.NullInt64  `db:"plan_id"`
+		Confirmado sql.NullString `db:"servicio_confirmado"`
+		Nombre     sql.NullString `db:"servicio_nombre"`
+		Solicitado sql.NullString `db:"servicio_solicitado"`
 	}
-	return int(n), nil
+	if err := tx.Get(&res, `SELECT plan_id, servicio_confirmado, servicio_nombre, servicio_solicitado FROM reservas WHERE id = $1`, reservaID); err != nil {
+		return fmt.Errorf("error al leer la reserva del plan: %w", err)
+	}
+	if !res.PlanID.Valid {
+		return nil
+	}
+	var ya int
+	if err := tx.Get(&ya, `SELECT COUNT(*) FROM plan_movimientos WHERE reserva_id = $1 AND tipo = 'CONSUMO'`, reservaID); err != nil {
+		return fmt.Errorf("error al verificar la sesion de la reserva: %w", err)
+	}
+	if ya > 0 {
+		return nil
+	}
+	norm := func(v sql.NullString) string { return strings.ToLower(strings.TrimSpace(v.String)) }
+	var numero int
+	err := tx.Get(&numero, `
+		SELECT ps.sesion_numero FROM plan_servicios ps
+		WHERE ps.plan_id = $1 AND NOT ps.realizado
+		ORDER BY (LOWER(BTRIM(ps.nombre_texto)) IN ($2, $3, $4)) DESC, ps.sesion_numero
+		LIMIT 1`, res.PlanID.Int64, norm(res.Confirmado), norm(res.Nombre), norm(res.Solicitado))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil // el plan no tiene sesiones pendientes
+	}
+	if err != nil {
+		return fmt.Errorf("error al buscar la sesion del plan: %w", err)
+	}
+	if _, err := tx.Exec(`
+		UPDATE plan_servicios SET realizado = TRUE, fecha_realizado = NOW()
+		WHERE plan_id = $1 AND sesion_numero = $2`, res.PlanID.Int64, numero); err != nil {
+		return fmt.Errorf("error al marcar la sesion del plan: %w", err)
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO plan_movimientos (plan_servicio_id, reserva_id, tipo, cantidad, motivo)
+		SELECT id, $3, 'CONSUMO', 1, 'Reserva completada'
+		FROM plan_servicios WHERE plan_id = $1 AND sesion_numero = $2
+		ON CONFLICT (plan_servicio_id, reserva_id) DO NOTHING`, res.PlanID.Int64, numero, reservaID); err != nil {
+		return fmt.Errorf("error al registrar el consumo de la sesion: %w", err)
+	}
+	return sincronizarEstadoPlanTx(tx, int(res.PlanID.Int64))
+}
+
+// LiberarSesionPorReservaTx deshace MarcarSesionPorReservaTx al eliminar la reserva: la sesion
+// vuelve a quedar pendiente y el movimiento pasa a LIBERACION. Idempotente.
+func LiberarSesionPorReservaTx(tx *sqlx.Tx, reservaID int) error {
+	var planes []int
+	if err := tx.Select(&planes, `
+		UPDATE plan_servicios ps SET realizado = FALSE, fecha_realizado = NULL
+		FROM plan_movimientos pm
+		WHERE pm.plan_servicio_id = ps.id AND pm.reserva_id = $1 AND pm.tipo = 'CONSUMO'
+		RETURNING ps.plan_id`, reservaID); err != nil {
+		return fmt.Errorf("error al liberar la sesion del plan: %w", err)
+	}
+	if len(planes) == 0 {
+		return nil
+	}
+	if _, err := tx.Exec(`UPDATE plan_movimientos SET tipo = 'LIBERACION', motivo = 'Reserva eliminada' WHERE reserva_id = $1 AND tipo = 'CONSUMO'`, reservaID); err != nil {
+		return fmt.Errorf("error al registrar la liberacion de la sesion: %w", err)
+	}
+	vistos := map[int]bool{}
+	for _, planID := range planes {
+		if vistos[planID] {
+			continue
+		}
+		vistos[planID] = true
+		if err := sincronizarEstadoPlanTx(tx, planID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // CobrarPlan adjunta un pago existente a un plan RESERVADO, marca la cobranza

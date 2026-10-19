@@ -100,6 +100,11 @@ type gastoFijoResponse struct {
 	GastoFijo models.GastoFijo `json:"gasto_fijo"`
 }
 
+type gastosFijosPendientesResponse struct {
+	// Egresos fijos vencidos que aun no se generaron
+	Pendientes []models.GastoFijoPendiente `json:"pendientes"`
+}
+
 type gastosFijosProximosResponse struct {
 	// Cobros que vencen dentro de los dias de aviso configurados
 	Proximos []models.GastoFijoProximo `json:"proximos"`
@@ -563,6 +568,27 @@ func (h *Container) GetGastosFijosProximos(c *gin.Context) {
 		return
 	}
 	utils.Respond(c, http.StatusOK, gastosFijosProximosResponse{Proximos: proximos})
+}
+
+// GetGastosFijosPendientes godoc
+// @Summary Vista previa de gastos fijos por generar
+// @Description Lista, sin crear nada, los egresos FIJO que ya vencieron y que POST /bd/finanzas/gastos-fijos/generar crearia ahora (uno por plantilla y mes atrasado). Sirve para mostrar al usuario que se va a registrar antes de confirmar. Requiere token Bearer con rol admin_sys.
+// @Tags Finanzas
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Success 200 {object} utils.APIResponse{data=gastosFijosPendientesResponse}
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Security BearerAuth
+// @Router /bd/finanzas/gastos-fijos/pendientes [get]
+func (h *Container) GetGastosFijosPendientes(c *gin.Context) {
+	pendientes, err := h.GastosFijos.PendientesDeGenerar()
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, gastosFijosPendientesResponse{Pendientes: pendientes})
 }
 
 // PostGenerarGastosFijos godoc

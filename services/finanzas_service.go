@@ -16,6 +16,8 @@ var metodosPago = map[string]bool{"efectivo": true, "qr": true, "transferencia":
 type FinanzasService struct {
 	repo   *pgsqlrepo.FinanzasRepo
 	config *ConfiguracionService
+	// AlCambiarStock es opcional: se invoca tras registrar o anular una compra, que mueven stock.
+	AlCambiarStock func(localID *int)
 }
 
 func NewFinanzasService(repo *pgsqlrepo.FinanzasRepo, config *ConfiguracionService) *FinanzasService {
@@ -322,6 +324,9 @@ func (s *FinanzasService) RegistrarCompra(in CompraInput) (*models.Compra, error
 	if err != nil {
 		return nil, err
 	}
+	if s.AlCambiarStock != nil {
+		s.AlCambiarStock(&in.LocalID)
+	}
 	return s.repo.GetCompra(id)
 }
 
@@ -338,7 +343,13 @@ func (s *FinanzasService) AnularCompra(id int, motivo string, actor repository.C
 	if motivo == "" {
 		return errors.New("motivo es requerido para anular la compra")
 	}
-	return s.repo.AnularCompra(id, motivo, actor)
+	if err := s.repo.AnularCompra(id, motivo, actor); err != nil {
+		return err
+	}
+	if s.AlCambiarStock != nil {
+		s.AlCambiarStock(nil)
+	}
+	return nil
 }
 
 func redondearMonto(v float64) float64 { return float64(int64(v*100+0.5*sign(v))) / 100 }

@@ -241,18 +241,13 @@ func (s *GastosFijosService) Desactivar(id int) error {
 
 // ─── Generacion mensual (RN-30..RN-35) ────────────────────────────────────────
 
-// GenerarHasta crea los egresos FIJO que ya vencieron hasta `hoy`, incluyendo meses atrasados
-// (catch-up). Es idempotente: el indice unico (gasto_fijo_id, periodo) impide duplicados (RN-32).
-func (s *GastosFijosService) GenerarHasta(hoy time.Time) (int, error) {
-	cfg, err := s.config.Snapshot()
-	if err != nil {
-		return 0, err
-	}
+// recorrerVencidos llama a fn por cada cobro de gasto fijo que ya vencio hasta `hoy` y aun no tiene
+// egreso generado (incluye meses atrasados). Lo comparten la generacion y su vista previa.
+func (s *GastosFijosService) recorrerVencidos(hoy time.Time, fn func(g models.GastoFijo, periodo, cobro time.Time) error) error {
 	gastos, err := s.repo.ListGastosFijos(true)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	generados := 0
 	for _, g := range gastos {
 		inicio, err := parseFecha(g.FechaInicio)
 		if err != nil {
@@ -266,7 +261,7 @@ func (s *GastosFijosService) GenerarHasta(hoy time.Time) (int, error) {
 		}
 		desde := primerDiaMes(inicio)
 		if ultimo, err := s.repo.UltimoPeriodoGenerado(g.ID); err != nil {
-			return generados, err
+			return err
 		} else if ultimo != nil {
 			if siguiente := primerDiaMes(*ultimo).AddDate(0, 1, 0); siguiente.After(desde) {
 				desde = siguiente
@@ -280,16 +275,51 @@ func (s *GastosFijosService) GenerarHasta(hoy time.Time) (int, error) {
 			if cobro.After(hoy) || (fin != nil && cobro.After(*fin)) {
 				break
 			}
-			creado, err := s.repo.GenerarMovimientoGastoFijo(g.ID, periodo, cobro, cfg.EstadoGastoFijoGen)
-			if err != nil {
-				return generados, fmt.Errorf("gasto fijo %q: %w", g.Nombre, err)
-			}
-			if creado {
-				generados++
+			if err := fn(g, periodo, cobro); err != nil {
+				return err
 			}
 		}
 	}
-	return generados, nil
+	return nil
+}
+
+// GenerarHasta crea los egresos FIJO que ya vencieron hasta `hoy`, incluyendo meses atrasados
+// (catch-up). Es idempotente: el indice unico (gasto_fijo_id, periodo) impide duplicados (RN-32).
+func (s *GastosFijosService) GenerarHasta(hoy time.Time) (int, error) {
+	cfg, err := s.config.Snapshot()
+	if err != nil {
+		return 0, err
+	}
+	generados := 0
+	err = s.recorrerVencidos(hoy, func(g models.GastoFijo, periodo, cobro time.Time) error {
+		creado, err := s.repo.GenerarMovimientoGastoFijo(g.ID, periodo, cobro, cfg.EstadoGastoFijoGen)
+		if err != nil {
+			return fmt.Errorf("gasto fijo %q: %w", g.Nombre, err)
+		}
+		if creado {
+			generados++
+		}
+		return nil
+	})
+	return generados, err
+}
+
+// PendientesDeGenerar devuelve, sin crear nada, los egresos que GenerarHoy generaria ahora.
+func (s *GastosFijosService) PendientesDeGenerar() ([]models.GastoFijoPendiente, error) {
+	cfg, err := s.config.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	out := []models.GastoFijoPendiente{}
+	err = s.recorrerVencidos(cfg.Hoy(), func(g models.GastoFijo, periodo, cobro time.Time) error {
+		out = append(out, models.GastoFijoPendiente{
+			GastoFijoID: g.ID, Nombre: g.Nombre, Categoria: g.CategoriaNombre,
+			Periodo: periodo.Format("2006-01"), FechaCobro: cobro.Format("2006-01-02"),
+			Monto: g.Monto, LocalNombre: g.LocalNombre,
+		})
+		return nil
+	})
+	return out, err
 }
 
 // GenerarHoy ejecuta GenerarHasta con la fecha actual en la zona horaria configurada.

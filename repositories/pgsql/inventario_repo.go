@@ -25,6 +25,13 @@ func NewInventarioRepo(db *sqlx.DB) *InventarioRepo {
 // inventario, finanzas y reservas.
 func (r *InventarioRepo) DB() *sqlx.DB { return r.db }
 
+// itemUsadoEnLocalSQL es verdadero si algun servicio activo del local (alias l) consume el item (alias i).
+const itemUsadoEnLocalSQL = `EXISTS (
+		SELECT 1 FROM servicio_insumos si
+		JOIN servicios sv ON sv.id = si.servicio_id AND sv.activo = TRUE
+		JOIN servicio_local sl ON sl.servicio_id = si.servicio_id AND sl.local_id = l.id
+		WHERE si.item_id = i.id)`
+
 func redondear3(v float64) float64 { return math.Round(v*1000) / 1000 }
 
 const itemsSelectBase = `
@@ -62,17 +69,22 @@ func (r *InventarioRepo) ListItems(f repository.FiltroItemsInventario) ([]models
 
 	query := fmt.Sprintf(itemsSelectBase, localCond) + " WHERE " + strings.Join(conds, " AND ")
 	if f.PorLocal && f.LocalID == nil {
-		// Una fila por (item, local) con registro de stock; nunca se suma entre locales.
+		// Una fila por (item, local); nunca se suma entre locales. Aparece cada local donde el item
+		// tiene registro de stock o donde un servicio activo lo consume (aunque nunca se haya
+		// cargado stock ahi: queda en 0). Un item sin stock ni uso en ningun local aparece en todos.
 		query = `
 	SELECT i.id, i.codigo, i.nombre, i.descripcion, i.categoria_id, c.nombre AS categoria_nombre,
 	       i.unidad_medida, i.costo_referencia, i.stock_minimo,
 	       COALESCE(s.cantidad, 0) AS stock_actual, i.imagen_key, i.activo,
 	       l.id AS local_id, l.nombre AS local_nombre
 	FROM inventario_items i
+	CROSS JOIN locales l
 	LEFT JOIN categorias_inventario c ON c.id = i.categoria_id
-	LEFT JOIN inventario_stock s ON s.item_id = i.id
-	LEFT JOIN locales l ON l.id = s.local_id
-	WHERE ` + strings.Join(conds, " AND ")
+	LEFT JOIN inventario_stock s ON s.item_id = i.id AND s.local_id = l.id
+	WHERE l.activo = TRUE AND ` + strings.Join(conds, " AND ") + `
+	  AND (s.item_id IS NOT NULL OR ` + itemUsadoEnLocalSQL + `
+	       OR NOT EXISTS (SELECT 1 FROM inventario_stock x WHERE x.item_id = i.id)
+	          AND NOT EXISTS (SELECT 1 FROM servicio_insumos u WHERE u.item_id = i.id))`
 	}
 	if f.BajoStock {
 		query = "SELECT * FROM (" + query + ") t WHERE t.stock_actual <= t.stock_minimo"
@@ -96,25 +108,27 @@ func (r *InventarioRepo) ListItems(f repository.FiltroItemsInventario) ([]models
 	return items, nil
 }
 
-// ItemsBajoStockPorLocal devuelve una fila por (item, local) cuyo stock en ese local
-// esta en o bajo el minimo. Solo cuenta items con registro de stock en el local.
+// ItemsBajoStockPorLocal devuelve una fila por (item, local) cuyo stock en ese local esta en o
+// bajo el minimo. Cuenta los locales con registro de stock y aquellos donde un servicio activo
+// consume el item aunque nunca se haya cargado stock (stock 0).
 func (r *InventarioRepo) ItemsBajoStockPorLocal(localID *int) ([]models.InventarioItem, error) {
 	args := []interface{}{}
 	localCond := ""
 	if localID != nil {
 		args = append(args, *localID)
-		localCond = "AND s.local_id = $1"
+		localCond = "AND l.id = $1"
 	}
 	query := `
 	SELECT i.id, i.codigo, i.nombre, i.descripcion, i.categoria_id, c.nombre AS categoria_nombre,
 	       i.unidad_medida, i.costo_referencia, i.stock_minimo,
-	       s.cantidad AS stock_actual, i.imagen_key, i.activo,
+	       COALESCE(s.cantidad, 0) AS stock_actual, i.imagen_key, i.activo,
 	       l.id AS local_id, l.nombre AS local_nombre
 	FROM inventario_items i
-	JOIN inventario_stock s ON s.item_id = i.id
-	JOIN locales l ON l.id = s.local_id
+	CROSS JOIN locales l
+	LEFT JOIN inventario_stock s ON s.item_id = i.id AND s.local_id = l.id
 	LEFT JOIN categorias_inventario c ON c.id = i.categoria_id
-	WHERE i.activo = TRUE AND l.activo = TRUE AND s.cantidad <= i.stock_minimo ` + localCond + `
+	WHERE i.activo = TRUE AND l.activo = TRUE AND COALESCE(s.cantidad, 0) <= i.stock_minimo
+	  AND (s.item_id IS NOT NULL OR ` + itemUsadoEnLocalSQL + `) ` + localCond + `
 	ORDER BY l.nombre, i.nombre, i.id`
 	items := []models.InventarioItem{}
 	if err := r.db.Select(&items, query, args...); err != nil {

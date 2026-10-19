@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"atrevida-agenda-api/models"
@@ -80,13 +81,69 @@ func (c *InventarioConsumo) ValidarPoliticaAlAgendar(reservaID int) error {
 	return nil
 }
 
-// Recalcular actualiza alerta_inventario de la reserva y devuelve las advertencias.
+// ValidarDescuentoAlAgendar bloquea el paso a AGENDADO cuando el descuento se hace al agendar, no se
+// permite stock negativo y no alcanza el stock real del local. Sin este chequeo el descuento fallaba
+// despues de guardar la reserva y quedaba sin descontar y sin aviso. Si la reserva ya esta AGENDADA
+// (ya descontada) no hace nada.
+func (c *InventarioConsumo) ValidarDescuentoAlAgendar(reservaID int) error {
+	cfg, err := c.config.Snapshot()
+	if err != nil {
+		return err
+	}
+	if cfg.DescontarEnEstado != "AGENDADO" || cfg.PermitirStockNegativo {
+		return nil
+	}
+	if estado, err := c.repo.EstadoDeReserva(reservaID); err != nil || estado == "AGENDADO" {
+		return err
+	}
+	warns, err := c.repo.AdvertenciasDeReserva(reservaID, false)
+	if err != nil {
+		return err
+	}
+	if len(warns) > 0 {
+		return fmt.Errorf("%s", DescripcionAdvertencias(warns))
+	}
+	return nil
+}
+
+// Recalcular actualiza alerta_inventario de la reserva y devuelve las advertencias. Como cambiar
+// el estado puede consumir o devolver stock, tambien refresca las demas reservas abiertas del local.
 func (c *InventarioConsumo) Recalcular(reservaID int) ([]models.AdvertenciaInventario, error) {
 	cfg, err := c.config.Snapshot()
 	if err != nil {
 		return nil, err
 	}
-	return c.repo.RecalcularAlerta(reservaID, cfg.ConsiderarComprometido)
+	warns, err := c.repo.RecalcularAlerta(reservaID, cfg.ConsiderarComprometido)
+	if err != nil {
+		return nil, err
+	}
+	c.refrescarLocalDe(reservaID)
+	return warns, nil
+}
+
+// RefrescarAlertas reevalua las reservas abiertas del local (nil = todos). Es best-effort:
+// un fallo se registra y no interrumpe la operacion que cambio el stock.
+func (c *InventarioConsumo) RefrescarAlertas(localID *int) {
+	refrescarAlertas(c.repo, c.config, localID)
+}
+
+func (c *InventarioConsumo) refrescarLocalDe(reservaID int) {
+	localID, err := c.repo.LocalDeReserva(reservaID)
+	if err != nil || localID == 0 {
+		return
+	}
+	c.RefrescarAlertas(&localID)
+}
+
+func refrescarAlertas(repo *pgsqlrepo.InventarioRepo, config *ConfiguracionService, localID *int) {
+	cfg, err := config.Snapshot()
+	if err != nil {
+		log.Printf("[inventario] no se pudo leer la configuracion para refrescar alertas: %v", err)
+		return
+	}
+	if err := repo.RecalcularAlertasAbiertas(localID, cfg.ConsiderarComprometido); err != nil {
+		log.Printf("[inventario] no se pudieron refrescar las alertas: %v", err)
+	}
 }
 
 // DespuesDeCrear recalcula la alerta y, si la politica descuenta al agendar y la
@@ -98,10 +155,16 @@ func (c *InventarioConsumo) DespuesDeCrear(reservaID int, estado string, actor r
 	}
 	if estado == "AGENDADO" && cfg.DescontarEnEstado == "AGENDADO" {
 		if err := c.consumirEnTx(reservaID, actor, cfg); err != nil {
-			return nil, err
+			// La reserva ya esta guardada: se registra el fallo y se sigue para marcar la alerta de inventario.
+			log.Printf("[inventario] no se pudo descontar al agendar la reserva %d: %v", reservaID, err)
 		}
 	}
-	return c.repo.RecalcularAlerta(reservaID, cfg.ConsiderarComprometido)
+	warns, err := c.repo.RecalcularAlerta(reservaID, cfg.ConsiderarComprometido)
+	if err != nil {
+		return nil, err
+	}
+	c.refrescarLocalDe(reservaID)
+	return warns, nil
 }
 
 func (c *InventarioConsumo) consumirEnTx(reservaID int, actor repository.ConsumoActor, cfg ConfigTrastienda) error {

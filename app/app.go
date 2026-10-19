@@ -63,6 +63,8 @@ func Build() (*gin.Engine, error) {
 	// (ARQUITECTURA_TRASTIENDA.md): mientras tanto los endpoints de imagen responden 503.
 	inventarioConsumo := services.NewInventarioConsumo(inventarioRepo, configuracionService)
 	finanzasService := services.NewFinanzasService(finanzasRepo, configuracionService)
+	finanzasService.AlCambiarStock = inventarioService.RefrescarAlertas
+	configuracionService.AlCambiarDisponibilidad = func() { inventarioService.RefrescarAlertas(nil) }
 	gastosFijosService := services.NewGastosFijosService(finanzasRepo, configuracionService, finanzasService)
 	reporteFinancieroService := services.NewReporteFinancieroService(finanzasRepo, inventarioRepo, gastosFijosService, configuracionService)
 
