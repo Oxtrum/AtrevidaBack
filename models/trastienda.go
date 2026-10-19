@@ -218,6 +218,53 @@ type GastoFijoPendiente struct {
 	LocalNombre *string `json:"local_nombre,omitempty" example:"PASEO ARANJUEZ"`
 }
 
+// ─── Flujo de caja unificado ──────────────────────────────────────────────────
+
+// FlujoMovimiento es una fila del libro unificado: una venta (pago) o un movimiento financiero.
+type FlujoMovimiento struct {
+	// Clave unica de la fila (pago-<id> o mov-<id>)
+	Clave string `db:"clave" json:"clave" example:"mov-12"`
+	Fecha string `db:"fecha" json:"fecha" example:"2026-10-18"`
+	// VENTA, COMPRA, GASTO_FIJO, GASTO_VARIABLE u OTRO_INGRESO
+	Origen    string `db:"origen" json:"origen" example:"VENTA"`
+	Codigo    string `db:"codigo" json:"codigo" example:"PAGO-000012"`
+	Naturaleza string `db:"naturaleza" json:"naturaleza" example:"INGRESO"`
+	Categoria string `db:"categoria" json:"categoria" example:"Venta"`
+	Detalle   string `db:"detalle" json:"detalle" example:"Venta a Maria Perez"`
+	LocalID     *int    `db:"local_id" json:"local_id,omitempty" example:"2"`
+	LocalNombre *string `db:"local_nombre" json:"local_nombre,omitempty" example:"PASEO ARANJUEZ"`
+	Monto       float64 `db:"monto" json:"monto" example:"150"`
+	// PAGADO, PENDIENTE o ANULADO
+	Estado string `db:"estado" json:"estado" example:"PAGADO"`
+	// Saldo acumulado del rango filtrado hasta este movimiento (solo cuentan los PAGADO)
+	Saldo float64   `db:"saldo" json:"saldo" example:"1250.5"`
+	Ts    time.Time `db:"ts" json:"-"`
+}
+
+// FlujoTotales resume el rango filtrado.
+type FlujoTotales struct {
+	// Ingresos cobrados (ventas y otros ingresos PAGADO)
+	Ingresos float64 `db:"ingresos" json:"ingresos" example:"5000"`
+	// Egresos pagados (fijos, variables y compras PAGADO)
+	Egresos float64 `db:"egresos" json:"egresos" example:"3200"`
+	// Balance = ingresos - egresos
+	Balance float64 `db:"-" json:"balance" example:"1800"`
+	// Ingresos pendientes de cobro
+	PorCobrar float64 `db:"por_cobrar" json:"por_cobrar" example:"300"`
+	// Egresos pendientes de pago
+	PorPagar    float64 `db:"por_pagar" json:"por_pagar" example:"800"`
+	Movimientos int     `db:"movimientos" json:"movimientos" example:"42"`
+}
+
+// FlujoLocal compara una sucursal con las demas.
+type FlujoLocal struct {
+	LocalID  int     `db:"local_id" json:"local_id" example:"2"`
+	Local    string  `db:"local" json:"local" example:"PASEO ARANJUEZ"`
+	Ingresos float64 `db:"ingresos" json:"ingresos" example:"3000"`
+	Egresos  float64 `db:"egresos" json:"egresos" example:"1500"`
+	Balance  float64 `db:"-" json:"balance" example:"1500"`
+}
+
 // ─── Reporte financiero ───────────────────────────────────────────────────────
 
 // ReporteFinancieroResumen agrega ingresos, egresos y utilidad de un periodo.

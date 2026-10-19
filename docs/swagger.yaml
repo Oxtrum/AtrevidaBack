@@ -1482,6 +1482,35 @@ definitions:
     - cantidad_espacios
     - tipo_espacio
     type: object
+  handlers.flujoFinancieroResponse:
+    properties:
+      fecha_desde:
+        description: Rango consultado (YYYY-MM-DD)
+        example: "2026-10-01"
+        type: string
+      fecha_hasta:
+        example: "2026-10-31"
+        type: string
+      movimientos:
+        description: Movimientos, mas recientes primero, con saldo acumulado
+        items:
+          $ref: '#/definitions/models.FlujoMovimiento'
+        type: array
+      por_local:
+        description: Comparativa por sucursal con los mismos filtros (sin acotar por
+          local)
+        items:
+          $ref: '#/definitions/models.FlujoLocal'
+        type: array
+      totales:
+        allOf:
+        - $ref: '#/definitions/models.FlujoTotales'
+        description: Totales del rango filtrado
+      truncado:
+        description: true si hay mas movimientos que el limite pedido
+        example: false
+        type: boolean
+    type: object
   handlers.gastoFijoRequest:
     properties:
       activo:
@@ -2829,6 +2858,94 @@ definitions:
         type: string
       total:
         example: 18000
+        type: number
+    type: object
+  models.FlujoLocal:
+    properties:
+      balance:
+        example: 1500
+        type: number
+      egresos:
+        example: 1500
+        type: number
+      ingresos:
+        example: 3000
+        type: number
+      local:
+        example: PASEO ARANJUEZ
+        type: string
+      local_id:
+        example: 2
+        type: integer
+    type: object
+  models.FlujoMovimiento:
+    properties:
+      categoria:
+        example: Venta
+        type: string
+      clave:
+        description: Clave unica de la fila (pago-<id> o mov-<id>)
+        example: mov-12
+        type: string
+      codigo:
+        example: PAGO-000012
+        type: string
+      detalle:
+        example: Venta a Maria Perez
+        type: string
+      estado:
+        description: PAGADO, PENDIENTE o ANULADO
+        example: PAGADO
+        type: string
+      fecha:
+        example: "2026-10-18"
+        type: string
+      local_id:
+        example: 2
+        type: integer
+      local_nombre:
+        example: PASEO ARANJUEZ
+        type: string
+      monto:
+        example: 150
+        type: number
+      naturaleza:
+        example: INGRESO
+        type: string
+      origen:
+        description: VENTA, COMPRA, GASTO_FIJO, GASTO_VARIABLE u OTRO_INGRESO
+        example: VENTA
+        type: string
+      saldo:
+        description: Saldo acumulado del rango filtrado hasta este movimiento (solo
+          cuentan los PAGADO)
+        example: 1250.5
+        type: number
+    type: object
+  models.FlujoTotales:
+    properties:
+      balance:
+        description: Balance = ingresos - egresos
+        example: 1800
+        type: number
+      egresos:
+        description: Egresos pagados (fijos, variables y compras PAGADO)
+        example: 3200
+        type: number
+      ingresos:
+        description: Ingresos cobrados (ventas y otros ingresos PAGADO)
+        example: 5000
+        type: number
+      movimientos:
+        example: 42
+        type: integer
+      por_cobrar:
+        description: Ingresos pendientes de cobro
+        example: 300
+        type: number
+      por_pagar:
+        description: Egresos pendientes de pago
+        example: 800
         type: number
     type: object
   models.GastoFijo:
@@ -6175,6 +6292,84 @@ paths:
       security:
       - BearerAuth: []
       summary: Editar categoria financiera
+      tags:
+      - Finanzas
+  /bd/finanzas/flujo:
+    get:
+      description: Libro unico de ventas (pagos), compras de inventario, gastos fijos
+        y variables y otros ingresos, ordenado del mas reciente al mas antiguo. Cada
+        fila trae el saldo acumulado del rango filtrado (solo cuentan los movimientos
+        PAGADO; los PENDIENTE y ANULADO no suman). Incluye los totales del filtro
+        y una comparativa por sucursal con los mismos filtros. Sin fechas usa el mes
+        actual. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Fecha inicial YYYY-MM-DD
+        example: "2026-10-01"
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Fecha final YYYY-MM-DD
+        example: "2026-10-31"
+        in: query
+        name: fecha_hasta
+        type: string
+      - description: Filtra por local
+        in: query
+        name: local_id
+        type: integer
+      - description: VENTA, COMPRA, GASTO_FIJO, GASTO_VARIABLE u OTRO_INGRESO
+        in: query
+        name: origen
+        type: string
+      - description: PAGADO, PENDIENTE o ANULADO
+        in: query
+        name: estado
+        type: string
+      - description: Busca en codigo, categoria, detalle o local
+        in: query
+        name: q
+        type: string
+      - description: Maximo de filas (1-1000, por defecto 300)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.flujoFinancieroResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: fechas, origen o estado invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Flujo de caja unificado
       tags:
       - Finanzas
   /bd/finanzas/gastos-fijos:

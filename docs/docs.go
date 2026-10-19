@@ -2992,6 +2992,121 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/finanzas/flujo": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Libro unico de ventas (pagos), compras de inventario, gastos fijos y variables y otros ingresos, ordenado del mas reciente al mas antiguo. Cada fila trae el saldo acumulado del rango filtrado (solo cuentan los movimientos PAGADO; los PENDIENTE y ANULADO no suman). Incluye los totales del filtro y una comparativa por sucursal con los mismos filtros. Sin fechas usa el mes actual. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Flujo de caja unificado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-10-01",
+                        "description": "Fecha inicial YYYY-MM-DD",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-10-31",
+                        "description": "Fecha final YYYY-MM-DD",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtra por local",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "VENTA, COMPRA, GASTO_FIJO, GASTO_VARIABLE u OTRO_INGRESO",
+                        "name": "origen",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "PAGADO, PENDIENTE o ANULADO",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busca en codigo, categoria, detalle o local",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximo de filas (1-1000, por defecto 300)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.flujoFinancieroResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fechas, origen o estado invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/finanzas/gastos-fijos": {
             "get": {
                 "security": [
@@ -11802,6 +11917,47 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.flujoFinancieroResponse": {
+            "type": "object",
+            "properties": {
+                "fecha_desde": {
+                    "description": "Rango consultado (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-10-01"
+                },
+                "fecha_hasta": {
+                    "type": "string",
+                    "example": "2026-10-31"
+                },
+                "movimientos": {
+                    "description": "Movimientos, mas recientes primero, con saldo acumulado",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.FlujoMovimiento"
+                    }
+                },
+                "por_local": {
+                    "description": "Comparativa por sucursal con los mismos filtros (sin acotar por local)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.FlujoLocal"
+                    }
+                },
+                "totales": {
+                    "description": "Totales del rango filtrado",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.FlujoTotales"
+                        }
+                    ]
+                },
+                "truncado": {
+                    "description": "true si hay mas movimientos que el limite pedido",
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
         "handlers.gastoFijoRequest": {
             "type": "object",
             "required": [
@@ -13659,6 +13815,122 @@ const docTemplate = `{
                 "total": {
                     "type": "number",
                     "example": 18000
+                }
+            }
+        },
+        "models.FlujoLocal": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "number",
+                    "example": 1500
+                },
+                "egresos": {
+                    "type": "number",
+                    "example": 1500
+                },
+                "ingresos": {
+                    "type": "number",
+                    "example": 3000
+                },
+                "local": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "models.FlujoMovimiento": {
+            "type": "object",
+            "properties": {
+                "categoria": {
+                    "type": "string",
+                    "example": "Venta"
+                },
+                "clave": {
+                    "description": "Clave unica de la fila (pago-\u003cid\u003e o mov-\u003cid\u003e)",
+                    "type": "string",
+                    "example": "mov-12"
+                },
+                "codigo": {
+                    "type": "string",
+                    "example": "PAGO-000012"
+                },
+                "detalle": {
+                    "type": "string",
+                    "example": "Venta a Maria Perez"
+                },
+                "estado": {
+                    "description": "PAGADO, PENDIENTE o ANULADO",
+                    "type": "string",
+                    "example": "PAGADO"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-10-18"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 150
+                },
+                "naturaleza": {
+                    "type": "string",
+                    "example": "INGRESO"
+                },
+                "origen": {
+                    "description": "VENTA, COMPRA, GASTO_FIJO, GASTO_VARIABLE u OTRO_INGRESO",
+                    "type": "string",
+                    "example": "VENTA"
+                },
+                "saldo": {
+                    "description": "Saldo acumulado del rango filtrado hasta este movimiento (solo cuentan los PAGADO)",
+                    "type": "number",
+                    "example": 1250.5
+                }
+            }
+        },
+        "models.FlujoTotales": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "description": "Balance = ingresos - egresos",
+                    "type": "number",
+                    "example": 1800
+                },
+                "egresos": {
+                    "description": "Egresos pagados (fijos, variables y compras PAGADO)",
+                    "type": "number",
+                    "example": 3200
+                },
+                "ingresos": {
+                    "description": "Ingresos cobrados (ventas y otros ingresos PAGADO)",
+                    "type": "number",
+                    "example": 5000
+                },
+                "movimientos": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "por_cobrar": {
+                    "description": "Ingresos pendientes de cobro",
+                    "type": "number",
+                    "example": 300
+                },
+                "por_pagar": {
+                    "description": "Egresos pendientes de pago",
+                    "type": "number",
+                    "example": 800
                 }
             }
         },

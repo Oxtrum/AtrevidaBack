@@ -209,6 +209,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.GET("/finanzas/categorias", h.AuthRequired, h.AdminSysRequired, h.GetCategoriasFinancieras)
 		bd.POST("/finanzas/categorias", h.AuthRequired, h.AdminSysRequired, h.PostCategoriaFinanciera)
 		bd.PATCH("/finanzas/categorias/:id", h.AuthRequired, h.AdminSysRequired, h.PatchCategoriaFinanciera)
+		bd.GET("/finanzas/flujo", h.AuthRequired, h.AdminSysRequired, h.GetFlujoFinanciero)
 		bd.GET("/finanzas/gastos-fijos", h.AuthRequired, h.AdminSysRequired, h.GetGastosFijos)
 		bd.POST("/finanzas/gastos-fijos", h.AuthRequired, h.AdminSysRequired, h.PostGastoFijo)
 		bd.GET("/finanzas/gastos-fijos/proximos", h.AuthRequired, h.AdminSysRequired, h.GetGastosFijosProximos)

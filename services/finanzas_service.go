@@ -360,3 +360,63 @@ func sign(v float64) float64 {
 	}
 	return 1
 }
+
+// FlujoCaja es el libro unificado de ventas, cobros y egresos con totales y comparativa por local.
+type FlujoCaja struct {
+	Desde       string
+	Hasta       string
+	Movimientos []models.FlujoMovimiento
+	Truncado    bool
+	Totales     models.FlujoTotales
+	PorLocal    []models.FlujoLocal
+}
+
+var (
+	flujoOrigenes = map[string]bool{"VENTA": true, "COMPRA": true, "GASTO_FIJO": true, "GASTO_VARIABLE": true, "OTRO_INGRESO": true}
+	flujoEstados  = map[string]bool{"PAGADO": true, "PENDIENTE": true, "ANULADO": true}
+)
+
+// ObtenerFlujo arma el flujo de caja del rango. Sin fechas usa el mes actual (zona horaria configurada).
+func (s *FinanzasService) ObtenerFlujo(desde, hasta *time.Time, localID *int, origen, estado, q string, limit int) (*FlujoCaja, error) {
+	origen = strings.ToUpper(strings.TrimSpace(origen))
+	estado = strings.ToUpper(strings.TrimSpace(estado))
+	if origen != "" && !flujoOrigenes[origen] {
+		return nil, errors.New("origen invalido, use VENTA, COMPRA, GASTO_FIJO, GASTO_VARIABLE u OTRO_INGRESO")
+	}
+	if estado != "" && !flujoEstados[estado] {
+		return nil, errors.New("estado invalido, use PAGADO, PENDIENTE o ANULADO")
+	}
+	cfg, err := s.config.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	hoy := cfg.Hoy()
+	d := time.Date(hoy.Year(), hoy.Month(), 1, 0, 0, 0, 0, time.UTC)
+	h := d.AddDate(0, 1, -1)
+	if desde != nil {
+		d = *desde
+	}
+	if hasta != nil {
+		h = *hasta
+	}
+	if h.Before(d) {
+		return nil, errors.New("fecha_hasta no puede ser anterior a fecha_desde")
+	}
+	f := pgsqlrepo.FiltroFlujo{Desde: d, Hasta: h, LocalID: localID, Origen: origen, Estado: estado, Q: q, Limit: limit}
+	movs, truncado, err := s.repo.ListFlujo(f)
+	if err != nil {
+		return nil, err
+	}
+	totales, err := s.repo.TotalesFlujo(f)
+	if err != nil {
+		return nil, err
+	}
+	porLocal, err := s.repo.FlujoPorLocal(f)
+	if err != nil {
+		return nil, err
+	}
+	return &FlujoCaja{
+		Desde: d.Format("2006-01-02"), Hasta: h.Format("2006-01-02"),
+		Movimientos: movs, Truncado: truncado, Totales: totales, PorLocal: porLocal,
+	}, nil
+}

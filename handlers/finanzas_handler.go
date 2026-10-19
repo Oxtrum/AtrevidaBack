@@ -100,6 +100,20 @@ type gastoFijoResponse struct {
 	GastoFijo models.GastoFijo `json:"gasto_fijo"`
 }
 
+type flujoFinancieroResponse struct {
+	// Rango consultado (YYYY-MM-DD)
+	FechaDesde string `json:"fecha_desde" example:"2026-10-01"`
+	FechaHasta string `json:"fecha_hasta" example:"2026-10-31"`
+	// Movimientos, mas recientes primero, con saldo acumulado
+	Movimientos []models.FlujoMovimiento `json:"movimientos"`
+	// true si hay mas movimientos que el limite pedido
+	Truncado bool `json:"truncado" example:"false"`
+	// Totales del rango filtrado
+	Totales models.FlujoTotales `json:"totales"`
+	// Comparativa por sucursal con los mismos filtros (sin acotar por local)
+	PorLocal []models.FlujoLocal `json:"por_local"`
+}
+
 type gastosFijosPendientesResponse struct {
 	// Egresos fijos vencidos que aun no se generaron
 	Pendientes []models.GastoFijoPendiente `json:"pendientes"`
@@ -568,6 +582,60 @@ func (h *Container) GetGastosFijosProximos(c *gin.Context) {
 		return
 	}
 	utils.Respond(c, http.StatusOK, gastosFijosProximosResponse{Proximos: proximos})
+}
+
+// GetFlujoFinanciero godoc
+// @Summary Flujo de caja unificado
+// @Description Libro unico de ventas (pagos), compras de inventario, gastos fijos y variables y otros ingresos, ordenado del mas reciente al mas antiguo. Cada fila trae el saldo acumulado del rango filtrado (solo cuentan los movimientos PAGADO; los PENDIENTE y ANULADO no suman). Incluye los totales del filtro y una comparativa por sucursal con los mismos filtros. Sin fechas usa el mes actual. Requiere token Bearer con rol admin_sys.
+// @Tags Finanzas
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param fecha_desde query string false "Fecha inicial YYYY-MM-DD" example(2026-10-01)
+// @Param fecha_hasta query string false "Fecha final YYYY-MM-DD" example(2026-10-31)
+// @Param local_id query int false "Filtra por local"
+// @Param origen query string false "VENTA, COMPRA, GASTO_FIJO, GASTO_VARIABLE u OTRO_INGRESO"
+// @Param estado query string false "PAGADO, PENDIENTE o ANULADO"
+// @Param q query string false "Busca en codigo, categoria, detalle o local"
+// @Param limit query int false "Maximo de filas (1-1000, por defecto 300)"
+// @Success 200 {object} utils.APIResponse{data=flujoFinancieroResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: fechas, origen o estado invalidos"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Security BearerAuth
+// @Router /bd/finanzas/flujo [get]
+func (h *Container) GetFlujoFinanciero(c *gin.Context) {
+	localID, err := queryInt(c, "local_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	limit := 0
+	if l, err := queryInt(c, "limit"); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	} else if l != nil {
+		limit = *l
+	}
+	desde, err := services.ParseFechaOpcional(c.Query("fecha_desde"), "fecha_desde")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	hasta, err := services.ParseFechaOpcional(c.Query("fecha_hasta"), "fecha_hasta")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	flujo, err := h.Finanzas.ObtenerFlujo(desde, hasta, localID, c.Query("origen"), c.Query("estado"), c.Query("q"), limit)
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, flujoFinancieroResponse{
+		FechaDesde: flujo.Desde, FechaHasta: flujo.Hasta, Movimientos: flujo.Movimientos,
+		Truncado: flujo.Truncado, Totales: flujo.Totales, PorLocal: flujo.PorLocal,
+	})
 }
 
 // GetGastosFijosPendientes godoc
