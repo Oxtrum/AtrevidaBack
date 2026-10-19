@@ -2807,7 +2807,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Crea una categoria de INGRESO o EGRESO. El nombre es unico por naturaleza. Requiere token Bearer con rol admin_sys.",
+                "description": "Crea una categoria de INGRESO, EGRESO o AMBOS (usable en ingresos y egresos). El nombre es unico por naturaleza. Requiere token Bearer con rol admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2896,7 +2896,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cambia el nombre o activa/desactiva la categoria (la naturaleza no cambia). Requiere token Bearer con rol admin_sys.",
+                "description": "Cambia el nombre, activa/desactiva la categoria o cambia su naturaleza (INGRESO, EGRESO o AMBOS; solo se puede acotar a INGRESO/EGRESO si no tiene movimientos del otro tipo). Requiere token Bearer con rol admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2954,7 +2954,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: id invalido, sin campos, nombre invalido",
+                        "description": "Error de validacion: id invalido, sin campos, nombre o naturaleza invalidos, categoria con movimientos de otro tipo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3466,7 +3466,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Desactiva la plantilla (activo=false). Deja de generarse; el historial ya generado se conserva. Requiere token Bearer con rol admin_sys.",
+                "description": "Desactiva la plantilla (activo=false). Deja de generarse; los egresos ya pagados se conservan y los que seguian PENDIENTES se anulan (motivo \"Gasto fijo desactivado\"). Requiere token Bearer con rol admin_sys.",
                 "produces": [
                     "application/json"
                 ],
@@ -3757,7 +3757,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Registra un egreso VARIABLE o un otro ingreso. Los egresos FIJO nacen solo de una plantilla de gasto fijo y las compras de inventario de POST /bd/compras. La categoria debe coincidir con la naturaleza. Requiere token Bearer con rol admin_sys.",
+                "description": "Registra un egreso VARIABLE o un otro ingreso. Los egresos FIJO nacen solo de una plantilla de gasto fijo y las compras de inventario de POST /bd/compras. La categoria debe ser de la misma naturaleza o de tipo AMBOS. Requiere token Bearer con rol admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -10029,6 +10029,16 @@ const docTemplate = `{
                     "type": "boolean",
                     "example": true
                 },
+                "naturaleza": {
+                    "description": "INGRESO, EGRESO o AMBOS. Solo se puede acotar a INGRESO/EGRESO si no tiene movimientos del otro tipo",
+                    "type": "string",
+                    "enum": [
+                        "INGRESO",
+                        "EGRESO",
+                        "AMBOS"
+                    ],
+                    "example": "AMBOS"
+                },
                 "nombre": {
                     "description": "Nuevo nombre",
                     "type": "string",
@@ -11235,8 +11245,13 @@ const docTemplate = `{
             ],
             "properties": {
                 "naturaleza": {
-                    "description": "INGRESO o EGRESO",
+                    "description": "INGRESO, EGRESO o AMBOS (sirve tanto para ingresos como para egresos)",
                     "type": "string",
+                    "enum": [
+                        "INGRESO",
+                        "EGRESO",
+                        "AMBOS"
+                    ],
                     "example": "EGRESO"
                 },
                 "nombre": {
@@ -11535,7 +11550,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "categoria_id": {
-                    "description": "Categoria financiera (debe coincidir con la naturaleza)",
+                    "description": "Categoria financiera (debe ser de la misma naturaleza o de tipo AMBOS)",
                     "type": "integer",
                     "example": 6
                 },

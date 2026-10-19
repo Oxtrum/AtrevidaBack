@@ -58,14 +58,19 @@ func (s *FinanzasService) CrearCategoria(nombre, naturaleza string) (int, error)
 	if nombre == "" || len(nombre) > 100 {
 		return 0, errors.New("nombre es requerido y no puede superar 100 caracteres")
 	}
-	if naturaleza != "INGRESO" && naturaleza != "EGRESO" {
-		return 0, errors.New("naturaleza invalida, valores permitidos: INGRESO, EGRESO")
+	if !naturalezaCategoriaValida(naturaleza) {
+		return 0, errors.New("naturaleza invalida, valores permitidos: INGRESO, EGRESO, AMBOS")
 	}
 	return s.repo.CreateCategoria(nombre, naturaleza)
 }
 
-func (s *FinanzasService) ActualizarCategoria(id int, nombre *string, activo *bool) error {
-	if nombre == nil && activo == nil {
+// naturalezaCategoriaValida: una categoria puede ser de INGRESO, de EGRESO o de AMBOS.
+func naturalezaCategoriaValida(n string) bool {
+	return n == "INGRESO" || n == "EGRESO" || n == "AMBOS"
+}
+
+func (s *FinanzasService) ActualizarCategoria(id int, nombre *string, activo *bool, naturaleza *string) error {
+	if nombre == nil && activo == nil && naturaleza == nil {
 		return errors.New("no se enviaron campos para actualizar")
 	}
 	if nombre != nil {
@@ -75,7 +80,14 @@ func (s *FinanzasService) ActualizarCategoria(id int, nombre *string, activo *bo
 		}
 		nombre = &n
 	}
-	return s.repo.UpdateCategoria(id, nombre, activo)
+	if naturaleza != nil {
+		n := strings.ToUpper(strings.TrimSpace(*naturaleza))
+		if !naturalezaCategoriaValida(n) {
+			return errors.New("naturaleza invalida, valores permitidos: INGRESO, EGRESO, AMBOS")
+		}
+		naturaleza = &n
+	}
+	return s.repo.UpdateCategoria(id, nombre, activo, naturaleza)
 }
 
 // ─── Movimientos ──────────────────────────────────────────────────────────────
@@ -109,7 +121,7 @@ type MovimientoFinancieroInput struct {
 	UsuarioNombre string
 }
 
-// categoriaCompatible valida que la categoria exista, este activa y coincida con la naturaleza.
+// categoriaCompatible valida que la categoria exista, este activa y sirva para la naturaleza (las de tipo AMBOS sirven para ambas).
 func (s *FinanzasService) categoriaCompatible(categoriaID int, naturaleza string) error {
 	cat, err := s.repo.GetCategoria(categoriaID)
 	if err != nil {
@@ -118,7 +130,7 @@ func (s *FinanzasService) categoriaCompatible(categoriaID int, naturaleza string
 	if !cat.Activo {
 		return errors.New("la categoria esta inactiva")
 	}
-	if cat.Naturaleza != naturaleza {
+	if cat.Naturaleza != "AMBOS" && cat.Naturaleza != naturaleza {
 		return fmt.Errorf("la categoria %q es de tipo %s y no puede usarse para un %s", cat.Nombre, cat.Naturaleza, naturaleza)
 	}
 	return nil

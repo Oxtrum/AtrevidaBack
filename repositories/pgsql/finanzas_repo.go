@@ -45,10 +45,23 @@ func (r *FinanzasRepo) CreateCategoria(nombre, naturaleza string) (int, error) {
 	return id, nil
 }
 
-func (r *FinanzasRepo) UpdateCategoria(id int, nombre *string, activo *bool) error {
+func (r *FinanzasRepo) UpdateCategoria(id int, nombre *string, activo *bool, naturaleza *string) error {
+	if naturaleza != nil && *naturaleza != "AMBOS" {
+		// Solo se puede acotar a INGRESO/EGRESO si no hay movimientos de la otra naturaleza.
+		var enConflicto int
+		if err := r.db.Get(&enConflicto,
+			`SELECT COUNT(*) FROM movimientos_financieros WHERE categoria_id = $1 AND naturaleza <> $2`,
+			id, *naturaleza); err != nil {
+			return fmt.Errorf("error al validar la naturaleza de la categoria: %w", err)
+		}
+		if enConflicto > 0 {
+			return errors.New("la categoria ya tiene movimientos de otro tipo, solo puede cambiarse a AMBOS")
+		}
+	}
 	res, err := r.db.Exec(`
-		UPDATE categorias_financieras SET nombre = COALESCE($1, nombre), activo = COALESCE($2, activo)
-		WHERE id = $3`, nombre, activo, id)
+		UPDATE categorias_financieras SET nombre = COALESCE($1, nombre), activo = COALESCE($2, activo),
+			naturaleza = COALESCE($3, naturaleza)
+		WHERE id = $4`, nombre, activo, naturaleza, id)
 	if err != nil {
 		return traducirDuplicado(err, "ya existe una categoria financiera con ese nombre")
 	}
@@ -328,8 +341,16 @@ func (r *FinanzasRepo) UpdateGastoFijo(id int, in GastoFijoInput) error {
 	return nil
 }
 
+// DesactivarGastoFijo da de baja la plantilla y anula los egresos que generó y siguen PENDIENTES (nadie los
+// pagó, así que dejan de cobrarse). Los ya PAGADOS se conservan como historial.
 func (r *FinanzasRepo) DesactivarGastoFijo(id int) error {
-	res, err := r.db.Exec(
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("error al desactivar gasto fijo: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	res, err := tx.Exec(
 		`UPDATE gastos_fijos SET activo = FALSE, fecha_modificacion = NOW() WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("error al desactivar gasto fijo: %w", err)
@@ -341,7 +362,13 @@ func (r *FinanzasRepo) DesactivarGastoFijo(id int) error {
 	if n == 0 {
 		return repository.ErrGastoFijoNoEnc
 	}
-	return nil
+	if _, err := tx.Exec(`
+		UPDATE movimientos_financieros
+		SET estado = 'ANULADO', motivo_anulacion = 'Gasto fijo desactivado', fecha_modificacion = NOW()
+		WHERE gasto_fijo_id = $1 AND estado = 'PENDIENTE'`, id); err != nil {
+		return fmt.Errorf("error al anular los egresos pendientes del gasto fijo: %w", err)
+	}
+	return tx.Commit()
 }
 
 // UltimoPeriodoGenerado devuelve el primer dia del ultimo mes generado, o nil si no hay.

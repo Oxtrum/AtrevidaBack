@@ -20,8 +20,8 @@ type categoriasFinancierasResponse struct {
 type crearCategoriaFinancieraRequest struct {
 	// Nombre de la categoria
 	Nombre string `json:"nombre" binding:"required" example:"Alquiler"`
-	// INGRESO o EGRESO
-	Naturaleza string `json:"naturaleza" binding:"required" example:"EGRESO"`
+	// INGRESO, EGRESO o AMBOS (sirve tanto para ingresos como para egresos)
+	Naturaleza string `json:"naturaleza" binding:"required" example:"EGRESO" enums:"INGRESO,EGRESO,AMBOS"`
 }
 
 type actualizarCategoriaFinancieraRequest struct {
@@ -29,6 +29,8 @@ type actualizarCategoriaFinancieraRequest struct {
 	Nombre *string `json:"nombre" example:"Alquiler de local"`
 	// Activa o inactiva
 	Activo *bool `json:"activo" example:"true"`
+	// INGRESO, EGRESO o AMBOS. Solo se puede acotar a INGRESO/EGRESO si no tiene movimientos del otro tipo
+	Naturaleza *string `json:"naturaleza" example:"AMBOS" enums:"INGRESO,EGRESO,AMBOS"`
 }
 
 type movimientosFinancierosResponse struct {
@@ -46,7 +48,7 @@ type crearMovimientoFinancieroRequest struct {
 	Naturaleza string `json:"naturaleza" binding:"required" example:"EGRESO"`
 	// Para egresos: solo VARIABLE (los FIJO se generan desde un gasto fijo)
 	Clase string `json:"clase" example:"VARIABLE"`
-	// Categoria financiera (debe coincidir con la naturaleza)
+	// Categoria financiera (debe ser de la misma naturaleza o de tipo AMBOS)
 	CategoriaID int `json:"categoria_id" binding:"required" example:"6"`
 	// Local; null = gasto general de la empresa
 	LocalID *int `json:"local_id" example:"1"`
@@ -206,7 +208,7 @@ func (h *Container) GetCategoriasFinancieras(c *gin.Context) {
 
 // PostCategoriaFinanciera godoc
 // @Summary Crear categoria financiera
-// @Description Crea una categoria de INGRESO o EGRESO. El nombre es unico por naturaleza. Requiere token Bearer con rol admin_sys.
+// @Description Crea una categoria de INGRESO, EGRESO o AMBOS (usable en ingresos y egresos). El nombre es unico por naturaleza. Requiere token Bearer con rol admin_sys.
 // @Tags Finanzas
 // @Accept json
 // @Produce json
@@ -236,7 +238,7 @@ func (h *Container) PostCategoriaFinanciera(c *gin.Context) {
 
 // PatchCategoriaFinanciera godoc
 // @Summary Editar categoria financiera
-// @Description Cambia el nombre o activa/desactiva la categoria (la naturaleza no cambia). Requiere token Bearer con rol admin_sys.
+// @Description Cambia el nombre, activa/desactiva la categoria o cambia su naturaleza (INGRESO, EGRESO o AMBOS; solo se puede acotar a INGRESO/EGRESO si no tiene movimientos del otro tipo). Requiere token Bearer con rol admin_sys.
 // @Tags Finanzas
 // @Accept json
 // @Produce json
@@ -244,7 +246,7 @@ func (h *Container) PostCategoriaFinanciera(c *gin.Context) {
 // @Param id path int true "ID de la categoria" example(1)
 // @Param payload body actualizarCategoriaFinancieraRequest true "Campos a actualizar"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, sin campos, nombre invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, sin campos, nombre o naturaleza invalidos, categoria con movimientos de otro tipo"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Categoria no encontrada"
@@ -263,7 +265,7 @@ func (h *Container) PatchCategoriaFinanciera(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := h.Finanzas.ActualizarCategoria(id, req.Nombre, req.Activo); err != nil {
+	if err := h.Finanzas.ActualizarCategoria(id, req.Nombre, req.Activo, req.Naturaleza); err != nil {
 		respondTrastiendaError(c, err)
 		return
 	}
@@ -327,7 +329,7 @@ func (h *Container) GetMovimientosFinancieros(c *gin.Context) {
 
 // PostMovimientoFinanciero godoc
 // @Summary Registrar egreso variable u otro ingreso
-// @Description Registra un egreso VARIABLE o un otro ingreso. Los egresos FIJO nacen solo de una plantilla de gasto fijo y las compras de inventario de POST /bd/compras. La categoria debe coincidir con la naturaleza. Requiere token Bearer con rol admin_sys.
+// @Description Registra un egreso VARIABLE o un otro ingreso. Los egresos FIJO nacen solo de una plantilla de gasto fijo y las compras de inventario de POST /bd/compras. La categoria debe ser de la misma naturaleza o de tipo AMBOS. Requiere token Bearer con rol admin_sys.
 // @Tags Finanzas
 // @Accept json
 // @Produce json
@@ -537,7 +539,7 @@ func (h *Container) PatchGastoFijo(c *gin.Context) {
 
 // DeleteGastoFijo godoc
 // @Summary Desactivar gasto fijo
-// @Description Desactiva la plantilla (activo=false). Deja de generarse; el historial ya generado se conserva. Requiere token Bearer con rol admin_sys.
+// @Description Desactiva la plantilla (activo=false). Deja de generarse; los egresos ya pagados se conservan y los que seguian PENDIENTES se anulan (motivo "Gasto fijo desactivado"). Requiere token Bearer con rol admin_sys.
 // @Tags Finanzas
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
