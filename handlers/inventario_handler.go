@@ -33,7 +33,7 @@ type crearInventarioItemRequest struct {
 	Descripcion *string `json:"descripcion" example:"Gel para radiofrecuencia"`
 	// ID de la categoria de inventario
 	CategoriaID *int `json:"categoria_id" example:"1"`
-	// Unidad de medida: UNIDAD, ML, GR o CAJA (default UNIDAD)
+	// Unidad de medida: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE o CAJA (default UNIDAD)
 	UnidadMedida string `json:"unidad_medida" example:"ML"`
 	// Ultimo costo de compra (se actualiza solo con cada compra)
 	CostoReferencia *float64 `json:"costo_referencia" example:"0.04"`
@@ -48,7 +48,7 @@ type actualizarInventarioItemRequest struct {
 	Descripcion *string `json:"descripcion" example:"Gel para radiofrecuencia"`
 	// Categoria (null limpia)
 	CategoriaID *int `json:"categoria_id" example:"1"`
-	// Unidad de medida: UNIDAD, ML, GR o CAJA
+	// Unidad de medida: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE o CAJA
 	UnidadMedida *string `json:"unidad_medida" example:"ML"`
 	// Costo de referencia (null limpia)
 	CostoReferencia *float64 `json:"costo_referencia" example:"0.04"`
@@ -748,7 +748,7 @@ func (h *Container) GetServicioInsumos(c *gin.Context) {
 
 // PutServicioInsumos godoc
 // @Summary Reemplazar insumos de un servicio
-// @Description Reemplaza la lista completa de insumos del servicio (patron de PUT /bd/combos/{id}/servicios). Una lista vacia quita todos. No se permiten items repetidos ni cantidades no positivas. Requiere token Bearer con rol admin_sys.
+// @Description Reemplaza la lista completa de insumos del servicio (patron de PUT /bd/combos/{id}/servicios). Una lista vacia quita todos. No se permiten items repetidos ni cantidades no positivas. Requiere token Bearer (mismo acceso que editar el servicio).
 // @Tags Inventario
 // @Accept json
 // @Produce json

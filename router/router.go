@@ -193,7 +193,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.POST("/inventario/categorias", h.AuthRequired, h.AdminSysRequired, h.PostInventarioCategoria)
 		bd.PATCH("/inventario/categorias/:id", h.AuthRequired, h.AdminSysRequired, h.PatchInventarioCategoria)
 		bd.GET("/servicios/:id/insumos", h.AuthRequired, h.GetServicioInsumos)
-		bd.PUT("/servicios/:id/insumos", h.AuthRequired, h.AdminSysRequired, h.PutServicioInsumos)
+		bd.PUT("/servicios/:id/insumos", h.AuthRequired, h.PutServicioInsumos)
 
 		// Trastienda: compras
 		bd.GET("/compras", h.AuthRequired, h.GerenciaRequired, h.GetCompras)
