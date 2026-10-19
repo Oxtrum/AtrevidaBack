@@ -520,6 +520,8 @@ type ReservaSimple struct {
 	Notificado    bool    `json:"notificado" example:"false"`
 	// AlertaInventario avisa que faltaba stock de insumos al agendar (solo informativo).
 	AlertaInventario bool   `json:"alerta_inventario" example:"false"`
+	// EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay un pago), CUBIERTA_PAQUETE (la paga un paquete) o POR_COBRAR.
+	EstadoCobro *string `json:"estado_cobro,omitempty" example:"POR_COBRAR"`
 	CreadoEn      string  `json:"creado_en" example:"2026-05-23T15:04:05Z"`
 	ActualizadoEn string  `json:"actualizado_en" example:"2026-05-23T16:04:05Z"`
 }
@@ -567,6 +569,8 @@ type FiltroReservasSimple struct {
 	Busqueda           string
 	Estado             string
 	ExcluirEstado      string
+	// EstadoCobro filtra reservas completadas: COBRADA, CUBIERTA_PAQUETE o POR_COBRAR.
+	EstadoCobro        string
 	Tipo               string
 	VigenteFecha       string
 	VigenteHora        string
@@ -646,6 +650,7 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 		Busqueda:           f.Busqueda,
 		Estado:             f.Estado,
 		ExcluirEstado:      f.ExcluirEstado,
+		EstadoCobro:        f.EstadoCobro,
 		SoloActivas:        true,
 		PageLimit:          f.PageLimit, CursorSet: f.CursorSet, CursorLocal: f.CursorLocal,
 		CursorFecha: f.CursorFecha, CursorHora: f.CursorHora, CursorID: f.CursorID,
@@ -763,6 +768,7 @@ func reservaSimpleDesdePG(rv models.ReservaPGCompleta) ReservaSimple {
 		Notas:              rv.Notas,
 		Notificado:         rv.Notificado,
 		AlertaInventario:   rv.AlertaInventario,
+		EstadoCobro:        rv.EstadoCobro,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
 		ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
 	}
@@ -801,6 +807,7 @@ func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple
 		Notas:              rv.Notas,
 		Notificado:         rv.Notificado,
 		AlertaInventario:   rv.AlertaInventario,
+		EstadoCobro:        rv.EstadoCobro,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
 		ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
 	}, nil

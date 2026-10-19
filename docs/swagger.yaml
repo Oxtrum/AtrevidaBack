@@ -1248,6 +1248,11 @@ definitions:
           se usa el username del token.
         example: Juan Perez
         type: string
+      reserva_id:
+        description: ID opcional de la reserva que se cobra con este pago; una reserva
+          admite un solo cobro activo.
+        example: 44
+        type: integer
       subtotal:
         description: Subtotal opcional; si se envia debe coincidir con el detalle
           calculado.
@@ -4251,6 +4256,11 @@ definitions:
         type: string
       estado:
         example: AGENDADO
+        type: string
+      estado_cobro:
+        description: 'EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay
+          un pago), CUBIERTA_PAQUETE (la paga un paquete) o POR_COBRAR.'
+        example: POR_COBRAR
         type: string
       fecha:
         example: "2026-05-23"
@@ -9777,6 +9787,16 @@ paths:
         example: COMPLETADO
         in: query
         name: excluir_estado
+        type: string
+      - description: 'Filtra reservas completadas segun su cobro: COBRADA, CUBIERTA_PAQUETE
+          o POR_COBRAR'
+        enum:
+        - COBRADA
+        - CUBIERTA_PAQUETE
+        - POR_COBRAR
+        example: POR_COBRAR
+        in: query
+        name: estado_cobro
         type: string
       - description: Tipo de reserva
         enum:

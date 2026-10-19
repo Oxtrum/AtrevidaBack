@@ -26,6 +26,13 @@ func NewReservasRepo(db *sqlx.DB) *ReservasRepo {
 }
 
 // GET
+// estadoCobroSQL calcula el estado de cobro de una reserva COMPLETADA (alias r): COBRADA si tiene un
+// pago PAGADO ligado, CUBIERTA_PAQUETE si la paga un paquete y POR_COBRAR en otro caso. Nulo si no esta completada.
+const estadoCobroSQL = `(CASE WHEN r.estado <> 'COMPLETADO' THEN NULL
+	WHEN EXISTS (SELECT 1 FROM pagos pg WHERE pg.reserva_id = r.id AND pg.activo = TRUE AND pg.estado = 'PAGADO') THEN 'COBRADA'
+	WHEN r.plan_id IS NOT NULL THEN 'CUBIERTA_PAQUETE'
+	ELSE 'POR_COBRAR' END)`
+
 func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.ReservaPGCompleta, error) {
 	conditions, args := reservaConditions(f)
 	idx := len(args) + 1
@@ -52,6 +59,7 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
+			" + estadoCobroSQL + " AS estado_cobro,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
@@ -158,6 +166,9 @@ func reservaConditions(f repository.FiltroReservasPG) ([]string, []interface{}) 
 	if f.PlanID != nil {
 		add("r.plan_id = $%d", *f.PlanID)
 	}
+	if f.EstadoCobro != "" {
+		add(estadoCobroSQL+" = $%d", f.EstadoCobro)
+	}
 	if f.SoloActivas {
 		conditions = append(conditions, "r.activo = TRUE")
 	}
@@ -209,6 +220,7 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
+			` + estadoCobroSQL + ` AS estado_cobro,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE r.id = $1

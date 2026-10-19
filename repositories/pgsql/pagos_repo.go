@@ -168,15 +168,31 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 	}
 	defer tx.Rollback()
 
+	if input.ReservaID != nil {
+		var existe, ya int
+		if err := tx.Get(&existe, `SELECT COUNT(*) FROM reservas WHERE id = $1 AND activo = TRUE`, *input.ReservaID); err != nil {
+			return "", fmt.Errorf("error al verificar la reserva: %w", err)
+		}
+		if existe == 0 {
+			return "", errors.New("reserva no encontrada")
+		}
+		if err := tx.Get(&ya, `SELECT COUNT(*) FROM pagos WHERE reserva_id = $1 AND activo = TRUE`, *input.ReservaID); err != nil {
+			return "", fmt.Errorf("error al verificar cobros de la reserva: %w", err)
+		}
+		if ya > 0 {
+			return "", errors.New("la reserva ya tiene un cobro registrado")
+		}
+	}
+
 	var pagoID int
 	var codigoPago string
 	err = tx.QueryRowx(`
 		INSERT INTO pagos (
 			local_id, local_nombre, cliente_id, cliente_nit, cliente_nombre,
 			subtotal, descuento, total_final, tipo_pago, estado, activo,
-			id_cajero, nombre_cajero, username_cajero
+			id_cajero, nombre_cajero, username_cajero, reserva_id
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 		RETURNING id, codigo_pago
 	`,
 		input.LocalID,
@@ -193,6 +209,7 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 		input.Cajero.ID,
 		input.Cajero.Nombre,
 		input.Cajero.Username,
+		input.ReservaID,
 	).Scan(&pagoID, &codigoPago)
 	if err != nil {
 		return "", pagoInsertError(err)

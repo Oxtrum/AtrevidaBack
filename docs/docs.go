@@ -8186,6 +8186,18 @@ const docTemplate = `{
                     },
                     {
                         "enum": [
+                            "COBRADA",
+                            "CUBIERTA_PAQUETE",
+                            "POR_COBRAR"
+                        ],
+                        "type": "string",
+                        "example": "POR_COBRAR",
+                        "description": "Filtra reservas completadas segun su cobro: COBRADA, CUBIERTA_PAQUETE o POR_COBRAR",
+                        "name": "estado_cobro",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
                             "mesa",
                             "bicicleta"
                         ],
@@ -11628,6 +11640,11 @@ const docTemplate = `{
                     "description": "Nombre completo del cajero actual; si se omite o viene vacio se usa el username del token.",
                     "type": "string",
                     "example": "Juan Perez"
+                },
+                "reserva_id": {
+                    "description": "ID opcional de la reserva que se cobra con este pago; una reserva admite un solo cobro activo.",
+                    "type": "integer",
+                    "example": 44
                 },
                 "subtotal": {
                     "description": "Subtotal opcional; si se envia debe coincidir con el detalle calculado.",
@@ -15694,6 +15711,11 @@ const docTemplate = `{
                 "estado": {
                     "type": "string",
                     "example": "AGENDADO"
+                },
+                "estado_cobro": {
+                    "description": "EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay un pago), CUBIERTA_PAQUETE (la paga un paquete) o POR_COBRAR.",
+                    "type": "string",
+                    "example": "POR_COBRAR"
                 },
                 "fecha": {
                     "type": "string",

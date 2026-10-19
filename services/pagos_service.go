@@ -131,6 +131,8 @@ type CrearPagoInput struct {
 	TipoPago      string
 	Estado        string
 	Activo        bool
+	// ReservaID es la reserva que se cobra; nil en ventas de mostrador.
+	ReservaID *int
 	Cajero        CajeroAuditoriaInput
 	Detalle       []CrearDetallePagoInput
 }
@@ -207,6 +209,7 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 		TipoPago:      tipoPago,
 		Estado:        estado,
 		Activo:        input.Activo,
+		ReservaID:     input.ReservaID,
 		Cajero:        cajero,
 		Detalle:       detalle,
 	})

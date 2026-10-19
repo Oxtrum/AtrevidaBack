@@ -46,6 +46,8 @@ type CrearPagoInput struct {
 	TipoPago      string
 	Estado        string
 	Activo        bool
+	// ReservaID es la reserva que se cobra; nil en ventas de mostrador.
+	ReservaID *int
 	Cajero        CajeroAuditoriaInput
 	Detalle       []CrearDetallePagoInput
 }

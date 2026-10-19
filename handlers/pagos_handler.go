@@ -50,6 +50,8 @@ type crearPagoRequest struct {
 	Estado *string `json:"estado" example:"PENDIENTE"`
 	// Estado activo inicial del pago.
 	Activo *bool `json:"activo" example:"true"`
+	// ID opcional de la reserva que se cobra con este pago; una reserva admite un solo cobro activo.
+	ReservaID *int `json:"reserva_id,omitempty" example:"44"`
 	// Nombre completo del cajero actual; si se omite o viene vacio se usa el username del token.
 	Nombre *string `json:"nombre,omitempty" example:"Juan Perez"`
 	// Detalle de servicios cobrados.
@@ -349,6 +351,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 		TipoPago:      stringValueRequired(req.TipoPago),
 		Estado:        stringValueRequired(req.Estado),
 		Activo:        boolValueRequired(req.Activo),
+		ReservaID:     req.ReservaID,
 		Cajero:        cajero,
 		Detalle:       detalle,
 	})
@@ -622,7 +625,7 @@ func statusPagoError(err error) int {
 		strings.Contains(lower, "debe enviar"),
 		strings.Contains(lower, "no puede"):
 		return http.StatusBadRequest
-	case strings.Contains(lower, "ya existe"):
+	case strings.Contains(lower, "ya existe"), strings.Contains(lower, "ya tiene un cobro"):
 		return http.StatusConflict
 	default:
 		return http.StatusInternalServerError
