@@ -11,7 +11,10 @@ import (
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 )
 
-var unidadesMedida = map[string]bool{"UNIDAD": true, "ML": true, "GR": true, "CAJA": true}
+var unidadesMedida = map[string]bool{
+	"UNIDAD": true, "ML": true, "GR": true, "LT": true, "KG": true,
+	"FRASCO": true, "PAQUETE": true, "SOBRE": true, "CAJA": true,
+}
 
 type InventarioService struct {
 	repo   *pgsqlrepo.InventarioRepo
@@ -69,7 +72,7 @@ func validarItem(nombre string, unidad string, costo *float64, minimo float64) e
 		return errors.New("nombre no puede superar 200 caracteres")
 	}
 	if !unidadesMedida[unidad] {
-		return errors.New("unidad_medida invalida, valores permitidos: UNIDAD, ML, GR, CAJA")
+		return errors.New("unidad_medida invalida, valores permitidos: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE, CAJA")
 	}
 	if costo != nil && *costo < 0 {
 		return errors.New("costo_referencia no puede ser negativo")
@@ -107,7 +110,7 @@ func (s *InventarioService) ActualizarItem(id int, p pgsqlrepo.ItemPatch) error 
 	if p.UnidadMedida != nil {
 		u := strings.ToUpper(strings.TrimSpace(*p.UnidadMedida))
 		if !unidadesMedida[u] {
-			return errors.New("unidad_medida invalida, valores permitidos: UNIDAD, ML, GR, CAJA")
+			return errors.New("unidad_medida invalida, valores permitidos: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE, CAJA")
 		}
 		p.UnidadMedida = &u
 	}
@@ -269,7 +272,11 @@ func (s *InventarioService) Alertas(localID *int) (*models.AlertasInventario, er
 			reservas[i].Advertencias = warns
 		}
 	}
-	return &models.AlertasInventario{ItemsBajoStock: items, ReservasConAlerta: reservas}, nil
+	reposicion, err := s.repo.ReposicionPorLocal(localID)
+	if err != nil {
+		return nil, err
+	}
+	return &models.AlertasInventario{ItemsBajoStock: items, ReservasConAlerta: reservas, Reposicion: reposicion}, nil
 }
 
 func (s *InventarioService) advertenciasReserva(reservaID int, comprometido bool) ([]models.AdvertenciaInventario, error) {

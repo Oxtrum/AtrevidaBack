@@ -437,6 +437,51 @@ func (r *InventarioRepo) CountMovimientos(f repository.FiltroMovimientosInventar
 	return n, nil
 }
 
+// ReposicionPorLocal suma la demanda de insumos de las reservas AGENDADAS futuras por (item, local)
+// y devuelve las que superan el stock actual. Con localID filtra a un local.
+func (r *InventarioRepo) ReposicionPorLocal(localID *int) ([]models.ReposicionInsumo, error) {
+	args := []interface{}{}
+	localCond := ""
+	if localID != nil {
+		args = append(args, *localID)
+		localCond = "AND r.local_id = $1"
+	}
+	out := []models.ReposicionInsumo{}
+	err := r.db.Select(&out, `
+		WITH demanda AS (
+			SELECT r.local_id, si.item_id,
+			       SUM(si.cantidad_por_sesion) AS comprometido,
+			       COUNT(*) AS reservas,
+			       MIN(r.fecha) AS proxima
+			FROM reservas r
+			JOIN LATERAL (
+				SELECT s.id FROM servicios s
+				WHERE s.activo = TRUE
+				  AND LOWER(BTRIM(s.nombre)) = LOWER(BTRIM(COALESCE(NULLIF(r.servicio_confirmado, ''), r.servicio_nombre, r.servicio_solicitado)))
+				ORDER BY EXISTS (SELECT 1 FROM servicio_insumos x WHERE x.servicio_id = s.id) DESC, s.id
+				LIMIT 1
+			) srv ON TRUE
+			JOIN servicio_insumos si ON si.servicio_id = srv.id
+			WHERE r.activo = TRUE AND r.estado = 'AGENDADO' AND r.fecha >= CURRENT_DATE AND r.local_id IS NOT NULL `+localCond+`
+			GROUP BY r.local_id, si.item_id
+		)
+		SELECT d.item_id, i.nombre AS item_nombre, i.unidad_medida, d.local_id, l.nombre AS local_nombre,
+		       COALESCE(s.cantidad, 0) AS stock, d.comprometido, d.reservas, TO_CHAR(d.proxima, 'YYYY-MM-DD') AS proxima
+		FROM demanda d
+		JOIN inventario_items i ON i.id = d.item_id AND i.activo = TRUE
+		JOIN locales l ON l.id = d.local_id
+		LEFT JOIN inventario_stock s ON s.item_id = d.item_id AND s.local_id = d.local_id
+		WHERE COALESCE(s.cantidad, 0) < d.comprometido
+		ORDER BY l.nombre, i.nombre`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error al calcular reposicion de insumos: %w", err)
+	}
+	for i := range out {
+		out[i].Faltante = redondear3(out[i].Comprometido - out[i].Stock)
+	}
+	return out, nil
+}
+
 // ─── Insumos por servicio ─────────────────────────────────────────────────────
 
 func (r *InventarioRepo) ServicioExiste(id int) (bool, error) {

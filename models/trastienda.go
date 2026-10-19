@@ -94,6 +94,26 @@ type AlertaReservaInventario struct {
 type AlertasInventario struct {
 	ItemsBajoStock    []InventarioItem          `json:"items_bajo_stock"`
 	ReservasConAlerta []AlertaReservaInventario `json:"reservas_con_alerta"`
+	// Reposicion suma lo que necesitan todas las reservas agendadas futuras y lo compara con el stock.
+	Reposicion []ReposicionInsumo `json:"reposicion"`
+}
+
+// ReposicionInsumo es la demanda total de un insumo en un local frente a su stock:
+// responde cuanto hay que reponer para cumplir todas las reservas agendadas.
+type ReposicionInsumo struct {
+	ItemID      int     `db:"item_id" json:"item_id"`
+	ItemNombre  string  `db:"item_nombre" json:"item_nombre" example:"Gel conductor"`
+	Unidad      string  `db:"unidad_medida" json:"unidad" example:"ML"`
+	LocalID     int     `db:"local_id" json:"local_id"`
+	LocalNombre string  `db:"local_nombre" json:"local_nombre"`
+	Stock       float64 `db:"stock" json:"stock" example:"30"`
+	// Comprometido es la suma de insumos de las reservas AGENDADAS desde hoy.
+	Comprometido float64 `db:"comprometido" json:"comprometido" example:"90"`
+	// Faltante = Comprometido - Stock (cuanto comprar para cubrir todas las reservas).
+	Faltante float64 `db:"-" json:"faltante" example:"60"`
+	Reservas int     `db:"reservas" json:"reservas" example:"3"`
+	// Proxima es la fecha de la primera reserva que lo consume (YYYY-MM-DD).
+	Proxima string `db:"proxima" json:"proxima" example:"2026-10-19"`
 }
 
 // ─── Compras ──────────────────────────────────────────────────────────────────
