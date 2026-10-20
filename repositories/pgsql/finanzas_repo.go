@@ -89,7 +89,7 @@ func (r *FinanzasRepo) GetCategoria(id int) (*models.CategoriaFinanciera, error)
 
 const movimientoSelect = `
 	SELECT m.id, m.codigo, m.naturaleza, m.clase, m.categoria_id, c.nombre AS categoria_nombre,
-	       m.gasto_fijo_id, m.periodo::text AS periodo, m.compra_id, m.local_id, m.local_nombre,
+	       m.gasto_fijo_id, m.periodo::text AS periodo, m.compra_id, m.planilla_id, m.local_id, m.local_nombre,
 	       m.fecha::text AS fecha, m.monto, m.descripcion, m.proveedor, m.metodo_pago, m.estado,
 	       m.motivo_anulacion, m.nombre_usuario
 	FROM movimientos_financieros m
@@ -241,7 +241,13 @@ func (r *FinanzasRepo) UpdateMovimiento(id int, p MovimientoPatch) error {
 }
 
 func (r *FinanzasRepo) CambiarEstadoMovimiento(id int, estado string, motivo *string) error {
-	res, err := r.db.Exec(`
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("error al cambiar estado del movimiento: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	res, err := tx.Exec(`
 		UPDATE movimientos_financieros
 		SET estado = $1, motivo_anulacion = CASE WHEN $1 = 'ANULADO' THEN $2 ELSE motivo_anulacion END,
 		    fecha_modificacion = NOW()
@@ -256,7 +262,15 @@ func (r *FinanzasRepo) CambiarEstadoMovimiento(id int, estado string, motivo *st
 	if n == 0 {
 		return repository.ErrMovimientoFinNoEnc
 	}
-	return nil
+	// Pagar el egreso de una planilla desde Finanzas tambien paga la planilla, para que no queden desalineados.
+	if estado == "PAGADO" {
+		if _, err := tx.Exec(`
+			UPDATE planillas SET estado = 'PAGADO', fecha_modificacion = NOW()
+			WHERE estado = 'PENDIENTE' AND id = (SELECT planilla_id FROM movimientos_financieros WHERE id = $1)`, id); err != nil {
+			return fmt.Errorf("error al pagar la planilla del movimiento: %w", err)
+		}
+	}
+	return tx.Commit()
 }
 
 // ─── Gastos fijos ─────────────────────────────────────────────────────────────

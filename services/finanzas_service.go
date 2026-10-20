@@ -214,6 +214,9 @@ func (s *FinanzasService) EditarMovimiento(id int, p MovimientoPatch) error {
 	if actual.CompraID != nil {
 		return errors.New("el egreso pertenece a una compra de inventario: para corregirlo anula la compra")
 	}
+	if actual.PlanillaID != nil {
+		return errors.New("el egreso pertenece a una planilla de sueldos: gestionalo desde Recursos Humanos")
+	}
 	patch := pgsqlrepo.MovimientoPatch{
 		CategoriaID: p.CategoriaID, LocalID: p.LocalID, LocalSet: p.LocalSet,
 		DescripcionSet: p.DescripcionSet, Descripcion: trimPtr(p.Descripcion),
@@ -272,6 +275,9 @@ func (s *FinanzasService) CambiarEstado(id int, estado string, motivo *string) e
 		}
 		if actual.CompraID != nil {
 			return errors.New("el egreso pertenece a una compra de inventario: anula la compra desde Inventario")
+		}
+		if actual.PlanillaID != nil {
+			return errors.New("el egreso pertenece a una planilla de sueldos: anula la planilla desde Recursos Humanos")
 		}
 	}
 	return s.repo.CambiarEstadoMovimiento(id, estado, motivo)

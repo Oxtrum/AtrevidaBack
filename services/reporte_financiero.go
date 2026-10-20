@@ -14,6 +14,8 @@ type ReporteFinancieroService struct {
 	inventario *pgsqlrepo.InventarioRepo
 	gastos     *GastosFijosService
 	config     *ConfiguracionService
+	// Planillas, si esta asignado, genera las planillas de sueldo vencidas antes de armar el reporte.
+	Planillas interface{ GenerarHoy() (int, error) }
 }
 
 func NewReporteFinancieroService(
@@ -70,6 +72,11 @@ func (s *ReporteFinancieroService) Generar(fechaDesde, fechaHasta, local, agrupa
 	// Catch-up perezoso: el reporte es correcto aunque el job diario no haya corrido.
 	if _, err := s.gastos.GenerarHoy(); err != nil {
 		return nil, err
+	}
+	if s.Planillas != nil {
+		if _, err := s.Planillas.GenerarHoy(); err != nil {
+			return nil, err
+		}
 	}
 
 	ventas, err := s.fin.VentasPeriodo(desde, hasta, localID)

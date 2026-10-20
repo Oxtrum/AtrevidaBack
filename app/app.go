@@ -67,6 +67,8 @@ func Build() (*gin.Engine, error) {
 	configuracionService.AlCambiarDisponibilidad = func() { inventarioService.RefrescarAlertas(nil) }
 	gastosFijosService := services.NewGastosFijosService(finanzasRepo, configuracionService, finanzasService)
 	reporteFinancieroService := services.NewReporteFinancieroService(finanzasRepo, inventarioRepo, gastosFijosService, configuracionService)
+	rrhhService := services.NewRRHHService(pgsqlrepo.NewRRHHRepo(pgDB), configuracionService)
+	reporteFinancieroService.Planillas = rrhhService
 
 	// Sesiones de plan marcadas a mano descuentan insumos en la misma transaccion (RN-18).
 	planesPGRepo.ConsumoSesion = func(tx *sqlx.Tx, servicioID, localID, planMovimientoID int) error {
@@ -97,6 +99,7 @@ func Build() (*gin.Engine, error) {
 	h.Finanzas = finanzasService
 	h.GastosFijos = gastosFijosService
 	h.ReporteFinanciero = reporteFinancieroService
+	h.RRHH = rrhhService
 	h.JobSecret = config.App.Jobs.Secret
 
 	return router.Setup(h), nil

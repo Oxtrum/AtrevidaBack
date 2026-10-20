@@ -20,6 +20,10 @@ const (
 	CfgDiasAvisoGastoFijo     = "finanzas.dias_aviso_gasto_fijo"
 	CfgZonaHoraria            = "finanzas.zona_horaria"
 	CfgMoneda                 = "finanzas.moneda"
+	CfgRRHHDiaPagoDefecto     = "rrhh.dia_pago_defecto"
+	CfgRRHHAporteLaboralPct   = "rrhh.aporte_laboral_pct"
+	CfgRRHHAportePatronalPct  = "rrhh.aporte_patronal_pct"
+	CfgRRHHDiasMesFaltas      = "rrhh.dias_mes_faltas"
 )
 
 // ConfigTrastienda es la vista tipada de los parametros para uso interno.
@@ -32,6 +36,10 @@ type ConfigTrastienda struct {
 	DiasAvisoGastoFijo     int
 	ZonaHoraria            string
 	Moneda                 string
+	DiaPagoDefecto         int
+	AporteLaboralPct       float64
+	AportePatronalPct      float64
+	DiasMesFaltas          int
 }
 
 // Ubicacion devuelve la zona horaria configurada (America/La_Paz por defecto).
@@ -54,6 +62,7 @@ func configPorDefecto() ConfigTrastienda {
 		PoliticaSinStock: "ADVERTIR", DescontarEnEstado: "COMPLETADO", PermitirStockNegativo: true,
 		ConsiderarComprometido: true, EstadoGastoFijoGen: "PENDIENTE", DiasAvisoGastoFijo: 3,
 		ZonaHoraria: "America/La_Paz", Moneda: "Bs",
+		DiaPagoDefecto: 1, AporteLaboralPct: 12.71, AportePatronalPct: 16.71, DiasMesFaltas: 30,
 	}
 }
 
@@ -95,6 +104,22 @@ func (s *ConfiguracionService) Snapshot() (ConfigTrastienda, error) {
 			cfg.ZonaHoraria = row.Valor
 		case CfgMoneda:
 			cfg.Moneda = row.Valor
+		case CfgRRHHDiaPagoDefecto:
+			if n, err := strconv.Atoi(row.Valor); err == nil && n >= 1 && n <= 31 {
+				cfg.DiaPagoDefecto = n
+			}
+		case CfgRRHHAporteLaboralPct:
+			if f, err := strconv.ParseFloat(row.Valor, 64); err == nil && f >= 0 && f <= 100 {
+				cfg.AporteLaboralPct = f
+			}
+		case CfgRRHHAportePatronalPct:
+			if f, err := strconv.ParseFloat(row.Valor, 64); err == nil && f >= 0 && f <= 100 {
+				cfg.AportePatronalPct = f
+			}
+		case CfgRRHHDiasMesFaltas:
+			if n, err := strconv.Atoi(row.Valor); err == nil && n >= 1 && n <= 31 {
+				cfg.DiasMesFaltas = n
+			}
 		}
 	}
 	return cfg, nil
@@ -115,6 +140,10 @@ func (s *ConfiguracionService) Get() (map[string]interface{}, error) {
 		CfgDiasAvisoGastoFijo:     cfg.DiasAvisoGastoFijo,
 		CfgZonaHoraria:            cfg.ZonaHoraria,
 		CfgMoneda:                 cfg.Moneda,
+		CfgRRHHDiaPagoDefecto:     cfg.DiaPagoDefecto,
+		CfgRRHHAporteLaboralPct:   cfg.AporteLaboralPct,
+		CfgRRHHAportePatronalPct:  cfg.AportePatronalPct,
+		CfgRRHHDiasMesFaltas:      cfg.DiasMesFaltas,
 	}, nil
 }
 
@@ -170,6 +199,18 @@ func (s *ConfiguracionService) Update(patch map[string]interface{}) (map[string]
 				return nil, fmt.Errorf("%s debe ser un entero entre 0 y 31", clave)
 			}
 			valores[clave] = strconv.Itoa(int(f))
+		case CfgRRHHDiaPagoDefecto, CfgRRHHDiasMesFaltas:
+			f, ok := v.(float64)
+			if !ok || f != float64(int(f)) || f < 1 || f > 31 {
+				return nil, fmt.Errorf("%s debe ser un entero entre 1 y 31", clave)
+			}
+			valores[clave] = strconv.Itoa(int(f))
+		case CfgRRHHAporteLaboralPct, CfgRRHHAportePatronalPct:
+			f, ok := v.(float64)
+			if !ok || f < 0 || f > 100 {
+				return nil, fmt.Errorf("%s debe ser un porcentaje entre 0 y 100", clave)
+			}
+			valores[clave] = strconv.FormatFloat(f, 'f', -1, 64)
 		case CfgZonaHoraria:
 			z, ok := v.(string)
 			if !ok {
