@@ -243,7 +243,12 @@ func (s *GastosFijosService) Desactivar(id int) error {
 
 // recorrerVencidos llama a fn por cada cobro de gasto fijo que ya vencio hasta `hoy` y aun no tiene
 // egreso generado (incluye meses atrasados). Lo comparten la generacion y su vista previa.
-func (s *GastosFijosService) recorrerVencidos(hoy time.Time, fn func(g models.GastoFijo, periodo, cobro time.Time) error) error {
+// Con `adelantar` suma, por plantilla, el siguiente cobro que aun no vence para poder pagarlo por adelantado.
+func (s *GastosFijosService) recorrerVencidos(hoy time.Time, adelantar bool, fn func(g models.GastoFijo, periodo, cobro time.Time) error) error {
+	limite := hoy
+	if adelantar {
+		limite = hoy.AddDate(0, 1, 0)
+	}
 	gastos, err := s.repo.ListGastosFijos(true)
 	if err != nil {
 		return err
@@ -267,13 +272,20 @@ func (s *GastosFijosService) recorrerVencidos(hoy time.Time, fn func(g models.Ga
 				desde = siguiente
 			}
 		}
-		for periodo := desde; !periodo.After(hoy); periodo = periodo.AddDate(0, 1, 0) {
+		adelantado := false
+		for periodo := desde; !periodo.After(limite); periodo = periodo.AddDate(0, 1, 0) {
 			cobro := fechaCobro(periodo, g.DiaCobro)
 			if cobro.Before(inicio) {
 				continue // el primer mes puede cobrarse antes de que la plantilla entre en vigencia
 			}
-			if cobro.After(hoy) || (fin != nil && cobro.After(*fin)) {
+			if fin != nil && cobro.After(*fin) {
 				break
+			}
+			if cobro.After(hoy) {
+				if !adelantar || adelantado {
+					break
+				}
+				adelantado = true // solo se ofrece el siguiente cobro, no todos los futuros
 			}
 			if err := fn(g, periodo, cobro); err != nil {
 				return err
@@ -286,12 +298,16 @@ func (s *GastosFijosService) recorrerVencidos(hoy time.Time, fn func(g models.Ga
 // GenerarHasta crea los egresos FIJO que ya vencieron hasta `hoy`, incluyendo meses atrasados
 // (catch-up). Es idempotente: el indice unico (gasto_fijo_id, periodo) impide duplicados (RN-32).
 func (s *GastosFijosService) GenerarHasta(hoy time.Time) (int, error) {
+	return s.generarHasta(hoy, false)
+}
+
+func (s *GastosFijosService) generarHasta(hoy time.Time, adelantar bool) (int, error) {
 	cfg, err := s.config.Snapshot()
 	if err != nil {
 		return 0, err
 	}
 	generados := 0
-	err = s.recorrerVencidos(hoy, func(g models.GastoFijo, periodo, cobro time.Time) error {
+	err = s.recorrerVencidos(hoy, adelantar, func(g models.GastoFijo, periodo, cobro time.Time) error {
 		creado, err := s.repo.GenerarMovimientoGastoFijo(g.ID, periodo, cobro, cfg.EstadoGastoFijoGen)
 		if err != nil {
 			return fmt.Errorf("gasto fijo %q: %w", g.Nombre, err)
@@ -305,17 +321,19 @@ func (s *GastosFijosService) GenerarHasta(hoy time.Time) (int, error) {
 }
 
 // PendientesDeGenerar devuelve, sin crear nada, los egresos que GenerarHoy generaria ahora.
-func (s *GastosFijosService) PendientesDeGenerar() ([]models.GastoFijoPendiente, error) {
+// Con `adelantar` incluye ademas el siguiente cobro (aun no vencido) de cada plantilla, marcado como adelantado.
+func (s *GastosFijosService) PendientesDeGenerar(adelantar bool) ([]models.GastoFijoPendiente, error) {
 	cfg, err := s.config.Snapshot()
 	if err != nil {
 		return nil, err
 	}
+	hoy := cfg.Hoy()
 	out := []models.GastoFijoPendiente{}
-	err = s.recorrerVencidos(cfg.Hoy(), func(g models.GastoFijo, periodo, cobro time.Time) error {
+	err = s.recorrerVencidos(hoy, adelantar, func(g models.GastoFijo, periodo, cobro time.Time) error {
 		out = append(out, models.GastoFijoPendiente{
 			GastoFijoID: g.ID, Nombre: g.Nombre, Categoria: g.CategoriaNombre,
 			Periodo: periodo.Format("2006-01"), FechaCobro: cobro.Format("2006-01-02"),
-			Monto: g.Monto, LocalNombre: g.LocalNombre,
+			Monto: g.Monto, LocalNombre: g.LocalNombre, Adelantado: cobro.After(hoy),
 		})
 		return nil
 	})
@@ -329,6 +347,15 @@ func (s *GastosFijosService) GenerarHoy() (int, error) {
 		return 0, err
 	}
 	return s.GenerarHasta(cfg.Hoy())
+}
+
+// GenerarHoyAdelantando es GenerarHoy mas el siguiente cobro aun no vencido de cada plantilla (pago adelantado).
+func (s *GastosFijosService) GenerarHoyAdelantando() (int, error) {
+	cfg, err := s.config.Snapshot()
+	if err != nil {
+		return 0, err
+	}
+	return s.generarHasta(cfg.Hoy(), true)
 }
 
 // Proximos lista los cobros que vencen dentro de dias_aviso_gasto_fijo (dashboard). Hace catch-up

@@ -3287,6 +3287,12 @@ const docTemplate = `{
                         "description": "Secreto interno del job diario",
                         "name": "X-Job-Secret",
                         "in": "header"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Si es true, genera tambien el siguiente cobro aun no vencido de cada plantilla (pago adelantado)",
+                        "name": "adelantar",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3352,6 +3358,12 @@ const docTemplate = `{
                         "name": "Authorization",
                         "in": "header",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Si es true, incluye tambien el siguiente cobro aun no vencido de cada plantilla (campo adelantado=true)",
+                        "name": "adelantar",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8937,6 +8949,1396 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/rrhh/adelantos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista los adelantos de sueldo. Un adelanto se descuenta solo en la siguiente planilla que se genere del empleado. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Listar adelantos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtra por empleado",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true devuelve solo los aun no descontados",
+                        "name": "pendientes",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.adelantosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: filtros invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra un anticipo de sueldo; se descuenta automaticamente en la siguiente planilla del empleado (siempre que quepa en lo que queda tras aportes y descuentos). Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Registrar adelanto",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del adelanto",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.adelantoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: monto, fecha o empleado invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/adelantos/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Anula un adelanto que aun no se descontó en ninguna planilla. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Anular adelanto",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del adelanto",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Adelanto no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "El adelanto ya fue descontado o anulado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/aguinaldos/generar": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crea el aguinaldo (planilla tipo AGUINALDO, vence el 20 de diciembre) de los empleados con al menos 90 dias trabajados en el anio: un sueldo base proporcional a los dias trabajados, sin aportes. Idempotente. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Generar aguinaldos del anio",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Anio",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.generarAguinaldosRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.generarPlanillasResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: anio invalido o futuro",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/empleados": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista los empleados con su dia de pago efectivo (el propio o rrhh.dia_pago_defecto) y los adelantos pendientes de descontar. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Listar empleados",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true devuelve solo empleados activos",
+                        "name": "activos",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: activos invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Da de alta un empleado. Desde su dia de pago de cada mes se genera su planilla de sueldo y el egreso en finanzas. Si no se envia dia_pago se usa rrhh.dia_pago_defecto. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Crear empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del empleado",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.empleadoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: nombre, sueldo_base, dia_pago, fechas o metodo_pago invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/empleados/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve la ficha de un empleado. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Ver empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del empleado",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Edita la ficha. Afecta solo planillas futuras aun no generadas. Para dar de baja envia fecha_baja o activo=false; con null en dia_pago vuelve al dia por defecto. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Editar empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del empleado",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarEmpleadoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id, sueldo_base, dia_pago o fechas invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista las planillas de sueldo con su desglose y los totales del filtro. Antes de listar genera las planillas vencidas (catch-up), asi la lista es correcta aunque el job diario no haya corrido. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Listar planillas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mes YYYY-MM",
+                        "name": "periodo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtra por empleado",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtra por local del empleado",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "PENDIENTE, PAGADO o ANULADO",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "SUELDO o AGUINALDO",
+                        "name": "tipo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillasResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: periodo, estado o tipo invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crea ya la planilla de sueldo de un empleado para un mes (por ejemplo para cargar bonos o faltas antes del dia de pago, o regenerar una anulada). Crea tambien el egreso PENDIENTE en finanzas y descuenta los adelantos pendientes. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Generar planilla de un empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Empleado y periodo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearPlanillaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: periodo invalido, futuro o anterior al ingreso",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe una planilla vigente para ese periodo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas/generar": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Genera, de forma idempotente, las planillas de sueldo cuyo dia de pago ya llego (incluye meses atrasados) y su egreso PENDIENTE en finanzas. Lo usan el job diario y el boton manual: ejecutarlo dos veces no duplica nada. Acepta token Bearer con rol admin_sys o el header X-Job-Secret configurado en el servidor.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Generar planillas vencidas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer (admin_sys) si no se usa X-Job-Secret",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Secreto interno del job diario",
+                        "name": "X-Job-Secret",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.generarPlanillasResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token o secreto requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas/pendientes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Vista previa, sin crear nada, de las planillas que POST /bd/rrhh/planillas/generar generaria ahora (incluye meses atrasados). Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Planillas pendientes de generar",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillasPendientesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve una planilla con su desglose y el codigo del egreso asociado. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Ver planilla",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la planilla",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Planilla no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cambia bonos, dias de falta, otros descuentos o notas de una planilla PENDIENTE. Recalcula aportes y neto, y actualiza el monto del egreso. La falta se valora como sueldo_base / rrhh.dias_mes_faltas por dia. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Editar planilla",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la planilla",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarPlanillaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: montos negativos, descuentos mayores a lo ganado o planilla no editable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Planilla no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas/{id}/anular": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Anula la planilla y su egreso (exige motivo) y libera los adelantos que descontaba para que vuelvan a pendientes. Se puede regenerar con POST /bd/rrhh/planillas. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Anular planilla",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la planilla",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Motivo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.anularPlanillaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: motivo requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Planilla no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "La planilla ya esta anulada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas/{id}/pagar": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Pasa la planilla PENDIENTE y su egreso a PAGADO; desde ese momento cuenta en el reporte financiero. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Marcar planilla como pagada",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la planilla",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Metodo de pago",
+                        "name": "payload",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.pagarPlanillaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: planilla no pendiente o metodo_pago invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Planilla no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/servicios": {
             "get": {
                 "description": "Cada servicio incluye costo_variable. Cuando es true, costo es cero por compatibilidad y no representa un servicio gratuito.\nDevuelve servicios desde PostgreSQL con filtros. Filtros: nombre busqueda parcial (opcional), categoria busqueda parcial (opcional), local SAN MARTIN/PASEO ARANJUEZ (opcional), sesiones numero exacto (opcional), requiere_evaluacion true/false (opcional), paciente_nuevo true/false (opcional) filtrar solo servicios visibles para nuevos pacientes. Response: total (int), filtros (objeto con nombre, categoria, local, sesiones, requiere_evaluacion, paciente_nuevo), servicios ([]ServicioItem con: id, nombre, categoria, local, tiempo HH:MM, costo, sesiones, tipoEspacio M/B, requiere_evaluacion, visible_paciente_nuevo).",
@@ -10184,6 +11586,71 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarEmpleadoRequest": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "apellido": {
+                    "type": "string",
+                    "example": "Rojas"
+                },
+                "aplica_aportes": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "cargo": {
+                    "type": "string",
+                    "example": "Masajista"
+                },
+                "ci": {
+                    "type": "string",
+                    "example": "7654321"
+                },
+                "dia_pago": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "fecha_baja": {
+                    "type": "string",
+                    "example": "2026-12-31"
+                },
+                "fecha_ingreso": {
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "metodo_pago": {
+                    "type": "string",
+                    "example": "qr"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "notas": {
+                    "type": "string",
+                    "example": "Turno tarde"
+                },
+                "sueldo_base": {
+                    "type": "number",
+                    "example": 3200
+                },
+                "telefono": {
+                    "type": "string",
+                    "example": "71234567"
+                },
+                "usuario_id": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
         "handlers.actualizarEstadoReservaPGRequest": {
             "type": "object",
             "required": [
@@ -10511,6 +11978,31 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarPlanillaRequest": {
+            "type": "object",
+            "properties": {
+                "bonos": {
+                    "description": "Bonos del mes",
+                    "type": "number",
+                    "example": 150
+                },
+                "dias_falta": {
+                    "description": "Dias de falta (admite fracciones, ej. 0.5)",
+                    "type": "number",
+                    "example": 1
+                },
+                "notas": {
+                    "description": "Notas (null limpia)",
+                    "type": "string",
+                    "example": "Bono por meta"
+                },
+                "otros_descuentos": {
+                    "description": "Otros descuentos",
+                    "type": "number",
+                    "example": 50
+                }
+            }
+        },
         "handlers.actualizarReservaPGRequest": {
             "type": "object",
             "required": [
@@ -10771,6 +12263,48 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.adelantoRequest": {
+            "type": "object",
+            "required": [
+                "empleado_id",
+                "fecha",
+                "monto"
+            ],
+            "properties": {
+                "empleado_id": {
+                    "description": "Empleado",
+                    "type": "integer",
+                    "example": 1
+                },
+                "fecha": {
+                    "description": "Fecha YYYY-MM-DD",
+                    "type": "string",
+                    "example": "2026-10-10"
+                },
+                "monto": {
+                    "description": "Monto del adelanto",
+                    "type": "number",
+                    "example": 200
+                },
+                "motivo": {
+                    "description": "Motivo (opcional)",
+                    "type": "string",
+                    "example": "Emergencia familiar"
+                }
+            }
+        },
+        "handlers.adelantosResponse": {
+            "type": "object",
+            "properties": {
+                "adelantos": {
+                    "description": "Adelantos, mas recientes primero",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Adelanto"
+                    }
+                }
+            }
+        },
         "handlers.ajusteInventarioRequest": {
             "type": "object",
             "required": [
@@ -10829,6 +12363,19 @@ const docTemplate = `{
                     "description": "Motivo de la anulacion (obligatorio)",
                     "type": "string",
                     "example": "Compra duplicada"
+                }
+            }
+        },
+        "handlers.anularPlanillaRequest": {
+            "type": "object",
+            "required": [
+                "motivo"
+            ],
+            "properties": {
+                "motivo": {
+                    "description": "Motivo de la anulacion",
+                    "type": "string",
+                    "example": "Sueldo mal calculado"
                 }
             }
         },
@@ -11730,6 +13277,25 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.crearPlanillaRequest": {
+            "type": "object",
+            "required": [
+                "empleado_id",
+                "periodo"
+            ],
+            "properties": {
+                "empleado_id": {
+                    "description": "Empleado",
+                    "type": "integer",
+                    "example": 1
+                },
+                "periodo": {
+                    "description": "Periodo YYYY-MM",
+                    "type": "string",
+                    "example": "2026-10"
+                }
+            }
+        },
         "handlers.crearReservaPGRequest": {
             "type": "object",
             "required": [
@@ -11929,6 +13495,117 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.empleadoRequest": {
+            "type": "object",
+            "required": [
+                "apellido",
+                "fecha_ingreso",
+                "nombre",
+                "sueldo_base"
+            ],
+            "properties": {
+                "activo": {
+                    "description": "Activo (default true)",
+                    "type": "boolean",
+                    "example": true
+                },
+                "apellido": {
+                    "description": "Apellido",
+                    "type": "string",
+                    "example": "Rojas"
+                },
+                "aplica_aportes": {
+                    "description": "Si se calculan aportes de ley (default true)",
+                    "type": "boolean",
+                    "example": true
+                },
+                "cargo": {
+                    "description": "Cargo (opcional)",
+                    "type": "string",
+                    "example": "Masajista"
+                },
+                "ci": {
+                    "description": "Cedula de identidad (opcional)",
+                    "type": "string",
+                    "example": "7654321"
+                },
+                "dia_pago": {
+                    "description": "Dia de pago 1-31; null usa rrhh.dia_pago_defecto",
+                    "type": "integer",
+                    "example": 5
+                },
+                "fecha_baja": {
+                    "description": "Fecha de baja YYYY-MM-DD (opcional)",
+                    "type": "string",
+                    "example": "2026-12-31"
+                },
+                "fecha_ingreso": {
+                    "description": "Fecha de ingreso YYYY-MM-DD",
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "local_id": {
+                    "description": "Local donde trabaja; null = personal general",
+                    "type": "integer",
+                    "example": 1
+                },
+                "metodo_pago": {
+                    "description": "Metodo de pago habitual (opcional)",
+                    "type": "string",
+                    "example": "transferencia"
+                },
+                "nombre": {
+                    "description": "Nombre",
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "notas": {
+                    "description": "Notas (opcional)",
+                    "type": "string",
+                    "example": "Turno tarde"
+                },
+                "sueldo_base": {
+                    "description": "Sueldo base mensual",
+                    "type": "number",
+                    "example": 3000
+                },
+                "telefono": {
+                    "description": "Telefono (opcional)",
+                    "type": "string",
+                    "example": "71234567"
+                },
+                "usuario_id": {
+                    "description": "Usuario del sistema asociado (opcional)",
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "handlers.empleadoResponse": {
+            "type": "object",
+            "properties": {
+                "empleado": {
+                    "description": "Empleado",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Empleado"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.empleadosResponse": {
+            "type": "object",
+            "properties": {
+                "empleados": {
+                    "description": "Empleados con su dia de pago efectivo y adelantos pendientes",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Empleado"
+                    }
+                }
+            }
+        },
         "handlers.espacioRequest": {
             "type": "object",
             "required": [
@@ -12106,6 +13783,19 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.generarAguinaldosRequest": {
+            "type": "object",
+            "required": [
+                "anio"
+            ],
+            "properties": {
+                "anio": {
+                    "description": "Anio del aguinaldo",
+                    "type": "integer",
+                    "example": 2026
+                }
+            }
+        },
         "handlers.generarGastosFijosResponse": {
             "type": "object",
             "properties": {
@@ -12118,6 +13808,21 @@ const docTemplate = `{
                     "description": "Mensaje descriptivo",
                     "type": "string",
                     "example": "gastos fijos al dia"
+                }
+            }
+        },
+        "handlers.generarPlanillasResponse": {
+            "type": "object",
+            "properties": {
+                "generados": {
+                    "description": "Cantidad de planillas generadas en esta ejecucion",
+                    "type": "integer",
+                    "example": 2
+                },
+                "mensaje": {
+                    "description": "Mensaje descriptivo",
+                    "type": "string",
+                    "example": "planillas al dia"
                 }
             }
         },
@@ -12436,6 +14141,16 @@ const docTemplate = `{
                 "total_registros": {
                     "description": "Total de movimientos con los filtros (solo con include_total=true)",
                     "type": "integer"
+                }
+            }
+        },
+        "handlers.pagarPlanillaRequest": {
+            "type": "object",
+            "properties": {
+                "metodo_pago": {
+                    "description": "Metodo de pago (opcional; si no se envia queda el del empleado)",
+                    "type": "string",
+                    "example": "transferencia"
                 }
             }
         },
@@ -12918,6 +14633,51 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.planillaResponse": {
+            "type": "object",
+            "properties": {
+                "planilla": {
+                    "description": "Planilla",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Planilla"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.planillasPendientesResponse": {
+            "type": "object",
+            "properties": {
+                "pendientes": {
+                    "description": "Planillas vencidas que aun no se generaron",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlanillaPendiente"
+                    }
+                }
+            }
+        },
+        "handlers.planillasResponse": {
+            "type": "object",
+            "properties": {
+                "planillas": {
+                    "description": "Planillas del filtro",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Planilla"
+                    }
+                },
+                "resumen": {
+                    "description": "Totales de las planillas no anuladas del filtro",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.PlanillaResumen"
+                        }
+                    ]
+                }
+            }
+        },
         "handlers.reemplazarInsumosRequest": {
             "type": "object",
             "properties": {
@@ -13388,6 +15148,41 @@ const docTemplate = `{
                 }
             }
         },
+        "models.Adelanto": {
+            "type": "object",
+            "properties": {
+                "anulado": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Maria Rojas"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-10-10"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 200
+                },
+                "motivo": {
+                    "type": "string"
+                },
+                "planilla_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.AdvertenciaInventario": {
             "type": "object",
             "properties": {
@@ -13850,6 +15645,84 @@ const docTemplate = `{
                 }
             }
         },
+        "models.Empleado": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "adelantos_pendientes": {
+                    "description": "AdelantosPendientes suma los adelantos aun no descontados en una planilla.",
+                    "type": "number",
+                    "example": 200
+                },
+                "apellido": {
+                    "type": "string",
+                    "example": "Rojas"
+                },
+                "aplica_aportes": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "cargo": {
+                    "type": "string",
+                    "example": "Masajista"
+                },
+                "ci": {
+                    "type": "string",
+                    "example": "7654321"
+                },
+                "dia_pago": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "dia_pago_efectivo": {
+                    "description": "DiaPagoEfectivo es el dia propio o el por defecto de configuracion; se calcula en el servicio.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "fecha_baja": {
+                    "type": "string"
+                },
+                "fecha_ingreso": {
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_id": {
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "metodo_pago": {
+                    "type": "string",
+                    "example": "transferencia"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "notas": {
+                    "type": "string"
+                },
+                "sueldo_base": {
+                    "type": "number",
+                    "example": 3000
+                },
+                "telefono": {
+                    "type": "string"
+                },
+                "usuario_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.FlujoLocal": {
             "type": "object",
             "properties": {
@@ -14030,6 +15903,11 @@ const docTemplate = `{
         "models.GastoFijoPendiente": {
             "type": "object",
             "properties": {
+                "adelantado": {
+                    "description": "true si el cobro aun no vence (solo se devuelve con adelantar=true)",
+                    "type": "boolean",
+                    "example": false
+                },
                 "categoria": {
                     "type": "string",
                     "example": "Alquiler"
@@ -14314,6 +16192,9 @@ const docTemplate = `{
                 "periodo": {
                     "type": "string",
                     "example": "2026-10-01"
+                },
+                "planilla_id": {
+                    "type": "integer"
                 },
                 "proveedor": {
                     "type": "string"
@@ -15051,6 +16932,176 @@ const docTemplate = `{
                 "tiempo_texto": {
                     "type": "string",
                     "example": "01:00"
+                }
+            }
+        },
+        "models.Planilla": {
+            "type": "object",
+            "properties": {
+                "adelantos": {
+                    "type": "number",
+                    "example": 200
+                },
+                "aporte_laboral": {
+                    "type": "number",
+                    "example": 387.7
+                },
+                "aporte_patronal": {
+                    "type": "number",
+                    "example": 509.65
+                },
+                "bonos": {
+                    "type": "number",
+                    "example": 150
+                },
+                "cargo": {
+                    "type": "string"
+                },
+                "costo_empresa": {
+                    "type": "number",
+                    "example": 3559.65
+                },
+                "descuento_faltas": {
+                    "type": "number",
+                    "example": 100
+                },
+                "dias_falta": {
+                    "type": "number",
+                    "example": 1
+                },
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Maria Rojas"
+                },
+                "estado": {
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "fecha_pago": {
+                    "type": "string",
+                    "example": "2026-10-05"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_id": {
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string"
+                },
+                "motivo_anulacion": {
+                    "type": "string"
+                },
+                "movimiento_codigo": {
+                    "type": "string",
+                    "example": "MOV-000012"
+                },
+                "neto_pagar": {
+                    "type": "number",
+                    "example": 2462.3
+                },
+                "notas": {
+                    "type": "string"
+                },
+                "otros_descuentos": {
+                    "type": "number",
+                    "example": 0
+                },
+                "periodo": {
+                    "type": "string",
+                    "example": "2026-10-01"
+                },
+                "sueldo_base": {
+                    "type": "number",
+                    "example": 3000
+                },
+                "tipo": {
+                    "type": "string",
+                    "example": "SUELDO"
+                },
+                "total_ganado": {
+                    "type": "number",
+                    "example": 3050
+                }
+            }
+        },
+        "models.PlanillaPendiente": {
+            "type": "object",
+            "properties": {
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Maria Rojas"
+                },
+                "fecha_pago": {
+                    "type": "string",
+                    "example": "2026-09-05"
+                },
+                "periodo": {
+                    "type": "string",
+                    "example": "2026-09"
+                },
+                "sueldo_base": {
+                    "type": "number",
+                    "example": 3000
+                }
+            }
+        },
+        "models.PlanillaResumen": {
+            "type": "object",
+            "properties": {
+                "adelantos": {
+                    "type": "number",
+                    "example": 200
+                },
+                "aporte_laboral": {
+                    "type": "number",
+                    "example": 1906.5
+                },
+                "aporte_patronal": {
+                    "type": "number",
+                    "example": 2506.5
+                },
+                "costo_empresa": {
+                    "type": "number",
+                    "example": 17506.5
+                },
+                "descuentos": {
+                    "type": "number",
+                    "example": 100
+                },
+                "empleados": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "neto_pagar": {
+                    "type": "number",
+                    "example": 12793.5
+                },
+                "pagado": {
+                    "type": "number",
+                    "example": 5000
+                },
+                "pendiente": {
+                    "type": "number",
+                    "example": 12506.5
+                },
+                "periodo": {
+                    "type": "string",
+                    "example": "2026-10"
+                },
+                "total_ganado": {
+                    "type": "number",
+                    "example": 15000
                 }
             }
         },

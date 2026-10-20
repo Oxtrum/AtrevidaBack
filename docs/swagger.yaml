@@ -141,6 +141,54 @@ definitions:
         example: 500
         type: number
     type: object
+  handlers.actualizarEmpleadoRequest:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      apellido:
+        example: Rojas
+        type: string
+      aplica_aportes:
+        example: true
+        type: boolean
+      cargo:
+        example: Masajista
+        type: string
+      ci:
+        example: "7654321"
+        type: string
+      dia_pago:
+        example: 5
+        type: integer
+      fecha_baja:
+        example: "2026-12-31"
+        type: string
+      fecha_ingreso:
+        example: "2026-01-01"
+        type: string
+      local_id:
+        example: 1
+        type: integer
+      metodo_pago:
+        example: qr
+        type: string
+      nombre:
+        example: Maria
+        type: string
+      notas:
+        example: Turno tarde
+        type: string
+      sueldo_base:
+        example: 3200
+        type: number
+      telefono:
+        example: "71234567"
+        type: string
+      usuario_id:
+        example: 3
+        type: integer
+    type: object
   handlers.actualizarEstadoReservaPGRequest:
     properties:
       causa:
@@ -396,6 +444,25 @@ definitions:
         example: Actualizar notas del plan
         type: string
     type: object
+  handlers.actualizarPlanillaRequest:
+    properties:
+      bonos:
+        description: Bonos del mes
+        example: 150
+        type: number
+      dias_falta:
+        description: Dias de falta (admite fracciones, ej. 0.5)
+        example: 1
+        type: number
+      notas:
+        description: Notas (null limpia)
+        example: Bono por meta
+        type: string
+      otros_descuentos:
+        description: Otros descuentos
+        example: 50
+        type: number
+    type: object
   handlers.actualizarReservaPGRequest:
     properties:
       id:
@@ -601,6 +668,37 @@ definitions:
     - local_id
     - username
     type: object
+  handlers.adelantoRequest:
+    properties:
+      empleado_id:
+        description: Empleado
+        example: 1
+        type: integer
+      fecha:
+        description: Fecha YYYY-MM-DD
+        example: "2026-10-10"
+        type: string
+      monto:
+        description: Monto del adelanto
+        example: 200
+        type: number
+      motivo:
+        description: Motivo (opcional)
+        example: Emergencia familiar
+        type: string
+    required:
+    - empleado_id
+    - fecha
+    - monto
+    type: object
+  handlers.adelantosResponse:
+    properties:
+      adelantos:
+        description: Adelantos, mas recientes primero
+        items:
+          $ref: '#/definitions/models.Adelanto'
+        type: array
+    type: object
   handlers.ajusteInventarioRequest:
     properties:
       cantidad:
@@ -646,6 +744,15 @@ definitions:
         description: Motivo de la anulacion (obligatorio)
         example: Compra duplicada
         type: string
+    type: object
+  handlers.anularPlanillaRequest:
+    properties:
+      motivo:
+        description: Motivo de la anulacion
+        example: Sueldo mal calculado
+        type: string
+    required:
+    - motivo
     type: object
   handlers.authRequest:
     properties:
@@ -1322,6 +1429,20 @@ definitions:
         example: UNICO
         type: string
     type: object
+  handlers.crearPlanillaRequest:
+    properties:
+      empleado_id:
+        description: Empleado
+        example: 1
+        type: integer
+      periodo:
+        description: Periodo YYYY-MM
+        example: 2026-10
+        type: string
+    required:
+    - empleado_id
+    - periodo
+    type: object
   handlers.crearReservaPGRequest:
     properties:
       cliente:
@@ -1487,6 +1608,89 @@ definitions:
     - categoria
     - nombre
     type: object
+  handlers.empleadoRequest:
+    properties:
+      activo:
+        description: Activo (default true)
+        example: true
+        type: boolean
+      apellido:
+        description: Apellido
+        example: Rojas
+        type: string
+      aplica_aportes:
+        description: Si se calculan aportes de ley (default true)
+        example: true
+        type: boolean
+      cargo:
+        description: Cargo (opcional)
+        example: Masajista
+        type: string
+      ci:
+        description: Cedula de identidad (opcional)
+        example: "7654321"
+        type: string
+      dia_pago:
+        description: Dia de pago 1-31; null usa rrhh.dia_pago_defecto
+        example: 5
+        type: integer
+      fecha_baja:
+        description: Fecha de baja YYYY-MM-DD (opcional)
+        example: "2026-12-31"
+        type: string
+      fecha_ingreso:
+        description: Fecha de ingreso YYYY-MM-DD
+        example: "2026-01-01"
+        type: string
+      local_id:
+        description: Local donde trabaja; null = personal general
+        example: 1
+        type: integer
+      metodo_pago:
+        description: Metodo de pago habitual (opcional)
+        example: transferencia
+        type: string
+      nombre:
+        description: Nombre
+        example: Maria
+        type: string
+      notas:
+        description: Notas (opcional)
+        example: Turno tarde
+        type: string
+      sueldo_base:
+        description: Sueldo base mensual
+        example: 3000
+        type: number
+      telefono:
+        description: Telefono (opcional)
+        example: "71234567"
+        type: string
+      usuario_id:
+        description: Usuario del sistema asociado (opcional)
+        example: 3
+        type: integer
+    required:
+    - apellido
+    - fecha_ingreso
+    - nombre
+    - sueldo_base
+    type: object
+  handlers.empleadoResponse:
+    properties:
+      empleado:
+        allOf:
+        - $ref: '#/definitions/models.Empleado'
+        description: Empleado
+    type: object
+  handlers.empleadosResponse:
+    properties:
+      empleados:
+        description: Empleados con su dia de pago efectivo y adelantos pendientes
+        items:
+          $ref: '#/definitions/models.Empleado'
+        type: array
+    type: object
   handlers.espacioRequest:
     properties:
       cantidad_espacios:
@@ -1615,6 +1819,15 @@ definitions:
           $ref: '#/definitions/models.GastoFijo'
         type: array
     type: object
+  handlers.generarAguinaldosRequest:
+    properties:
+      anio:
+        description: Anio del aguinaldo
+        example: 2026
+        type: integer
+    required:
+    - anio
+    type: object
   handlers.generarGastosFijosResponse:
     properties:
       generados:
@@ -1624,6 +1837,17 @@ definitions:
       mensaje:
         description: Mensaje descriptivo
         example: gastos fijos al dia
+        type: string
+    type: object
+  handlers.generarPlanillasResponse:
+    properties:
+      generados:
+        description: Cantidad de planillas generadas en esta ejecucion
+        example: 2
+        type: integer
+      mensaje:
+        description: Mensaje descriptivo
+        example: planillas al dia
         type: string
     type: object
   handlers.horarioFiltrosResponse:
@@ -1842,6 +2066,13 @@ definitions:
       total_registros:
         description: Total de movimientos con los filtros (solo con include_total=true)
         type: integer
+    type: object
+  handlers.pagarPlanillaRequest:
+    properties:
+      metodo_pago:
+        description: Metodo de pago (opcional; si no se envia queda el del empleado)
+        example: transferencia
+        type: string
     type: object
   handlers.pagoCreatedResponse:
     properties:
@@ -2195,6 +2426,33 @@ definitions:
         example: "01:00"
         type: string
     type: object
+  handlers.planillaResponse:
+    properties:
+      planilla:
+        allOf:
+        - $ref: '#/definitions/models.Planilla'
+        description: Planilla
+    type: object
+  handlers.planillasPendientesResponse:
+    properties:
+      pendientes:
+        description: Planillas vencidas que aun no se generaron
+        items:
+          $ref: '#/definitions/models.PlanillaPendiente'
+        type: array
+    type: object
+  handlers.planillasResponse:
+    properties:
+      planillas:
+        description: Planillas del filtro
+        items:
+          $ref: '#/definitions/models.Planilla'
+        type: array
+      resumen:
+        allOf:
+        - $ref: '#/definitions/models.PlanillaResumen'
+        description: Totales de las planillas no anuladas del filtro
+    type: object
   handlers.reemplazarInsumosRequest:
     properties:
       insumos:
@@ -2543,6 +2801,31 @@ definitions:
           $ref: '#/definitions/models.UsuarioResumenPG'
         type: array
     type: object
+  models.Adelanto:
+    properties:
+      anulado:
+        example: false
+        type: boolean
+      empleado_id:
+        example: 1
+        type: integer
+      empleado_nombre:
+        example: Maria Rojas
+        type: string
+      fecha:
+        example: "2026-10-10"
+        type: string
+      id:
+        example: 1
+        type: integer
+      monto:
+        example: 200
+        type: number
+      motivo:
+        type: string
+      planilla_id:
+        type: integer
+    type: object
   models.AdvertenciaInventario:
     properties:
       disponible:
@@ -2880,6 +3163,65 @@ definitions:
         example: 18000
         type: number
     type: object
+  models.Empleado:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      adelantos_pendientes:
+        description: AdelantosPendientes suma los adelantos aun no descontados en
+          una planilla.
+        example: 200
+        type: number
+      apellido:
+        example: Rojas
+        type: string
+      aplica_aportes:
+        example: true
+        type: boolean
+      cargo:
+        example: Masajista
+        type: string
+      ci:
+        example: "7654321"
+        type: string
+      dia_pago:
+        example: 5
+        type: integer
+      dia_pago_efectivo:
+        description: DiaPagoEfectivo es el dia propio o el por defecto de configuracion;
+          se calcula en el servicio.
+        example: 1
+        type: integer
+      fecha_baja:
+        type: string
+      fecha_ingreso:
+        example: "2026-01-01"
+        type: string
+      id:
+        example: 1
+        type: integer
+      local_id:
+        type: integer
+      local_nombre:
+        example: PASEO ARANJUEZ
+        type: string
+      metodo_pago:
+        example: transferencia
+        type: string
+      nombre:
+        example: Maria
+        type: string
+      notas:
+        type: string
+      sueldo_base:
+        example: 3000
+        type: number
+      telefono:
+        type: string
+      usuario_id:
+        type: integer
+    type: object
   models.FlujoLocal:
     properties:
       balance:
@@ -3014,6 +3356,10 @@ definitions:
     type: object
   models.GastoFijoPendiente:
     properties:
+      adelantado:
+        description: true si el cobro aun no vence (solo se devuelve con adelantar=true)
+        example: false
+        type: boolean
       categoria:
         example: Alquiler
         type: string
@@ -3220,6 +3566,8 @@ definitions:
       periodo:
         example: "2026-10-01"
         type: string
+      planilla_id:
+        type: integer
       proveedor:
         type: string
     type: object
@@ -3773,6 +4121,130 @@ definitions:
       tiempo_texto:
         example: "01:00"
         type: string
+    type: object
+  models.Planilla:
+    properties:
+      adelantos:
+        example: 200
+        type: number
+      aporte_laboral:
+        example: 387.7
+        type: number
+      aporte_patronal:
+        example: 509.65
+        type: number
+      bonos:
+        example: 150
+        type: number
+      cargo:
+        type: string
+      costo_empresa:
+        example: 3559.65
+        type: number
+      descuento_faltas:
+        example: 100
+        type: number
+      dias_falta:
+        example: 1
+        type: number
+      empleado_id:
+        example: 1
+        type: integer
+      empleado_nombre:
+        example: Maria Rojas
+        type: string
+      estado:
+        example: PENDIENTE
+        type: string
+      fecha_pago:
+        example: "2026-10-05"
+        type: string
+      id:
+        example: 1
+        type: integer
+      local_id:
+        type: integer
+      local_nombre:
+        type: string
+      motivo_anulacion:
+        type: string
+      movimiento_codigo:
+        example: MOV-000012
+        type: string
+      neto_pagar:
+        example: 2462.3
+        type: number
+      notas:
+        type: string
+      otros_descuentos:
+        example: 0
+        type: number
+      periodo:
+        example: "2026-10-01"
+        type: string
+      sueldo_base:
+        example: 3000
+        type: number
+      tipo:
+        example: SUELDO
+        type: string
+      total_ganado:
+        example: 3050
+        type: number
+    type: object
+  models.PlanillaPendiente:
+    properties:
+      empleado_id:
+        example: 1
+        type: integer
+      empleado_nombre:
+        example: Maria Rojas
+        type: string
+      fecha_pago:
+        example: "2026-09-05"
+        type: string
+      periodo:
+        example: 2026-09
+        type: string
+      sueldo_base:
+        example: 3000
+        type: number
+    type: object
+  models.PlanillaResumen:
+    properties:
+      adelantos:
+        example: 200
+        type: number
+      aporte_laboral:
+        example: 1906.5
+        type: number
+      aporte_patronal:
+        example: 2506.5
+        type: number
+      costo_empresa:
+        example: 17506.5
+        type: number
+      descuentos:
+        example: 100
+        type: number
+      empleados:
+        example: 5
+        type: integer
+      neto_pagar:
+        example: 12793.5
+        type: number
+      pagado:
+        example: 5000
+        type: number
+      pendiente:
+        example: 12506.5
+        type: number
+      periodo:
+        example: 2026-10
+        type: string
+      total_ganado:
+        example: 15000
+        type: number
     type: object
   models.PuntoSerieFinanciera:
     properties:
@@ -6632,6 +7104,11 @@ paths:
         in: header
         name: X-Job-Secret
         type: string
+      - description: Si es true, genera tambien el siguiente cobro aun no vencido
+          de cada plantilla (pago adelantado)
+        in: query
+        name: adelantar
+        type: boolean
       produces:
       - application/json
       responses:
@@ -6674,6 +7151,11 @@ paths:
         name: Authorization
         required: true
         type: string
+      - description: Si es true, incluye tambien el siguiente cobro aun no vencido
+          de cada plantilla (campo adelantado=true)
+        in: query
+        name: adelantar
+        type: boolean
       produces:
       - application/json
       responses:
@@ -10335,6 +10817,904 @@ paths:
       summary: Obtener resumen numerico de reservas
       tags:
       - Reservas BD
+  /bd/rrhh/adelantos:
+    get:
+      description: Lista los adelantos de sueldo. Un adelanto se descuenta solo en
+        la siguiente planilla que se genere del empleado. Requiere token Bearer con
+        rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filtra por empleado
+        in: query
+        name: empleado_id
+        type: integer
+      - description: true devuelve solo los aun no descontados
+        in: query
+        name: pendientes
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.adelantosResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: filtros invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar adelantos
+      tags:
+      - RRHH
+    post:
+      consumes:
+      - application/json
+      description: Registra un anticipo de sueldo; se descuenta automaticamente en
+        la siguiente planilla del empleado (siempre que quepa en lo que queda tras
+        aportes y descuentos). Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos del adelanto
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.adelantoRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: monto, fecha o empleado invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Empleado no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Registrar adelanto
+      tags:
+      - RRHH
+  /bd/rrhh/adelantos/{id}:
+    delete:
+      description: Anula un adelanto que aun no se descontó en ninguna planilla. Requiere
+        token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del adelanto
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Adelanto no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: El adelanto ya fue descontado o anulado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Anular adelanto
+      tags:
+      - RRHH
+  /bd/rrhh/aguinaldos/generar:
+    post:
+      consumes:
+      - application/json
+      description: 'Crea el aguinaldo (planilla tipo AGUINALDO, vence el 20 de diciembre)
+        de los empleados con al menos 90 dias trabajados en el anio: un sueldo base
+        proporcional a los dias trabajados, sin aportes. Idempotente. Requiere token
+        Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Anio
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.generarAguinaldosRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.generarPlanillasResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: anio invalido o futuro'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Generar aguinaldos del anio
+      tags:
+      - RRHH
+  /bd/rrhh/empleados:
+    get:
+      description: Lista los empleados con su dia de pago efectivo (el propio o rrhh.dia_pago_defecto)
+        y los adelantos pendientes de descontar. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: true devuelve solo empleados activos
+        in: query
+        name: activos
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.empleadosResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: activos invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar empleados
+      tags:
+      - RRHH
+    post:
+      consumes:
+      - application/json
+      description: Da de alta un empleado. Desde su dia de pago de cada mes se genera
+        su planilla de sueldo y el egreso en finanzas. Si no se envia dia_pago se
+        usa rrhh.dia_pago_defecto. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos del empleado
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.empleadoRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.empleadoResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: nombre, sueldo_base, dia_pago, fechas
+            o metodo_pago invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Crear empleado
+      tags:
+      - RRHH
+  /bd/rrhh/empleados/{id}:
+    get:
+      description: Devuelve la ficha de un empleado. Requiere token Bearer con rol
+        admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del empleado
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.empleadoResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Empleado no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Ver empleado
+      tags:
+      - RRHH
+    patch:
+      consumes:
+      - application/json
+      description: Edita la ficha. Afecta solo planillas futuras aun no generadas.
+        Para dar de baja envia fecha_baja o activo=false; con null en dia_pago vuelve
+        al dia por defecto. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del empleado
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarEmpleadoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.empleadoResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id, sueldo_base, dia_pago o fechas invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Empleado no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Editar empleado
+      tags:
+      - RRHH
+  /bd/rrhh/planillas:
+    get:
+      description: Lista las planillas de sueldo con su desglose y los totales del
+        filtro. Antes de listar genera las planillas vencidas (catch-up), asi la lista
+        es correcta aunque el job diario no haya corrido. Requiere token Bearer con
+        rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Mes YYYY-MM
+        in: query
+        name: periodo
+        type: string
+      - description: Filtra por empleado
+        in: query
+        name: empleado_id
+        type: integer
+      - description: Filtra por local del empleado
+        in: query
+        name: local_id
+        type: integer
+      - description: PENDIENTE, PAGADO o ANULADO
+        in: query
+        name: estado
+        type: string
+      - description: SUELDO o AGUINALDO
+        in: query
+        name: tipo
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.planillasResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: periodo, estado o tipo invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar planillas
+      tags:
+      - RRHH
+    post:
+      consumes:
+      - application/json
+      description: Crea ya la planilla de sueldo de un empleado para un mes (por ejemplo
+        para cargar bonos o faltas antes del dia de pago, o regenerar una anulada).
+        Crea tambien el egreso PENDIENTE en finanzas y descuenta los adelantos pendientes.
+        Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Empleado y periodo
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearPlanillaRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.planillaResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: periodo invalido, futuro o anterior al
+            ingreso'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Empleado no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Ya existe una planilla vigente para ese periodo
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Generar planilla de un empleado
+      tags:
+      - RRHH
+  /bd/rrhh/planillas/{id}:
+    get:
+      description: Devuelve una planilla con su desglose y el codigo del egreso asociado.
+        Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la planilla
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.planillaResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Planilla no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Ver planilla
+      tags:
+      - RRHH
+    patch:
+      consumes:
+      - application/json
+      description: Cambia bonos, dias de falta, otros descuentos o notas de una planilla
+        PENDIENTE. Recalcula aportes y neto, y actualiza el monto del egreso. La falta
+        se valora como sueldo_base / rrhh.dias_mes_faltas por dia. Requiere token
+        Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la planilla
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarPlanillaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.planillaResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: montos negativos, descuentos mayores
+            a lo ganado o planilla no editable'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Planilla no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Editar planilla
+      tags:
+      - RRHH
+  /bd/rrhh/planillas/{id}/anular:
+    patch:
+      consumes:
+      - application/json
+      description: Anula la planilla y su egreso (exige motivo) y libera los adelantos
+        que descontaba para que vuelvan a pendientes. Se puede regenerar con POST
+        /bd/rrhh/planillas. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la planilla
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Motivo
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.anularPlanillaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.planillaResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: motivo requerido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Planilla no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: La planilla ya esta anulada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Anular planilla
+      tags:
+      - RRHH
+  /bd/rrhh/planillas/{id}/pagar:
+    patch:
+      consumes:
+      - application/json
+      description: Pasa la planilla PENDIENTE y su egreso a PAGADO; desde ese momento
+        cuenta en el reporte financiero. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la planilla
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Metodo de pago
+        in: body
+        name: payload
+        schema:
+          $ref: '#/definitions/handlers.pagarPlanillaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.planillaResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: planilla no pendiente o metodo_pago invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Planilla no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Marcar planilla como pagada
+      tags:
+      - RRHH
+  /bd/rrhh/planillas/generar:
+    post:
+      description: 'Genera, de forma idempotente, las planillas de sueldo cuyo dia
+        de pago ya llego (incluye meses atrasados) y su egreso PENDIENTE en finanzas.
+        Lo usan el job diario y el boton manual: ejecutarlo dos veces no duplica nada.
+        Acepta token Bearer con rol admin_sys o el header X-Job-Secret configurado
+        en el servidor.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer (admin_sys) si no se usa X-Job-Secret
+        in: header
+        name: Authorization
+        type: string
+      - description: Secreto interno del job diario
+        in: header
+        name: X-Job-Secret
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.generarPlanillasResponse'
+              type: object
+        "401":
+          description: Token o secreto requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Generar planillas vencidas
+      tags:
+      - RRHH
+  /bd/rrhh/planillas/pendientes:
+    get:
+      description: Vista previa, sin crear nada, de las planillas que POST /bd/rrhh/planillas/generar
+        generaria ahora (incluye meses atrasados). Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.planillasPendientesResponse'
+              type: object
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Planillas pendientes de generar
+      tags:
+      - RRHH
   /bd/servicios:
     get:
       description: |-

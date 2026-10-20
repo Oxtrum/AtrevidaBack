@@ -646,6 +646,7 @@ func (h *Container) GetFlujoFinanciero(c *gin.Context) {
 // @Tags Finanzas
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param adelantar query bool false "Si es true, incluye tambien el siguiente cobro aun no vencido de cada plantilla (campo adelantado=true)"
 // @Success 200 {object} utils.APIResponse{data=gastosFijosPendientesResponse}
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
@@ -653,7 +654,7 @@ func (h *Container) GetFlujoFinanciero(c *gin.Context) {
 // @Security BearerAuth
 // @Router /bd/finanzas/gastos-fijos/pendientes [get]
 func (h *Container) GetGastosFijosPendientes(c *gin.Context) {
-	pendientes, err := h.GastosFijos.PendientesDeGenerar()
+	pendientes, err := h.GastosFijos.PendientesDeGenerar(c.Query("adelantar") == "true")
 	if err != nil {
 		respondTrastiendaError(c, err)
 		return
@@ -668,6 +669,7 @@ func (h *Container) GetGastosFijosPendientes(c *gin.Context) {
 // @Produce json
 // @Param Authorization header string false "Token Bearer (admin_sys) si no se usa X-Job-Secret" default(Bearer <token>)
 // @Param X-Job-Secret header string false "Secreto interno del job diario"
+// @Param adelantar query bool false "Si es true, genera tambien el siguiente cobro aun no vencido de cada plantilla (pago adelantado)"
 // @Success 200 {object} utils.APIResponse{data=generarGastosFijosResponse}
 // @Failure 401 {object} utils.APIResponse "Token o secreto requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
@@ -675,7 +677,11 @@ func (h *Container) GetGastosFijosPendientes(c *gin.Context) {
 // @Security BearerAuth
 // @Router /bd/finanzas/gastos-fijos/generar [post]
 func (h *Container) PostGenerarGastosFijos(c *gin.Context) {
-	n, err := h.GastosFijos.GenerarHoy()
+	generar := h.GastosFijos.GenerarHoy
+	if c.Query("adelantar") == "true" {
+		generar = h.GastosFijos.GenerarHoyAdelantando
+	}
+	n, err := generar()
 	if err != nil {
 		respondTrastiendaError(c, err)
 		return

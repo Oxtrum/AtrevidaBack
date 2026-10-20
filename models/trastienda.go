@@ -156,25 +156,26 @@ type CategoriaFinanciera struct {
 
 // MovimientoFinanciero es un egreso (fijo/variable) u otro ingreso.
 type MovimientoFinanciero struct {
-	ID              int      `db:"id" json:"id" example:"1"`
-	Codigo          string   `db:"codigo" json:"codigo" example:"MOV-000001"`
-	Naturaleza      string   `db:"naturaleza" json:"naturaleza" example:"EGRESO"`
-	Clase           *string  `db:"clase" json:"clase,omitempty" example:"VARIABLE"`
-	CategoriaID     int      `db:"categoria_id" json:"categoria_id" example:"1"`
-	CategoriaNombre string   `db:"categoria_nombre" json:"categoria_nombre" example:"Alquiler"`
-	GastoFijoID     *int     `db:"gasto_fijo_id" json:"gasto_fijo_id,omitempty"`
-	Periodo         *string  `db:"periodo" json:"periodo,omitempty" example:"2026-10-01"`
-	CompraID        *int     `db:"compra_id" json:"compra_id,omitempty"`
-	LocalID         *int     `db:"local_id" json:"local_id,omitempty"`
-	LocalNombre     *string  `db:"local_nombre" json:"local_nombre,omitempty"`
-	Fecha           string   `db:"fecha" json:"fecha" example:"2026-10-18"`
-	Monto           float64  `db:"monto" json:"monto" example:"480"`
-	Descripcion     *string  `db:"descripcion" json:"descripcion,omitempty"`
-	Proveedor       *string  `db:"proveedor" json:"proveedor,omitempty"`
-	MetodoPago      *string  `db:"metodo_pago" json:"metodo_pago,omitempty" example:"efectivo"`
-	Estado          string   `db:"estado" json:"estado" example:"PAGADO"`
-	MotivoAnulacion *string  `db:"motivo_anulacion" json:"motivo_anulacion,omitempty"`
-	NombreUsuario   *string  `db:"nombre_usuario" json:"nombre_usuario,omitempty"`
+	ID              int     `db:"id" json:"id" example:"1"`
+	Codigo          string  `db:"codigo" json:"codigo" example:"MOV-000001"`
+	Naturaleza      string  `db:"naturaleza" json:"naturaleza" example:"EGRESO"`
+	Clase           *string `db:"clase" json:"clase,omitempty" example:"VARIABLE"`
+	CategoriaID     int     `db:"categoria_id" json:"categoria_id" example:"1"`
+	CategoriaNombre string  `db:"categoria_nombre" json:"categoria_nombre" example:"Alquiler"`
+	GastoFijoID     *int    `db:"gasto_fijo_id" json:"gasto_fijo_id,omitempty"`
+	Periodo         *string `db:"periodo" json:"periodo,omitempty" example:"2026-10-01"`
+	CompraID        *int    `db:"compra_id" json:"compra_id,omitempty"`
+	PlanillaID      *int    `db:"planilla_id" json:"planilla_id,omitempty"`
+	LocalID         *int    `db:"local_id" json:"local_id,omitempty"`
+	LocalNombre     *string `db:"local_nombre" json:"local_nombre,omitempty"`
+	Fecha           string  `db:"fecha" json:"fecha" example:"2026-10-18"`
+	Monto           float64 `db:"monto" json:"monto" example:"480"`
+	Descripcion     *string `db:"descripcion" json:"descripcion,omitempty"`
+	Proveedor       *string `db:"proveedor" json:"proveedor,omitempty"`
+	MetodoPago      *string `db:"metodo_pago" json:"metodo_pago,omitempty" example:"efectivo"`
+	Estado          string  `db:"estado" json:"estado" example:"PAGADO"`
+	MotivoAnulacion *string `db:"motivo_anulacion" json:"motivo_anulacion,omitempty"`
+	NombreUsuario   *string `db:"nombre_usuario" json:"nombre_usuario,omitempty"`
 }
 
 // GastoFijo es la plantilla de un gasto recurrente mensual.
@@ -216,6 +217,8 @@ type GastoFijoPendiente struct {
 	FechaCobro  string  `json:"fecha_cobro" example:"2026-09-05"`
 	Monto       float64 `json:"monto" example:"6500"`
 	LocalNombre *string `json:"local_nombre,omitempty" example:"PASEO ARANJUEZ"`
+	// true si el cobro aun no vence (solo se devuelve con adelantar=true)
+	Adelantado bool `json:"adelantado" example:"false"`
 }
 
 // ─── Flujo de caja unificado ──────────────────────────────────────────────────
@@ -226,11 +229,11 @@ type FlujoMovimiento struct {
 	Clave string `db:"clave" json:"clave" example:"mov-12"`
 	Fecha string `db:"fecha" json:"fecha" example:"2026-10-18"`
 	// VENTA, COMPRA, GASTO_FIJO, GASTO_VARIABLE u OTRO_INGRESO
-	Origen    string `db:"origen" json:"origen" example:"VENTA"`
-	Codigo    string `db:"codigo" json:"codigo" example:"PAGO-000012"`
-	Naturaleza string `db:"naturaleza" json:"naturaleza" example:"INGRESO"`
-	Categoria string `db:"categoria" json:"categoria" example:"Venta"`
-	Detalle   string `db:"detalle" json:"detalle" example:"Venta a Maria Perez"`
+	Origen      string  `db:"origen" json:"origen" example:"VENTA"`
+	Codigo      string  `db:"codigo" json:"codigo" example:"PAGO-000012"`
+	Naturaleza  string  `db:"naturaleza" json:"naturaleza" example:"INGRESO"`
+	Categoria   string  `db:"categoria" json:"categoria" example:"Venta"`
+	Detalle     string  `db:"detalle" json:"detalle" example:"Venta a Maria Perez"`
 	LocalID     *int    `db:"local_id" json:"local_id,omitempty" example:"2"`
 	LocalNombre *string `db:"local_nombre" json:"local_nombre,omitempty" example:"PASEO ARANJUEZ"`
 	Monto       float64 `db:"monto" json:"monto" example:"150"`
