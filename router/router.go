@@ -214,6 +214,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.POST("/finanzas/gastos-fijos", h.AuthRequired, h.AdminSysRequired, h.PostGastoFijo)
 		bd.GET("/finanzas/gastos-fijos/proximos", h.AuthRequired, h.AdminSysRequired, h.GetGastosFijosProximos)
 		bd.GET("/finanzas/gastos-fijos/pendientes", h.AuthRequired, h.AdminSysRequired, h.GetGastosFijosPendientes)
+		bd.POST("/finanzas/gastos-fijos/pagar", h.AuthRequired, h.AdminSysRequired, h.PostPagarGastosFijos)
 		bd.POST("/finanzas/gastos-fijos/generar", h.AdminSysOrJobSecret, h.PostGenerarGastosFijos)
 		bd.PATCH("/finanzas/gastos-fijos/:id", h.AuthRequired, h.AdminSysRequired, h.PatchGastoFijo)
 		bd.DELETE("/finanzas/gastos-fijos/:id", h.AuthRequired, h.AdminSysRequired, h.DeleteGastoFijo)

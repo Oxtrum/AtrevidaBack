@@ -873,3 +873,31 @@ func TestTrastiendaSesionDePlanConReservaLigadaNoDescuentaDoble(t *testing.T) {
 		t.Fatalf("stock = %v, quiero 80 (descuento doble evitado)", got)
 	}
 }
+
+// Wifi viejo: se paga hasta junio, se desactiva y se retoma en octubre. Los meses en pausa no se cobran
+// ni quedan atrasados; solo se genera desde la nueva fecha de inicio.
+func TestTrastiendaGastoFijoReactivadoNoCobraLosMesesEnPausa(t *testing.T) {
+	e := setupTrastienda(t)
+	id := e.nuevoGastoFijo(5, "2027-01-01", nil)
+	if _, err := e.gastos.GenerarHasta(fecha("2027-06-20")); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(e.periodos(id)); got != 6 {
+		t.Fatalf("antes de pausar esperaba 6 egresos (ene-jun), hay %d", got)
+	}
+	if err := e.gastos.Desactivar(id); err != nil {
+		t.Fatal(err)
+	}
+
+	inicio, activo := "2027-10-01", true
+	if err := e.gastos.Actualizar(id, GastoFijoPatch{FechaInicio: &inicio, FechaFinSet: true, Activo: &activo}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.gastos.GenerarHasta(fecha("2027-10-20")); err != nil {
+		t.Fatal(err)
+	}
+	got := e.periodos(id)
+	if len(got) != 7 || got[6] != "2027-10-05" {
+		t.Fatalf("al retomar debe sumar solo octubre (jul-sep en pausa), quedo %v", got)
+	}
+}

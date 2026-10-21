@@ -278,7 +278,9 @@ func (r *FinanzasRepo) CambiarEstadoMovimiento(id int, estado string, motivo *st
 const gastoFijoSelect = `
 	SELECT g.id, g.nombre, g.categoria_id, c.nombre AS categoria_nombre, g.monto, g.dia_cobro::int AS dia_cobro,
 	       g.local_id, l.nombre AS local_nombre, g.metodo_pago, g.proveedor, g.fecha_inicio::text AS fecha_inicio,
-	       g.fecha_fin::text AS fecha_fin, g.activo, g.notas
+	       g.fecha_fin::text AS fecha_fin, g.activo, g.notas, g.frecuencia,
+	       (SELECT MAX(m.fecha)::text FROM movimientos_financieros m
+	        WHERE m.gasto_fijo_id = g.id AND m.estado = 'PAGADO') AS pagado_hasta
 	FROM gastos_fijos g
 	JOIN categorias_financieras c ON c.id = g.categoria_id
 	LEFT JOIN locales l ON l.id = g.local_id`
@@ -316,16 +318,17 @@ type GastoFijoInput struct {
 	FechaFin    *time.Time
 	Activo      bool
 	Notas       *string
+	Frecuencia  string
 }
 
 func (r *FinanzasRepo) CreateGastoFijo(in GastoFijoInput) (int, error) {
 	var id int
 	err := r.db.QueryRowx(`
 		INSERT INTO gastos_fijos
-			(nombre, categoria_id, monto, dia_cobro, local_id, metodo_pago, proveedor, fecha_inicio, fecha_fin, activo, notas)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+			(nombre, categoria_id, monto, dia_cobro, local_id, metodo_pago, proveedor, fecha_inicio, fecha_fin, activo, notas, frecuencia)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
 		in.Nombre, in.CategoriaID, in.Monto, in.DiaCobro, in.LocalID, in.MetodoPago, in.Proveedor,
-		in.FechaInicio, in.FechaFin, in.Activo, in.Notas).Scan(&id)
+		in.FechaInicio, in.FechaFin, in.Activo, in.Notas, in.Frecuencia).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("error al crear gasto fijo: %w", err)
 	}
@@ -338,10 +341,10 @@ func (r *FinanzasRepo) UpdateGastoFijo(id int, in GastoFijoInput) error {
 	res, err := r.db.Exec(`
 		UPDATE gastos_fijos SET nombre = $1, categoria_id = $2, monto = $3, dia_cobro = $4, local_id = $5,
 			metodo_pago = $6, proveedor = $7, fecha_inicio = $8, fecha_fin = $9, activo = $10, notas = $11,
-			fecha_modificacion = NOW()
-		WHERE id = $12`,
+			frecuencia = $12, fecha_modificacion = NOW()
+		WHERE id = $13`,
 		in.Nombre, in.CategoriaID, in.Monto, in.DiaCobro, in.LocalID, in.MetodoPago, in.Proveedor,
-		in.FechaInicio, in.FechaFin, in.Activo, in.Notas, id)
+		in.FechaInicio, in.FechaFin, in.Activo, in.Notas, in.Frecuencia, id)
 	if err != nil {
 		return fmt.Errorf("error al actualizar gasto fijo: %w", err)
 	}
@@ -385,17 +388,95 @@ func (r *FinanzasRepo) DesactivarGastoFijo(id int) error {
 	return tx.Commit()
 }
 
-// UltimoPeriodoGenerado devuelve el primer dia del ultimo mes generado, o nil si no hay.
-func (r *FinanzasRepo) UltimoPeriodoGenerado(gastoFijoID int) (*time.Time, error) {
-	var periodo sql.NullTime
-	if err := r.db.Get(&periodo,
-		`SELECT MAX(periodo) FROM movimientos_financieros WHERE gasto_fijo_id = $1`, gastoFijoID); err != nil {
-		return nil, fmt.Errorf("error al leer ultimo periodo generado: %w", err)
+// PeriodosGenerados devuelve los periodos que ya tienen egreso (de cualquier estado, anulados incluidos) para
+// no volver a generarlos ni ofrecerlos. La clave es la fecha YYYY-MM-DD del periodo.
+func (r *FinanzasRepo) PeriodosGenerados(gastoFijoID int) (map[string]bool, error) {
+	var periodos []string
+	if err := r.db.Select(&periodos,
+		`SELECT periodo::text FROM movimientos_financieros WHERE gasto_fijo_id = $1 AND periodo IS NOT NULL`,
+		gastoFijoID); err != nil {
+		return nil, fmt.Errorf("error al leer los periodos generados: %w", err)
 	}
-	if !periodo.Valid {
-		return nil, nil
+	out := make(map[string]bool, len(periodos))
+	for _, p := range periodos {
+		out[p] = true
 	}
-	return &periodo.Time, nil
+	return out, nil
+}
+
+// AtrasadosPorGasto cuenta, por gasto fijo, los egresos pendientes cuya fecha ya paso.
+func (r *FinanzasRepo) AtrasadosPorGasto(hoy time.Time) (map[int]int, error) {
+	rows := []struct {
+		ID int `db:"gasto_fijo_id"`
+		N  int `db:"n"`
+	}{}
+	if err := r.db.Select(&rows, `
+		SELECT gasto_fijo_id, COUNT(*) AS n FROM movimientos_financieros
+		WHERE gasto_fijo_id IS NOT NULL AND estado = 'PENDIENTE' AND fecha < $1
+		GROUP BY gasto_fijo_id`, hoy); err != nil {
+		return nil, fmt.Errorf("error al contar los egresos fijos atrasados: %w", err)
+	}
+	out := make(map[int]int, len(rows))
+	for _, r := range rows {
+		out[r.ID] = r.N
+	}
+	return out, nil
+}
+
+// PendientesRegistradosHasta cuenta los egresos pendientes de un gasto fijo con fecha hasta `hoy`.
+func (r *FinanzasRepo) PendientesRegistradosHasta(gastoFijoID int, hoy time.Time) (int, error) {
+	var n int
+	if err := r.db.Get(&n, `
+		SELECT COUNT(*) FROM movimientos_financieros
+		WHERE gasto_fijo_id = $1 AND estado = 'PENDIENTE' AND fecha <= $2`, gastoFijoID, hoy); err != nil {
+		return 0, fmt.Errorf("error al contar los pagos pendientes del gasto fijo: %w", err)
+	}
+	return n, nil
+}
+
+// CobroPagar identifica un cobro de un gasto fijo: su periodo (clave de unicidad) y la fecha en que se cobra.
+type CobroPagar struct {
+	GastoFijoID int
+	Periodo     time.Time
+	Fecha       time.Time
+}
+
+// PagarCobrosGastoFijo deja PAGADO el egreso de cada cobro en una sola transaccion: si ya existe pendiente lo
+// paga; si no existe lo crea ya pagado. Pagar dos veces no duplica (indice unico gasto+periodo). Un cobro
+// anulado no se revive: devuelve error.
+func (r *FinanzasRepo) PagarCobrosGastoFijo(cobros []CobroPagar, usuarioID *int, usuarioNombre string) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("error al pagar gastos fijos: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, c := range cobros {
+		if _, err := tx.Exec(`
+			INSERT INTO movimientos_financieros
+				(naturaleza, clase, categoria_id, gasto_fijo_id, periodo, local_id, local_nombre, fecha, monto,
+				 descripcion, proveedor, metodo_pago, estado, id_usuario, nombre_usuario)
+			SELECT 'EGRESO', 'FIJO', g.categoria_id, g.id, $2, g.local_id, l.nombre, $3, g.monto,
+			       g.nombre, g.proveedor, g.metodo_pago, 'PAGADO', $4, $5
+			FROM gastos_fijos g LEFT JOIN locales l ON l.id = g.local_id
+			WHERE g.id = $1
+			ON CONFLICT (gasto_fijo_id, periodo) WHERE gasto_fijo_id IS NOT NULL
+			DO UPDATE SET estado = 'PAGADO', fecha_modificacion = NOW()
+			WHERE movimientos_financieros.estado = 'PENDIENTE'`,
+			c.GastoFijoID, c.Periodo, c.Fecha, usuarioID, usuarioNombre); err != nil {
+			return fmt.Errorf("error al pagar el gasto fijo: %w", err)
+		}
+		var estado string
+		if err := tx.Get(&estado,
+			`SELECT estado FROM movimientos_financieros WHERE gasto_fijo_id = $1 AND periodo = $2`,
+			c.GastoFijoID, c.Periodo); err != nil {
+			return fmt.Errorf("error al verificar el pago del gasto fijo: %w", err)
+		}
+		if estado == "ANULADO" {
+			return fmt.Errorf("el cobro del %s ya fue anulado y no puede pagarse", c.Fecha.Format("2006-01-02"))
+		}
+	}
+	return tx.Commit()
 }
 
 // GenerarMovimientoGastoFijo inserta el egreso FIJO del periodo copiando monto, categoria, local y

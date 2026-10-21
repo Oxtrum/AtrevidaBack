@@ -3177,7 +3177,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Crea una plantilla de gasto recurrente: el dia dia_cobro de cada mes se genera un egreso FIJO. Si el mes no tiene ese dia se usa el ultimo del mes. Los meses atrasados desde fecha_inicio se generan en la siguiente ejecucion (catch-up). Requiere token Bearer con rol admin_sys.",
+                "description": "Crea una plantilla de gasto recurrente: el dia de fecha_inicio (o dia_cobro si se envia) de cada periodo segun la frecuencia se genera un egreso FIJO. Si el mes no tiene ese dia se usa el ultimo del mes. Los meses atrasados desde fecha_inicio se generan en la siguiente ejecucion (catch-up). Requiere token Bearer con rol admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3287,12 +3287,6 @@ const docTemplate = `{
                         "description": "Secreto interno del job diario",
                         "name": "X-Job-Secret",
                         "in": "header"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Si es true, genera tambien el siguiente cobro aun no vencido de cada plantilla (pago adelantado)",
-                        "name": "adelantar",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3335,6 +3329,95 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/finanzas/gastos-fijos/pagar": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crea (si no existe) y paga en un solo paso el egreso de cada cobro indicado, ya vencido o por adelantado. No se puede adelantar un gasto que tiene pagos atrasados sin pagarlos: los vencidos deben estar pagados o ir en la misma solicitud. Cada fecha debe ser un cobro real de la plantilla segun su frecuencia y vigencia; pagar dos veces el mismo cobro no duplica, y un cobro anulado no se revive. Los cobros no indicados no se generan. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Pagar cobros de gastos fijos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Cobros a pagar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.pagarGastosFijosRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.pagarGastosFijosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha que no es un cobro valido, gasto inactivo, cobro anulado o fecha demasiado lejana",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Gasto fijo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/finanzas/gastos-fijos/pendientes": {
             "get": {
                 "security": [
@@ -3360,9 +3443,21 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "boolean",
-                        "description": "Si es true, incluye tambien el siguiente cobro aun no vencido de cada plantilla (campo adelantado=true)",
+                        "type": "integer",
+                        "description": "Cantidad de proximos pagos por gasto, aun no vencidos, que se incluyen para pagar por adelantado (campo adelantado=true). 0 por defecto, maximo 2000",
                         "name": "adelantar",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Incluye tambien todos los pagos futuros hasta esta fecha YYYY-MM-DD",
+                        "name": "hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limita el resultado a un solo gasto fijo",
+                        "name": "gasto_fijo_id",
                         "in": "query"
                     }
                 ],
@@ -11718,6 +11813,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2026-01-01"
                 },
+                "frecuencia": {
+                    "description": "Frecuencia de cobro",
+                    "type": "string",
+                    "example": "MENSUAL"
+                },
                 "local_id": {
                     "description": "Local (null = general)",
                     "type": "integer",
@@ -12586,6 +12686,25 @@ const docTemplate = `{
                 "pago_codigo": {
                     "type": "string",
                     "example": "PAGO-000123"
+                }
+            }
+        },
+        "handlers.cobroGastoFijoRequest": {
+            "type": "object",
+            "required": [
+                "fecha_cobro",
+                "gasto_fijo_id"
+            ],
+            "properties": {
+                "fecha_cobro": {
+                    "description": "Fecha de cobro YYYY-MM-DD (vencida o por adelantado)",
+                    "type": "string",
+                    "example": "2026-11-05"
+                },
+                "gasto_fijo_id": {
+                    "description": "Gasto fijo",
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -13671,7 +13790,6 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "categoria_id",
-                "dia_cobro",
                 "fecha_inicio",
                 "monto",
                 "nombre"
@@ -13688,7 +13806,7 @@ const docTemplate = `{
                     "example": 1
                 },
                 "dia_cobro": {
-                    "description": "Dia de cobro 1-31 (si el mes no tiene ese dia se usa el ultimo)",
+                    "description": "Dia de cobro 1-31 (opcional: si se omite se usa el dia de fecha_inicio; si el mes no tiene ese dia se usa el ultimo)",
                     "type": "integer",
                     "example": 5
                 },
@@ -13701,6 +13819,11 @@ const docTemplate = `{
                     "description": "Vigente desde YYYY-MM-DD",
                     "type": "string",
                     "example": "2026-01-01"
+                },
+                "frecuencia": {
+                    "description": "Cada cuanto se cobra: DIARIA, SEMANAL, QUINCENAL, MENSUAL, BIMESTRAL, TRIMESTRAL, SEMESTRAL o ANUAL (default MENSUAL). Las de dias cuentan desde fecha_inicio y ignoran dia_cobro",
+                    "type": "string",
+                    "example": "TRIMESTRAL"
                 },
                 "local_id": {
                     "description": "Local; null = gasto general",
@@ -14141,6 +14264,37 @@ const docTemplate = `{
                 "total_registros": {
                     "description": "Total de movimientos con los filtros (solo con include_total=true)",
                     "type": "integer"
+                }
+            }
+        },
+        "handlers.pagarGastosFijosRequest": {
+            "type": "object",
+            "required": [
+                "cobros"
+            ],
+            "properties": {
+                "cobros": {
+                    "description": "Cobros a pagar",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/handlers.cobroGastoFijoRequest"
+                    }
+                }
+            }
+        },
+        "handlers.pagarGastosFijosResponse": {
+            "type": "object",
+            "properties": {
+                "mensaje": {
+                    "description": "Mensaje descriptivo",
+                    "type": "string",
+                    "example": "gastos fijos pagados correctamente"
+                },
+                "pagados": {
+                    "description": "Cantidad de cobros pagados",
+                    "type": "integer",
+                    "example": 2
                 }
             }
         },
@@ -15846,6 +16000,11 @@ const docTemplate = `{
                     "type": "boolean",
                     "example": true
                 },
+                "atrasados": {
+                    "description": "Atrasados cuenta los egresos pendientes cuya fecha ya paso; se calcula en el servicio.",
+                    "type": "integer",
+                    "example": 0
+                },
                 "categoria_id": {
                     "type": "integer",
                     "example": 1
@@ -15864,6 +16023,11 @@ const docTemplate = `{
                 "fecha_inicio": {
                     "type": "string",
                     "example": "2026-01-01"
+                },
+                "frecuencia": {
+                    "description": "Frecuencia: DIARIA, SEMANAL, QUINCENAL, MENSUAL, BIMESTRAL, TRIMESTRAL, SEMESTRAL o ANUAL.",
+                    "type": "string",
+                    "example": "MENSUAL"
                 },
                 "id": {
                     "type": "integer",
@@ -15890,13 +16054,18 @@ const docTemplate = `{
                 "notas": {
                     "type": "string"
                 },
+                "pagado_hasta": {
+                    "description": "PagadoHasta es la fecha de cobro del ultimo egreso ya pagado (puede ser futura si se pago por adelantado).",
+                    "type": "string",
+                    "example": "2026-11-05"
+                },
                 "proveedor": {
                     "type": "string"
                 },
                 "proximo_cobro": {
-                    "description": "ProximoCobro se calcula en el servicio.",
+                    "description": "ProximoCobro es el siguiente cobro aun sin pagar a partir de hoy (o de PagadoHasta); se calcula en el servicio.",
                     "type": "string",
-                    "example": "2026-11-05"
+                    "example": "2026-12-05"
                 }
             }
         },
@@ -15904,7 +16073,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "adelantado": {
-                    "description": "true si el cobro aun no vence (solo se devuelve con adelantar=true)",
+                    "description": "true si el cobro aun no vence (solo se devuelve con adelantar\u003e0)",
                     "type": "boolean",
                     "example": false
                 },
@@ -15934,7 +16103,7 @@ const docTemplate = `{
                 },
                 "periodo": {
                     "type": "string",
-                    "example": "2026-09"
+                    "example": "2026-09-01"
                 }
             }
         },

@@ -194,8 +194,14 @@ type GastoFijo struct {
 	FechaFin        *string `db:"fecha_fin" json:"fecha_fin,omitempty"`
 	Activo          bool    `db:"activo" json:"activo" example:"true"`
 	Notas           *string `db:"notas" json:"notas,omitempty"`
-	// ProximoCobro se calcula en el servicio.
-	ProximoCobro *string `db:"-" json:"proximo_cobro,omitempty" example:"2026-11-05"`
+	// Frecuencia: DIARIA, SEMANAL, QUINCENAL, MENSUAL, BIMESTRAL, TRIMESTRAL, SEMESTRAL o ANUAL.
+	Frecuencia string `db:"frecuencia" json:"frecuencia" example:"MENSUAL"`
+	// PagadoHasta es la fecha de cobro del ultimo egreso ya pagado (puede ser futura si se pago por adelantado).
+	PagadoHasta *string `db:"pagado_hasta" json:"pagado_hasta,omitempty" example:"2026-11-05"`
+	// ProximoCobro es el siguiente cobro aun sin pagar a partir de hoy (o de PagadoHasta); se calcula en el servicio.
+	ProximoCobro *string `db:"-" json:"proximo_cobro,omitempty" example:"2026-12-05"`
+	// Atrasados cuenta los egresos pendientes cuya fecha ya paso; se calcula en el servicio.
+	Atrasados int `db:"-" json:"atrasados" example:"0"`
 }
 
 // GastoFijoProximo es un cobro por vencer para el dashboard.
@@ -213,11 +219,11 @@ type GastoFijoPendiente struct {
 	GastoFijoID int     `json:"gasto_fijo_id" example:"1"`
 	Nombre      string  `json:"nombre" example:"Alquiler Paseo Aranjuez"`
 	Categoria   string  `json:"categoria" example:"Alquiler"`
-	Periodo     string  `json:"periodo" example:"2026-09"`
+	Periodo     string  `json:"periodo" example:"2026-09-01"`
 	FechaCobro  string  `json:"fecha_cobro" example:"2026-09-05"`
 	Monto       float64 `json:"monto" example:"6500"`
 	LocalNombre *string `json:"local_nombre,omitempty" example:"PASEO ARANJUEZ"`
-	// true si el cobro aun no vence (solo se devuelve con adelantar=true)
+	// true si el cobro aun no vence (solo se devuelve con adelantar>0)
 	Adelantado bool `json:"adelantado" example:"false"`
 }
 

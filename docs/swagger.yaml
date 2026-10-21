@@ -241,6 +241,10 @@ definitions:
         description: Vigente desde
         example: "2026-01-01"
         type: string
+      frecuencia:
+        description: Frecuencia de cobro
+        example: MENSUAL
+        type: string
       local_id:
         description: Local (null = general)
         example: 1
@@ -898,6 +902,20 @@ definitions:
       pago_codigo:
         example: PAGO-000123
         type: string
+    type: object
+  handlers.cobroGastoFijoRequest:
+    properties:
+      fecha_cobro:
+        description: Fecha de cobro YYYY-MM-DD (vencida o por adelantado)
+        example: "2026-11-05"
+        type: string
+      gasto_fijo_id:
+        description: Gasto fijo
+        example: 1
+        type: integer
+    required:
+    - fecha_cobro
+    - gasto_fijo_id
     type: object
   handlers.comboCatalogoFiltrosResponse:
     properties:
@@ -1746,7 +1764,8 @@ definitions:
         example: 1
         type: integer
       dia_cobro:
-        description: Dia de cobro 1-31 (si el mes no tiene ese dia se usa el ultimo)
+        description: 'Dia de cobro 1-31 (opcional: si se omite se usa el dia de fecha_inicio;
+          si el mes no tiene ese dia se usa el ultimo)'
         example: 5
         type: integer
       fecha_fin:
@@ -1756,6 +1775,12 @@ definitions:
       fecha_inicio:
         description: Vigente desde YYYY-MM-DD
         example: "2026-01-01"
+        type: string
+      frecuencia:
+        description: 'Cada cuanto se cobra: DIARIA, SEMANAL, QUINCENAL, MENSUAL, BIMESTRAL,
+          TRIMESTRAL, SEMESTRAL o ANUAL (default MENSUAL). Las de dias cuentan desde
+          fecha_inicio y ignoran dia_cobro'
+        example: TRIMESTRAL
         type: string
       local_id:
         description: Local; null = gasto general
@@ -1783,7 +1808,6 @@ definitions:
         type: string
     required:
     - categoria_id
-    - dia_cobro
     - fecha_inicio
     - monto
     - nombre
@@ -2065,6 +2089,28 @@ definitions:
         description: Paginacion por cursor (solo si se envia limit o cursor)
       total_registros:
         description: Total de movimientos con los filtros (solo con include_total=true)
+        type: integer
+    type: object
+  handlers.pagarGastosFijosRequest:
+    properties:
+      cobros:
+        description: Cobros a pagar
+        items:
+          $ref: '#/definitions/handlers.cobroGastoFijoRequest'
+        minItems: 1
+        type: array
+    required:
+    - cobros
+    type: object
+  handlers.pagarGastosFijosResponse:
+    properties:
+      mensaje:
+        description: Mensaje descriptivo
+        example: gastos fijos pagados correctamente
+        type: string
+      pagados:
+        description: Cantidad de cobros pagados
+        example: 2
         type: integer
     type: object
   handlers.pagarPlanillaRequest:
@@ -3315,6 +3361,11 @@ definitions:
       activo:
         example: true
         type: boolean
+      atrasados:
+        description: Atrasados cuenta los egresos pendientes cuya fecha ya paso; se
+          calcula en el servicio.
+        example: 0
+        type: integer
       categoria_id:
         example: 1
         type: integer
@@ -3328,6 +3379,11 @@ definitions:
         type: string
       fecha_inicio:
         example: "2026-01-01"
+        type: string
+      frecuencia:
+        description: 'Frecuencia: DIARIA, SEMANAL, QUINCENAL, MENSUAL, BIMESTRAL,
+          TRIMESTRAL, SEMESTRAL o ANUAL.'
+        example: MENSUAL
         type: string
       id:
         example: 1
@@ -3347,17 +3403,23 @@ definitions:
         type: string
       notas:
         type: string
+      pagado_hasta:
+        description: PagadoHasta es la fecha de cobro del ultimo egreso ya pagado
+          (puede ser futura si se pago por adelantado).
+        example: "2026-11-05"
+        type: string
       proveedor:
         type: string
       proximo_cobro:
-        description: ProximoCobro se calcula en el servicio.
-        example: "2026-11-05"
+        description: ProximoCobro es el siguiente cobro aun sin pagar a partir de
+          hoy (o de PagadoHasta); se calcula en el servicio.
+        example: "2026-12-05"
         type: string
     type: object
   models.GastoFijoPendiente:
     properties:
       adelantado:
-        description: true si el cobro aun no vence (solo se devuelve con adelantar=true)
+        description: true si el cobro aun no vence (solo se devuelve con adelantar>0)
         example: false
         type: boolean
       categoria:
@@ -3379,7 +3441,7 @@ definitions:
         example: Alquiler Paseo Aranjuez
         type: string
       periodo:
-        example: 2026-09
+        example: "2026-09-01"
         type: string
     type: object
   models.GastoFijoProximo:
@@ -6915,10 +6977,11 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Crea una plantilla de gasto recurrente: el dia dia_cobro de cada
-        mes se genera un egreso FIJO. Si el mes no tiene ese dia se usa el ultimo
-        del mes. Los meses atrasados desde fecha_inicio se generan en la siguiente
-        ejecucion (catch-up). Requiere token Bearer con rol admin_sys.'
+      description: 'Crea una plantilla de gasto recurrente: el dia de fecha_inicio
+        (o dia_cobro si se envia) de cada periodo segun la frecuencia se genera un
+        egreso FIJO. Si el mes no tiene ese dia se usa el ultimo del mes. Los meses
+        atrasados desde fecha_inicio se generan en la siguiente ejecucion (catch-up).
+        Requiere token Bearer con rol admin_sys.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -7104,11 +7167,6 @@ paths:
         in: header
         name: X-Job-Secret
         type: string
-      - description: Si es true, genera tambien el siguiente cobro aun no vencido
-          de cada plantilla (pago adelantado)
-        in: query
-        name: adelantar
-        type: boolean
       produces:
       - application/json
       responses:
@@ -7138,6 +7196,68 @@ paths:
       summary: Generar gastos fijos pendientes
       tags:
       - Finanzas
+  /bd/finanzas/gastos-fijos/pagar:
+    post:
+      consumes:
+      - application/json
+      description: 'Crea (si no existe) y paga en un solo paso el egreso de cada cobro
+        indicado, ya vencido o por adelantado. No se puede adelantar un gasto que
+        tiene pagos atrasados sin pagarlos: los vencidos deben estar pagados o ir
+        en la misma solicitud. Cada fecha debe ser un cobro real de la plantilla segun
+        su frecuencia y vigencia; pagar dos veces el mismo cobro no duplica, y un
+        cobro anulado no se revive. Los cobros no indicados no se generan. Requiere
+        token Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Cobros a pagar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.pagarGastosFijosRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.pagarGastosFijosResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: fecha que no es un cobro valido, gasto
+            inactivo, cobro anulado o fecha demasiado lejana'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Gasto fijo no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Pagar cobros de gastos fijos
+      tags:
+      - Finanzas
   /bd/finanzas/gastos-fijos/pendientes:
     get:
       description: Lista, sin crear nada, los egresos FIJO que ya vencieron y que
@@ -7151,11 +7271,20 @@ paths:
         name: Authorization
         required: true
         type: string
-      - description: Si es true, incluye tambien el siguiente cobro aun no vencido
-          de cada plantilla (campo adelantado=true)
+      - description: Cantidad de proximos pagos por gasto, aun no vencidos, que se
+          incluyen para pagar por adelantado (campo adelantado=true). 0 por defecto,
+          maximo 2000
         in: query
         name: adelantar
-        type: boolean
+        type: integer
+      - description: Incluye tambien todos los pagos futuros hasta esta fecha YYYY-MM-DD
+        in: query
+        name: hasta
+        type: string
+      - description: Limita el resultado a un solo gasto fijo
+        in: query
+        name: gasto_fijo_id
+        type: integer
       produces:
       - application/json
       responses:

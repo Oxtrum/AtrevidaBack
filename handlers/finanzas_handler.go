@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
@@ -140,8 +143,8 @@ type gastoFijoRequest struct {
 	CategoriaID int `json:"categoria_id" binding:"required" example:"1"`
 	// Monto mensual
 	Monto float64 `json:"monto" binding:"required" example:"6500"`
-	// Dia de cobro 1-31 (si el mes no tiene ese dia se usa el ultimo)
-	DiaCobro int `json:"dia_cobro" binding:"required" example:"5"`
+	// Dia de cobro 1-31 (opcional: si se omite se usa el dia de fecha_inicio; si el mes no tiene ese dia se usa el ultimo)
+	DiaCobro int `json:"dia_cobro" example:"5"`
 	// Local; null = gasto general
 	LocalID *int `json:"local_id" example:"1"`
 	// Metodo de pago (opcional)
@@ -156,9 +159,13 @@ type gastoFijoRequest struct {
 	Activo *bool `json:"activo" example:"true"`
 	// Notas (opcional)
 	Notas *string `json:"notas" example:"Contrato anual"`
+	// Cada cuanto se cobra: DIARIA, SEMANAL, QUINCENAL, MENSUAL, BIMESTRAL, TRIMESTRAL, SEMESTRAL o ANUAL (default MENSUAL). Las de dias cuentan desde fecha_inicio y ignoran dia_cobro
+	Frecuencia string `json:"frecuencia" example:"TRIMESTRAL"`
 }
 
 type actualizarGastoFijoRequest struct {
+	// Frecuencia de cobro
+	Frecuencia *string `json:"frecuencia" example:"MENSUAL"`
 	// Nombre
 	Nombre *string `json:"nombre" example:"Alquiler"`
 	// Categoria
@@ -464,7 +471,7 @@ func (h *Container) GetGastosFijos(c *gin.Context) {
 
 // PostGastoFijo godoc
 // @Summary Crear gasto fijo
-// @Description Crea una plantilla de gasto recurrente: el dia dia_cobro de cada mes se genera un egreso FIJO. Si el mes no tiene ese dia se usa el ultimo del mes. Los meses atrasados desde fecha_inicio se generan en la siguiente ejecucion (catch-up). Requiere token Bearer con rol admin_sys.
+// @Description Crea una plantilla de gasto recurrente: el dia de fecha_inicio (o dia_cobro si se envia) de cada periodo segun la frecuencia se genera un egreso FIJO. Si el mes no tiene ese dia se usa el ultimo del mes. Los meses atrasados desde fecha_inicio se generan en la siguiente ejecucion (catch-up). Requiere token Bearer con rol admin_sys.
 // @Tags Finanzas
 // @Accept json
 // @Produce json
@@ -487,7 +494,7 @@ func (h *Container) PostGastoFijo(c *gin.Context) {
 	gasto, err := h.GastosFijos.Crear(services.GastoFijoInput{
 		Nombre: req.Nombre, CategoriaID: req.CategoriaID, Monto: req.Monto, DiaCobro: req.DiaCobro, LocalID: req.LocalID,
 		MetodoPago: req.MetodoPago, Proveedor: req.Proveedor, FechaInicio: req.FechaInicio, FechaFin: req.FechaFin,
-		Activo: req.Activo, Notas: req.Notas,
+		Activo: req.Activo, Notas: req.Notas, Frecuencia: req.Frecuencia,
 	})
 	if err != nil {
 		respondTrastiendaError(c, err)
@@ -529,6 +536,7 @@ func (h *Container) PatchGastoFijo(c *gin.Context) {
 		LocalID: req.LocalID, LocalSet: present["local_id"], MetodoPago: req.MetodoPago, MetodoSet: present["metodo_pago"],
 		Proveedor: req.Proveedor, ProveedorSet: present["proveedor"], FechaInicio: req.FechaInicio,
 		FechaFin: req.FechaFin, FechaFinSet: present["fecha_fin"], Activo: req.Activo, Notas: req.Notas, NotasSet: present["notas"],
+		Frecuencia: req.Frecuencia,
 	})
 	if err != nil {
 		respondTrastiendaError(c, err)
@@ -646,7 +654,9 @@ func (h *Container) GetFlujoFinanciero(c *gin.Context) {
 // @Tags Finanzas
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
-// @Param adelantar query bool false "Si es true, incluye tambien el siguiente cobro aun no vencido de cada plantilla (campo adelantado=true)"
+// @Param adelantar query int false "Cantidad de proximos pagos por gasto, aun no vencidos, que se incluyen para pagar por adelantado (campo adelantado=true). 0 por defecto, maximo 2000"
+// @Param hasta query string false "Incluye tambien todos los pagos futuros hasta esta fecha YYYY-MM-DD"
+// @Param gasto_fijo_id query int false "Limita el resultado a un solo gasto fijo"
 // @Success 200 {object} utils.APIResponse{data=gastosFijosPendientesResponse}
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
@@ -654,7 +664,27 @@ func (h *Container) GetFlujoFinanciero(c *gin.Context) {
 // @Security BearerAuth
 // @Router /bd/finanzas/gastos-fijos/pendientes [get]
 func (h *Container) GetGastosFijosPendientes(c *gin.Context) {
-	pendientes, err := h.GastosFijos.PendientesDeGenerar(c.Query("adelantar") == "true")
+	adelantar, err := queryAdelantar(c)
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	filtro := services.FiltroAdelanto{Cobros: adelantar}
+	if raw := strings.TrimSpace(c.Query("hasta")); raw != "" {
+		hasta, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "hasta invalida, use formato YYYY-MM-DD")
+			return
+		}
+		filtro.Hasta = &hasta
+	}
+	gastoID, err := queryInt(c, "gasto_fijo_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	filtro.GastoFijoID = gastoID
+	pendientes, err := h.GastosFijos.PendientesDeGenerar(filtro)
 	if err != nil {
 		respondTrastiendaError(c, err)
 		return
@@ -669,7 +699,6 @@ func (h *Container) GetGastosFijosPendientes(c *gin.Context) {
 // @Produce json
 // @Param Authorization header string false "Token Bearer (admin_sys) si no se usa X-Job-Secret" default(Bearer <token>)
 // @Param X-Job-Secret header string false "Secreto interno del job diario"
-// @Param adelantar query bool false "Si es true, genera tambien el siguiente cobro aun no vencido de cada plantilla (pago adelantado)"
 // @Success 200 {object} utils.APIResponse{data=generarGastosFijosResponse}
 // @Failure 401 {object} utils.APIResponse "Token o secreto requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
@@ -677,11 +706,7 @@ func (h *Container) GetGastosFijosPendientes(c *gin.Context) {
 // @Security BearerAuth
 // @Router /bd/finanzas/gastos-fijos/generar [post]
 func (h *Container) PostGenerarGastosFijos(c *gin.Context) {
-	generar := h.GastosFijos.GenerarHoy
-	if c.Query("adelantar") == "true" {
-		generar = h.GastosFijos.GenerarHoyAdelantando
-	}
-	n, err := generar()
+	n, err := h.GastosFijos.GenerarHoy()
 	if err != nil {
 		respondTrastiendaError(c, err)
 		return
@@ -691,4 +716,74 @@ func (h *Container) PostGenerarGastosFijos(c *gin.Context) {
 		msg = "gastos fijos generados correctamente"
 	}
 	utils.Respond(c, http.StatusOK, generarGastosFijosResponse{Generados: n, Mensaje: msg})
+}
+
+// queryAdelantar lee ?adelantar=N (cobros por adelantado). Acepta true como 1 por compatibilidad.
+func queryAdelantar(c *gin.Context) (int, error) {
+	raw := strings.TrimSpace(c.Query("adelantar"))
+	switch raw {
+	case "", "false":
+		return 0, nil
+	case "true":
+		return 1, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 || n > 2000 {
+		return 0, errors.New("adelantar debe ser un entero entre 0 y 2000")
+	}
+	return n, nil
+}
+
+type pagarGastosFijosRequest struct {
+	// Cobros a pagar
+	Cobros []cobroGastoFijoRequest `json:"cobros" binding:"required,min=1,dive"`
+}
+
+type cobroGastoFijoRequest struct {
+	// Gasto fijo
+	GastoFijoID int `json:"gasto_fijo_id" binding:"required" example:"1"`
+	// Fecha de cobro YYYY-MM-DD (vencida o por adelantado)
+	FechaCobro string `json:"fecha_cobro" binding:"required" example:"2026-11-05"`
+}
+
+type pagarGastosFijosResponse struct {
+	// Cantidad de cobros pagados
+	Pagados int `json:"pagados" example:"2"`
+	// Mensaje descriptivo
+	Mensaje string `json:"mensaje" example:"gastos fijos pagados correctamente"`
+}
+
+// PostPagarGastosFijos godoc
+// @Summary Pagar cobros de gastos fijos
+// @Description Crea (si no existe) y paga en un solo paso el egreso de cada cobro indicado, ya vencido o por adelantado. No se puede adelantar un gasto que tiene pagos atrasados sin pagarlos: los vencidos deben estar pagados o ir en la misma solicitud. Cada fecha debe ser un cobro real de la plantilla segun su frecuencia y vigencia; pagar dos veces el mismo cobro no duplica, y un cobro anulado no se revive. Los cobros no indicados no se generan. Requiere token Bearer con rol admin_sys.
+// @Tags Finanzas
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param payload body pagarGastosFijosRequest true "Cobros a pagar"
+// @Success 200 {object} utils.APIResponse{data=pagarGastosFijosResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: fecha que no es un cobro valido, gasto inactivo, cobro anulado o fecha demasiado lejana"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Gasto fijo no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Security BearerAuth
+// @Router /bd/finanzas/gastos-fijos/pagar [post]
+func (h *Container) PostPagarGastosFijos(c *gin.Context) {
+	var req pagarGastosFijosRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	cobros := make([]services.CobroPago, len(req.Cobros))
+	for i, c := range req.Cobros {
+		cobros[i] = services.CobroPago{GastoFijoID: c.GastoFijoID, FechaCobro: c.FechaCobro}
+	}
+	actor := consumoActor(c)
+	n, err := h.GastosFijos.PagarCobros(cobros, actor.UsuarioID, actor.UsuarioNombre)
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, pagarGastosFijosResponse{Pagados: n, Mensaje: "gastos fijos pagados correctamente"})
 }
