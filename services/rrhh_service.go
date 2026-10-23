@@ -12,10 +12,7 @@ import (
 )
 
 const (
-	planillaSueldo    = "SUELDO"
-	planillaAguinaldo = "AGUINALDO"
-	// diasMinAguinaldo es la antiguedad minima dentro del anio para tener derecho a aguinaldo.
-	diasMinAguinaldo = 90
+	planillaSueldo = "SUELDO"
 )
 
 type RRHHService struct {
@@ -126,8 +123,8 @@ func (s *RRHHService) validarEmpleado(in EmpleadoInput) (pgsqlrepo.EmpleadoInput
 	return pgsqlrepo.EmpleadoInput{
 		Nombre: nombre, Apellido: apellido, CI: trimPtr(in.CI), Cargo: trimPtr(in.Cargo), Telefono: trimPtr(in.Telefono),
 		LocalID: in.LocalID, UsuarioID: in.UsuarioID, SueldoBase: redondearMonto(in.SueldoBase), DiaPago: in.DiaPago,
-		AplicaAportes: aplica, MetodoPago: metodo, FechaIngreso: ingreso, FechaBaja: baja, Activo: activo,
-		Notas: trimPtr(in.Notas),
+		AplicaAportes: aplica, MetodoPago: metodo, FechaIngreso: ingreso,
+		FechaBaja: baja, Activo: activo, Notas: trimPtr(in.Notas),
 	}, nil
 }
 
@@ -180,8 +177,9 @@ func (s *RRHHService) ActualizarEmpleado(id int, p EmpleadoPatch) (*models.Emple
 	in := EmpleadoInput{
 		Nombre: actual.Nombre, Apellido: actual.Apellido, CI: actual.CI, Cargo: actual.Cargo, Telefono: actual.Telefono,
 		LocalID: actual.LocalID, UsuarioID: actual.UsuarioID, SueldoBase: actual.SueldoBase, DiaPago: actual.DiaPago,
-		AplicaAportes: &actual.AplicaAportes, MetodoPago: actual.MetodoPago, FechaIngreso: actual.FechaIngreso,
-		FechaBaja: actual.FechaBaja, Activo: &actual.Activo, Notas: actual.Notas,
+		AplicaAportes: &actual.AplicaAportes, MetodoPago: actual.MetodoPago,
+		FechaIngreso: actual.FechaIngreso,
+		FechaBaja:    actual.FechaBaja, Activo: &actual.Activo, Notas: actual.Notas,
 	}
 	if p.Nombre != nil {
 		in.Nombre = *p.Nombre
@@ -265,6 +263,70 @@ func (s *RRHHService) RegistrarAdelanto(empleadoID int, fecha string, monto floa
 }
 
 func (s *RRHHService) AnularAdelanto(id int) error { return s.repo.AnularAdelanto(id) }
+
+// ─── Tipos de bono ────────────────────────────────────────────────────────────
+
+func (s *RRHHService) ListarTiposBono(soloActivos bool) ([]models.TipoBono, error) {
+	return s.repo.ListTiposBono(soloActivos)
+}
+
+func (s *RRHHService) CrearTipoBono(nombre string, descripcion *string) (*models.TipoBono, error) {
+	nombre = strings.TrimSpace(nombre)
+	if nombre == "" {
+		return nil, errors.New("nombre es requerido")
+	}
+	en, err := s.repo.NombreTipoBonoEnUso(nombre, 0)
+	if err != nil {
+		return nil, err
+	}
+	if en {
+		return nil, errors.New("ya existe un tipo de bono con ese nombre")
+	}
+	id, err := s.repo.CreateTipoBono(nombre, trimPtr(descripcion))
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.GetTipoBono(id)
+}
+
+type TipoBonoPatch struct {
+	Nombre         *string
+	Descripcion    *string
+	DescripcionSet bool
+	Activo         *bool
+}
+
+// ActualizarTipoBono renombra, describe o activa/desactiva un tipo. No se borra: las planillas ya pagadas lo referencian.
+func (s *RRHHService) ActualizarTipoBono(id int, p TipoBonoPatch) (*models.TipoBono, error) {
+	actual, err := s.repo.GetTipoBono(id)
+	if err != nil {
+		return nil, err
+	}
+	nombre, descripcion, activo := actual.Nombre, actual.Descripcion, actual.Activo
+	if p.Nombre != nil {
+		nombre = strings.TrimSpace(*p.Nombre)
+		if nombre == "" {
+			return nil, errors.New("nombre es requerido")
+		}
+		en, err := s.repo.NombreTipoBonoEnUso(nombre, id)
+		if err != nil {
+			return nil, err
+		}
+		if en {
+			return nil, errors.New("ya existe un tipo de bono con ese nombre")
+		}
+	}
+	if p.DescripcionSet {
+		descripcion = trimPtr(p.Descripcion)
+	}
+	if p.Activo != nil {
+		activo = *p.Activo
+	}
+	if err := s.repo.UpdateTipoBono(id, nombre, descripcion, activo); err != nil {
+		return nil, err
+	}
+	return s.repo.GetTipoBono(id)
+}
 
 // ─── Calculo ──────────────────────────────────────────────────────────────────
 
@@ -358,15 +420,17 @@ func (s *RRHHService) ListarPlanillas(f FiltroPlanillas) ([]models.Planilla, err
 	}
 	if f.Tipo != "" {
 		t := strings.ToUpper(strings.TrimSpace(f.Tipo))
-		if t != planillaSueldo && t != planillaAguinaldo {
-			return nil, errors.New("tipo invalido, valores permitidos: SUELDO, AGUINALDO")
+		if t != planillaSueldo {
+			return nil, errors.New("tipo invalido, valores permitidos: SUELDO")
 		}
 		repoF.Tipo = t
 	}
 	return s.repo.ListPlanillas(repoF)
 }
 
-func (s *RRHHService) ObtenerPlanilla(id int) (*models.Planilla, error) { return s.repo.GetPlanilla(id) }
+func (s *RRHHService) ObtenerPlanilla(id int) (*models.Planilla, error) {
+	return s.repo.GetPlanilla(id)
+}
 
 // ResumenPeriodo suma las planillas no anuladas de un periodo.
 func (s *RRHHService) ResumenPeriodo(planillas []models.Planilla, periodo string) models.PlanillaResumen {
@@ -395,12 +459,50 @@ func (s *RRHHService) ResumenPeriodo(planillas []models.Planilla, periodo string
 	return r
 }
 
+// BonoInput es una linea de bono pedida por el cliente.
+type BonoInput struct {
+	TipoBonoID int
+	Monto      float64
+	Nota       *string
+}
+
 type PlanillaPatch struct {
-	Bonos           *float64
+	// Bonos reemplaza todas las lineas de bono de la planilla; nil las deja como estan.
+	Bonos           *[]BonoInput
 	DiasFalta       *float64
 	OtrosDescuentos *float64
 	Notas           *string
 	NotasSet        bool
+}
+
+// validarBonos revisa las lineas y devuelve las filas a guardar con su suma. Un tipo inactivo solo se admite si la
+// planilla ya lo usaba, para poder corregirla sin perder el historial.
+func (s *RRHHService) validarBonos(planillaID int, in []BonoInput) ([]pgsqlrepo.BonoLinea, float64, error) {
+	usados, err := s.repo.TiposBonoDePlanilla(planillaID)
+	if err != nil {
+		return nil, 0, err
+	}
+	lineas := make([]pgsqlrepo.BonoLinea, 0, len(in))
+	total := 0.0
+	for _, b := range in {
+		if b.TipoBonoID < 1 {
+			return nil, 0, errors.New("cada bono debe indicar su tipo")
+		}
+		monto := redondearMonto(b.Monto)
+		if !(monto > 0) {
+			return nil, 0, errors.New("el monto de cada bono debe ser mayor a 0")
+		}
+		tipo, err := s.repo.GetTipoBono(b.TipoBonoID)
+		if err != nil {
+			return nil, 0, err
+		}
+		if !tipo.Activo && !usados[tipo.ID] {
+			return nil, 0, fmt.Errorf("el tipo de bono %q esta inactivo", tipo.Nombre)
+		}
+		lineas = append(lineas, pgsqlrepo.BonoLinea{TipoBonoID: tipo.ID, Monto: monto, Nota: trimPtr(b.Nota)})
+		total = redondearMonto(total + monto)
+	}
+	return lineas, total, nil
 }
 
 // ActualizarPlanilla cambia bonos, faltas u otros descuentos de una planilla PENDIENTE y recalcula todo,
@@ -413,9 +515,6 @@ func (s *RRHHService) ActualizarPlanilla(id int, p PlanillaPatch) (*models.Plani
 	if actual.Estado != "PENDIENTE" {
 		return nil, errors.New("solo una planilla PENDIENTE puede editarse")
 	}
-	if actual.Tipo != planillaSueldo {
-		return nil, errors.New("el aguinaldo no admite bonos ni descuentos: anula y regenera si hay un error")
-	}
 	emp, err := s.repo.GetEmpleado(actual.EmpleadoID)
 	if err != nil {
 		return nil, err
@@ -425,8 +524,13 @@ func (s *RRHHService) ActualizarPlanilla(id int, p PlanillaPatch) (*models.Plani
 		return nil, err
 	}
 	nov := novedadesPlanilla{Bonos: actual.Bonos, DiasFalta: actual.DiasFalta, OtrosDescuentos: actual.OtrosDescuentos}
+	var lineas *[]pgsqlrepo.BonoLinea
 	if p.Bonos != nil {
-		nov.Bonos = *p.Bonos
+		ls, total, err := s.validarBonos(id, *p.Bonos)
+		if err != nil {
+			return nil, err
+		}
+		lineas, nov.Bonos = &ls, total
 	}
 	if p.DiasFalta != nil {
 		nov.DiasFalta = *p.DiasFalta
@@ -447,7 +551,7 @@ func (s *RRHHService) ActualizarPlanilla(id int, p PlanillaPatch) (*models.Plani
 	if p.NotasSet {
 		notas = trimPtr(p.Notas)
 	}
-	if err := s.repo.ActualizarPlanilla(id, v, notas); err != nil {
+	if err := s.repo.ActualizarPlanilla(id, v, notas, lineas); err != nil {
 		return nil, err
 	}
 	return s.repo.GetPlanilla(id)
@@ -479,10 +583,7 @@ func (s *RRHHService) Anular(id int, motivo string) (*models.Planilla, error) {
 
 // ─── Generacion mensual ───────────────────────────────────────────────────────
 
-func descripcionPlanilla(tipo string, periodo time.Time, e models.Empleado) string {
-	if tipo == planillaAguinaldo {
-		return fmt.Sprintf("Aguinaldo %d - %s %s", periodo.Year(), e.Nombre, e.Apellido)
-	}
+func descripcionPlanilla(periodo time.Time, e models.Empleado) string {
 	return fmt.Sprintf("Sueldo %s - %s %s", periodo.Format("2006-01"), e.Nombre, e.Apellido)
 }
 
@@ -490,7 +591,7 @@ func descripcionPlanilla(tipo string, periodo time.Time, e models.Empleado) stri
 func (s *RRHHService) generarSueldo(e models.Empleado, periodo, fechaPago time.Time, cfg ConfigTrastienda) (bool, error) {
 	return s.repo.GenerarPlanilla(pgsqlrepo.GenerarPlanillaInput{
 		EmpleadoID: e.ID, Tipo: planillaSueldo, Periodo: periodo, FechaPago: fechaPago, EstadoMov: "PENDIENTE",
-		Descripcion: descripcionPlanilla(planillaSueldo, periodo, e),
+		Descripcion: descripcionPlanilla(periodo, e),
 		Calcular: func(adelantos []float64) (pgsqlrepo.PlanillaValores, int, error) {
 			return calcularSueldo(e.SueldoBase, e.AplicaAportes, novedadesPlanilla{}, cfg, adelantos, false)
 		},
@@ -633,65 +734,3 @@ func (s *RRHHService) GenerarPlanillaManual(empleadoID int, periodo string) (*mo
 
 // errPlanillaNoCreada indica un estado inconsistente tras generar; no deberia ocurrir.
 var errPlanillaNoCreada = errors.New("error al leer la planilla generada")
-
-// GenerarAguinaldos crea el aguinaldo del anio para los empleados con al menos 90 dias en el anio:
-// sueldo_base proporcional a los dias trabajados. No lleva aportes. Vence el 20 de diciembre.
-func (s *RRHHService) GenerarAguinaldos(anio int) (int, error) {
-	if anio < 2000 || anio > 2100 {
-		return 0, errors.New("anio invalido")
-	}
-	cfg, err := s.config.Snapshot()
-	if err != nil {
-		return 0, err
-	}
-	if anio > cfg.Hoy().Year() {
-		return 0, errors.New("no se puede generar el aguinaldo de un anio futuro")
-	}
-	emps, err := s.repo.ListEmpleados(false)
-	if err != nil {
-		return 0, err
-	}
-	inicioAnio := time.Date(anio, 1, 1, 0, 0, 0, 0, time.UTC)
-	finAnio := time.Date(anio, 12, 31, 0, 0, 0, 0, time.UTC)
-	diasAnio := float64(finAnio.YearDay())
-	periodo := time.Date(anio, 12, 1, 0, 0, 0, 0, time.UTC)
-	fechaPago := time.Date(anio, 12, 20, 0, 0, 0, 0, time.UTC)
-	generadas := 0
-	for _, e := range emps {
-		desde, err := parseFecha(e.FechaIngreso)
-		if err != nil {
-			continue
-		}
-		if desde.Before(inicioAnio) {
-			desde = inicioAnio
-		}
-		hasta := finAnio
-		if e.FechaBaja != nil {
-			if b, err := parseFecha(*e.FechaBaja); err == nil && b.Before(hasta) {
-				hasta = b
-			}
-		}
-		dias := int(hasta.Sub(desde).Hours()/24) + 1
-		if dias < diasMinAguinaldo {
-			continue
-		}
-		monto := redondearMonto(e.SueldoBase * math.Min(float64(dias), diasAnio) / diasAnio)
-		emp := e
-		creada, err := s.repo.GenerarPlanilla(pgsqlrepo.GenerarPlanillaInput{
-			EmpleadoID: e.ID, Tipo: planillaAguinaldo, Periodo: periodo, FechaPago: fechaPago, EstadoMov: "PENDIENTE",
-			Descripcion: descripcionPlanilla(planillaAguinaldo, periodo, emp),
-			Calcular: func(_ []float64) (pgsqlrepo.PlanillaValores, int, error) {
-				return pgsqlrepo.PlanillaValores{
-					SueldoBase: emp.SueldoBase, TotalGanado: monto, NetoPagar: monto, CostoEmpresa: monto,
-				}, 0, nil
-			},
-		})
-		if err != nil {
-			return generadas, fmt.Errorf("aguinaldo de %s %s: %w", e.Nombre, e.Apellido, err)
-		}
-		if creada {
-			generadas++
-		}
-	}
-	return generadas, nil
-}

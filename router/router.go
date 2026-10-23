@@ -234,7 +234,9 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/rrhh/planillas/:id", h.AuthRequired, h.AdminSysRequired, h.PatchPlanilla)
 		bd.PATCH("/rrhh/planillas/:id/pagar", h.AuthRequired, h.AdminSysRequired, h.PatchPlanillaPagar)
 		bd.PATCH("/rrhh/planillas/:id/anular", h.AuthRequired, h.AdminSysRequired, h.PatchPlanillaAnular)
-		bd.POST("/rrhh/aguinaldos/generar", h.AuthRequired, h.AdminSysRequired, h.PostGenerarAguinaldos)
+		bd.GET("/rrhh/tipos-bono", h.AuthRequired, h.AdminSysRequired, h.GetTiposBono)
+		bd.POST("/rrhh/tipos-bono", h.AuthRequired, h.AdminSysRequired, h.PostTipoBono)
+		bd.PATCH("/rrhh/tipos-bono/:id", h.AuthRequired, h.AdminSysRequired, h.PatchTipoBono)
 		bd.GET("/reportes/financiero", h.AuthRequired, h.AdminSysRequired, h.GetReporteFinanciero)
 
 		// Parametros del sistema: lectura para cualquier usuario autenticado, escritura solo admin_sys.

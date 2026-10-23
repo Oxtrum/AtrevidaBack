@@ -121,9 +121,41 @@ type crearPlanillaRequest struct {
 	Periodo string `json:"periodo" binding:"required" example:"2026-10"`
 }
 
+type bonoRequest struct {
+	// Tipo de bono del catalogo
+	TipoBonoID int `json:"tipo_bono_id" binding:"required" example:"1"`
+	// Monto del bono (mayor a 0)
+	Monto float64 `json:"monto" binding:"required" example:"150"`
+	// Detalle del motivo (opcional)
+	Nota *string `json:"nota" example:"Meta de octubre"`
+}
+
+type tiposBonoResponse struct {
+	// Tipos de bono, activos primero
+	Tipos []models.TipoBono `json:"tipos"`
+}
+
+type tipoBonoResponse struct {
+	// Tipo de bono
+	Tipo models.TipoBono `json:"tipo"`
+}
+
+type tipoBonoRequest struct {
+	// Nombre del bono, unico sin distinguir mayusculas
+	Nombre string `json:"nombre" binding:"required" example:"Producción"`
+	// Descripcion (opcional)
+	Descripcion *string `json:"descripcion" example:"Bono por metas del mes"`
+}
+
+type actualizarTipoBonoRequest struct {
+	Nombre      *string `json:"nombre" example:"Producción"`
+	Descripcion *string `json:"descripcion" example:"Bono por metas del mes"`
+	Activo      *bool   `json:"activo" example:"true"`
+}
+
 type actualizarPlanillaRequest struct {
-	// Bonos del mes
-	Bonos *float64 `json:"bonos" example:"150"`
+	// Lineas de bono; reemplaza todas las de la planilla (lista vacia las quita, ausente las deja)
+	Bonos *[]bonoRequest `json:"bonos_detalle"`
 	// Dias de falta (admite fracciones, ej. 0.5)
 	DiasFalta *float64 `json:"dias_falta" example:"1"`
 	// Otros descuentos
@@ -140,11 +172,6 @@ type pagarPlanillaRequest struct {
 type anularPlanillaRequest struct {
 	// Motivo de la anulacion
 	Motivo string `json:"motivo" binding:"required" example:"Sueldo mal calculado"`
-}
-
-type generarAguinaldosRequest struct {
-	// Anio del aguinaldo
-	Anio int `json:"anio" binding:"required" example:"2026"`
 }
 
 // ─── Empleados ────────────────────────────────────────────────────────────────
@@ -230,8 +257,8 @@ func (h *Container) PostEmpleado(c *gin.Context) {
 	emp, err := h.RRHH.CrearEmpleado(services.EmpleadoInput{
 		Nombre: req.Nombre, Apellido: req.Apellido, CI: req.CI, Cargo: req.Cargo, Telefono: req.Telefono,
 		LocalID: req.LocalID, UsuarioID: req.UsuarioID, SueldoBase: req.SueldoBase, DiaPago: req.DiaPago,
-		AplicaAportes: req.AplicaAportes, MetodoPago: req.MetodoPago, FechaIngreso: req.FechaIngreso,
-		FechaBaja: req.FechaBaja, Activo: req.Activo, Notas: req.Notas,
+		AplicaAportes: req.AplicaAportes, MetodoPago: req.MetodoPago,
+		FechaIngreso: req.FechaIngreso, FechaBaja: req.FechaBaja, Activo: req.Activo, Notas: req.Notas,
 	})
 	if err != nil {
 		respondTrastiendaError(c, err)
@@ -273,7 +300,8 @@ func (h *Container) PatchEmpleado(c *gin.Context) {
 		CargoSet: present["cargo"], Telefono: req.Telefono, TelefonoSet: present["telefono"], LocalID: req.LocalID,
 		LocalSet: present["local_id"], UsuarioID: req.UsuarioID, UsuarioSet: present["usuario_id"],
 		SueldoBase: req.SueldoBase, DiaPago: req.DiaPago, DiaPagoSet: present["dia_pago"],
-		AplicaAportes: req.AplicaAportes, MetodoPago: req.MetodoPago, MetodoSet: present["metodo_pago"],
+		AplicaAportes: req.AplicaAportes, MetodoPago: req.MetodoPago,
+		MetodoSet:    present["metodo_pago"],
 		FechaIngreso: req.FechaIngreso, FechaBaja: req.FechaBaja, FechaBajaSet: present["fecha_baja"],
 		Activo: req.Activo, Notas: req.Notas, NotasSet: present["notas"],
 	})
@@ -390,7 +418,7 @@ func (h *Container) DeleteAdelanto(c *gin.Context) {
 // @Param empleado_id query int false "Filtra por empleado"
 // @Param local_id query int false "Filtra por local del empleado"
 // @Param estado query string false "PENDIENTE, PAGADO o ANULADO"
-// @Param tipo query string false "SUELDO o AGUINALDO"
+// @Param tipo query string false "SUELDO"
 // @Success 200 {object} utils.APIResponse{data=planillasResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: periodo, estado o tipo invalidos"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
@@ -486,7 +514,7 @@ func (h *Container) PostPlanilla(c *gin.Context) {
 
 // PatchPlanilla godoc
 // @Summary Editar planilla
-// @Description Cambia bonos, dias de falta, otros descuentos o notas de una planilla PENDIENTE. Recalcula aportes y neto, y actualiza el monto del egreso. La falta se valora como sueldo_base / rrhh.dias_mes_faltas por dia. Requiere token Bearer con rol admin_sys.
+// @Description Cambia las lineas de bono (bonos_detalle: tipo del catalogo, monto y nota; reemplaza todas), dias de falta, otros descuentos o notas de una planilla PENDIENTE. Recalcula aportes y neto, y actualiza el monto del egreso. La falta se valora como sueldo_base / rrhh.dias_mes_faltas por dia. Requiere token Bearer con rol admin_sys.
 // @Tags RRHH
 // @Accept json
 // @Produce json
@@ -494,7 +522,7 @@ func (h *Container) PostPlanilla(c *gin.Context) {
 // @Param id path int true "ID de la planilla" example(1)
 // @Param payload body actualizarPlanillaRequest true "Campos a actualizar"
 // @Success 200 {object} utils.APIResponse{data=planillaResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: montos negativos, descuentos mayores a lo ganado o planilla no editable"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: montos negativos, bono sin tipo o con tipo inactivo, descuentos mayores a lo ganado o planilla no editable"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Planilla no encontrada"
@@ -512,8 +540,16 @@ func (h *Container) PatchPlanilla(c *gin.Context) {
 	if !ok {
 		return
 	}
+	var bonos *[]services.BonoInput
+	if req.Bonos != nil {
+		lineas := make([]services.BonoInput, len(*req.Bonos))
+		for i, b := range *req.Bonos {
+			lineas[i] = services.BonoInput{TipoBonoID: b.TipoBonoID, Monto: b.Monto, Nota: b.Nota}
+		}
+		bonos = &lineas
+	}
 	p, err := h.RRHH.ActualizarPlanilla(id, services.PlanillaPatch{
-		Bonos: req.Bonos, DiasFalta: req.DiasFalta, OtrosDescuentos: req.OtrosDescuentos,
+		Bonos: bonos, DiasFalta: req.DiasFalta, OtrosDescuentos: req.OtrosDescuentos,
 		Notas: req.Notas, NotasSet: present["notas"],
 	})
 	if err != nil {
@@ -645,35 +681,101 @@ func (h *Container) PostGenerarPlanillas(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, generarPlanillasResponse{Generados: n, Mensaje: msg})
 }
 
-// PostGenerarAguinaldos godoc
-// @Summary Generar aguinaldos del anio
-// @Description Crea el aguinaldo (planilla tipo AGUINALDO, vence el 20 de diciembre) de los empleados con al menos 90 dias trabajados en el anio: un sueldo base proporcional a los dias trabajados, sin aportes. Idempotente. Requiere token Bearer con rol admin_sys.
+// ─── Tipos de bono ────────────────────────────────────────────────────────────
+
+// GetTiposBono godoc
+// @Summary Listar tipos de bono
+// @Description Catalogo de bonos que se pueden asignar a una planilla (ej. Produccion, Puntualidad). Requiere token Bearer con rol admin_sys.
 // @Tags RRHH
-// @Accept json
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
-// @Param payload body generarAguinaldosRequest true "Anio"
-// @Success 200 {object} utils.APIResponse{data=generarPlanillasResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: anio invalido o futuro"
+// @Param activos query bool false "true devuelve solo los tipos activos"
+// @Success 200 {object} utils.APIResponse{data=tiposBonoResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: activos invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Security BearerAuth
-// @Router /bd/rrhh/aguinaldos/generar [post]
-func (h *Container) PostGenerarAguinaldos(c *gin.Context) {
-	var req generarAguinaldosRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+// @Router /bd/rrhh/tipos-bono [get]
+func (h *Container) GetTiposBono(c *gin.Context) {
+	activos, err := queryBool(c, "activos")
+	if err != nil {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	n, err := h.RRHH.GenerarAguinaldos(req.Anio)
+	tipos, err := h.RRHH.ListarTiposBono(activos != nil && *activos)
 	if err != nil {
 		respondTrastiendaError(c, err)
 		return
 	}
-	msg := "aguinaldos al dia"
-	if n > 0 {
-		msg = "aguinaldos generados correctamente"
+	utils.Respond(c, http.StatusOK, tiposBonoResponse{Tipos: tipos})
+}
+
+// PostTipoBono godoc
+// @Summary Crear tipo de bono
+// @Description Agrega un concepto al catalogo de bonos. El nombre no puede repetirse (sin distinguir mayusculas). Requiere token Bearer con rol admin_sys.
+// @Tags RRHH
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param payload body tipoBonoRequest true "Datos del tipo de bono"
+// @Success 201 {object} utils.APIResponse{data=tipoBonoResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: nombre requerido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 409 {object} utils.APIResponse "Ya existe un tipo de bono con ese nombre"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Security BearerAuth
+// @Router /bd/rrhh/tipos-bono [post]
+func (h *Container) PostTipoBono(c *gin.Context) {
+	var req tipoBonoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
 	}
-	utils.Respond(c, http.StatusOK, generarPlanillasResponse{Generados: n, Mensaje: msg})
+	t, err := h.RRHH.CrearTipoBono(req.Nombre, req.Descripcion)
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusCreated, tipoBonoResponse{Tipo: *t})
+}
+
+// PatchTipoBono godoc
+// @Summary Editar tipo de bono
+// @Description Cambia nombre, descripcion o estado de un tipo de bono. No se elimina: se desactiva, y deja de ofrecerse en planillas nuevas pero las ya cargadas lo conservan. Requiere token Bearer con rol admin_sys.
+// @Tags RRHH
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del tipo de bono" example(1)
+// @Param payload body actualizarTipoBonoRequest true "Campos a actualizar"
+// @Success 200 {object} utils.APIResponse{data=tipoBonoResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id o nombre invalidos"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Tipo de bono no encontrado"
+// @Failure 409 {object} utils.APIResponse "Ya existe un tipo de bono con ese nombre"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Security BearerAuth
+// @Router /bd/rrhh/tipos-bono/{id} [patch]
+func (h *Container) PatchTipoBono(c *gin.Context) {
+	id, err := requiredPositiveParam(c, "id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	var req actualizarTipoBonoRequest
+	present, ok := decodePatch(c, &req)
+	if !ok {
+		return
+	}
+	t, err := h.RRHH.ActualizarTipoBono(id, services.TipoBonoPatch{
+		Nombre: req.Nombre, Descripcion: req.Descripcion, DescripcionSet: present["descripcion"], Activo: req.Activo,
+	})
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, tipoBonoResponse{Tipo: *t})
 }

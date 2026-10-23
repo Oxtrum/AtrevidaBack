@@ -37,7 +37,7 @@ type Adelanto struct {
 	Anulado        bool    `db:"anulado" json:"anulado" example:"false"`
 }
 
-// Planilla es el sueldo (o aguinaldo) de un empleado en un periodo, con su desglose.
+// Planilla es el sueldo de un empleado en un periodo, con su desglose.
 type Planilla struct {
 	ID               int     `db:"id" json:"id" example:"1"`
 	EmpleadoID       int     `db:"empleado_id" json:"empleado_id" example:"1"`
@@ -63,6 +63,26 @@ type Planilla struct {
 	MotivoAnulacion  *string `db:"motivo_anulacion" json:"motivo_anulacion,omitempty"`
 	Notas            *string `db:"notas" json:"notas,omitempty"`
 	MovimientoCodigo *string `db:"movimiento_codigo" json:"movimiento_codigo,omitempty" example:"MOV-000012"`
+	// BonosDetalle son las lineas de bono que suman el campo bonos; se cargan aparte en el repositorio.
+	BonosDetalle []PlanillaBono `db:"-" json:"bonos_detalle"`
+}
+
+// TipoBono es un concepto de bono del catalogo (ej. Produccion, Puntualidad).
+type TipoBono struct {
+	ID          int     `db:"id" json:"id" example:"1"`
+	Nombre      string  `db:"nombre" json:"nombre" example:"Producción"`
+	Descripcion *string `db:"descripcion" json:"descripcion,omitempty" example:"Bono por metas del mes"`
+	Activo      bool    `db:"activo" json:"activo" example:"true"`
+}
+
+// PlanillaBono es una linea de bono de una planilla: de que tipo es, cuanto y por que.
+type PlanillaBono struct {
+	ID         int     `db:"id" json:"id" example:"1"`
+	PlanillaID int     `db:"planilla_id" json:"-"`
+	TipoBonoID int     `db:"tipo_bono_id" json:"tipo_bono_id" example:"1"`
+	TipoNombre string  `db:"tipo_nombre" json:"tipo_nombre" example:"Producción"`
+	Monto      float64 `db:"monto" json:"monto" example:"150"`
+	Nota       *string `db:"nota" json:"nota,omitempty" example:"Meta de octubre"`
 }
 
 // PlanillaResumen son los totales de un periodo (planillas no anuladas).

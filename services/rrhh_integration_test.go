@@ -68,13 +68,24 @@ func TestRRHHPlanillaGeneraEgresoYEsIdempotente(t *testing.T) {
 	}
 
 	// Editar bonos y faltas recalcula la planilla y sincroniza el egreso.
-	bonos, faltas := 300.0, 1.0
+	tipo, err := svc.CrearTipoBono("Produccion "+env.sufijo, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.CrearTipoBono("PRODUCCION "+env.sufijo, nil); err == nil {
+		t.Fatal("el nombre de un tipo de bono no se repite aunque cambien las mayusculas")
+	}
+	bonos := []BonoInput{{TipoBonoID: tipo.ID, Monto: 200}, {TipoBonoID: tipo.ID, Monto: 100}}
+	faltas := 1.0
 	edit, err := svc.ActualizarPlanilla(primera.ID, PlanillaPatch{Bonos: &bonos, DiasFalta: &faltas})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if edit.TotalGanado != 3200 || edit.Adelantos != 200 {
+	if edit.TotalGanado != 3200 || edit.Adelantos != 200 || edit.Bonos != 300 || len(edit.BonosDetalle) != 2 {
 		t.Fatalf("recalculo inesperado: %+v", edit)
+	}
+	if _, err := svc.ActualizarPlanilla(primera.ID, PlanillaPatch{Bonos: &[]BonoInput{{TipoBonoID: tipo.ID, Monto: 0}}}); err == nil {
+		t.Fatal("un bono en 0 debe rechazarse")
 	}
 	if err := env.db.QueryRow(`SELECT monto FROM movimientos_financieros WHERE planilla_id = $1`, primera.ID).Scan(&monto); err != nil || monto != edit.CostoEmpresa {
 		t.Fatalf("el egreso debe seguir al costo: %.2f vs %.2f (%v)", monto, edit.CostoEmpresa, err)
@@ -111,10 +122,5 @@ func TestRRHHPlanillaGeneraEgresoYEsIdempotente(t *testing.T) {
 	}
 	if _, err := svc.GenerarPlanillaManual(empID, ingreso.Format("2006-01")); err == nil {
 		t.Fatal("no puede haber dos planillas vigentes del mismo periodo")
-	}
-
-	// Aguinaldo: ingreso hace ~2 meses (<90 dias) no genera.
-	if _, err := svc.GenerarAguinaldos(hoy.Year()); err != nil {
-		t.Fatal(err)
 	}
 }

@@ -9305,89 +9305,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/bd/rrhh/aguinaldos/generar": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Crea el aguinaldo (planilla tipo AGUINALDO, vence el 20 de diciembre) de los empleados con al menos 90 dias trabajados en el anio: un sueldo base proporcional a los dias trabajados, sin aportes. Idempotente. Requiere token Bearer con rol admin_sys.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "RRHH"
-                ],
-                "summary": "Generar aguinaldos del anio",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "Bearer \u003ctoken\u003e",
-                        "description": "Token Bearer",
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "description": "Anio",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.generarAguinaldosRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/utils.APIResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handlers.generarPlanillasResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Error de validacion: anio invalido o futuro",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Token requerido, invalido o expirado",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Usuario no autorizado",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Error interno del servidor",
-                        "schema": {
-                            "$ref": "#/definitions/utils.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/bd/rrhh/empleados": {
             "get": {
                 "security": [
@@ -9776,7 +9693,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "SUELDO o AGUINALDO",
+                        "description": "SUELDO",
                         "name": "tipo",
                         "in": "query"
                     }
@@ -10145,7 +10062,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cambia bonos, dias de falta, otros descuentos o notas de una planilla PENDIENTE. Recalcula aportes y neto, y actualiza el monto del egreso. La falta se valora como sueldo_base / rrhh.dias_mes_faltas por dia. Requiere token Bearer con rol admin_sys.",
+                "description": "Cambia las lineas de bono (bonos_detalle: tipo del catalogo, monto y nota; reemplaza todas), dias de falta, otros descuentos o notas de una planilla PENDIENTE. Recalcula aportes y neto, y actualiza el monto del egreso. La falta se valora como sueldo_base / rrhh.dias_mes_faltas por dia. Requiere token Bearer con rol admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -10203,7 +10120,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: montos negativos, descuentos mayores a lo ganado o planilla no editable",
+                        "description": "Error de validacion: montos negativos, bono sin tipo o con tipo inactivo, descuentos mayores a lo ganado o planilla no editable",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -10421,6 +10338,273 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Planilla no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/tipos-bono": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Catalogo de bonos que se pueden asignar a una planilla (ej. Produccion, Puntualidad). Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Listar tipos de bono",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true devuelve solo los tipos activos",
+                        "name": "activos",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.tiposBonoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: activos invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Agrega un concepto al catalogo de bonos. El nombre no puede repetirse (sin distinguir mayusculas). Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Crear tipo de bono",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del tipo de bono",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.tipoBonoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.tipoBonoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: nombre requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe un tipo de bono con ese nombre",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/tipos-bono/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cambia nombre, descripcion o estado de un tipo de bono. No se elimina: se desactiva, y deja de ofrecerse en planillas nuevas pero las ya cargadas lo conservan. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Editar tipo de bono",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del tipo de bono",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarTipoBonoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.tipoBonoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id o nombre invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Tipo de bono no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe un tipo de bono con ese nombre",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -12081,10 +12265,12 @@ const docTemplate = `{
         "handlers.actualizarPlanillaRequest": {
             "type": "object",
             "properties": {
-                "bonos": {
-                    "description": "Bonos del mes",
-                    "type": "number",
-                    "example": 150
+                "bonos_detalle": {
+                    "description": "Lineas de bono; reemplaza todas las de la planilla (lista vacia las quita, ausente las deja)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.bonoRequest"
+                    }
                 },
                 "dias_falta": {
                     "description": "Dias de falta (admite fracciones, ej. 0.5)",
@@ -12325,6 +12511,23 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarTipoBonoRequest": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "descripcion": {
+                    "type": "string",
+                    "example": "Bono por metas del mes"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Producción"
+                }
+            }
+        },
         "handlers.actualizarUsuarioActivoRequest": {
             "type": "object",
             "required": [
@@ -12495,6 +12698,30 @@ const docTemplate = `{
                     "description": "Nombre de usuario para iniciar sesion.",
                     "type": "string",
                     "example": "admin"
+                }
+            }
+        },
+        "handlers.bonoRequest": {
+            "type": "object",
+            "required": [
+                "monto",
+                "tipo_bono_id"
+            ],
+            "properties": {
+                "monto": {
+                    "description": "Monto del bono (mayor a 0)",
+                    "type": "number",
+                    "example": 150
+                },
+                "nota": {
+                    "description": "Detalle del motivo (opcional)",
+                    "type": "string",
+                    "example": "Meta de octubre"
+                },
+                "tipo_bono_id": {
+                    "description": "Tipo de bono del catalogo",
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -13906,19 +14133,6 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.generarAguinaldosRequest": {
-            "type": "object",
-            "required": [
-                "anio"
-            ],
-            "properties": {
-                "anio": {
-                    "description": "Anio del aguinaldo",
-                    "type": "integer",
-                    "example": 2026
-                }
-            }
-        },
         "handlers.generarGastosFijosResponse": {
             "type": "object",
             "properties": {
@@ -15282,6 +15496,49 @@ const docTemplate = `{
                     "description": "Total de servicios encontrados",
                     "type": "integer",
                     "example": 10
+                }
+            }
+        },
+        "handlers.tipoBonoRequest": {
+            "type": "object",
+            "required": [
+                "nombre"
+            ],
+            "properties": {
+                "descripcion": {
+                    "description": "Descripcion (opcional)",
+                    "type": "string",
+                    "example": "Bono por metas del mes"
+                },
+                "nombre": {
+                    "description": "Nombre del bono, unico sin distinguir mayusculas",
+                    "type": "string",
+                    "example": "Producción"
+                }
+            }
+        },
+        "handlers.tipoBonoResponse": {
+            "type": "object",
+            "properties": {
+                "tipo": {
+                    "description": "Tipo de bono",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TipoBono"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.tiposBonoResponse": {
+            "type": "object",
+            "properties": {
+                "tipos": {
+                    "description": "Tipos de bono, activos primero",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.TipoBono"
+                    }
                 }
             }
         },
@@ -17123,6 +17380,13 @@ const docTemplate = `{
                     "type": "number",
                     "example": 150
                 },
+                "bonos_detalle": {
+                    "description": "BonosDetalle son las lineas de bono que suman el campo bonos; se cargan aparte en el repositorio.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlanillaBono"
+                    }
+                },
                 "cargo": {
                     "type": "string"
                 },
@@ -17197,6 +17461,31 @@ const docTemplate = `{
                 "total_ganado": {
                     "type": "number",
                     "example": 3050
+                }
+            }
+        },
+        "models.PlanillaBono": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 150
+                },
+                "nota": {
+                    "type": "string",
+                    "example": "Meta de octubre"
+                },
+                "tipo_bono_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "tipo_nombre": {
+                    "type": "string",
+                    "example": "Producción"
                 }
             }
         },
@@ -17660,6 +17949,27 @@ const docTemplate = `{
                 "local_nombre": {
                     "type": "string",
                     "example": "PASEO ARANJUEZ"
+                }
+            }
+        },
+        "models.TipoBono": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "descripcion": {
+                    "type": "string",
+                    "example": "Bono por metas del mes"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Producción"
                 }
             }
         },

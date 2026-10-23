@@ -450,10 +450,12 @@ definitions:
     type: object
   handlers.actualizarPlanillaRequest:
     properties:
-      bonos:
-        description: Bonos del mes
-        example: 150
-        type: number
+      bonos_detalle:
+        description: Lineas de bono; reemplaza todas las de la planilla (lista vacia
+          las quita, ausente las deja)
+        items:
+          $ref: '#/definitions/handlers.bonoRequest'
+        type: array
       dias_falta:
         description: Dias de falta (admite fracciones, ej. 0.5)
         example: 1
@@ -644,6 +646,18 @@ definitions:
         example: M
         type: string
     type: object
+  handlers.actualizarTipoBonoRequest:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      descripcion:
+        example: Bono por metas del mes
+        type: string
+      nombre:
+        example: Producción
+        type: string
+    type: object
   handlers.actualizarUsuarioActivoRequest:
     properties:
       activo:
@@ -771,6 +785,24 @@ definitions:
     required:
     - password
     - username
+    type: object
+  handlers.bonoRequest:
+    properties:
+      monto:
+        description: Monto del bono (mayor a 0)
+        example: 150
+        type: number
+      nota:
+        description: Detalle del motivo (opcional)
+        example: Meta de octubre
+        type: string
+      tipo_bono_id:
+        description: Tipo de bono del catalogo
+        example: 1
+        type: integer
+    required:
+    - monto
+    - tipo_bono_id
     type: object
   handlers.cambiarEstadoMovimientoRequest:
     properties:
@@ -1843,15 +1875,6 @@ definitions:
           $ref: '#/definitions/models.GastoFijo'
         type: array
     type: object
-  handlers.generarAguinaldosRequest:
-    properties:
-      anio:
-        description: Anio del aguinaldo
-        example: 2026
-        type: integer
-    required:
-    - anio
-    type: object
   handlers.generarGastosFijosResponse:
     properties:
       generados:
@@ -2834,6 +2857,34 @@ definitions:
         description: Total de servicios encontrados
         example: 10
         type: integer
+    type: object
+  handlers.tipoBonoRequest:
+    properties:
+      descripcion:
+        description: Descripcion (opcional)
+        example: Bono por metas del mes
+        type: string
+      nombre:
+        description: Nombre del bono, unico sin distinguir mayusculas
+        example: Producción
+        type: string
+    required:
+    - nombre
+    type: object
+  handlers.tipoBonoResponse:
+    properties:
+      tipo:
+        allOf:
+        - $ref: '#/definitions/models.TipoBono'
+        description: Tipo de bono
+    type: object
+  handlers.tiposBonoResponse:
+    properties:
+      tipos:
+        description: Tipos de bono, activos primero
+        items:
+          $ref: '#/definitions/models.TipoBono'
+        type: array
     type: object
   handlers.usuariosListResponse:
     properties:
@@ -4198,6 +4249,12 @@ definitions:
       bonos:
         example: 150
         type: number
+      bonos_detalle:
+        description: BonosDetalle son las lineas de bono que suman el campo bonos;
+          se cargan aparte en el repositorio.
+        items:
+          $ref: '#/definitions/models.PlanillaBono'
+        type: array
       cargo:
         type: string
       costo_empresa:
@@ -4253,6 +4310,24 @@ definitions:
       total_ganado:
         example: 3050
         type: number
+    type: object
+  models.PlanillaBono:
+    properties:
+      id:
+        example: 1
+        type: integer
+      monto:
+        example: 150
+        type: number
+      nota:
+        example: Meta de octubre
+        type: string
+      tipo_bono_id:
+        example: 1
+        type: integer
+      tipo_nombre:
+        example: Producción
+        type: string
     type: object
   models.PlanillaPendiente:
     properties:
@@ -4593,6 +4668,21 @@ definitions:
         type: integer
       local_nombre:
         example: PASEO ARANJUEZ
+        type: string
+    type: object
+  models.TipoBono:
+    properties:
+      activo:
+        example: true
+        type: boolean
+      descripcion:
+        example: Bono por metas del mes
+        type: string
+      id:
+        example: 1
+        type: integer
+      nombre:
+        example: Producción
         type: string
     type: object
   models.TipoEspacioLocal:
@@ -11113,60 +11203,6 @@ paths:
       summary: Anular adelanto
       tags:
       - RRHH
-  /bd/rrhh/aguinaldos/generar:
-    post:
-      consumes:
-      - application/json
-      description: 'Crea el aguinaldo (planilla tipo AGUINALDO, vence el 20 de diciembre)
-        de los empleados con al menos 90 dias trabajados en el anio: un sueldo base
-        proporcional a los dias trabajados, sin aportes. Idempotente. Requiere token
-        Bearer con rol admin_sys.'
-      parameters:
-      - default: Bearer <token>
-        description: Token Bearer
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Anio
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.generarAguinaldosRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/utils.APIResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/handlers.generarPlanillasResponse'
-              type: object
-        "400":
-          description: 'Error de validacion: anio invalido o futuro'
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "401":
-          description: Token requerido, invalido o expirado
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "403":
-          description: Usuario no autorizado
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-        "500":
-          description: Error interno del servidor
-          schema:
-            $ref: '#/definitions/utils.APIResponse'
-      security:
-      - BearerAuth: []
-      summary: Generar aguinaldos del anio
-      tags:
-      - RRHH
   /bd/rrhh/empleados:
     get:
       description: Lista los empleados con su dia de pago efectivo (el propio o rrhh.dia_pago_defecto)
@@ -11413,7 +11449,7 @@ paths:
         in: query
         name: estado
         type: string
-      - description: SUELDO o AGUINALDO
+      - description: SUELDO
         in: query
         name: tipo
         type: string
@@ -11569,10 +11605,11 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Cambia bonos, dias de falta, otros descuentos o notas de una planilla
+      description: 'Cambia las lineas de bono (bonos_detalle: tipo del catalogo, monto
+        y nota; reemplaza todas), dias de falta, otros descuentos o notas de una planilla
         PENDIENTE. Recalcula aportes y neto, y actualiza el monto del egreso. La falta
         se valora como sueldo_base / rrhh.dias_mes_faltas por dia. Requiere token
-        Bearer con rol admin_sys.
+        Bearer con rol admin_sys.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -11605,8 +11642,8 @@ paths:
                   $ref: '#/definitions/handlers.planillaResponse'
               type: object
         "400":
-          description: 'Error de validacion: montos negativos, descuentos mayores
-            a lo ganado o planilla no editable'
+          description: 'Error de validacion: montos negativos, bono sin tipo o con
+            tipo inactivo, descuentos mayores a lo ganado o planilla no editable'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "401":
@@ -11842,6 +11879,176 @@ paths:
       security:
       - BearerAuth: []
       summary: Planillas pendientes de generar
+      tags:
+      - RRHH
+  /bd/rrhh/tipos-bono:
+    get:
+      description: Catalogo de bonos que se pueden asignar a una planilla (ej. Produccion,
+        Puntualidad). Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: true devuelve solo los tipos activos
+        in: query
+        name: activos
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.tiposBonoResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: activos invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar tipos de bono
+      tags:
+      - RRHH
+    post:
+      consumes:
+      - application/json
+      description: Agrega un concepto al catalogo de bonos. El nombre no puede repetirse
+        (sin distinguir mayusculas). Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Datos del tipo de bono
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.tipoBonoRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.tipoBonoResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: nombre requerido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Ya existe un tipo de bono con ese nombre
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Crear tipo de bono
+      tags:
+      - RRHH
+  /bd/rrhh/tipos-bono/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: 'Cambia nombre, descripcion o estado de un tipo de bono. No se
+        elimina: se desactiva, y deja de ofrecerse en planillas nuevas pero las ya
+        cargadas lo conservan. Requiere token Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del tipo de bono
+        example: 1
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a actualizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarTipoBonoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.tipoBonoResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id o nombre invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Tipo de bono no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Ya existe un tipo de bono con ese nombre
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Editar tipo de bono
       tags:
       - RRHH
   /bd/servicios:

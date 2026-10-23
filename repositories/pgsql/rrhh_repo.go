@@ -15,6 +15,7 @@ var (
 	ErrEmpleadoNoEnc = errors.New("empleado no encontrado")
 	ErrPlanillaNoEnc = errors.New("planilla no encontrada")
 	ErrAdelantoNoEnc = errors.New("adelanto no encontrado")
+	ErrTipoBonoNoEnc = errors.New("tipo de bono no encontrado")
 )
 
 type RRHHRepo struct {
@@ -222,7 +223,42 @@ func (r *RRHHRepo) ListPlanillas(f FiltroPlanillas) ([]models.Planilla, error) {
 	if err := r.db.Select(&out, planillaSelect+" WHERE "+conds+" ORDER BY p.periodo DESC, e.apellido, e.nombre", args...); err != nil {
 		return nil, fmt.Errorf("error al listar planillas: %w", err)
 	}
+	if err := r.adjuntarBonos(out); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// adjuntarBonos carga las lineas de bono de todas las planillas con una sola consulta.
+func (r *RRHHRepo) adjuntarBonos(planillas []models.Planilla) error {
+	if len(planillas) == 0 {
+		return nil
+	}
+	ids := make([]int, len(planillas))
+	for i := range planillas {
+		ids[i] = planillas[i].ID
+		planillas[i].BonosDetalle = []models.PlanillaBono{}
+	}
+	query, args, err := sqlx.In(`
+		SELECT b.id, b.planilla_id, b.tipo_bono_id, t.nombre AS tipo_nombre, b.monto, b.nota
+		FROM planilla_bonos b JOIN tipos_bono t ON t.id = b.tipo_bono_id
+		WHERE b.planilla_id IN (?) ORDER BY b.id`, ids)
+	if err != nil {
+		return fmt.Errorf("error al leer bonos de planillas: %w", err)
+	}
+	var lineas []models.PlanillaBono
+	if err := r.db.Select(&lineas, r.db.Rebind(query), args...); err != nil {
+		return fmt.Errorf("error al leer bonos de planillas: %w", err)
+	}
+	porID := make(map[int]*models.Planilla, len(planillas))
+	for i := range planillas {
+		porID[planillas[i].ID] = &planillas[i]
+	}
+	for _, l := range lineas {
+		p := porID[l.PlanillaID]
+		p.BonosDetalle = append(p.BonosDetalle, l)
+	}
+	return nil
 }
 
 func (r *RRHHRepo) GetPlanilla(id int) (*models.Planilla, error) {
@@ -234,7 +270,11 @@ func (r *RRHHRepo) GetPlanilla(id int) (*models.Planilla, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error al leer planilla: %w", err)
 	}
-	return &p, nil
+	one := []models.Planilla{p}
+	if err := r.adjuntarBonos(one); err != nil {
+		return nil, err
+	}
+	return &one[0], nil
 }
 
 // UltimoPeriodoSueldo devuelve el primer dia del ultimo mes con planilla de SUELDO (de cualquier estado), o nil.
@@ -366,8 +406,16 @@ func (r *RRHHRepo) AdelantosDePlanilla(planillaID int) ([]float64, error) {
 	return out, nil
 }
 
+// BonoLinea es una linea de bono a guardar en una planilla.
+type BonoLinea struct {
+	TipoBonoID int
+	Monto      float64
+	Nota       *string
+}
+
 // ActualizarPlanilla guarda el desglose recalculado de una planilla PENDIENTE y sincroniza el monto del egreso.
-func (r *RRHHRepo) ActualizarPlanilla(id int, v PlanillaValores, notas *string) error {
+// Si bonos no es nil, reemplaza las lineas de bono de la planilla (nil las deja como estan).
+func (r *RRHHRepo) ActualizarPlanilla(id int, v PlanillaValores, notas *string, bonos *[]BonoLinea) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return fmt.Errorf("error al actualizar planilla: %w", err)
@@ -390,6 +438,18 @@ func (r *RRHHRepo) ActualizarPlanilla(id int, v PlanillaValores, notas *string) 
 	}
 	if n == 0 {
 		return errors.New("solo una planilla PENDIENTE puede editarse")
+	}
+	if bonos != nil {
+		if _, err := tx.Exec(`DELETE FROM planilla_bonos WHERE planilla_id = $1`, id); err != nil {
+			return fmt.Errorf("error al actualizar bonos de la planilla: %w", err)
+		}
+		for _, b := range *bonos {
+			if _, err := tx.Exec(
+				`INSERT INTO planilla_bonos (planilla_id, tipo_bono_id, monto, nota) VALUES ($1,$2,$3,$4)`,
+				id, b.TipoBonoID, b.Monto, b.Nota); err != nil {
+				return fmt.Errorf("error al guardar bono de la planilla: %w", err)
+			}
+		}
 	}
 	if _, err := tx.Exec(`
 		UPDATE movimientos_financieros SET monto = $1, fecha_modificacion = NOW() WHERE planilla_id = $2`,
@@ -476,4 +536,81 @@ func (r *RRHHRepo) PlanillaDeMovimiento(movimientoID int) (bool, error) {
 		return false, fmt.Errorf("error al leer movimiento: %w", err)
 	}
 	return es, nil
+}
+
+// ─── Tipos de bono ────────────────────────────────────────────────────────────
+
+const tipoBonoSelect = `SELECT id, nombre, descripcion, activo FROM tipos_bono`
+
+func (r *RRHHRepo) ListTiposBono(soloActivos bool) ([]models.TipoBono, error) {
+	cond := ""
+	if soloActivos {
+		cond = " WHERE activo = TRUE"
+	}
+	out := []models.TipoBono{}
+	if err := r.db.Select(&out, tipoBonoSelect+cond+" ORDER BY activo DESC, nombre"); err != nil {
+		return nil, fmt.Errorf("error al listar tipos de bono: %w", err)
+	}
+	return out, nil
+}
+
+func (r *RRHHRepo) GetTipoBono(id int) (*models.TipoBono, error) {
+	var t models.TipoBono
+	err := r.db.Get(&t, tipoBonoSelect+" WHERE id = $1", id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrTipoBonoNoEnc
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error al leer tipo de bono: %w", err)
+	}
+	return &t, nil
+}
+
+// NombreTipoBonoEnUso indica si otro tipo (distinto de excluirID) ya usa ese nombre, sin distinguir mayusculas.
+func (r *RRHHRepo) NombreTipoBonoEnUso(nombre string, excluirID int) (bool, error) {
+	var en bool
+	if err := r.db.Get(&en,
+		`SELECT EXISTS(SELECT 1 FROM tipos_bono WHERE LOWER(nombre) = LOWER($1) AND id <> $2)`, nombre, excluirID); err != nil {
+		return false, fmt.Errorf("error al validar nombre del tipo de bono: %w", err)
+	}
+	return en, nil
+}
+
+func (r *RRHHRepo) CreateTipoBono(nombre string, descripcion *string) (int, error) {
+	var id int
+	if err := r.db.QueryRowx(
+		`INSERT INTO tipos_bono (nombre, descripcion) VALUES ($1,$2) RETURNING id`, nombre, descripcion).Scan(&id); err != nil {
+		return 0, fmt.Errorf("error al crear tipo de bono: %w", err)
+	}
+	return id, nil
+}
+
+func (r *RRHHRepo) UpdateTipoBono(id int, nombre string, descripcion *string, activo bool) error {
+	res, err := r.db.Exec(`
+		UPDATE tipos_bono SET nombre = $1, descripcion = $2, activo = $3, fecha_modificacion = NOW() WHERE id = $4`,
+		nombre, descripcion, activo, id)
+	if err != nil {
+		return fmt.Errorf("error al actualizar tipo de bono: %w", err)
+	}
+	n, err := affectedRows(res, "actualizar tipo de bono")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrTipoBonoNoEnc
+	}
+	return nil
+}
+
+// TiposBonoDePlanilla devuelve los ids de tipo ya usados en las lineas de una planilla.
+func (r *RRHHRepo) TiposBonoDePlanilla(planillaID int) (map[int]bool, error) {
+	ids := []int{}
+	if err := r.db.Select(&ids, `SELECT DISTINCT tipo_bono_id FROM planilla_bonos WHERE planilla_id = $1`, planillaID); err != nil {
+		return nil, fmt.Errorf("error al leer bonos de la planilla: %w", err)
+	}
+	out := make(map[int]bool, len(ids))
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out, nil
 }
