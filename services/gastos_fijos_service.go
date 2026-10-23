@@ -362,7 +362,7 @@ type FiltroAdelanto struct {
 
 // recorrerVencidos llama a fn por cada cobro de gasto fijo que ya vencio hasta `hoy` y aun no tiene egreso
 // (incluye periodos atrasados) y, segun `adel`, tambien por los pagos futuros que todavia no existen
-// (adelantado = true). Un cobro ya existente, pagado o anulado, nunca se vuelve a ofrecer.
+// (adelantado = true; los N proximos se cuentan sin los futuros que ya existen). Un cobro ya existente, pagado o anulado, nunca se vuelve a ofrecer.
 // Lo comparten la generacion y su vista previa.
 func (s *GastosFijosService) recorrerVencidos(hoy time.Time, adel FiltroAdelanto, fn func(g models.GastoFijo, periodo, cobro time.Time, adelantado bool) error) error {
 	gastos, err := s.repo.ListGastosFijos(true)
@@ -388,14 +388,23 @@ func (s *GastosFijosService) recorrerVencidos(hoy time.Time, adel FiltroAdelanto
 				return false
 			}
 			adelantado := cobro.After(hoy)
+			existe := existentes[periodo.Format("2006-01-02")]
 			if adelantado {
+				if adel.Cobros <= 0 && adel.Hasta == nil {
+					return false
+				}
+				// Un futuro que ya existe (pagado o pendiente) no se ofrece ni cuenta para "proximos N":
+				// los N se cuentan a partir del ultimo cobro cubierto.
+				if existe {
+					return true
+				}
 				futuros++
 				dentro := futuros <= maxPagosFuturos && (futuros <= adel.Cobros || (adel.Hasta != nil && !cobro.After(*adel.Hasta)))
 				if !dentro {
 					return false
 				}
 			}
-			if existentes[periodo.Format("2006-01-02")] {
+			if existe {
 				return true
 			}
 			errFn = fn(g, periodo, cobro, adelantado)
