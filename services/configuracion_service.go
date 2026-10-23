@@ -24,6 +24,7 @@ const (
 	CfgRRHHAporteLaboralPct   = "rrhh.aporte_laboral_pct"
 	CfgRRHHAportePatronalPct  = "rrhh.aporte_patronal_pct"
 	CfgRRHHDiasMesFaltas      = "rrhh.dias_mes_faltas"
+	CfgMostrarPaquetes        = "publico.mostrar_paquetes"
 )
 
 // ConfigTrastienda es la vista tipada de los parametros para uso interno.
@@ -40,6 +41,8 @@ type ConfigTrastienda struct {
 	AporteLaboralPct       float64
 	AportePatronalPct      float64
 	DiasMesFaltas          int
+	// MostrarPaquetes controla la seccion de paquetes de la pagina principal.
+	MostrarPaquetes bool
 }
 
 // Ubicacion devuelve la zona horaria configurada (America/La_Paz por defecto).
@@ -63,6 +66,7 @@ func configPorDefecto() ConfigTrastienda {
 		ConsiderarComprometido: true, EstadoGastoFijoGen: "PENDIENTE", DiasAvisoGastoFijo: 3,
 		ZonaHoraria: "America/La_Paz", Moneda: "Bs",
 		DiaPagoDefecto: 1, AporteLaboralPct: 12.71, AportePatronalPct: 16.71, DiasMesFaltas: 30,
+		MostrarPaquetes: true,
 	}
 }
 
@@ -116,6 +120,8 @@ func (s *ConfiguracionService) Snapshot() (ConfigTrastienda, error) {
 			if f, err := strconv.ParseFloat(row.Valor, 64); err == nil && f >= 0 && f <= 100 {
 				cfg.AportePatronalPct = f
 			}
+		case CfgMostrarPaquetes:
+			cfg.MostrarPaquetes = row.Valor == "true"
 		case CfgRRHHDiasMesFaltas:
 			if n, err := strconv.Atoi(row.Valor); err == nil && n >= 1 && n <= 31 {
 				cfg.DiasMesFaltas = n
@@ -144,6 +150,7 @@ func (s *ConfiguracionService) Get() (map[string]interface{}, error) {
 		CfgRRHHAporteLaboralPct:   cfg.AporteLaboralPct,
 		CfgRRHHAportePatronalPct:  cfg.AportePatronalPct,
 		CfgRRHHDiasMesFaltas:      cfg.DiasMesFaltas,
+		CfgMostrarPaquetes:        cfg.MostrarPaquetes,
 	}, nil
 }
 
@@ -163,6 +170,21 @@ func valorEnum(clave string, v interface{}, permitidos ...string) (string, error
 
 // Update valida y guarda solo las claves enviadas. Devuelve la configuracion resultante.
 func (s *ConfiguracionService) Update(patch map[string]interface{}) (map[string]interface{}, error) {
+	valores, err := validarPatchConfiguracion(patch)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.SetValores(valores); err != nil {
+		return nil, err
+	}
+	if _, cambia := valores[CfgConsiderarComprometido]; cambia && s.AlCambiarDisponibilidad != nil {
+		s.AlCambiarDisponibilidad()
+	}
+	return s.Get()
+}
+
+// validarPatchConfiguracion valida las claves enviadas y devuelve sus valores serializados.
+func validarPatchConfiguracion(patch map[string]interface{}) (map[string]string, error) {
 	if len(patch) == 0 {
 		return nil, errors.New("no se enviaron parametros para actualizar")
 	}
@@ -187,7 +209,7 @@ func (s *ConfiguracionService) Update(patch map[string]interface{}) (map[string]
 				return nil, err
 			}
 			valores[clave] = val
-		case CfgPermitirStockNegativo, CfgConsiderarComprometido:
+		case CfgPermitirStockNegativo, CfgConsiderarComprometido, CfgMostrarPaquetes:
 			b, ok := v.(bool)
 			if !ok {
 				return nil, fmt.Errorf("%s debe ser true o false", clave)
@@ -231,11 +253,5 @@ func (s *ConfiguracionService) Update(patch map[string]interface{}) (map[string]
 			return nil, fmt.Errorf("parametro desconocido: %s", clave)
 		}
 	}
-	if err := s.repo.SetValores(valores); err != nil {
-		return nil, err
-	}
-	if _, cambia := valores[CfgConsiderarComprometido]; cambia && s.AlCambiarDisponibilidad != nil {
-		s.AlCambiarDisponibilidad()
-	}
-	return s.Get()
+	return valores, nil
 }

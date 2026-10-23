@@ -9,6 +9,9 @@ import (
 )
 
 type fakePaquetesRepo struct {
+	visibilidadID    int
+	visibilidadValor bool
+	visibilidadErr   error
 	createInput repository.CrearPaqueteInput
 	createErr   error
 	getByIDErr  error
@@ -33,6 +36,10 @@ func (f *fakePaquetesRepo) CrearPaquete(in repository.CrearPaqueteInput) (int, e
 }
 
 func (f *fakePaquetesRepo) ActualizarPaquete(repository.ActualizarPaqueteInput) error { return nil }
+func (f *fakePaquetesRepo) SetPaqueteVisibilidad(id int, visible bool) error {
+	f.visibilidadID, f.visibilidadValor = id, visible
+	return f.visibilidadErr
+}
 func (f *fakePaquetesRepo) EliminarPaquete(int) error                                 { return nil }
 func (f *fakePaquetesRepo) SetPaqueteImagen(int, *string) error                       { return nil }
 
@@ -122,5 +129,30 @@ func TestObtenerPaquete_TraduceNoEncontrado(t *testing.T) {
 	_, err := svc.Obtener(1)
 	if !errors.Is(err, ErrPaqueteNoEncontrado) {
 		t.Fatalf("esperaba ErrPaqueteNoEncontrado, got %v", err)
+	}
+}
+
+func TestCambiarVisibilidadPaquete_DelegaAlRepo(t *testing.T) {
+	repo := &fakePaquetesRepo{}
+	svc := NewPaquetesService(repo)
+	if err := svc.CambiarVisibilidad(7, false); err != nil {
+		t.Fatalf("CambiarVisibilidad() error = %v", err)
+	}
+	if repo.visibilidadID != 7 || repo.visibilidadValor {
+		t.Fatalf("el repo recibio id=%d visible=%v, want 7/false", repo.visibilidadID, repo.visibilidadValor)
+	}
+}
+
+func TestCambiarVisibilidadPaquete_TraduceNoEncontrado(t *testing.T) {
+	svc := NewPaquetesService(&fakePaquetesRepo{visibilidadErr: repository.ErrPaqueteNoEncontrado})
+	if err := svc.CambiarVisibilidad(1, true); !errors.Is(err, ErrPaqueteNoEncontrado) {
+		t.Fatalf("esperaba ErrPaqueteNoEncontrado, got %v", err)
+	}
+}
+
+func TestCambiarVisibilidadPaquete_IDInvalido(t *testing.T) {
+	svc := NewPaquetesService(&fakePaquetesRepo{})
+	if err := svc.CambiarVisibilidad(0, true); !errors.Is(err, ErrPaqueteInvalido) {
+		t.Fatalf("esperaba ErrPaqueteInvalido, got %v", err)
 	}
 }

@@ -34,6 +34,28 @@ func (h *Container) GetConfiguracion(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, configuracionResponse{Configuracion: cfg})
 }
 
+type configuracionPublicaResponse struct {
+	// true si la pagina principal muestra la seccion de paquetes.
+	MostrarPaquetes bool `json:"mostrar_paquetes" example:"true"`
+}
+
+// GetConfiguracionPublica godoc
+// @Summary Parametros publicos de la pagina principal
+// @Description Devuelve solo lo que la pagina principal necesita para decidir que secciones mostrar (hoy: mostrar_paquetes). No requiere token.
+// @Tags Configuracion
+// @Produce json
+// @Success 200 {object} utils.APIResponse{data=configuracionPublicaResponse}
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/configuracion/publica [get]
+func (h *Container) GetConfiguracionPublica(c *gin.Context) {
+	cfg, err := h.Configuracion.Snapshot()
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, configuracionPublicaResponse{MostrarPaquetes: cfg.MostrarPaquetes})
+}
+
 // PatchConfiguracion godoc
 // @Summary Actualizar parametros del sistema
 // @Description Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres. Requiere token Bearer con rol admin_sys.

@@ -202,6 +202,8 @@ type paqueteFiltrosResponse struct {
 	Local string `json:"local" example:"SAN MARTIN"`
 	// Filtro aplicado: estado activo del paquete.
 	Activo *bool `json:"activo,omitempty" example:"true"`
+	// Filtro aplicado: solo paquetes visibles en la pagina principal.
+	Publico bool `json:"publico,omitempty" example:"true"`
 }
 
 type paqueteListResponse struct {

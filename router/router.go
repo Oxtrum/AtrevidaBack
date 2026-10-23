@@ -131,6 +131,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.GET("/paquetes/:id", h.GetPaqueteByID)
 		bd.POST("/paquetes", h.AuthRequired, h.AdminSysRequired, h.CreatePaquete)
 		bd.PATCH("/paquetes/:id", h.AuthRequired, h.AdminSysRequired, h.PatchPaquete)
+		bd.PATCH("/paquetes/:id/visibilidad", h.AuthRequired, h.AdminSysRequired, h.PatchPaqueteVisibilidad)
 		bd.DELETE("/paquetes/:id", h.AuthRequired, h.AdminSysRequired, h.DeletePaquete)
 		bd.POST("/paquetes/:id/imagen/upload-url", h.AuthRequired, h.AdminSysRequired, h.PostPaqueteImagenUploadURL)
 		bd.PUT("/paquetes/:id/imagen", h.AuthRequired, h.AdminSysRequired, h.PutPaqueteImagen)
@@ -241,6 +242,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.GET("/reportes/financiero", h.AuthRequired, h.AdminSysRequired, h.GetReporteFinanciero)
 
 		// Parametros del sistema: lectura para cualquier usuario autenticado, escritura solo admin_sys.
+		bd.GET("/configuracion/publica", h.GetConfiguracionPublica)
 		bd.GET("/configuracion", h.AuthRequired, h.GetConfiguracion)
 		bd.PATCH("/configuracion", h.AuthRequired, h.AdminSysRequired, h.PatchConfiguracion)
 	}

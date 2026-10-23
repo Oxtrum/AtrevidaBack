@@ -158,6 +158,14 @@ func (s *PaquetesService) Obtener(id int) (*models.PaqueteDetalle, error) {
 	return paquete, nil
 }
 
+// CambiarVisibilidad muestra u oculta un paquete en la pagina principal sin darlo de baja.
+func (s *PaquetesService) CambiarVisibilidad(id int, visible bool) error {
+	if id < 1 {
+		return fmt.Errorf("id debe ser un entero positivo: %w", ErrPaqueteInvalido)
+	}
+	return traducirErrorRepositorioPaquete(s.repo.SetPaqueteVisibilidad(id, visible))
+}
+
 func (s *PaquetesService) Crear(input CrearPaqueteInput) (int, error) {
 	normalizado, err := normalizarCrearPaquete(input)
 	if err != nil {

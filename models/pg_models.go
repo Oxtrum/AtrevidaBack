@@ -426,6 +426,8 @@ type PaquetePG struct {
 	ImagenURL   *string `db:"-" json:"imagen_url,omitempty"`
 	Moneda      string  `db:"moneda" json:"moneda"`
 	Activo      bool    `db:"activo" json:"activo"`
+	// VisiblePublico controla si aparece en la pagina principal; el paquete sigue activo en administracion.
+	VisiblePublico bool `db:"visible_publico" json:"visible_publico"`
 }
 
 type PaqueteServicioPG struct {

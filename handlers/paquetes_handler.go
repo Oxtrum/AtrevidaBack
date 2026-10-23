@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"atrevida-agenda-api/models"
@@ -64,6 +65,7 @@ type paqueteRequest struct {
 // @Param categoria query string false "Busqueda parcial por categoria" example(Corporal)
 // @Param local query string false "Busqueda parcial por nombre de local" example(SAN MARTIN)
 // @Param activo query bool false "Filtrar por activo; default true" example(true)
+// @Param publico query bool false "true devuelve solo los paquetes visibles en la pagina principal (el catalogo publico lo usa); default false" example(true)
 // @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
 // @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
 // @Param include_total query bool false "Incluye el total de paginas" example(false)
@@ -76,6 +78,15 @@ func (h *Container) GetPaquetes(c *gin.Context) {
 	if !ok {
 		return
 	}
+	soloPublico := false
+	if raw := strings.TrimSpace(c.Query("publico")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			utils.RespondError(c, http.StatusBadRequest, "publico invalido")
+			return
+		}
+		soloPublico = parsed
+	}
 	nombre := strings.TrimSpace(c.Query("nombre"))
 	categoria := strings.TrimSpace(c.Query("categoria"))
 	local := strings.TrimSpace(c.Query("local"))
@@ -87,7 +98,7 @@ func (h *Container) GetPaquetes(c *gin.Context) {
 	if !ok {
 		return
 	}
-	filters := paqueteFiltrosResponse{Nombre: nombre, Categoria: categoria, Local: local, Activo: activo}
+	filters := paqueteFiltrosResponse{Nombre: nombre, Categoria: categoria, Local: local, Activo: activo, Publico: soloPublico}
 	var after nameCursor
 	if !decodePaginationCursor(c, page, "paquetes", filters, &after) || (page.Cursor != "" && after.ID < 1) {
 		if !c.Writer.Written() {
@@ -96,7 +107,7 @@ func (h *Container) GetPaquetes(c *gin.Context) {
 		return
 	}
 	paquetes, err := h.PaquetesPG.ListarContext(c.Request.Context(), repository.FiltroPaquetes{
-		Nombre: nombre, Categoria: categoria, Local: local, Activo: activo,
+		Nombre: nombre, Categoria: categoria, Local: local, Activo: activo, SoloVisiblesPublico: soloPublico,
 		PageLimit: page.QueryLimit(), CursorSet: page.Cursor != "", CursorNombre: after.Name, CursorID: after.ID,
 	})
 	if err != nil {
@@ -112,7 +123,7 @@ func (h *Container) GetPaquetes(c *gin.Context) {
 	}
 	if includeTotal {
 		count, countErr := h.PaquetesPG.ContarContext(c.Request.Context(), repository.FiltroPaquetes{
-			Nombre: nombre, Categoria: categoria, Local: local, Activo: activo,
+			Nombre: nombre, Categoria: categoria, Local: local, Activo: activo, SoloVisiblesPublico: soloPublico,
 		})
 		if countErr != nil {
 			responderErrorPaquete(c, countErr)
@@ -221,6 +232,45 @@ func (h *Container) PatchPaquete(c *gin.Context) {
 		return
 	}
 	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "paquete actualizado correctamente"})
+}
+
+type paqueteVisibilidadRequest struct {
+	// true muestra el paquete en la pagina principal; false lo oculta sin darlo de baja.
+	VisiblePublico *bool `json:"visible_publico" example:"false"`
+}
+
+// PatchPaqueteVisibilidad godoc
+// @Summary Mostrar u ocultar paquete en la pagina principal
+// @Description Cambia solo la visibilidad publica del paquete. El paquete sigue activo y disponible en administracion, planes y caja. Requiere token Bearer con rol admin_sys.
+// @Tags Paquetes BD
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del paquete" example(4)
+// @Param payload body paqueteVisibilidadRequest true "Visibilidad deseada"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id o body invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Paquete no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/paquetes/{id}/visibilidad [patch]
+func (h *Container) PatchPaqueteVisibilidad(c *gin.Context) {
+	id, err := requiredPositiveParam(c, "id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	var req paqueteVisibilidadRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.VisiblePublico == nil {
+		utils.RespondError(c, http.StatusBadRequest, "visible_publico es obligatorio (true o false)")
+		return
+	}
+	if err := h.PaquetesPG.CambiarVisibilidad(id, *req.VisiblePublico); err != nil {
+		responderErrorPaquete(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "visibilidad del paquete actualizada"})
 }
 
 // DeletePaquete godoc
