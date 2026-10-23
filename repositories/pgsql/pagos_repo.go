@@ -631,3 +631,43 @@ func pagoInsertError(err error) error {
 	}
 	return fmt.Errorf("no se pudo guardar el pago")
 }
+
+// ListVentasDetalle usa las mismas reglas que GetResumenPagos (pagos activos y PAGADOS del rango, local opcional),
+// pero devuelve cada linea de detalle en vez de agregados.
+func (r *PagosRepo) ListVentasDetalle(filtro repository.FiltroResumenPagos, limite int) ([]repository.VentaDetalleRow, error) {
+	conditions := []string{
+		"p.activo = TRUE",
+		"p.estado = 'PAGADO'",
+		"p.fecha_creacion >= $1",
+		"p.fecha_creacion < $2",
+	}
+	args := []interface{}{filtro.FechaDesde, filtro.FechaHasta.AddDate(0, 0, 1)}
+	if filtro.Local != "" {
+		conditions = append(conditions, `p.local_id = (
+			SELECT l.id FROM locales l WHERE UPPER(l.nombre) = UPPER($3) LIMIT 1
+		)`)
+		args = append(args, filtro.Local)
+	}
+	args = append(args, limite)
+
+	query := fmt.Sprintf(`
+		SELECT p.codigo_pago, p.fecha_creacion AS fecha, BTRIM(p.local_nombre) AS local,
+		       COALESCE(p.cliente_nombre, '') AS cliente_nombre, COALESCE(p.cliente_nit, '') AS cliente_nit,
+		       COALESCE(NULLIF(BTRIM(p.nombre_cajero), ''), '') AS cajero,
+		       COALESCE(NULLIF(BTRIM(p.tipo_pago), ''), 'sin_tipo') AS tipo_pago,
+		       BTRIM(dp.servicio) AS servicio, dp.cantidad, dp.precio_unitario, dp.subtotal,
+		       ROUND(CASE WHEN p.subtotal > 0 THEN p.descuento * dp.subtotal / p.subtotal ELSE 0 END, 2) AS descuento_prorrateado,
+		       p.total_final AS total_pago
+		FROM pagos p
+		JOIN detalle_pagos dp ON dp.pago_id = p.id
+		WHERE %s
+		ORDER BY p.fecha_creacion, p.id, dp.id
+		LIMIT $%d`, strings.Join(conditions, " AND "), len(args))
+
+	ctx := queryContext(filtro.Context)
+	out := []repository.VentaDetalleRow{}
+	if err := r.db.SelectContext(ctx, &out, query, args...); err != nil {
+		return nil, fmt.Errorf("no se pudo obtener el detalle de ventas: %w", err)
+	}
+	return out, nil
+}

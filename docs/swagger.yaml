@@ -2898,6 +2898,23 @@ definitions:
           $ref: '#/definitions/models.UsuarioResumenPG'
         type: array
     type: object
+  handlers.ventasDetalleResponse:
+    properties:
+      filtros:
+        allOf:
+        - $ref: '#/definitions/services.PagoResumenFiltros'
+        description: Filtros aplicados al detalle.
+      lineas:
+        description: Lineas de venta, de la mas antigua a la mas reciente.
+        items:
+          $ref: '#/definitions/services.VentaDetalleLinea'
+        type: array
+      truncado:
+        description: true si el periodo tiene mas lineas que el limite y solo se devolvieron
+          las mas antiguas.
+        example: false
+        type: boolean
+    type: object
   models.Adelanto:
     properties:
       anulado:
@@ -4946,6 +4963,63 @@ definitions:
       tipo:
         example: M
         type: string
+    type: object
+  services.VentaDetalleLinea:
+    properties:
+      cajero:
+        description: Cajero que registro el cobro; vacio si no se guardo.
+        example: Ana Perez
+        type: string
+      cantidad:
+        description: Cantidad vendida del servicio.
+        example: 2
+        type: integer
+      cliente_nit:
+        description: NIT o CI del cliente.
+        example: "7654321"
+        type: string
+      cliente_nombre:
+        description: Nombre del cliente.
+        example: Maria Rojas
+        type: string
+      codigo_pago:
+        description: Codigo del pago al que pertenece la linea.
+        example: PAGO-000012
+        type: string
+      descuento_prorrateado:
+        description: Parte del descuento del pago que corresponde a esta linea (proporcional
+          a su subtotal).
+        example: 15
+        type: number
+      fecha:
+        description: Fecha y hora del pago.
+        example: "2026-10-14T15:30:00-04:00"
+        type: string
+      local:
+        description: Local donde se vendio.
+        example: SAN MARTIN
+        type: string
+      precio_unitario:
+        description: Precio unitario del servicio.
+        example: 150
+        type: number
+      servicio:
+        description: Servicio cobrado.
+        example: Limpieza facial
+        type: string
+      subtotal:
+        description: Subtotal de la linea antes de descuentos.
+        example: 300
+        type: number
+      tipo_pago:
+        description: 'Tipo de pago: qr, efectivo o sin_tipo.'
+        example: efectivo
+        type: string
+      total_pago:
+        description: Total final del pago completo (se repite en cada linea del mismo
+          pago).
+        example: 285
+        type: number
     type: object
   utils.APIResponse:
     properties:
@@ -9497,6 +9571,73 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Obtener resumen de pagos
+      tags:
+      - Pagos
+  /bd/pagos/ventas-detalle:
+    get:
+      description: 'Devuelve cada servicio vendido en pagos activos y PAGADOS del
+        periodo, con local, cliente, cajero, tipo de pago, cantidad, precio, subtotal
+        y el descuento del pago repartido en proporcion a cada linea (la suma de subtotal
+        menos descuento_prorrateado cuadra con total_final). Es la base del Excel
+        del libro financiero. Devuelve hasta 20000 lineas; si hay mas, truncado=true.
+        Requiere token Bearer con rol admin_sys. Query: fecha_desde y fecha_hasta
+        requeridos (YYYY-MM-DD); local opcional (nombre exacto, sin distinguir mayusculas).'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Fecha inicial en formato YYYY-MM-DD
+        example: "2026-10-01"
+        in: query
+        name: fecha_desde
+        required: true
+        type: string
+      - description: Fecha final en formato YYYY-MM-DD
+        example: "2026-10-31"
+        in: query
+        name: fecha_hasta
+        required: true
+        type: string
+      - description: Nombre exacto del local
+        example: SAN MARTIN
+        in: query
+        name: local
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.ventasDetalleResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: fechas requeridas, con formato invalido
+            o rango invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Detalle de ventas del periodo
       tags:
       - Pagos
   /bd/paquetes:

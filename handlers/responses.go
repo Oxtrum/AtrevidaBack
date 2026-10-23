@@ -282,6 +282,15 @@ type pagoListResponse struct {
 	Paginacion *pagination.Metadata `json:"paginacion,omitempty"`
 }
 
+type ventasDetalleResponse struct {
+	// Filtros aplicados al detalle.
+	Filtros services.PagoResumenFiltros `json:"filtros"`
+	// true si el periodo tiene mas lineas que el limite y solo se devolvieron las mas antiguas.
+	Truncado bool `json:"truncado" example:"false"`
+	// Lineas de venta, de la mas antigua a la mas reciente.
+	Lineas []services.VentaDetalleLinea `json:"lineas"`
+}
+
 type pagoResumenResponse struct {
 	// Filtros aplicados al reporte
 	Filtros services.PagoResumenFiltros `json:"filtros"`

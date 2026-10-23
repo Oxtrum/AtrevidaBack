@@ -12,9 +12,16 @@ type fakePagosRepo struct {
 	pago        *models.PagoCompletoPG
 	createdPago *repository.CrearPagoInput
 	filtro      repository.FiltroPagos
+	ventas       []repository.VentaDetalleRow
+	ventasLimite int
 }
 
 func (f *fakePagosRepo) CountPagos(repository.FiltroPagos) (int, error) { return 0, nil }
+
+func (f *fakePagosRepo) ListVentasDetalle(filtro repository.FiltroResumenPagos, limite int) ([]repository.VentaDetalleRow, error) {
+	f.ventasLimite = limite
+	return f.ventas, nil
+}
 
 func (f *fakePagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, error) {
 	f.filtro = filtro

@@ -135,6 +135,36 @@ func (h *Container) GetResumenPagos(c *gin.Context) {
 	})
 }
 
+// GetVentasDetalle godoc
+// @Summary Detalle de ventas del periodo
+// @Description Devuelve cada servicio vendido en pagos activos y PAGADOS del periodo, con local, cliente, cajero, tipo de pago, cantidad, precio, subtotal y el descuento del pago repartido en proporcion a cada linea (la suma de subtotal menos descuento_prorrateado cuadra con total_final). Es la base del Excel del libro financiero. Devuelve hasta 20000 lineas; si hay mas, truncado=true. Requiere token Bearer con rol admin_sys. Query: fecha_desde y fecha_hasta requeridos (YYYY-MM-DD); local opcional (nombre exacto, sin distinguir mayusculas).
+// @Tags Pagos
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param fecha_desde query string true "Fecha inicial en formato YYYY-MM-DD" example(2026-10-01)
+// @Param fecha_hasta query string true "Fecha final en formato YYYY-MM-DD" example(2026-10-31)
+// @Param local query string false "Nombre exacto del local" example(SAN MARTIN)
+// @Success 200 {object} utils.APIResponse{data=ventasDetalleResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: fechas requeridas, con formato invalido o rango invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Security BearerAuth
+// @Router /bd/pagos/ventas-detalle [get]
+func (h *Container) GetVentasDetalle(c *gin.Context) {
+	detalle, err := h.PagosPG.GetVentasDetalle(services.ResumenPagosInput{
+		Context:    c.Request.Context(),
+		FechaDesde: c.Query("fecha_desde"),
+		FechaHasta: c.Query("fecha_hasta"),
+		Local:      c.Query("local"),
+	})
+	if err != nil {
+		utils.RespondError(c, statusPagoError(err), err.Error())
+		return
+	}
+	utils.Respond(c, http.StatusOK, ventasDetalleResponse{Filtros: detalle.Filtros, Truncado: detalle.Truncado, Lineas: detalle.Lineas})
+}
+
 // GetPagos godoc
 // @Summary Listar pagos
 // @Description Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Retorna la cabecera y un resumen de productos, sin el detalle completo. Incluye auditoria de creacion y modificacion. Filtros: codigo_pago, local, cliente, NIT, producto cobrado, tipo_pago, estado, activo y cajeros. Si activo no se envia, lista solo pagos activos.

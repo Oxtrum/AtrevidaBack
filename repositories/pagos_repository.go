@@ -130,6 +130,24 @@ type PagoResumenServicioRow struct {
 	MontoTotal  float64 `db:"monto_total"`
 }
 
+// VentaDetalleRow es una linea de venta (un servicio dentro de un pago PAGADO) con el descuento del pago
+// repartido en proporcion a su subtotal, para que las sumas por servicio, local o dia cuadren con total_final.
+type VentaDetalleRow struct {
+	CodigoPago           string    `db:"codigo_pago"`
+	Fecha                time.Time `db:"fecha"`
+	Local                string    `db:"local"`
+	ClienteNombre        string    `db:"cliente_nombre"`
+	ClienteNIT           string    `db:"cliente_nit"`
+	Cajero               string    `db:"cajero"`
+	TipoPago             string    `db:"tipo_pago"`
+	Servicio             string    `db:"servicio"`
+	Cantidad             int       `db:"cantidad"`
+	PrecioUnitario       float64   `db:"precio_unitario"`
+	Subtotal             float64   `db:"subtotal"`
+	DescuentoProrrateado float64   `db:"descuento_prorrateado"`
+	TotalPago            float64   `db:"total_pago"`
+}
+
 type PagoResumenAgregado struct {
 	Totales   []PagoResumenTotalRow
 	Tipos     []PagoResumenTipoRow
@@ -156,4 +174,6 @@ type PagosRepository interface {
 	UpdatePago(input ActualizarPagoInput) error
 	DeletePago(codigoPago string) error
 	GetResumenPagos(filtro FiltroResumenPagos) (PagoResumenAgregado, error)
+	// ListVentasDetalle devuelve hasta limite lineas de venta del periodo, de la mas antigua a la mas reciente.
+	ListVentasDetalle(filtro FiltroResumenPagos, limite int) ([]VentaDetalleRow, error)
 }

@@ -164,6 +164,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 
 		bd.GET("/pagos", h.AuthRequired, h.GetPagos)
 		bd.GET("/pagos/resumen", h.AuthRequired, h.GetResumenPagos)
+		bd.GET("/pagos/ventas-detalle", h.AuthRequired, h.AdminSysRequired, h.GetVentasDetalle)
 		bd.GET("/pagos/:codigo_pago", h.AuthRequired, h.GetPagoByCodigo)
 		bd.POST("/pagos", h.AuthRequired, h.CreatePago)
 		bd.PATCH("/pagos/:codigo_pago", h.AuthRequired, h.PatchPago)

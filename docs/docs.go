@@ -6559,6 +6559,100 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/pagos/ventas-detalle": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve cada servicio vendido en pagos activos y PAGADOS del periodo, con local, cliente, cajero, tipo de pago, cantidad, precio, subtotal y el descuento del pago repartido en proporcion a cada linea (la suma de subtotal menos descuento_prorrateado cuadra con total_final). Es la base del Excel del libro financiero. Devuelve hasta 20000 lineas; si hay mas, truncado=true. Requiere token Bearer con rol admin_sys. Query: fecha_desde y fecha_hasta requeridos (YYYY-MM-DD); local opcional (nombre exacto, sin distinguir mayusculas).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Detalle de ventas del periodo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-10-01",
+                        "description": "Fecha inicial en formato YYYY-MM-DD",
+                        "name": "fecha_desde",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-10-31",
+                        "description": "Fecha final en formato YYYY-MM-DD",
+                        "name": "fecha_hasta",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "SAN MARTIN",
+                        "description": "Nombre exacto del local",
+                        "name": "local",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.ventasDetalleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fechas requeridas, con formato invalido o rango invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/pagos/{codigo_pago}": {
             "get": {
                 "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Los usuarios con local asignado solo pueden consultar pagos de su local; admin_sys puede consultar cualquiera. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).",
@@ -15559,6 +15653,31 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.ventasDetalleResponse": {
+            "type": "object",
+            "properties": {
+                "filtros": {
+                    "description": "Filtros aplicados al detalle.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.PagoResumenFiltros"
+                        }
+                    ]
+                },
+                "lineas": {
+                    "description": "Lineas de venta, de la mas antigua a la mas reciente.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.VentaDetalleLinea"
+                    }
+                },
+                "truncado": {
+                    "description": "true si el periodo tiene mas lineas que el limite y solo se devolvieron las mas antiguas.",
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
         "models.Adelanto": {
             "type": "object",
             "properties": {
@@ -18321,6 +18440,76 @@ const docTemplate = `{
                 "tipo": {
                     "type": "string",
                     "example": "M"
+                }
+            }
+        },
+        "services.VentaDetalleLinea": {
+            "type": "object",
+            "properties": {
+                "cajero": {
+                    "description": "Cajero que registro el cobro; vacio si no se guardo.",
+                    "type": "string",
+                    "example": "Ana Perez"
+                },
+                "cantidad": {
+                    "description": "Cantidad vendida del servicio.",
+                    "type": "integer",
+                    "example": 2
+                },
+                "cliente_nit": {
+                    "description": "NIT o CI del cliente.",
+                    "type": "string",
+                    "example": "7654321"
+                },
+                "cliente_nombre": {
+                    "description": "Nombre del cliente.",
+                    "type": "string",
+                    "example": "Maria Rojas"
+                },
+                "codigo_pago": {
+                    "description": "Codigo del pago al que pertenece la linea.",
+                    "type": "string",
+                    "example": "PAGO-000012"
+                },
+                "descuento_prorrateado": {
+                    "description": "Parte del descuento del pago que corresponde a esta linea (proporcional a su subtotal).",
+                    "type": "number",
+                    "example": 15
+                },
+                "fecha": {
+                    "description": "Fecha y hora del pago.",
+                    "type": "string",
+                    "example": "2026-10-14T15:30:00-04:00"
+                },
+                "local": {
+                    "description": "Local donde se vendio.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "precio_unitario": {
+                    "description": "Precio unitario del servicio.",
+                    "type": "number",
+                    "example": 150
+                },
+                "servicio": {
+                    "description": "Servicio cobrado.",
+                    "type": "string",
+                    "example": "Limpieza facial"
+                },
+                "subtotal": {
+                    "description": "Subtotal de la linea antes de descuentos.",
+                    "type": "number",
+                    "example": 300
+                },
+                "tipo_pago": {
+                    "description": "Tipo de pago: qr, efectivo o sin_tipo.",
+                    "type": "string",
+                    "example": "efectivo"
+                },
+                "total_pago": {
+                    "description": "Total final del pago completo (se repite en cada linea del mismo pago).",
+                    "type": "number",
+                    "example": 285
                 }
             }
         },
