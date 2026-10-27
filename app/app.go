@@ -1,6 +1,9 @@
 package app
 
 import (
+	"context"
+	"log"
+
 	"atrevida-agenda-api/config"
 	"atrevida-agenda-api/db"
 	"atrevida-agenda-api/docs"
@@ -59,8 +62,14 @@ func Build() (*gin.Engine, error) {
 	)
 	configuracionService := services.NewConfiguracionService(configuracionRepo)
 	inventarioService := services.NewInventarioService(inventarioRepo, configuracionService)
-	// inventarioService.Storage queda sin asignar hasta tener la implementacion S3 de ObjectStorage
-	// (ARQUITECTURA_TRASTIENDA.md): mientras tanto los endpoints de imagen responden 503.
+	// Imagenes de inventario en S3: sin S3_BUCKET el Storage queda nil y los endpoints de imagen responden 503.
+	if s3Storage, err := services.NewS3Storage(
+		context.Background(), config.App.S3.Bucket, config.App.S3.Region, config.App.S3.PublicBaseURL,
+	); err != nil {
+		log.Printf("[S3] almacenamiento de imagenes deshabilitado: %v", err)
+	} else if s3Storage != nil {
+		inventarioService.Storage = s3Storage
+	}
 	inventarioConsumo := services.NewInventarioConsumo(inventarioRepo, configuracionService)
 	finanzasService := services.NewFinanzasService(finanzasRepo, configuracionService)
 	finanzasService.AlCambiarStock = inventarioService.RefrescarAlertas

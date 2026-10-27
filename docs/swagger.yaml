@@ -1083,6 +1083,13 @@ definitions:
           $ref: '#/definitions/models.Compra'
         type: array
     type: object
+  handlers.configuracionPublicaResponse:
+    properties:
+      mostrar_paquetes:
+        description: true si la pagina principal muestra la seccion de paquetes.
+        example: true
+        type: boolean
+    type: object
   handlers.configuracionResponse:
     properties:
       configuracion:
@@ -1960,22 +1967,37 @@ definitions:
           $ref: '#/definitions/models.ServicioInsumo'
         type: array
     type: object
+  handlers.inventarioImagenConfirmRequest:
+    properties:
+      imagen_key:
+        description: Clave devuelta por upload-url tras subir el archivo
+        example: inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp
+        type: string
+    required:
+    - imagen_key
+    type: object
   handlers.inventarioImagenResponse:
     properties:
       imagen_url:
         description: URL publica de la imagen
-        example: https://bucket.example.com/inventario/1/imagen
+        example: https://bucket.s3.sa-east-1.amazonaws.com/inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp
         type: string
     type: object
   handlers.inventarioImagenUploadResponse:
     properties:
+      headers:
+        additionalProperties:
+          type: string
+        description: Headers que el cliente debe enviar tal cual en el PUT (van firmados
+          en la URL)
+        type: object
       imagen_key:
-        description: Clave del objeto (igual a path); es lo que el cliente confirma
-        example: inventario/1/imagen
+        description: Clave del objeto (igual a path); es lo que el cliente debe confirmar
+        example: inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp
         type: string
       path:
         description: Path del objeto en el bucket
-        example: inventario/1/imagen
+        example: inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp
         type: string
       token:
         description: Token de la subida firmada (si el storage lo usa)
@@ -1983,7 +2005,7 @@ definitions:
         type: string
       upload_url:
         description: URL firmada a la que el cliente hace PUT con el archivo
-        example: https://bucket.example.com/inventario/1/imagen?X-Signature=abc
+        example: https://bucket.s3.sa-east-1.amazonaws.com/inventario/1/3f2a9c.webp?X-Amz-Signature=abc
         type: string
     type: object
   handlers.inventarioItemResponse:
@@ -2288,6 +2310,10 @@ definitions:
         description: 'Filtro aplicado: nombre parcial del paquete.'
         example: relax
         type: string
+      publico:
+        description: 'Filtro aplicado: solo paquetes visibles en la pagina principal.'
+        example: true
+        type: boolean
     type: object
   handlers.paqueteImagenResponse:
     properties:
@@ -2419,6 +2445,14 @@ definitions:
         description: Cantidad de sesiones incluidas en este tier.
         example: 4
         type: integer
+    type: object
+  handlers.paqueteVisibilidadRequest:
+    properties:
+      visible_publico:
+        description: true muestra el paquete en la pagina principal; false lo oculta
+          sin darlo de baja.
+        example: false
+        type: boolean
     type: object
   handlers.planFiltrosResponse:
     properties:
@@ -3968,6 +4002,10 @@ definitions:
         type: string
       nombre:
         type: string
+      visible_publico:
+        description: VisiblePublico controla si aparece en la pagina principal; el
+          paquete sigue activo en administracion.
+        type: boolean
     type: object
   models.PaqueteServicioPG:
     properties:
@@ -6856,6 +6894,29 @@ paths:
       summary: Actualizar parametros del sistema
       tags:
       - Configuracion
+  /bd/configuracion/publica:
+    get:
+      description: 'Devuelve solo lo que la pagina principal necesita para decidir
+        que secciones mostrar (hoy: mostrar_paquetes). No requiere token.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.configuracionPublicaResponse'
+              type: object
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Parametros publicos de la pagina principal
+      tags:
+      - Configuracion
   /bd/finanzas/categorias:
     get:
       description: Lista las categorias de ingresos y egresos. Requiere token Bearer
@@ -8402,8 +8463,12 @@ paths:
       tags:
       - Inventario
     put:
-      description: Persiste la clave de la imagen del item tras una subida exitosa
-        y devuelve su URL. Requiere token Bearer con rol admin_sys.
+      consumes:
+      - application/json
+      description: Persiste la clave de la imagen del item tras una subida exitosa,
+        borra la imagen anterior del storage y devuelve la URL. La clave debe ser
+        la emitida por upload-url para este mismo item. Requiere token Bearer con
+        rol admin_sys.
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -8417,6 +8482,12 @@ paths:
         name: id
         required: true
         type: integer
+      - description: Clave de la imagen subida
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.inventarioImagenConfirmRequest'
       produces:
       - application/json
       responses:
@@ -8430,7 +8501,8 @@ paths:
                   $ref: '#/definitions/handlers.inventarioImagenResponse'
               type: object
         "400":
-          description: 'Error de validacion: id invalido'
+          description: 'Error de validacion: id invalido, imagen_key faltante o que
+            no corresponde al item'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "401":
@@ -8456,10 +8528,11 @@ paths:
       - Inventario
   /bd/inventario/items/{id}/imagen/upload-url:
     post:
-      description: Devuelve una URL firmada para que el cliente suba la imagen directo
-        al storage, sin pasar los bytes por el backend. Tras subir (PUT a upload_url),
-        confirmar con PUT /bd/inventario/items/{id}/imagen. Requiere token Bearer
-        con rol admin_sys.
+      description: Devuelve una URL firmada para que el cliente suba la imagen (webp)
+        directo al storage, sin pasar los bytes por el backend. La clave es nueva
+        en cada llamada (inventario/{id}/{uuid}.webp). El PUT a upload_url debe enviar
+        exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/inventario/items/{id}/imagen
+        enviando imagen_key. Requiere token Bearer con rol admin_sys.
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -9666,6 +9739,12 @@ paths:
         in: query
         name: activo
         type: boolean
+      - description: true devuelve solo los paquetes visibles en la pagina principal
+          (el catalogo publico lo usa); default false
+        example: true
+        in: query
+        name: publico
+        type: boolean
       - description: Tamano de pagina opcional (1-100); sin limit ni cursor conserva
           modo legacy
         example: 50
@@ -10064,6 +10143,67 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Emitir URL firmada para subir portada de paquete
+      tags:
+      - Paquetes BD
+  /bd/paquetes/{id}/visibilidad:
+    patch:
+      consumes:
+      - application/json
+      description: Cambia solo la visibilidad publica del paquete. El paquete sigue
+        activo y disponible en administracion, planes y caja. Requiere token Bearer
+        con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del paquete
+        example: 4
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Visibilidad deseada
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.paqueteVisibilidadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id o body invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Paquete no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Mostrar u ocultar paquete en la pagina principal
       tags:
       - Paquetes BD
   /bd/planes:

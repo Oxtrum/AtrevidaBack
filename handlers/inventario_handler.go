@@ -60,18 +60,25 @@ type actualizarInventarioItemRequest struct {
 
 type inventarioImagenUploadResponse struct {
 	// URL firmada a la que el cliente hace PUT con el archivo
-	UploadURL string `json:"upload_url" example:"https://bucket.example.com/inventario/1/imagen?X-Signature=abc"`
+	UploadURL string `json:"upload_url" example:"https://bucket.s3.sa-east-1.amazonaws.com/inventario/1/3f2a9c.webp?X-Amz-Signature=abc"`
 	// Token de la subida firmada (si el storage lo usa)
 	Token string `json:"token" example:"abc"`
 	// Path del objeto en el bucket
-	Path string `json:"path" example:"inventario/1/imagen"`
-	// Clave del objeto (igual a path); es lo que el cliente confirma
-	ImagenKey string `json:"imagen_key" example:"inventario/1/imagen"`
+	Path string `json:"path" example:"inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"`
+	// Clave del objeto (igual a path); es lo que el cliente debe confirmar
+	ImagenKey string `json:"imagen_key" example:"inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"`
+	// Headers que el cliente debe enviar tal cual en el PUT (van firmados en la URL)
+	Headers map[string]string `json:"headers,omitempty"`
+}
+
+type inventarioImagenConfirmRequest struct {
+	// Clave devuelta por upload-url tras subir el archivo
+	ImagenKey string `json:"imagen_key" binding:"required" example:"inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"`
 }
 
 type inventarioImagenResponse struct {
 	// URL publica de la imagen
-	ImagenURL string `json:"imagen_url" example:"https://bucket.example.com/inventario/1/imagen"`
+	ImagenURL string `json:"imagen_url" example:"https://bucket.s3.sa-east-1.amazonaws.com/inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"`
 }
 
 type categoriasInventarioResponse struct {
@@ -367,7 +374,7 @@ func (h *Container) DeleteInventarioItem(c *gin.Context) {
 
 // PostInventarioImagenUploadURL godoc
 // @Summary Emitir URL firmada para subir imagen de un item
-// @Description Devuelve una URL firmada para que el cliente suba la imagen directo al storage, sin pasar los bytes por el backend. Tras subir (PUT a upload_url), confirmar con PUT /bd/inventario/items/{id}/imagen. Requiere token Bearer con rol admin_sys.
+// @Description Devuelve una URL firmada para que el cliente suba la imagen (webp) directo al storage, sin pasar los bytes por el backend. La clave es nueva en cada llamada (inventario/{id}/{uuid}.webp). El PUT a upload_url debe enviar exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/inventario/items/{id}/imagen enviando imagen_key. Requiere token Bearer con rol admin_sys.
 // @Tags Inventario
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -392,19 +399,21 @@ func (h *Container) PostInventarioImagenUploadURL(c *gin.Context) {
 		return
 	}
 	utils.Respond(c, http.StatusOK, inventarioImagenUploadResponse{
-		UploadURL: subida.UploadURL, Token: subida.Token, Path: subida.Path, ImagenKey: subida.Path,
+		UploadURL: subida.UploadURL, Token: subida.Token, Path: subida.Path, ImagenKey: subida.Path, Headers: subida.Headers,
 	})
 }
 
 // PutInventarioImagen godoc
 // @Summary Confirmar imagen de item subida
-// @Description Persiste la clave de la imagen del item tras una subida exitosa y devuelve su URL. Requiere token Bearer con rol admin_sys.
+// @Description Persiste la clave de la imagen del item tras una subida exitosa, borra la imagen anterior del storage y devuelve la URL. La clave debe ser la emitida por upload-url para este mismo item. Requiere token Bearer con rol admin_sys.
 // @Tags Inventario
+// @Accept json
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param id path int true "ID del item" example(1)
+// @Param body body inventarioImagenConfirmRequest true "Clave de la imagen subida"
 // @Success 200 {object} utils.APIResponse{data=inventarioImagenResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, imagen_key faltante o que no corresponde al item"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Item no encontrado"
@@ -417,7 +426,12 @@ func (h *Container) PutInventarioImagen(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	url, err := h.Inventario.ConfirmarImagen(id)
+	var req inventarioImagenConfirmRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "imagen_key es requerido")
+		return
+	}
+	url, err := h.Inventario.ConfirmarImagen(id, req.ImagenKey)
 	if err != nil {
 		respondTrastiendaError(c, err)
 		return

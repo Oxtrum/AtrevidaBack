@@ -14,7 +14,17 @@ type Config struct {
 	DB      DBConfig
 	Auth    AuthConfig
 	Storage StorageConfig
+	S3      S3Config
 	Jobs    JobsConfig
+}
+
+// S3Config apunta al bucket de AWS S3 usado para imagenes de inventario.
+// Sin Bucket la gestion de imagenes de inventario queda deshabilitada (503).
+type S3Config struct {
+	Bucket string
+	Region string
+	// PublicBaseURL es el dominio de lectura (p. ej. CloudFront). Vacio = URL directa del bucket.
+	PublicBaseURL string
 }
 
 // JobsConfig guarda el secreto con el que un disparador externo (EventBridge) puede ejecutar
@@ -70,6 +80,11 @@ func Load() {
 			SupabaseURL: strings.TrimRight(os.Getenv("SUPABASE_URL"), "/"),
 			SecretKey:   os.Getenv("SUPABASE_SECRET_KEY"),
 			Bucket:      getEnvDefault("SUPABASE_STORAGE_BUCKET", "paquetes"),
+		},
+		S3: S3Config{
+			Bucket:        os.Getenv("S3_BUCKET"),
+			Region:        getEnvDefault("S3_REGION", "sa-east-1"),
+			PublicBaseURL: os.Getenv("S3_PUBLIC_BASE_URL"),
 		},
 		Jobs: JobsConfig{
 			Secret: os.Getenv("JOB_SECRET"),

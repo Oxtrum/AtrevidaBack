@@ -1,8 +1,11 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -27,7 +30,28 @@ func NewInventarioService(repo *pgsqlrepo.InventarioRepo, config *ConfiguracionS
 	return &InventarioService{repo: repo, config: config}
 }
 
-func rutaImagenItem(id int) string { return fmt.Sprintf("inventario/%d/imagen", id) }
+// prefijoImagenItem es la carpeta de las imagenes de un item en el storage.
+func prefijoImagenItem(id int) string { return fmt.Sprintf("inventario/%d/", id) }
+
+// nuevaClaveImagenItem genera una clave nueva por subida: asi el navegador/CDN nunca sirve la imagen vieja al reemplazarla.
+func nuevaClaveImagenItem(id int) (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("error al generar clave de imagen: %w", err)
+	}
+	return prefijoImagenItem(id) + hex.EncodeToString(b) + ".webp", nil
+}
+
+// validarClaveImagenItem exige que la clave confirmada sea de este item y tenga la forma que emite el backend.
+func validarClaveImagenItem(id int, key string) error {
+	prefijo := prefijoImagenItem(id)
+	nombre := strings.TrimPrefix(key, prefijo)
+	base := strings.TrimSuffix(nombre, ".webp")
+	if !strings.HasPrefix(key, prefijo) || base == nombre || base == "" || strings.ContainsAny(base, `/\.`) {
+		return errors.New("imagen_key invalida: debe ser la clave emitida por upload-url para este item")
+	}
+	return nil
+}
 
 func (s *InventarioService) completar(item *models.InventarioItem) {
 	item.BajoStock = item.StockActual <= item.StockMinimo
@@ -144,17 +168,34 @@ func (s *InventarioService) GenerarURLSubidaImagen(id int) (SubidaFirmada, error
 	if s.Storage == nil {
 		return SubidaFirmada{}, ErrAlmacenamientoNoConfigurado
 	}
-	return s.Storage.CrearURLSubida(rutaImagenItem(id))
+	key, err := nuevaClaveImagenItem(id)
+	if err != nil {
+		return SubidaFirmada{}, err
+	}
+	return s.Storage.CrearURLSubida(key)
 }
 
-// ConfirmarImagen guarda la clave tras una subida exitosa y devuelve la URL.
-func (s *InventarioService) ConfirmarImagen(id int) (string, error) {
+// ConfirmarImagen guarda la clave tras una subida exitosa, borra la imagen anterior y devuelve la URL.
+func (s *InventarioService) ConfirmarImagen(id int, key string) (string, error) {
 	if s.Storage == nil {
 		return "", ErrAlmacenamientoNoConfigurado
 	}
-	key := rutaImagenItem(id)
+	key = strings.TrimSpace(key)
+	if err := validarClaveImagenItem(id, key); err != nil {
+		return "", err
+	}
+	item, err := s.repo.GetItem(id)
+	if err != nil {
+		return "", err
+	}
 	if err := s.repo.SetImagenKey(id, &key); err != nil {
 		return "", err
+	}
+	// Borrar la anterior es limpieza: si falla, la imagen nueva ya quedo guardada.
+	if anterior := item.ImagenKey; anterior != nil && *anterior != "" && *anterior != key {
+		if err := s.Storage.Eliminar(*anterior); err != nil {
+			log.Printf("[inventario] no se pudo borrar la imagen anterior %q del item %d: %v", *anterior, id, err)
+		}
 	}
 	return s.Storage.URLPublica(key), nil
 }
@@ -163,7 +204,14 @@ func (s *InventarioService) EliminarImagen(id int) error {
 	if s.Storage == nil {
 		return ErrAlmacenamientoNoConfigurado
 	}
-	if err := s.Storage.Eliminar(rutaImagenItem(id)); err != nil {
+	item, err := s.repo.GetItem(id)
+	if err != nil {
+		return err
+	}
+	if item.ImagenKey == nil || *item.ImagenKey == "" {
+		return nil
+	}
+	if err := s.Storage.Eliminar(*item.ImagenKey); err != nil {
 		return err
 	}
 	return s.repo.SetImagenKey(id, nil)

@@ -19,6 +19,8 @@ type SubidaFirmada struct {
 	Token string `json:"token"`
 	// Path del objeto dentro del bucket.
 	Path string `json:"path"`
+	// Headers que el cliente debe enviar tal cual en el PUT (S3 los firma en la URL).
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 // SupabaseStorage es un cliente HTTP fino sobre la API de Supabase Storage.

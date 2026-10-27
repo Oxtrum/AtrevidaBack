@@ -2737,6 +2737,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/configuracion/publica": {
+            "get": {
+                "description": "Devuelve solo lo que la pagina principal necesita para decidir que secciones mostrar (hoy: mostrar_paquetes). No requiere token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configuracion"
+                ],
+                "summary": "Parametros publicos de la pagina principal",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.configuracionPublicaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/finanzas/categorias": {
             "get": {
                 "security": [
@@ -5025,7 +5063,10 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Persiste la clave de la imagen del item tras una subida exitosa y devuelve su URL. Requiere token Bearer con rol admin_sys.",
+                "description": "Persiste la clave de la imagen del item tras una subida exitosa, borra la imagen anterior del storage y devuelve la URL. La clave debe ser la emitida por upload-url para este mismo item. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -5049,6 +5090,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Clave de la imagen subida",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.inventarioImagenConfirmRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -5071,7 +5121,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: id invalido",
+                        "description": "Error de validacion: id invalido, imagen_key faltante o que no corresponde al item",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5193,7 +5243,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Devuelve una URL firmada para que el cliente suba la imagen directo al storage, sin pasar los bytes por el backend. Tras subir (PUT a upload_url), confirmar con PUT /bd/inventario/items/{id}/imagen. Requiere token Bearer con rol admin_sys.",
+                "description": "Devuelve una URL firmada para que el cliente suba la imagen (webp) directo al storage, sin pasar los bytes por el backend. La clave es nueva en cada llamada (inventario/{id}/{uuid}.webp). El PUT a upload_url debe enviar exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/inventario/items/{id}/imagen enviando imagen_key. Requiere token Bearer con rol admin_sys.",
                 "produces": [
                     "application/json"
                 ],
@@ -6935,6 +6985,13 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "example": true,
+                        "description": "true devuelve solo los paquetes visibles en la pagina principal (el catalogo publico lo usa); default false",
+                        "name": "publico",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "example": 50,
                         "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
@@ -7530,6 +7587,98 @@ const docTemplate = `{
                     },
                     "503": {
                         "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/paquetes/{id}/visibilidad": {
+            "patch": {
+                "description": "Cambia solo la visibilidad publica del paquete. El paquete sigue activo y disponible en administracion, planes y caja. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Paquetes BD"
+                ],
+                "summary": "Mostrar u ocultar paquete en la pagina principal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 4,
+                        "description": "ID del paquete",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Visibilidad deseada",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.paqueteVisibilidadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id o body invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Paquete no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -13214,6 +13363,16 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.configuracionPublicaResponse": {
+            "type": "object",
+            "properties": {
+                "mostrar_paquetes": {
+                    "description": "true si la pagina principal muestra la seccion de paquetes.",
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
         "handlers.configuracionResponse": {
             "type": "object",
             "properties": {
@@ -14351,28 +14510,48 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.inventarioImagenConfirmRequest": {
+            "type": "object",
+            "required": [
+                "imagen_key"
+            ],
+            "properties": {
+                "imagen_key": {
+                    "description": "Clave devuelta por upload-url tras subir el archivo",
+                    "type": "string",
+                    "example": "inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
+                }
+            }
+        },
         "handlers.inventarioImagenResponse": {
             "type": "object",
             "properties": {
                 "imagen_url": {
                     "description": "URL publica de la imagen",
                     "type": "string",
-                    "example": "https://bucket.example.com/inventario/1/imagen"
+                    "example": "https://bucket.s3.sa-east-1.amazonaws.com/inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
                 }
             }
         },
         "handlers.inventarioImagenUploadResponse": {
             "type": "object",
             "properties": {
+                "headers": {
+                    "description": "Headers que el cliente debe enviar tal cual en el PUT (van firmados en la URL)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "imagen_key": {
-                    "description": "Clave del objeto (igual a path); es lo que el cliente confirma",
+                    "description": "Clave del objeto (igual a path); es lo que el cliente debe confirmar",
                     "type": "string",
-                    "example": "inventario/1/imagen"
+                    "example": "inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
                 },
                 "path": {
                     "description": "Path del objeto en el bucket",
                     "type": "string",
-                    "example": "inventario/1/imagen"
+                    "example": "inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
                 },
                 "token": {
                     "description": "Token de la subida firmada (si el storage lo usa)",
@@ -14382,7 +14561,7 @@ const docTemplate = `{
                 "upload_url": {
                     "description": "URL firmada a la que el cliente hace PUT con el archivo",
                     "type": "string",
-                    "example": "https://bucket.example.com/inventario/1/imagen?X-Signature=abc"
+                    "example": "https://bucket.s3.sa-east-1.amazonaws.com/inventario/1/3f2a9c.webp?X-Amz-Signature=abc"
                 }
             }
         },
@@ -14812,6 +14991,11 @@ const docTemplate = `{
                     "description": "Filtro aplicado: nombre parcial del paquete.",
                     "type": "string",
                     "example": "relax"
+                },
+                "publico": {
+                    "description": "Filtro aplicado: solo paquetes visibles en la pagina principal.",
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },
@@ -14988,6 +15172,16 @@ const docTemplate = `{
                     "description": "Cantidad de sesiones incluidas en este tier.",
                     "type": "integer",
                     "example": 4
+                }
+            }
+        },
+        "handlers.paqueteVisibilidadRequest": {
+            "type": "object",
+            "properties": {
+                "visible_publico": {
+                    "description": "true muestra el paquete en la pagina principal; false lo oculta sin darlo de baja.",
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },
@@ -17090,6 +17284,10 @@ const docTemplate = `{
                 },
                 "nombre": {
                     "type": "string"
+                },
+                "visible_publico": {
+                    "description": "VisiblePublico controla si aparece en la pagina principal; el paquete sigue activo en administracion.",
+                    "type": "boolean"
                 }
             }
         },
