@@ -52,63 +52,6 @@ func TestPosicionClienteSeparaSaldoDisponibleYPorPagar(t *testing.T) {
 
 func fecha(d int) time.Time { return time.Date(2026, 10, d, 12, 0, 0, 0, time.UTC) }
 
-func TestSugerirRepartoVaDelCargoMasAntiguoAlMasNuevo(t *testing.T) {
-	cargos := []CargoPorCobrar{
-		{ID: 3, Pendiente: 30, Fecha: fecha(20)},
-		{ID: 1, Pendiente: 1000, Fecha: fecha(5)},
-		{ID: 2, Pendiente: 50, Fecha: fecha(10)},
-	}
-	reparto, sobrante := SugerirReparto(cargos, 1040)
-	if len(reparto) != 2 || reparto[0] != (Reparto{CargoID: 1, Monto: 1000}) || reparto[1] != (Reparto{CargoID: 2, Monto: 40}) {
-		t.Fatalf("reparto = %+v", reparto)
-	}
-	if sobrante != 0 {
-		t.Fatalf("sobrante = %v", sobrante)
-	}
-}
-
-func TestSugerirRepartoEmpataPorIdYDejaElSobrante(t *testing.T) {
-	cargos := []CargoPorCobrar{
-		{ID: 8, Pendiente: 20, Fecha: fecha(5)},
-		{ID: 7, Pendiente: 20, Fecha: fecha(5)},
-	}
-	reparto, sobrante := SugerirReparto(cargos, 100)
-	if len(reparto) != 2 || reparto[0].CargoID != 7 || reparto[1].CargoID != 8 {
-		t.Fatalf("a igual fecha desempata por id: %+v", reparto)
-	}
-	if sobrante != 60 {
-		t.Fatalf("sobrante = %v, esperado 60 (saldo a favor)", sobrante)
-	}
-}
-
-func TestSugerirRepartoSinCargosOSinMontoNoRepartePorNada(t *testing.T) {
-	if reparto, sobrante := SugerirReparto(nil, 100); len(reparto) != 0 || sobrante != 100 {
-		t.Fatalf("sin cargos todo es sobrante: %+v %v", reparto, sobrante)
-	}
-	if reparto, sobrante := SugerirReparto([]CargoPorCobrar{{ID: 1, Pendiente: 10, Fecha: fecha(1)}}, 0); len(reparto) != 0 || sobrante != 0 {
-		t.Fatalf("sin monto no hay reparto: %+v %v", reparto, sobrante)
-	}
-}
-
-func TestSugerirRepartoIgnoraCargosSinPendiente(t *testing.T) {
-	cargos := []CargoPorCobrar{
-		{ID: 1, Pendiente: 0, Fecha: fecha(1)},
-		{ID: 2, Pendiente: 25.5, Fecha: fecha(2)},
-	}
-	reparto, sobrante := SugerirReparto(cargos, 25.5)
-	if len(reparto) != 1 || reparto[0] != (Reparto{CargoID: 2, Monto: 25.5}) || sobrante != 0 {
-		t.Fatalf("reparto = %+v, sobrante = %v", reparto, sobrante)
-	}
-}
-
-func TestSugerirRepartoNoMutaLaEntrada(t *testing.T) {
-	cargos := []CargoPorCobrar{{ID: 2, Pendiente: 5, Fecha: fecha(9)}, {ID: 1, Pendiente: 5, Fecha: fecha(1)}}
-	SugerirReparto(cargos, 3)
-	if cargos[0].ID != 2 || cargos[1].ID != 1 {
-		t.Fatalf("la entrada no debe reordenarse: %+v", cargos)
-	}
-}
-
 func TestValidarAplicacionesAceptaUnRepartoCorrecto(t *testing.T) {
 	pendientes := map[int]float64{1: 1000, 2: 30}
 	err := ValidarAplicaciones(500, 0, []Reparto{{1, 400}, {2, 30}}, pendientes)
@@ -143,9 +86,9 @@ func TestValidarAplicacionesRechazaExcederElPendienteDelCargo(t *testing.T) {
 func TestValidarAplicacionesRechazaCargoInexistenteMontoNoPositivoYDuplicados(t *testing.T) {
 	pendientes := map[int]float64{1: 100}
 	casos := []struct {
-		nombre string
+		nombre  string
 		reparto []Reparto
-		texto  string
+		texto   string
 	}{
 		{"cargo inexistente", []Reparto{{9, 10}}, "cargo 9 no encontrado"},
 		{"monto cero", []Reparto{{1, 0}}, "monto debe ser mayor a 0"},

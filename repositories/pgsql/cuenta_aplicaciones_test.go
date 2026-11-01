@@ -33,6 +33,7 @@ func TestLasSumasDeCobrosIgnoranLosAnulados(t *testing.T) {
 		"abonos con lo cubierto": sqlListarAbonos,
 		"pendiente por cargo":    sqlPendientesPorCargo,
 		"cubierto de un pago":    sqlCubiertoDeUnPago,
+		"abonos con saldo":       sqlAbonosConSaldo,
 	} {
 		if !strings.Contains(query, "pago_aplicaciones") {
 			t.Fatalf("%s: la consulta debe leer pago_aplicaciones: %s", nombre, query)
@@ -67,6 +68,17 @@ func TestNingunRepositorioBorraCobros(t *testing.T) {
 		}
 		if strings.Contains(strings.ToUpper(string(contenido)), "DELETE FROM PAGO_APLICACIONES") {
 			t.Fatalf("%s borra filas de pago_aplicaciones; hay que anularlas", archivo)
+		}
+	}
+}
+
+func TestElSaldoDisponibleSeBloqueaParaQueDosCobrosNoGastenElMismoDinero(t *testing.T) {
+	if !strings.Contains(sqlAbonosConSaldo, "FOR UPDATE OF p") {
+		t.Fatalf("los abonos con saldo deben bloquearse dentro de la transaccion: %s", sqlAbonosConSaldo)
+	}
+	for _, fragmento := range []string{"es_abono = TRUE", "activo = TRUE", "estado = 'PAGADO'", "ORDER BY p.fecha_creacion, p.id"} {
+		if !strings.Contains(sqlAbonosConSaldo, fragmento) {
+			t.Fatalf("falta %q: %s", fragmento, sqlAbonosConSaldo)
 		}
 	}
 }

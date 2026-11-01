@@ -45,12 +45,31 @@ type crearAbonoRequest struct {
 	LocalNombre string `json:"local_nombre" example:"SAN MARTIN"`
 	// Monto entregado; debe ser mayor a 0.
 	Monto float64 `json:"monto" example:"500"`
-	// Metodo de pago: efectivo o qr.
+	// Metodo de pago: efectivo, tarjeta, qr o transferencia.
 	TipoPago string `json:"tipo_pago" example:"efectivo"`
 	// Fecha del hecho (YYYY-MM-DD): cuando se entrego el dinero. Opcional; sin ella es ahora. No puede ser futura.
 	FechaHecho string `json:"fecha_hecho,omitempty" example:"2026-10-25"`
 	// Reparto del abono entre cargos pendientes. Lo que no se aplica queda como saldo disponible.
 	Aplicaciones []cuenta.Reparto `json:"aplicaciones"`
+	// Nombre del cajero; si se omite se usa el username del token.
+	Nombre *string `json:"nombre,omitempty" example:"Juan Perez"`
+}
+
+type cobrarRequest struct {
+	// Local donde se recibe el cobro.
+	LocalID *int `json:"local_id" example:"1"`
+	// Nombre del local donde se recibe el cobro.
+	LocalNombre string `json:"local_nombre" example:"SAN MARTIN"`
+	// Cargos que se pagan completos. Puede ir vacio si solo se recarga saldo.
+	CargoIDs []int `json:"cargo_ids" example:"10,11"`
+	// Si es true se descuenta primero el saldo disponible del cliente; false si prefiere guardarlo.
+	UsarSaldo bool `json:"usar_saldo" example:"true"`
+	// Dinero extra que queda como saldo disponible. Opcional.
+	Recarga float64 `json:"recarga,omitempty" example:"20"`
+	// Metodo del dinero nuevo: efectivo, tarjeta, qr o transferencia. Solo se exige si entra dinero nuevo.
+	TipoPago string `json:"tipo_pago,omitempty" example:"qr"`
+	// Fecha del hecho (YYYY-MM-DD): cuando ocurrio el cobro. Opcional; sin ella es ahora. No puede ser futura.
+	FechaHecho string `json:"fecha_hecho,omitempty" example:"2026-10-25"`
 	// Nombre del cajero; si se omite se usa el username del token.
 	Nombre *string `json:"nombre,omitempty" example:"Juan Perez"`
 }
@@ -276,6 +295,56 @@ func (h *Container) PostAbonoCliente(c *gin.Context) {
 		return
 	}
 	utils.Respond(c, http.StatusCreated, abonoCreadoResponse{CodigoPago: codigo}, "Abono registrado")
+}
+
+// PostCobroCliente godoc
+// @Summary Cobrar cargos de un cliente
+// @Description Cobro de caja en una sola transaccion. El cajero marca los cargos que el cliente paga y se pagan completos, sin pagos parciales. Con usar_saldo se descuenta primero el saldo disponible del cliente; lo que falta se paga con un metodo de pago (efectivo, tarjeta, qr o transferencia) y una recarga opcional queda como saldo disponible. Sin cargos solo se recarga saldo. Si el saldo cubre todo y no hay recarga no entra dinero nuevo y no se pide metodo. Si algo falla no queda nada a medias. Requiere token Bearer; un usuario limitado a un local solo puede cobrar en el suyo.
+// @Tags Cuenta del cliente
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del cliente" example(7)
+// @Param payload body cobrarRequest true "Cargos a pagar, uso del saldo, metodo y recarga"
+// @Success 201 {object} utils.APIResponse{data=pgsqlrepo.CobroResultado}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: sin cargos ni recarga, cargo repetido, recarga negativa, tipo de pago invalido o faltante, fecha_hecho futura, el dinero no alcanza"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Local no permitido para el usuario"
+// @Failure 404 {object} utils.APIResponse "Cliente o cargo pendiente no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Security BearerAuth
+// @Router /bd/clientes/{id}/cobros [post]
+func (h *Container) PostCobroCliente(c *gin.Context) {
+	id, ok := pathInt(c, "id")
+	if !ok {
+		return
+	}
+	var req cobrarRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+	if req.LocalID == nil {
+		utils.RespondError(c, http.StatusBadRequest, "local_id es requerido")
+		return
+	}
+	localID, ok := resolverLocalID(c, req.LocalID)
+	if !ok {
+		return
+	}
+	cajero, ok := cajeroAuditoriaFromRequest(c, req.Nombre)
+	if !ok {
+		return
+	}
+	resultado, err := h.Cuenta.Cobrar(services.CobrarInput{
+		ClienteID: id, LocalID: *localID, LocalNombre: req.LocalNombre, CargoIDs: req.CargoIDs, UsarSaldo: req.UsarSaldo,
+		Recarga: req.Recarga, TipoPago: req.TipoPago, FechaHecho: req.FechaHecho, Cajero: cajero,
+	})
+	if err != nil {
+		respondCuentaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusCreated, resultado, "Cobro registrado")
 }
 
 // PostAplicacionesAbono godoc

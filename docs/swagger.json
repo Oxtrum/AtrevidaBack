@@ -1801,6 +1801,103 @@
                 }
             }
         },
+        "/bd/clientes/{id}/cobros": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cobro de caja en una sola transaccion. El cajero marca los cargos que el cliente paga y se pagan completos, sin pagos parciales. Con usar_saldo se descuenta primero el saldo disponible del cliente; lo que falta se paga con un metodo de pago (efectivo, tarjeta, qr o transferencia) y una recarga opcional queda como saldo disponible. Sin cargos solo se recarga saldo. Si el saldo cubre todo y no hay recarga no entra dinero nuevo y no se pide metodo. Si algo falla no queda nada a medias. Requiere token Bearer; un usuario limitado a un local solo puede cobrar en el suyo.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Cobrar cargos de un cliente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cargos a pagar, uso del saldo, metodo y recarga",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.cobrarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/pgsql.CobroResultado"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: sin cargos ni recarga, cargo repetido, recarga negativa, tipo de pago invalido o faltante, fecha_hecho futura, el dinero no alcanza",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente o cargo pendiente no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/clientes/{id}/cuenta": {
             "get": {
                 "security": [
@@ -12632,6 +12729,31 @@
         }
     },
     "definitions": {
+        "cuenta.PlanCobro": {
+            "type": "object",
+            "properties": {
+                "falta": {
+                    "description": "Falta es lo que el cliente paga ahora con un metodo de pago.",
+                    "type": "number",
+                    "example": 100
+                },
+                "nuevo_pago": {
+                    "description": "NuevoPago es el dinero nuevo que entra: lo que falta mas la recarga. Si es 0 no se pide metodo de pago.",
+                    "type": "number",
+                    "example": 100
+                },
+                "total": {
+                    "description": "Total de los cargos marcados.",
+                    "type": "number",
+                    "example": 250
+                },
+                "usa_saldo": {
+                    "description": "UsaSaldo es lo que se descuenta del saldo disponible del cliente.",
+                    "type": "number",
+                    "example": 150
+                }
+            }
+        },
         "cuenta.Reparto": {
             "type": "object",
             "properties": {
@@ -13954,6 +14076,57 @@
                 }
             }
         },
+        "handlers.cobrarRequest": {
+            "type": "object",
+            "properties": {
+                "cargo_ids": {
+                    "description": "Cargos que se pagan completos. Puede ir vacio si solo se recarga saldo.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        10,
+                        11
+                    ]
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho (YYYY-MM-DD): cuando ocurrio el cobro. Opcional; sin ella es ahora. No puede ser futura.",
+                    "type": "string",
+                    "example": "2026-10-25"
+                },
+                "local_id": {
+                    "description": "Local donde se recibe el cobro.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local donde se recibe el cobro.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "nombre": {
+                    "description": "Nombre del cajero; si se omite se usa el username del token.",
+                    "type": "string",
+                    "example": "Juan Perez"
+                },
+                "recarga": {
+                    "description": "Dinero extra que queda como saldo disponible. Opcional.",
+                    "type": "number",
+                    "example": 20
+                },
+                "tipo_pago": {
+                    "description": "Metodo del dinero nuevo: efectivo, tarjeta, qr o transferencia. Solo se exige si entra dinero nuevo.",
+                    "type": "string",
+                    "example": "qr"
+                },
+                "usar_saldo": {
+                    "description": "Si es true se descuenta primero el saldo disponible del cliente; false si prefiere guardarlo.",
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
         "handlers.cobroGastoFijoRequest": {
             "type": "object",
             "required": [
@@ -14214,7 +14387,7 @@
                     "example": "Juan Perez"
                 },
                 "tipo_pago": {
-                    "description": "Metodo de pago: efectivo o qr.",
+                    "description": "Metodo de pago: efectivo, tarjeta, qr o transferencia.",
                     "type": "string",
                     "example": "efectivo"
                 }
@@ -19537,6 +19710,19 @@
                 "total_registros": {
                     "type": "integer",
                     "example": 2500
+                }
+            }
+        },
+        "pgsql.CobroResultado": {
+            "type": "object",
+            "properties": {
+                "codigo_pago": {
+                    "description": "CodigoPago del dinero nuevo que entro; vacio si no entro dinero.",
+                    "type": "string",
+                    "example": "PAGO-000123"
+                },
+                "plan": {
+                    "$ref": "#/definitions/cuenta.PlanCobro"
                 }
             }
         },

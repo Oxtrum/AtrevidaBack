@@ -21,6 +21,8 @@ type cuentaStoreFake struct {
 	existe      bool
 	cargo       *pgsqlrepo.CargoInput
 	abono       *pgsqlrepo.AbonoInput
+	cobro       *pgsqlrepo.CobroInput
+	errCobro    error
 	anuladoID   int
 	anuladoMot  string
 	aplicadoA   string
@@ -56,6 +58,13 @@ func (f *cuentaStoreFake) CrearAbono(in pgsqlrepo.AbonoInput) (string, error) {
 	}
 	f.abono = &in
 	return "PAGO-000009", nil
+}
+func (f *cuentaStoreFake) Cobrar(in pgsqlrepo.CobroInput) (pgsqlrepo.CobroResultado, error) {
+	if f.errCobro != nil {
+		return pgsqlrepo.CobroResultado{}, f.errCobro
+	}
+	f.cobro = &in
+	return pgsqlrepo.CobroResultado{CodigoPago: "PAGO-000012", Plan: cuenta.PlanCobro{Total: 250, UsaSaldo: 150, Falta: 100, NuevoPago: 100}}, nil
 }
 func (f *cuentaStoreFake) AplicarAbono(codigo string, _ int, ap []cuenta.Reparto) error {
 	f.aplicadoA, f.aplicado = codigo, ap
@@ -330,5 +339,65 @@ func TestGetDeudoresRechazaOrdenInvalidoYCursorDeOtroOrden(t *testing.T) {
 		if w := getDeudores(h, q+"&cursor="+url.QueryEscape(cursor)); w.Code != http.StatusBadRequest {
 			t.Fatalf("%s: un cursor de otro orden o busqueda debe rechazarse, status = %d", q, w.Code)
 		}
+	}
+}
+
+func TestPostCobroClienteCobraLosCargosMarcadosYDevuelveElPlan(t *testing.T) {
+	f := &cuentaStoreFake{existe: true}
+	body := `{"local_id":1,"local_nombre":"SAN MARTIN","cargo_ids":[10,11],"usar_saldo":true,"tipo_pago":"qr","recarga":20,"fecha_hecho":"2026-10-25"}`
+	w := llamarCuenta(hCuenta(f).PostCobroCliente, clienteSiete, body, cajeroLocal1)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	c := f.cobro
+	if c == nil || c.ClienteID != 7 || len(c.CargoIDs) != 2 || !c.UsarSaldo || c.TipoPago != "qr" || c.Recarga != 20 || c.CajeroNombre != "ana" {
+		t.Fatalf("cobro = %#v", c)
+	}
+	for _, esperado := range []string{"PAGO-000012", `"usa_saldo":150`, `"falta":100`} {
+		if !strings.Contains(w.Body.String(), esperado) {
+			t.Fatalf("la respuesta debe traer %s: %s", esperado, w.Body.String())
+		}
+	}
+}
+
+func TestPostCobroClienteRespetaElLocalDelUsuario(t *testing.T) {
+	f := &cuentaStoreFake{existe: true}
+	body := `{"local_id":2,"local_nombre":"PASEO ARANJUEZ","cargo_ids":[10],"usar_saldo":true}`
+	w := llamarCuenta(hCuenta(f).PostCobroCliente, clienteSiete, body, cajeroLocal1)
+	if w.Code != http.StatusForbidden || f.cobro != nil {
+		t.Fatalf("un usuario de otro local no puede cobrar aqui: status = %d", w.Code)
+	}
+}
+
+func TestPostCobroClienteRechazaPedidosInvalidosComo400(t *testing.T) {
+	for _, body := range []string{
+		`{"local_id":1,"local_nombre":"SAN MARTIN","cargo_ids":[],"recarga":0}`,
+		`{"local_id":1,"local_nombre":"SAN MARTIN","cargo_ids":[1,1],"usar_saldo":true}`,
+		`{"local_id":1,"local_nombre":"SAN MARTIN","cargo_ids":[1],"tipo_pago":"cheque"}`,
+		`{"local_id":1,"local_nombre":"SAN MARTIN","cargo_ids":[1],"tipo_pago":"qr","fecha_hecho":"2999-01-01"}`,
+		`{"cargo_ids":[1],"tipo_pago":"qr"}`,
+		`no es json`,
+	} {
+		f := &cuentaStoreFake{existe: true}
+		w := llamarCuenta(hCuenta(f).PostCobroCliente, clienteSiete, body, adminCuenta)
+		if w.Code != http.StatusBadRequest || f.cobro != nil {
+			t.Fatalf("%s: status = %d, cobro = %#v", body, w.Code, f.cobro)
+		}
+	}
+}
+
+func TestPostCobroClienteMapeaLasReglasA4xxYLaInfraA500(t *testing.T) {
+	body := `{"local_id":1,"local_nombre":"SAN MARTIN","cargo_ids":[3],"usar_saldo":true,"tipo_pago":"qr"}`
+	regla := &cuentaStoreFake{existe: true, errCobro: pgsqlrepo.ErrReglaCuenta{Msg: "el dinero disponible no alcanza para cubrir los cargos"}}
+	if w := llamarCuenta(hCuenta(regla).PostCobroCliente, clienteSiete, body, adminCuenta); w.Code != http.StatusBadRequest {
+		t.Fatalf("regla: status = %d", w.Code)
+	}
+	noEncontrado := &cuentaStoreFake{existe: true, errCobro: pgsqlrepo.ErrReglaCuenta{Msg: "cargo 3 no encontrado entre los pendientes del cliente"}}
+	if w := llamarCuenta(hCuenta(noEncontrado).PostCobroCliente, clienteSiete, body, adminCuenta); w.Code != http.StatusNotFound {
+		t.Fatalf("no encontrado: status = %d", w.Code)
+	}
+	infra := &cuentaStoreFake{existe: true, errCobro: assertErr("no se pudo registrar el cobro")}
+	if w := llamarCuenta(hCuenta(infra).PostCobroCliente, clienteSiete, body, adminCuenta); w.Code != http.StatusInternalServerError {
+		t.Fatalf("infraestructura: status = %d", w.Code)
 	}
 }

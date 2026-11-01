@@ -111,6 +111,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		// Cuenta del cliente: cargos (lo que debe), abonos (lo que entrega) y su reparto.
 		bd.GET("/clientes/:id/cuenta", h.AuthRequired, h.GetCuentaCliente)
 		bd.POST("/clientes/:id/cargos", h.AuthRequired, h.PostCargoCliente)
+		bd.POST("/clientes/:id/cobros", h.AuthRequired, h.PostCobroCliente)
 		bd.POST("/clientes/:id/abonos", h.AuthRequired, h.PostAbonoCliente)
 		bd.POST("/clientes/:id/abonos/:codigo_pago/aplicaciones", h.AuthRequired, h.PostAplicacionesAbono)
 		bd.POST("/cargos/:id/anular", h.AuthRequired, h.GerenciaRequired, h.PostAnularCargo)

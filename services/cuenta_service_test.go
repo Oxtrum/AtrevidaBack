@@ -18,6 +18,7 @@ type cuentaFake struct {
 	totalCargos  float64
 	cargoCreado  *pgsqlrepo.CargoInput
 	abonoCreado  *pgsqlrepo.AbonoInput
+	cobro        *pgsqlrepo.CobroInput
 	anuladoID    int
 	anuladoMotivo string
 	aplicado     []cuenta.Reparto
@@ -40,6 +41,10 @@ func (f *cuentaFake) TotalesCuenta(int) (float64, float64, error)          { ret
 func (f *cuentaFake) CrearAbono(in pgsqlrepo.AbonoInput) (string, error) {
 	f.abonoCreado = &in
 	return "PAGO-000007", nil
+}
+func (f *cuentaFake) Cobrar(in pgsqlrepo.CobroInput) (pgsqlrepo.CobroResultado, error) {
+	f.cobro = &in
+	return pgsqlrepo.CobroResultado{CodigoPago: "PAGO-000011"}, nil
 }
 func (f *cuentaFake) AplicarAbono(_ string, _ int, ap []cuenta.Reparto) error {
 	f.aplicado = ap
@@ -252,5 +257,78 @@ func TestListarDeudoresRechazaOrdenFueraDeLaListaBlanca(t *testing.T) {
 	}
 	if _, err := servicioCuenta(f).ListarDeudores(FiltroDeudoresInput{Offset: -1}); err == nil || !strings.Contains(err.Error(), "offset invalido") {
 		t.Fatalf("offset negativo: %v", err)
+	}
+}
+
+func cobroValido() CobrarInput {
+	return CobrarInput{
+		ClienteID: 7, LocalID: 1, LocalNombre: "SAN MARTIN", CargoIDs: []int{1, 2}, UsarSaldo: true, TipoPago: "QR",
+		Cajero: CajeroAuditoriaInput{Nombre: "Juan"},
+	}
+}
+
+func TestCobrarNormalizaYEnviaAlRepositorio(t *testing.T) {
+	f := &cuentaFake{existe: true}
+	in := cobroValido()
+	in.Recarga = 10.5
+	in.FechaHecho = "2026-10-25"
+	res, err := servicioCuenta(f).Cobrar(in)
+	if err != nil || res.CodigoPago != "PAGO-000011" {
+		t.Fatalf("res = %+v, err = %v", res, err)
+	}
+	c := f.cobro
+	if c == nil || c.ClienteID != 7 || c.LocalID != 1 || c.TipoPago != "qr" || !c.UsarSaldo || c.Recarga != 10.5 || len(c.CargoIDs) != 2 || c.CajeroNombre != "Juan" || c.FechaHecho == nil {
+		t.Fatalf("cobro = %#v", c)
+	}
+}
+
+func TestCobrarPermiteSoloRecargarSaldoSinMarcarCargos(t *testing.T) {
+	f := &cuentaFake{existe: true}
+	in := cobroValido()
+	in.CargoIDs = nil
+	in.Recarga = 50
+	if _, err := servicioCuenta(f).Cobrar(in); err != nil {
+		t.Fatalf("una recarga sin cargos es valida: %v", err)
+	}
+}
+
+func TestCobrarDejaAlRepositorioDecidirSiHaceFaltaMetodoDePago(t *testing.T) {
+	f := &cuentaFake{existe: true}
+	in := cobroValido()
+	in.TipoPago = ""
+	if _, err := servicioCuenta(f).Cobrar(in); err != nil {
+		t.Fatalf("si el saldo cubre todo no se pide metodo: %v", err)
+	}
+	if f.cobro == nil || f.cobro.TipoPago != "" {
+		t.Fatalf("cobro = %#v", f.cobro)
+	}
+}
+
+func TestCobrarRechazaDatosInvalidos(t *testing.T) {
+	casos := []struct {
+		nombre string
+		mutar  func(*CobrarInput)
+		texto  string
+	}{
+		{"nada que cobrar", func(i *CobrarInput) { i.CargoIDs = nil; i.Recarga = 0 }, "cargo_ids o recarga es requerido"},
+		{"cargo repetido", func(i *CobrarInput) { i.CargoIDs = []int{1, 1} }, "repetido"},
+		{"cargo invalido", func(i *CobrarInput) { i.CargoIDs = []int{0} }, "cargo_ids invalido"},
+		{"recarga negativa", func(i *CobrarInput) { i.Recarga = -1 }, "recarga no puede ser negativa"},
+		{"metodo invalido", func(i *CobrarInput) { i.TipoPago = "cheque" }, "Tipo de pago invalido"},
+		{"fecha futura", func(i *CobrarInput) { i.FechaHecho = "2999-01-01" }, "futura"},
+		{"sin local", func(i *CobrarInput) { i.LocalID = 0 }, "local_id es requerido"},
+		{"sin cliente", func(i *CobrarInput) { i.ClienteID = 0 }, "cliente_id es requerido"},
+	}
+	for _, c := range casos {
+		f := &cuentaFake{existe: true}
+		in := cobroValido()
+		c.mutar(&in)
+		_, err := servicioCuenta(f).Cobrar(in)
+		if err == nil || !strings.Contains(err.Error(), c.texto) {
+			t.Errorf("%s: error = %v, esperado que contenga %q", c.nombre, err, c.texto)
+		}
+		if f.cobro != nil {
+			t.Errorf("%s: no debe llegar al repositorio", c.nombre)
+		}
 	}
 }

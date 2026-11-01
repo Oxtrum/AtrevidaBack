@@ -22,6 +22,7 @@ type cuentaStore interface {
 	TotalesCuenta(clienteID int) (abonos, cargos float64, err error)
 	CrearAbono(in pgsqlrepo.AbonoInput) (string, error)
 	AplicarAbono(codigoPago string, clienteID int, aplicaciones []cuenta.Reparto) error
+	Cobrar(in pgsqlrepo.CobroInput) (pgsqlrepo.CobroResultado, error)
 	ListarDeudores(f pgsqlrepo.FiltroDeudores) ([]models.DeudorCliente, error)
 	ContarDeudores(f pgsqlrepo.FiltroDeudores) (int, error)
 }
@@ -194,6 +195,70 @@ func (s *CuentaService) CrearAbono(in CrearAbonoInput) (string, error) {
 		Monto: redondearMonto2(in.Monto), TipoPago: tipoPago, FechaHecho: fechaHecho,
 		Aplicaciones: in.Aplicaciones,
 		CajeroID:     cajero.ID, CajeroNombre: cajero.Nombre, CajeroUser: cajero.Username,
+	})
+}
+
+// CobrarInput es el pedido de un cobro de caja: los cargos que el cajero marco, si se usa el saldo disponible, el
+// metodo del dinero nuevo y una recarga opcional.
+type CobrarInput struct {
+	ClienteID   int
+	LocalID     int
+	LocalNombre string
+	// CargoIDs son los cargos que se pagan completos; puede ir vacio si solo se recarga saldo.
+	CargoIDs []int
+	// UsarSaldo descuenta primero el saldo disponible; false si el cliente prefiere guardarlo.
+	UsarSaldo bool
+	// Recarga es dinero extra que queda como saldo disponible.
+	Recarga float64
+	// TipoPago es el metodo del dinero nuevo; solo se exige si entra dinero nuevo.
+	TipoPago string
+	// FechaHecho es cuando ocurrio el cobro (YYYY-MM-DD, opcional; sin ella es ahora). No puede ser futura.
+	FechaHecho string
+	Cajero     CajeroAuditoriaInput
+}
+
+// Cobrar valida y registra un cobro de caja. Las reglas de dinero (que el saldo alcance, que cada cargo se cubra
+// completo) las comprueba el repositorio dentro de la transaccion, con los cargos y el saldo bloqueados.
+func (s *CuentaService) Cobrar(in CobrarInput) (pgsqlrepo.CobroResultado, error) {
+	if in.ClienteID < 1 {
+		return pgsqlrepo.CobroResultado{}, errors.New("cliente_id es requerido")
+	}
+	if in.LocalID < 1 || strings.TrimSpace(in.LocalNombre) == "" {
+		return pgsqlrepo.CobroResultado{}, errors.New("local_id es requerido")
+	}
+	if math.IsNaN(in.Recarga) || math.IsInf(in.Recarga, 0) || in.Recarga < 0 {
+		return pgsqlrepo.CobroResultado{}, errors.New("recarga no puede ser negativa")
+	}
+	recarga := redondearMonto2(in.Recarga)
+	if len(in.CargoIDs) == 0 && recarga == 0 {
+		return pgsqlrepo.CobroResultado{}, errors.New("cargo_ids o recarga es requerido")
+	}
+	vistos := make(map[int]bool, len(in.CargoIDs))
+	for _, id := range in.CargoIDs {
+		if id < 1 {
+			return pgsqlrepo.CobroResultado{}, errors.New("cargo_ids invalido: cada id debe ser un entero positivo")
+		}
+		if vistos[id] {
+			return pgsqlrepo.CobroResultado{}, fmt.Errorf("cargo_ids invalido: el cargo %d esta repetido", id)
+		}
+		vistos[id] = true
+	}
+	tipoPago, err := normalizarTipoPagoOpcional(in.TipoPago)
+	if err != nil {
+		return pgsqlrepo.CobroResultado{}, err
+	}
+	cajero, err := normalizarCajeroAuditoria(in.Cajero)
+	if err != nil {
+		return pgsqlrepo.CobroResultado{}, err
+	}
+	fechaHecho, err := resolverFechaHechoConfigurada(s.Config, s.Ahora, in.FechaHecho)
+	if err != nil {
+		return pgsqlrepo.CobroResultado{}, err
+	}
+	return s.store.Cobrar(pgsqlrepo.CobroInput{
+		ClienteID: in.ClienteID, LocalID: in.LocalID, LocalNombre: strings.TrimSpace(in.LocalNombre),
+		CargoIDs: in.CargoIDs, UsarSaldo: in.UsarSaldo, Recarga: recarga, TipoPago: tipoPago, FechaHecho: fechaHecho,
+		CajeroID: cajero.ID, CajeroNombre: cajero.Nombre, CajeroUser: cajero.Username,
 	})
 }
 

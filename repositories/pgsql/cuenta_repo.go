@@ -36,6 +36,16 @@ const (
 		FROM cargos_cliente c
 		WHERE c.cliente_id = $1 AND c.anulado = FALSE`
 
+	// Abonos con su dinero sin usar, del mas antiguo al mas nuevo. Se bloquean para que dos cobros simultaneos no
+	// gasten el mismo saldo.
+	sqlAbonosConSaldo = `
+		SELECT p.id,
+		       p.total_final - COALESCE((SELECT SUM(a.monto) FROM pago_aplicaciones a WHERE a.pago_id = p.id AND a.anulado = FALSE), 0) AS disponible
+		FROM pagos p
+		WHERE p.cliente_id = $1 AND p.es_abono = TRUE AND p.activo = TRUE AND p.estado = 'PAGADO'
+		ORDER BY p.fecha_creacion, p.id
+		FOR UPDATE OF p`
+
 	sqlCubiertoDeUnPago = `SELECT COALESCE(SUM(monto), 0) FROM pago_aplicaciones WHERE pago_id = $1 AND anulado = FALSE`
 
 	// Cada cobro es un registro nuevo; nunca se suma sobre uno existente.
@@ -92,6 +102,32 @@ type AbonoInput struct {
 	CajeroID     *int
 	CajeroNombre string
 	CajeroUser   *string
+}
+
+// CobroInput es un cobro de caja: el cajero marco cargos que se pagan completos.
+type CobroInput struct {
+	ClienteID   int
+	LocalID     int
+	LocalNombre string
+	CargoIDs    []int
+	// UsarSaldo descuenta primero el saldo disponible del cliente; false si prefiere guardarlo.
+	UsarSaldo bool
+	// Recarga es dinero extra que queda como saldo disponible.
+	Recarga float64
+	// TipoPago es el metodo del dinero nuevo; vacio solo si el saldo cubre todo y no hay recarga.
+	TipoPago string
+	// FechaHecho es cuando ocurrio el cobro; nil usa el momento actual.
+	FechaHecho   *time.Time
+	CajeroID     *int
+	CajeroNombre string
+	CajeroUser   *string
+}
+
+// CobroResultado es lo que se hizo: el pago nuevo (vacio si el saldo cubrio todo) y el resumen del cobro.
+type CobroResultado struct {
+	// CodigoPago del dinero nuevo que entro; vacio si no entro dinero.
+	CodigoPago string           `json:"codigo_pago,omitempty" example:"PAGO-000123"`
+	Plan       cuenta.PlanCobro `json:"plan"`
 }
 
 // ErrReglaCuenta es un error de regla de negocio de la cuenta (cliente o cargo inexistente, aplicacion que excede
@@ -214,15 +250,9 @@ func (r *CuentaRepo) CrearAbono(in AbonoInput) (string, error) {
 	}
 	defer tx.Rollback()
 
-	var cliente struct {
-		Nombre string `db:"nombre"`
-		NIT    string `db:"nit"`
-	}
-	if err := tx.Get(&cliente, `SELECT nombre || ' ' || apellido AS nombre, COALESCE(nit, '') AS nit FROM clientes WHERE id = $1`, in.ClienteID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", errCuenta("cliente no encontrado")
-		}
-		return "", fmt.Errorf("no se pudo leer el cliente: %w", err)
+	cliente, err := clienteParaPago(tx, in.ClienteID)
+	if err != nil {
+		return "", err
 	}
 	pendientes, err := pendientesBloqueados(tx, in.ClienteID)
 	if err != nil {
@@ -232,9 +262,41 @@ func (r *CuentaRepo) CrearAbono(in AbonoInput) (string, error) {
 		return "", ErrReglaCuenta{Msg: err.Error()}
 	}
 
+	pagoID, codigo, err := insertarPagoAbono(tx, in, cliente)
+	if err != nil {
+		return "", err
+	}
+	if err := insertarAplicaciones(tx, pagoID, in.Aplicaciones); err != nil {
+		return "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("no se pudo registrar el abono")
+	}
+	return codigo, nil
+}
+
+type clientePago struct {
+	Nombre string `db:"nombre"`
+	NIT    string `db:"nit"`
+}
+
+// clienteParaPago lee los datos del cliente que se copian al pago.
+func clienteParaPago(tx *sqlx.Tx, clienteID int) (clientePago, error) {
+	var cliente clientePago
+	if err := tx.Get(&cliente, `SELECT nombre || ' ' || apellido AS nombre, COALESCE(nit, '') AS nit FROM clientes WHERE id = $1`, clienteID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return clientePago{}, errCuenta("cliente no encontrado")
+		}
+		return clientePago{}, fmt.Errorf("no se pudo leer el cliente: %w", err)
+	}
+	return cliente, nil
+}
+
+// insertarPagoAbono crea el pago de un abono (sin detalle) y devuelve su id y codigo.
+func insertarPagoAbono(tx *sqlx.Tx, in AbonoInput, cliente clientePago) (int, string, error) {
 	var pagoID int
 	var codigo string
-	err = tx.QueryRowx(`
+	err := tx.QueryRowx(`
 		INSERT INTO pagos (
 			local_id, local_nombre, cliente_id, cliente_nit, cliente_nombre,
 			subtotal, descuento, total_final, tipo_pago, estado, activo,
@@ -246,15 +308,90 @@ func (r *CuentaRepo) CrearAbono(in AbonoInput) (string, error) {
 		in.Monto, in.TipoPago, in.CajeroID, in.CajeroNombre, in.CajeroUser, in.FechaHecho,
 	).Scan(&pagoID, &codigo)
 	if err != nil {
-		return "", pagoInsertError(err)
+		return 0, "", pagoInsertError(err)
 	}
-	if err := insertarAplicaciones(tx, pagoID, in.Aplicaciones); err != nil {
-		return "", err
+	return pagoID, codigo, nil
+}
+
+// Cobrar registra un cobro de caja en una sola transaccion: paga completos los cargos marcados con el saldo
+// disponible del cliente (si quiere) y con dinero nuevo, y guarda la recarga como saldo disponible. Si algo falla
+// no queda nada a medias.
+func (r *CuentaRepo) Cobrar(in CobroInput) (CobroResultado, error) {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return CobroResultado{}, err
+	}
+	defer tx.Rollback()
+
+	cliente, err := clienteParaPago(tx, in.ClienteID)
+	if err != nil {
+		return CobroResultado{}, err
+	}
+	pendientes, err := pendientesBloqueados(tx, in.ClienteID)
+	if err != nil {
+		return CobroResultado{}, err
+	}
+	cargos := make([]cuenta.CargoACobrar, 0, len(in.CargoIDs))
+	var total float64
+	for _, id := range in.CargoIDs {
+		pendiente, ok := pendientes[id]
+		if !ok {
+			return CobroResultado{}, errCuenta("cargo %d no encontrado entre los pendientes del cliente", id)
+		}
+		cargos = append(cargos, cuenta.CargoACobrar{ID: id, Pendiente: pendiente})
+		total += pendiente
+	}
+
+	var saldos []struct {
+		ID         int     `db:"id"`
+		Disponible float64 `db:"disponible"`
+	}
+	if err := tx.Select(&saldos, sqlAbonosConSaldo, in.ClienteID); err != nil {
+		return CobroResultado{}, fmt.Errorf("no se pudo leer el saldo disponible: %w", err)
+	}
+	var fuentes []cuenta.FuenteDinero
+	var disponible float64
+	for _, s := range saldos {
+		if cuenta.PendienteDe(s.Disponible, 0) > 0 {
+			fuentes = append(fuentes, cuenta.FuenteDinero{PagoID: s.ID, Disponible: s.Disponible})
+			disponible += s.Disponible
+		}
+	}
+	if !in.UsarSaldo {
+		fuentes = nil
+	}
+
+	plan := cuenta.PlanearCobro(total, disponible, in.UsarSaldo, in.Recarga)
+	resultado := CobroResultado{Plan: plan}
+	if plan.NuevoPago > 0 {
+		if in.TipoPago == "" {
+			return CobroResultado{}, errCuenta("tipo_pago es requerido para registrar el dinero que entra (%.2f)", plan.NuevoPago)
+		}
+		pagoID, codigo, err := insertarPagoAbono(tx, AbonoInput{
+			ClienteID: in.ClienteID, LocalID: in.LocalID, LocalNombre: in.LocalNombre, Monto: plan.NuevoPago,
+			TipoPago: in.TipoPago, FechaHecho: in.FechaHecho,
+			CajeroID: in.CajeroID, CajeroNombre: in.CajeroNombre, CajeroUser: in.CajeroUser,
+		}, cliente)
+		if err != nil {
+			return CobroResultado{}, err
+		}
+		fuentes = append(fuentes, cuenta.FuenteDinero{PagoID: pagoID, Disponible: plan.NuevoPago})
+		resultado.CodigoPago = codigo
+	}
+
+	cobros, err := cuenta.CubrirCargos(cargos, fuentes)
+	if err != nil {
+		return CobroResultado{}, ErrReglaCuenta{Msg: err.Error()}
+	}
+	for _, c := range cobros {
+		if _, err := tx.Exec(sqlInsertarCobro, c.PagoID, c.CargoID, c.Monto); err != nil {
+			return CobroResultado{}, fmt.Errorf("no se pudo registrar el cobro del cargo %d: %w", c.CargoID, err)
+		}
 	}
 	if err := tx.Commit(); err != nil {
-		return "", fmt.Errorf("no se pudo registrar el abono")
+		return CobroResultado{}, fmt.Errorf("no se pudo registrar el cobro")
 	}
-	return codigo, nil
+	return resultado, nil
 }
 
 // AplicarAbono reparte entre cargos lo que un abono ya existente tiene sin aplicar (p. ej. saldo disponible que

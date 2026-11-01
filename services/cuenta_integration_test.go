@@ -274,3 +274,100 @@ func TestTrastiendaCuentaListaSoloAQuienesDeben(t *testing.T) {
 		t.Fatalf("un cliente al dia no es deudor: %+v, %v", lista, err)
 	}
 }
+
+func (e *cuentaEnv) cobrar(cargos []int, usarSaldo bool, recarga float64, tipoPago string) (string, error) {
+	res, err := e.svc.Cobrar(CobrarInput{
+		ClienteID: e.clienteID, LocalID: e.localID, LocalNombre: e.localName, CargoIDs: cargos, UsarSaldo: usarSaldo,
+		Recarga: recarga, TipoPago: tipoPago, Cajero: CajeroAuditoriaInput{Nombre: "Prueba"},
+	})
+	return res.CodigoPago, err
+}
+
+// El cajero marca dos servicios de 100 y 150, el cliente tiene 150 de saldo disponible y paga el resto con QR.
+func TestTrastiendaCuentaCobroUsaElSaldoYSeComplementaConUnMetodo(t *testing.T) {
+	e := setupCuenta(t)
+	a := e.cargo("SERVICIO", "Masaje", 100)
+	b := e.cargo("SERVICIO", "Limpieza", 150)
+	c := e.cargo("SERVICIO", "Paquete", 400)
+	if _, err := e.abono(150); err != nil {
+		t.Fatal(err)
+	}
+
+	codigo, err := e.cobrar([]int{a, b}, true, 0, "qr")
+	if err != nil || codigo == "" {
+		t.Fatalf("codigo = %q, err = %v", codigo, err)
+	}
+	for _, id := range []int{a, b} {
+		if estado, _ := e.estadoCargo(id); estado != cuenta.CargoPagado {
+			t.Fatalf("el cargo %d debe quedar pagado completo: %s", id, estado)
+		}
+	}
+	if estado, pend := e.estadoCargo(c); estado != cuenta.CargoPendiente || pend != 400 {
+		t.Fatalf("el cargo no marcado no se toca: %s %v", estado, pend)
+	}
+	if disp, por, deuda := e.cuenta(); disp != 0 || por != 400 || deuda != 400 {
+		t.Fatalf("tras cobrar = disponible %v por pagar %v deuda %v", disp, por, deuda)
+	}
+	// 150 del saldo (100 + 50) y 100 del pago nuevo: tres registros de cobro, ninguno editado.
+	if total, _ := e.cobrosDelCliente(); total != 3 {
+		t.Fatalf("filas de cobro = %d, esperadas 3", total)
+	}
+}
+
+func TestTrastiendaCuentaCobroPuedeGuardarElSaldoYRecargar(t *testing.T) {
+	e := setupCuenta(t)
+	servicio := e.cargo("SERVICIO", "Masaje", 400)
+	if _, err := e.abono(300); err != nil {
+		t.Fatal(err)
+	}
+
+	// El cliente prefiere guardar su saldo: todo se paga con tarjeta.
+	if _, err := e.cobrar([]int{servicio}, false, 0, "tarjeta"); err != nil {
+		t.Fatal(err)
+	}
+	if disp, por, _ := e.cuenta(); disp != 300 || por != 0 {
+		t.Fatalf("el saldo guardado no se toca: disponible %v por pagar %v", disp, por)
+	}
+
+	// Solo recarga, sin cargos.
+	if _, err := e.cobrar(nil, true, 50, "efectivo"); err != nil {
+		t.Fatal(err)
+	}
+	if disp, _, _ := e.cuenta(); disp != 350 {
+		t.Fatalf("disponible tras recargar = %v", disp)
+	}
+}
+
+func TestTrastiendaCuentaCobroConSaldoSuficienteNoPideMetodo(t *testing.T) {
+	e := setupCuenta(t)
+	if _, err := e.abono(350); err != nil {
+		t.Fatal(err)
+	}
+	chico := e.cargo("SERVICIO", "Masaje", 100)
+	grande := e.cargo("SERVICIO", "Paquete", 500)
+
+	if codigo, err := e.cobrar([]int{chico}, true, 0, ""); err != nil || codigo != "" {
+		t.Fatalf("el saldo cubre todo: codigo = %q, err = %v", codigo, err)
+	}
+	// Quedan 250 de saldo y el cargo es de 500: sin metodo de pago no se puede cobrar y no queda nada a medias.
+	if _, err := e.cobrar([]int{grande}, true, 0, ""); err == nil {
+		t.Fatal("si falta dinero nuevo hace falta un metodo de pago")
+	}
+	if disp, por, _ := e.cuenta(); disp != 250 || por != 500 {
+		t.Fatalf("un cobro rechazado no cambia la cuenta: disponible %v por pagar %v", disp, por)
+	}
+}
+
+func TestTrastiendaCuentaCobroRechazaCargosAjenosOYaPagados(t *testing.T) {
+	e := setupCuenta(t)
+	pagado := e.cargo("SERVICIO", "Masaje", 100)
+	if _, err := e.cobrar([]int{pagado}, false, 0, "efectivo"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.cobrar([]int{pagado}, false, 0, "efectivo"); err == nil {
+		t.Fatal("un cargo ya pagado no se cobra dos veces")
+	}
+	if _, err := e.cobrar([]int{999999999}, false, 0, "efectivo"); err == nil {
+		t.Fatal("un cargo que no es del cliente no se cobra")
+	}
+}
