@@ -7088,7 +7088,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
+                        "description": "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -7158,7 +7158,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -7571,7 +7571,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }

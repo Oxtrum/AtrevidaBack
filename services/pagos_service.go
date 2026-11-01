@@ -405,14 +405,18 @@ func NormalizarEstadoPago(raw string) (string, error) {
 	}
 }
 
+// TiposPago es la lista cerrada de metodos con los que se cobra. Debe coincidir con chk_pagos_tipo_pago en la
+// base (migracion 000073); agregar uno exige una migracion nueva.
+var TiposPago = []string{"efectivo", "tarjeta", "qr", "transferencia"}
+
 func NormalizarTipoPago(raw string) (string, error) {
 	tipoPago := strings.ToLower(strings.TrimSpace(raw))
-	switch tipoPago {
-	case "efectivo", "qr":
-		return tipoPago, nil
-	default:
-		return "", fmt.Errorf("Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR")
+	for _, valido := range TiposPago {
+		if tipoPago == valido {
+			return tipoPago, nil
+		}
 	}
+	return "", fmt.Errorf("Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia")
 }
 
 func normalizarEstadoPagoOpcional(raw string) (string, error) {

@@ -200,7 +200,7 @@ func (h *Container) GetVentasDetalle(c *gin.Context) {
 // @Description Cada pago incluye primer_producto y cantidad_productos como resumen del detalle, sin cargar todas sus lineas. El detalle completo se consulta por codigo.
 // @Description Con ordenar_por el orden lo resuelve el servidor sobre todo el resultado, no solo la pagina visible: los vacios quedan al final y los empates se desempatan por id. Cambiar ordenar_por o sentido invalida el cursor, asi que el cliente debe volver a la primera pagina.
 // @Success 200 {object} utils.APIResponse{data=pagoListResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos [get]
@@ -367,7 +367,7 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param payload body crearPagoRequest true "Datos completos del pago y su detalle"
 // @Success 201 {object} utils.APIResponse{data=pagoCreatedResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Referencia no encontrada: local, cliente o servicio invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
@@ -431,7 +431,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 // @Param codigo_pago path string true "Codigo publico del pago" example(PAGO-000001)
 // @Param payload body actualizarPagoRequest true "Campos base a actualizar y/o detalle a sincronizar"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Pago no encontrado"
 // @Failure 409 {object} utils.APIResponse "Conflicto: no se puede modificar un pago en estado PAGADO"
