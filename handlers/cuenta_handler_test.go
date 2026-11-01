@@ -112,7 +112,7 @@ func TestGetCuentaClienteDevuelveSaldoYCargosConEstado(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := body.Data.Cuenta
-	if c.Saldo.Etiqueta != cuenta.SaldoDeuda || c.Saldo.Absoluto != 60 || len(c.Cargos) != 1 || c.Cargos[0].Estado != cuenta.CargoParcial {
+	if c.Saldo.Deuda != 60 || c.Saldo.PorPagar != 60 || c.Saldo.Disponible != 0 || len(c.Cargos) != 1 || c.Cargos[0].Estado != cuenta.CargoParcial {
 		t.Fatalf("cuenta = %+v", c)
 	}
 }

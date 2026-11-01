@@ -28,23 +28,24 @@ func TestEstadoCargo(t *testing.T) {
 	}
 }
 
-func TestSaldoClienteEtiquetaPorSigno(t *testing.T) {
+// La cuenta muestra dos numeros: saldo disponible (dinero recargado y no usado) y por pagar (cargos sin pagar).
+// La deuda real es lo que falta despues de usar el saldo disponible y nunca es negativa.
+func TestPosicionClienteSeparaSaldoDisponibleYPorPagar(t *testing.T) {
 	casos := []struct {
-		abonos, cargos float64
-		etiqueta       string
-		monto          float64
-		absoluto       float64
+		disponible, porPagar float64
+		deuda                float64
 	}{
-		{1500, 1000, SaldoAFavor, 500, 500},
-		{500, 1000, SaldoDeuda, -500, 500},
-		{1000, 1000, SaldoAlDia, 0, 0},
-		{0, 0, SaldoAlDia, 0, 0},
-		{0.3, 0.1 + 0.2, SaldoAlDia, 0, 0},
+		{0, 1030, 1030},
+		{150, 250, 100},
+		{500, 430, 0},
+		{70, 0, 0},
+		{0, 0, 0},
+		{0.3, 0.1 + 0.2, 0},
 	}
 	for _, c := range casos {
-		got := SaldoCliente(c.abonos, c.cargos)
-		if got.Etiqueta != c.etiqueta || got.Monto != c.monto || got.Absoluto != c.absoluto {
-			t.Fatalf("SaldoCliente(%v, %v) = %+v", c.abonos, c.cargos, got)
+		got := PosicionCliente(c.disponible, c.porPagar)
+		if got.Deuda != c.deuda || got.Disponible != desdeCentavos(centavos(c.disponible)) || got.PorPagar != desdeCentavos(centavos(c.porPagar)) {
+			t.Fatalf("PosicionCliente(%v, %v) = %+v, deuda esperada %v", c.disponible, c.porPagar, got, c.deuda)
 		}
 	}
 }

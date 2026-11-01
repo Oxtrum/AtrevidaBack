@@ -53,13 +53,13 @@ func (e *cuentaEnv) abono(monto float64, aplicaciones ...cuenta.Reparto) (string
 	})
 }
 
-func (e *cuentaEnv) cuenta() (saldo string, absoluto float64, sinAplicar float64) {
+func (e *cuentaEnv) cuenta() (disponible, porPagar, deuda float64) {
 	e.t.Helper()
 	c, err := e.svc.Obtener(e.clienteID, false)
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	return c.Saldo.Etiqueta, c.Saldo.Absoluto, c.SinAplicar
+	return c.Saldo.Disponible, c.Saldo.PorPagar, c.Saldo.Deuda
 }
 
 func (e *cuentaEnv) estadoCargo(id int) (estado string, pendiente float64) {
@@ -97,8 +97,8 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 
 	paquete := e.cargo("PAQUETE", "Paquete Relax", 1000)
 	anestesia := e.cargo("INSUMO", "Anestesia", 30)
-	if s, abs, _ := e.cuenta(); s != cuenta.SaldoDeuda || abs != 1030 {
-		t.Fatalf("saldo inicial = %s %v", s, abs)
+	if disp, por, deuda := e.cuenta(); disp != 0 || por != 1030 || deuda != 1030 {
+		t.Fatalf("saldo inicial = disponible %v por pagar %v deuda %v", disp, por, deuda)
 	}
 
 	// Pago parcial aplicado al paquete.
@@ -108,8 +108,8 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 	if estado, pend := e.estadoCargo(paquete); estado != cuenta.CargoParcial || pend != 400 {
 		t.Fatalf("paquete = %s pendiente %v", estado, pend)
 	}
-	if s, abs, _ := e.cuenta(); s != cuenta.SaldoDeuda || abs != 430 {
-		t.Fatalf("saldo tras el primer abono = %s %v", s, abs)
+	if disp, por, deuda := e.cuenta(); disp != 0 || por != 430 || deuda != 430 {
+		t.Fatalf("saldo tras el primer abono = disponible %v por pagar %v deuda %v", disp, por, deuda)
 	}
 
 	// Reglas de integridad: no se aplica mas que el pago ni mas que lo pendiente, y no queda nada a medias.
@@ -119,8 +119,8 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 	if _, err := e.abono(5000, cuenta.Reparto{CargoID: anestesia, Monto: 31}); err == nil {
 		t.Fatal("aplicar mas que lo pendiente del cargo debe fallar")
 	}
-	if s, abs, _ := e.cuenta(); s != cuenta.SaldoDeuda || abs != 430 {
-		t.Fatalf("un abono rechazado no debe cambiar la cuenta: %s %v", s, abs)
+	if disp, por, deuda := e.cuenta(); disp != 0 || por != 430 || deuda != 430 {
+		t.Fatalf("un abono rechazado no debe cambiar la cuenta: %v %v %v", disp, por, deuda)
 	}
 
 	// Adelanto sin aplicar: queda como saldo a favor.
@@ -128,8 +128,8 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s, abs, sin := e.cuenta(); s != cuenta.SaldoAFavor || abs != 70 || sin != 500 {
-		t.Fatalf("tras el adelanto = %s %v sin aplicar %v", s, abs, sin)
+	if disp, por, deuda := e.cuenta(); disp != 500 || por != 430 || deuda != 0 {
+		t.Fatalf("tras el adelanto = disponible %v por pagar %v deuda %v", disp, por, deuda)
 	}
 
 	// Se aplica despues, ya con los cargos creados.
@@ -142,8 +142,8 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 	if estado, _ := e.estadoCargo(anestesia); estado != cuenta.CargoPagado {
 		t.Fatalf("anestesia = %s", estado)
 	}
-	if s, abs, sin := e.cuenta(); s != cuenta.SaldoAFavor || abs != 70 || sin != 70 {
-		t.Fatalf("tras aplicar el adelanto = %s %v sin aplicar %v", s, abs, sin)
+	if disp, por, deuda := e.cuenta(); disp != 70 || por != 0 || deuda != 0 {
+		t.Fatalf("tras cubrir con el adelanto = disponible %v por pagar %v deuda %v", disp, por, deuda)
 	}
 
 	// Anular el abono libera lo que habia aplicado.
@@ -153,8 +153,8 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 	if estado, pend := e.estadoCargo(paquete); estado != cuenta.CargoParcial || pend != 400 {
 		t.Fatalf("tras anular el abono, paquete = %s pendiente %v", estado, pend)
 	}
-	if s, abs, _ := e.cuenta(); s != cuenta.SaldoDeuda || abs != 430 {
-		t.Fatalf("tras anular el abono = %s %v", s, abs)
+	if disp, por, deuda := e.cuenta(); disp != 0 || por != 430 || deuda != 430 {
+		t.Fatalf("tras anular el abono = disponible %v por pagar %v deuda %v", disp, por, deuda)
 	}
 	// Las dos filas que cubria el abono se conservan como anuladas, con motivo; no se borran.
 	if total, anuladas := e.cobrosDelCliente(); total != 3 || anuladas != 2 {
@@ -174,8 +174,8 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 	if motivo != "Pago anulado" {
 		t.Fatalf("el cobro ya anulado conserva su primer motivo, quedo %q", motivo)
 	}
-	if s, abs, _ := e.cuenta(); s != cuenta.SaldoDeuda || abs != 400 {
-		t.Fatalf("tras anular la anestesia = %s %v", s, abs)
+	if disp, por, deuda := e.cuenta(); disp != 0 || por != 400 || deuda != 400 {
+		t.Fatalf("tras anular la anestesia = disponible %v por pagar %v deuda %v", disp, por, deuda)
 	}
 	if err := e.svc.AnularCargo(anestesia, "otra vez"); err == nil {
 		t.Fatal("anular dos veces el mismo cargo debe fallar")
@@ -185,8 +185,8 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 func TestTrastiendaCuentaCargoEnCeroNoMueveElSaldo(t *testing.T) {
 	e := setupCuenta(t)
 	id := e.cargo("INSUMO", "Consumo sin cobro", 0)
-	if s, abs, _ := e.cuenta(); s != cuenta.SaldoAlDia || abs != 0 {
-		t.Fatalf("saldo = %s %v", s, abs)
+	if disp, por, deuda := e.cuenta(); disp != 0 || por != 0 || deuda != 0 {
+		t.Fatalf("saldo = disponible %v por pagar %v deuda %v", disp, por, deuda)
 	}
 	if estado, _ := e.estadoCargo(id); estado != cuenta.CargoPagado {
 		t.Fatalf("un cargo en 0 no deja nada pendiente: %s", estado)

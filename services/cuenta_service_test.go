@@ -59,7 +59,7 @@ func servicioCuenta(f *cuentaFake) *CuentaService {
 	return s
 }
 
-func TestObtenerCuentaCalculaSaldoYSinAplicar(t *testing.T) {
+func TestObtenerCuentaCalculaSaldoDisponibleYPorPagar(t *testing.T) {
 	f := &cuentaFake{
 		existe: true, totalAbonos: 1500, totalCargos: 1030,
 		cargos: []models.CargoCliente{{ID: 1, Monto: 1000, Pagado: 1000}, {ID: 2, Monto: 30, Pagado: 0}},
@@ -69,11 +69,25 @@ func TestObtenerCuentaCalculaSaldoYSinAplicar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Saldo.Etiqueta != cuenta.SaldoAFavor || got.Saldo.Absoluto != 470 {
+	if got.Saldo.Disponible != 500 || got.Saldo.PorPagar != 30 || got.Saldo.Deuda != 0 {
 		t.Fatalf("saldo = %+v", got.Saldo)
 	}
-	if got.SinAplicar != 500 || got.TotalCargos != 1030 || got.TotalAbonos != 1500 {
+	if got.TotalCargos != 1030 || got.TotalAbonos != 1500 {
 		t.Fatalf("totales = %+v", got)
+	}
+}
+
+func TestObtenerCuentaIgnoraLosCargosAnuladosEnLoQueSePorPagar(t *testing.T) {
+	f := &cuentaFake{
+		existe: true,
+		cargos: []models.CargoCliente{{ID: 1, Monto: 100, Pagado: 0}, {ID: 2, Monto: 80, Pagado: 0, Anulado: true}},
+	}
+	got, err := servicioCuenta(f).Obtener(7, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Saldo.PorPagar != 100 || got.Saldo.Deuda != 100 || got.Saldo.Disponible != 0 {
+		t.Fatalf("saldo = %+v", got.Saldo)
 	}
 }
 

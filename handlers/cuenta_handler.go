@@ -49,7 +49,7 @@ type crearAbonoRequest struct {
 	TipoPago string `json:"tipo_pago" example:"efectivo"`
 	// Fecha del hecho (YYYY-MM-DD): cuando se entrego el dinero. Opcional; sin ella es ahora. No puede ser futura.
 	FechaHecho string `json:"fecha_hecho,omitempty" example:"2026-10-25"`
-	// Reparto del abono entre cargos pendientes. Lo que no se aplica queda como saldo a favor.
+	// Reparto del abono entre cargos pendientes. Lo que no se aplica queda como saldo disponible.
 	Aplicaciones []cuenta.Reparto `json:"aplicaciones"`
 	// Nombre del cajero; si se omite se usa el username del token.
 	Nombre *string `json:"nombre,omitempty" example:"Juan Perez"`
@@ -109,7 +109,7 @@ func pathInt(c *gin.Context, name string) (int, bool) {
 
 // GetCuentaCliente godoc
 // @Summary Cuenta del cliente
-// @Description Devuelve la cuenta de un cliente: saldo (A_FAVOR, DEUDA o AL_DIA), cargos con su estado (PENDIENTE, PARCIAL o PAGADO) y abonos con lo que tienen sin aplicar. El saldo es abonos activos y pagados menos cargos no anulados; las ventas de mostrador no lo mueven. Requiere token Bearer.
+// @Description Devuelve la cuenta de un cliente: saldo (disponible, por pagar y deuda), cargos con su estado (PENDIENTE, PARCIAL o PAGADO) y abonos con lo que tienen sin usar. Saldo disponible es el dinero recargado y no usado; por pagar es lo que falta de los cargos vigentes; deuda es por pagar menos disponible y nunca es negativa. Las ventas de mostrador no lo mueven. Requiere token Bearer.
 // @Tags Cuenta del cliente
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -196,7 +196,7 @@ func (h *Container) PostCargoCliente(c *gin.Context) {
 
 // PostAnularCargo godoc
 // @Summary Anular cargo
-// @Description Anula un cargo con motivo; nunca se borra. Lo que los abonos le habian aplicado se libera y vuelve a ser saldo a favor sin aplicar. Requiere token Bearer con rol admin_sys o gerencia.
+// @Description Anula un cargo con motivo; nunca se borra. Lo que los abonos le habian aplicado se libera y vuelve a ser saldo disponible. Requiere token Bearer con rol admin_sys o gerencia.
 // @Tags Cuenta del cliente
 // @Accept json
 // @Produce json
@@ -230,7 +230,7 @@ func (h *Container) PostAnularCargo(c *gin.Context) {
 
 // PostAbonoCliente godoc
 // @Summary Registrar abono
-// @Description Registra un pago a cuenta de un cliente y lo reparte entre sus cargos pendientes en una sola transaccion. Lo que no se aplica queda como saldo a favor. Un abono no aplica mas que su monto ni un cargo recibe mas que lo que tiene pendiente. No tiene detalle de servicios: las ventas de mostrador se siguen cobrando con POST /bd/pagos y no mueven el saldo. fecha_hecho permite registrar de noche lo anotado en papel. Requiere token Bearer; un usuario limitado a un local solo puede cobrar en el suyo.
+// @Description Registra un pago a cuenta de un cliente y lo reparte entre sus cargos pendientes en una sola transaccion. Lo que no se aplica queda como saldo disponible. Un abono no aplica mas que su monto ni un cargo recibe mas que lo que tiene pendiente. No tiene detalle de servicios: las ventas de mostrador se siguen cobrando con POST /bd/pagos y no mueven el saldo. fecha_hecho permite registrar de noche lo anotado en papel. Requiere token Bearer; un usuario limitado a un local solo puede cobrar en el suyo.
 // @Tags Cuenta del cliente
 // @Accept json
 // @Produce json
@@ -280,7 +280,7 @@ func (h *Container) PostAbonoCliente(c *gin.Context) {
 
 // PostAplicacionesAbono godoc
 // @Summary Aplicar saldo de un abono
-// @Description Reparte entre cargos pendientes lo que un abono ya existente tiene sin aplicar (saldo a favor que llego antes que el cargo). Valida que no se aplique mas de lo disponible del abono ni mas de lo pendiente de cada cargo. Requiere token Bearer.
+// @Description Reparte entre cargos pendientes lo que un abono ya existente tiene sin aplicar (saldo disponible que llego antes que el cargo). Valida que no se aplique mas de lo disponible del abono ni mas de lo pendiente de cada cargo. Requiere token Bearer.
 // @Tags Cuenta del cliente
 // @Accept json
 // @Produce json

@@ -52,15 +52,15 @@ type AbonoCliente struct {
 	CodigoPago string `db:"codigo_pago" json:"codigo_pago" example:"PAGO-000123"`
 	// Monto entregado.
 	Monto float64 `db:"monto" json:"monto" example:"500"`
-	// Metodo de pago: efectivo o qr.
+	// Metodo de pago: efectivo, tarjeta, qr o transferencia.
 	TipoPago string `db:"tipo_pago" json:"tipo_pago" example:"efectivo"`
 	// Fecha del hecho: cuando se entrego el dinero.
 	FechaHecho time.Time `db:"fecha_hecho" json:"fecha_hecho" example:"2026-10-25T12:00:00Z"`
 	// Momento real en que se registro; lo pone el servidor.
 	RegistradoEn time.Time `db:"registrado_en" json:"registrado_en" example:"2026-10-28T21:30:00Z"`
-	// Cuanto del abono ya se aplico a cargos.
+	// Cuanto del abono ya cubrio de cargos.
 	Aplicado float64 `db:"aplicado" json:"aplicado" example:"400"`
-	// Lo que queda sin aplicar (saldo a favor disponible); se calcula.
+	// Lo que queda sin usar de este abono (parte del saldo disponible); se calcula.
 	SinAplicar float64 `db:"-" json:"sin_aplicar" example:"100"`
 }
 
@@ -68,14 +68,12 @@ type AbonoCliente struct {
 type CuentaCliente struct {
 	// ID del cliente.
 	ClienteID int `json:"cliente_id" example:"7"`
-	// Saldo = abonos menos cargos, con su etiqueta (A_FAVOR, DEUDA o AL_DIA).
+	// Saldo: dinero disponible, lo que hay por pagar y la deuda real (por pagar menos disponible).
 	Saldo cuenta.Saldo `json:"saldo"`
 	// Total de cargos no anulados.
 	TotalCargos float64 `json:"total_cargos" example:"1030"`
 	// Total de abonos activos y pagados.
 	TotalAbonos float64 `json:"total_abonos" example:"500"`
-	// Suma de lo que los abonos no aplicaron todavia (saldo a favor sugerible al cobrar).
-	SinAplicar float64 `json:"sin_aplicar" example:"100"`
 	// Cargos del cliente con su estado, del mas antiguo al mas nuevo.
 	Cargos []CargoCliente `json:"cargos"`
 	// Abonos del cliente, del mas reciente al mas antiguo.

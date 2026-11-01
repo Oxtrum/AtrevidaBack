@@ -72,17 +72,21 @@ func (s *CuentaService) Obtener(clienteID int, incluirAnulados bool) (*models.Cu
 	for i := range cargos {
 		cargos[i].Completar()
 	}
-	var sinAplicar float64
+	var disponible, porPagar float64
 	for i := range abonos {
 		abonos[i].SinAplicar = cuenta.PendienteDe(abonos[i].Monto, abonos[i].Aplicado)
-		sinAplicar += abonos[i].SinAplicar
+		disponible += abonos[i].SinAplicar
+	}
+	for _, c := range cargos {
+		if !c.Anulado {
+			porPagar += c.Pendiente
+		}
 	}
 	return &models.CuentaCliente{
 		ClienteID:   clienteID,
-		Saldo:       cuenta.SaldoCliente(totalAbonos, totalCargos),
+		Saldo:       cuenta.PosicionCliente(disponible, porPagar),
 		TotalCargos: totalCargos,
 		TotalAbonos: totalAbonos,
-		SinAplicar:  math.Round(sinAplicar*100) / 100,
 		Cargos:      cargos,
 		Abonos:      abonos,
 	}, nil

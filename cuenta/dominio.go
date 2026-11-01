@@ -18,13 +18,6 @@ const (
 	CargoPagado    = "PAGADO"
 )
 
-// Etiquetas del saldo de un cliente.
-const (
-	SaldoAFavor = "A_FAVOR"
-	SaldoDeuda  = "DEUDA"
-	SaldoAlDia  = "AL_DIA"
-)
-
 func centavos(monto float64) int64 { return int64(math.Round(monto * 100)) }
 
 func desdeCentavos(c int64) float64 { return float64(c) / 100 }
@@ -42,27 +35,25 @@ func EstadoCargo(monto, pagado float64) string {
 	}
 }
 
-// Saldo es la posicion de un cliente: positivo = saldo a favor, negativo = deuda.
+// Saldo es la posicion de un cliente, en dos numeros que no se mezclan: lo que tiene disponible y lo que le falta
+// pagar. Nunca se guarda: se calcula (RN-C5).
 type Saldo struct {
-	// Monto con signo: positivo a favor, negativo deuda.
-	Monto float64 `json:"monto" example:"-500"`
-	// Absoluto es el valor sin signo, para mostrarlo junto a la etiqueta.
-	Absoluto float64 `json:"absoluto" example:"500"`
-	// Etiqueta: A_FAVOR, DEUDA o AL_DIA.
-	Etiqueta string `json:"etiqueta" example:"DEUDA" enums:"A_FAVOR,DEUDA,AL_DIA"`
+	// Disponible es el dinero que el cliente recargo y todavia no uso.
+	Disponible float64 `json:"disponible" example:"150"`
+	// PorPagar es la suma de lo que le falta pagar de sus cargos vigentes.
+	PorPagar float64 `json:"por_pagar" example:"250"`
+	// Deuda es lo que falta despues de usar el saldo disponible; nunca es negativa.
+	Deuda float64 `json:"deuda" example:"100"`
 }
 
-// SaldoCliente calcula el saldo como total de abonos menos total de cargos. Nunca se guarda: se calcula (RN-C5).
-func SaldoCliente(totalAbonos, totalCargos float64) Saldo {
-	diferencia := centavos(totalAbonos) - centavos(totalCargos)
-	switch {
-	case diferencia > 0:
-		return Saldo{Monto: desdeCentavos(diferencia), Absoluto: desdeCentavos(diferencia), Etiqueta: SaldoAFavor}
-	case diferencia < 0:
-		return Saldo{Monto: desdeCentavos(diferencia), Absoluto: desdeCentavos(-diferencia), Etiqueta: SaldoDeuda}
-	default:
-		return Saldo{Etiqueta: SaldoAlDia}
+// PosicionCliente arma el saldo a partir del dinero disponible y de lo que hay por pagar.
+func PosicionCliente(disponible, porPagar float64) Saldo {
+	d, p := centavos(disponible), centavos(porPagar)
+	deuda := p - d
+	if deuda < 0 {
+		deuda = 0
 	}
+	return Saldo{Disponible: desdeCentavos(d), PorPagar: desdeCentavos(p), Deuda: desdeCentavos(deuda)}
 }
 
 // CargoPorCobrar es un cargo con algo pendiente, candidato a recibir parte de un abono.
@@ -80,7 +71,7 @@ type Reparto struct {
 }
 
 // SugerirReparto propone repartir `monto` del cargo mas antiguo al mas nuevo (a igual fecha, por id). Devuelve
-// el reparto y lo que sobra, que queda como saldo a favor. Es solo una sugerencia: el cajero la confirma o la cambia.
+// el reparto y lo que sobra, que queda como saldo disponible. Es solo una sugerencia: el cajero la confirma o la cambia.
 func SugerirReparto(cargos []CargoPorCobrar, monto float64) ([]Reparto, float64) {
 	restante := centavos(monto)
 	if restante <= 0 {
@@ -116,7 +107,7 @@ func SugerirReparto(cargos []CargoPorCobrar, monto float64) ([]Reparto, float64)
 // ValidarAplicaciones comprueba un reparto contra las reglas de integridad:
 // RN-C1 un abono no aplica mas de su monto disponible (monto menos lo ya aplicado) y
 // RN-C2 un cargo no recibe mas de lo que tiene pendiente.
-// Aplicar menos que el monto del abono es valido: lo que sobra queda como saldo a favor.
+// Aplicar menos que el monto del abono es valido: lo que sobra queda como saldo disponible.
 // Los mensajes contienen "no puede" o "no encontrado" porque los handlers mapean a 4xx por texto.
 func ValidarAplicaciones(montoAbono, yaAplicado float64, aplicaciones []Reparto, pendientes map[int]float64) error {
 	disponible := centavos(montoAbono) - centavos(yaAplicado)

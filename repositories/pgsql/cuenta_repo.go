@@ -128,7 +128,7 @@ func (r *CuentaRepo) CrearCargo(in CargoInput) (int, error) {
 }
 
 // AnularCargo anula un cargo con motivo y libera lo que los abonos le habian aplicado: ese dinero vuelve a ser
-// saldo a favor sin aplicar.
+// saldo disponible.
 func (r *CuentaRepo) AnularCargo(id int, motivo string) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
@@ -206,7 +206,7 @@ func insertarAplicaciones(tx *sqlx.Tx, pagoID int, aplicaciones []cuenta.Reparto
 }
 
 // CrearAbono registra un pago a cuenta del cliente y lo reparte entre sus cargos en una sola transaccion.
-// Lo que no se aplica queda como saldo a favor. Devuelve el codigo del pago.
+// Lo que no se aplica queda como saldo disponible. Devuelve el codigo del pago.
 func (r *CuentaRepo) CrearAbono(in AbonoInput) (string, error) {
 	tx, err := r.db.Beginx()
 	if err != nil {
@@ -257,7 +257,7 @@ func (r *CuentaRepo) CrearAbono(in AbonoInput) (string, error) {
 	return codigo, nil
 }
 
-// AplicarAbono reparte entre cargos lo que un abono ya existente tiene sin aplicar (p. ej. saldo a favor que
+// AplicarAbono reparte entre cargos lo que un abono ya existente tiene sin aplicar (p. ej. saldo disponible que
 // llego antes que el cargo).
 func (r *CuentaRepo) AplicarAbono(codigoPago string, clienteID int, aplicaciones []cuenta.Reparto) error {
 	tx, err := r.db.Beginx()

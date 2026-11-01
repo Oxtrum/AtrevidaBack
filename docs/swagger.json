@@ -531,7 +531,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Anula un cargo con motivo; nunca se borra. Lo que los abonos le habian aplicado se libera y vuelve a ser saldo a favor sin aplicar. Requiere token Bearer con rol admin_sys o gerencia.",
+                "description": "Anula un cargo con motivo; nunca se borra. Lo que los abonos le habian aplicado se libera y vuelve a ser saldo disponible. Requiere token Bearer con rol admin_sys o gerencia.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1527,7 +1527,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Registra un pago a cuenta de un cliente y lo reparte entre sus cargos pendientes en una sola transaccion. Lo que no se aplica queda como saldo a favor. Un abono no aplica mas que su monto ni un cargo recibe mas que lo que tiene pendiente. No tiene detalle de servicios: las ventas de mostrador se siguen cobrando con POST /bd/pagos y no mueven el saldo. fecha_hecho permite registrar de noche lo anotado en papel. Requiere token Bearer; un usuario limitado a un local solo puede cobrar en el suyo.",
+                "description": "Registra un pago a cuenta de un cliente y lo reparte entre sus cargos pendientes en una sola transaccion. Lo que no se aplica queda como saldo disponible. Un abono no aplica mas que su monto ni un cargo recibe mas que lo que tiene pendiente. No tiene detalle de servicios: las ventas de mostrador se siguen cobrando con POST /bd/pagos y no mueven el saldo. fecha_hecho permite registrar de noche lo anotado en papel. Requiere token Bearer; un usuario limitado a un local solo puede cobrar en el suyo.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1624,7 +1624,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Reparte entre cargos pendientes lo que un abono ya existente tiene sin aplicar (saldo a favor que llego antes que el cargo). Valida que no se aplique mas de lo disponible del abono ni mas de lo pendiente de cada cargo. Requiere token Bearer.",
+                "description": "Reparte entre cargos pendientes lo que un abono ya existente tiene sin aplicar (saldo disponible que llego antes que el cargo). Valida que no se aplique mas de lo disponible del abono ni mas de lo pendiente de cada cargo. Requiere token Bearer.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1808,7 +1808,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Devuelve la cuenta de un cliente: saldo (A_FAVOR, DEUDA o AL_DIA), cargos con su estado (PENDIENTE, PARCIAL o PAGADO) y abonos con lo que tienen sin aplicar. El saldo es abonos activos y pagados menos cargos no anulados; las ventas de mostrador no lo mueven. Requiere token Bearer.",
+                "description": "Devuelve la cuenta de un cliente: saldo (disponible, por pagar y deuda), cargos con su estado (PENDIENTE, PARCIAL o PAGADO) y abonos con lo que tienen sin usar. Saldo disponible es el dinero recargado y no usado; por pagar es lo que falta de los cargos vigentes; deuda es por pagar menos disponible y nunca es negativa. Las ventas de mostrador no lo mueven. Requiere token Bearer.",
                 "produces": [
                     "application/json"
                 ],
@@ -12648,25 +12648,20 @@
         "cuenta.Saldo": {
             "type": "object",
             "properties": {
-                "absoluto": {
-                    "description": "Absoluto es el valor sin signo, para mostrarlo junto a la etiqueta.",
+                "deuda": {
+                    "description": "Deuda es lo que falta despues de usar el saldo disponible; nunca es negativa.",
                     "type": "number",
-                    "example": 500
+                    "example": 100
                 },
-                "etiqueta": {
-                    "description": "Etiqueta: A_FAVOR, DEUDA o AL_DIA.",
-                    "type": "string",
-                    "enum": [
-                        "A_FAVOR",
-                        "DEUDA",
-                        "AL_DIA"
-                    ],
-                    "example": "DEUDA"
-                },
-                "monto": {
-                    "description": "Monto con signo: positivo a favor, negativo deuda.",
+                "disponible": {
+                    "description": "Disponible es el dinero que el cliente recargo y todavia no uso.",
                     "type": "number",
-                    "example": -500
+                    "example": 150
+                },
+                "por_pagar": {
+                    "description": "PorPagar es la suma de lo que le falta pagar de sus cargos vigentes.",
+                    "type": "number",
+                    "example": 250
                 }
             }
         },
@@ -14187,7 +14182,7 @@
             "type": "object",
             "properties": {
                 "aplicaciones": {
-                    "description": "Reparto del abono entre cargos pendientes. Lo que no se aplica queda como saldo a favor.",
+                    "description": "Reparto del abono entre cargos pendientes. Lo que no se aplica queda como saldo disponible.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/cuenta.Reparto"
@@ -16821,7 +16816,7 @@
             "type": "object",
             "properties": {
                 "aplicado": {
-                    "description": "Cuanto del abono ya se aplico a cargos.",
+                    "description": "Cuanto del abono ya cubrio de cargos.",
                     "type": "number",
                     "example": 400
                 },
@@ -16846,12 +16841,12 @@
                     "example": "2026-10-28T21:30:00Z"
                 },
                 "sin_aplicar": {
-                    "description": "Lo que queda sin aplicar (saldo a favor disponible); se calcula.",
+                    "description": "Lo que queda sin usar de este abono (parte del saldo disponible); se calcula.",
                     "type": "number",
                     "example": 100
                 },
                 "tipo_pago": {
-                    "description": "Metodo de pago: efectivo o qr.",
+                    "description": "Metodo de pago: efectivo, tarjeta, qr o transferencia.",
                     "type": "string",
                     "example": "efectivo"
                 }
@@ -17403,17 +17398,12 @@
                     "example": 7
                 },
                 "saldo": {
-                    "description": "Saldo = abonos menos cargos, con su etiqueta (A_FAVOR, DEUDA o AL_DIA).",
+                    "description": "Saldo: dinero disponible, lo que hay por pagar y la deuda real (por pagar menos disponible).",
                     "allOf": [
                         {
                             "$ref": "#/definitions/cuenta.Saldo"
                         }
                     ]
-                },
-                "sin_aplicar": {
-                    "description": "Suma de lo que los abonos no aplicaron todavia (saldo a favor sugerible al cobrar).",
-                    "type": "number",
-                    "example": 100
                 },
                 "total_abonos": {
                     "description": "Total de abonos activos y pagados.",
