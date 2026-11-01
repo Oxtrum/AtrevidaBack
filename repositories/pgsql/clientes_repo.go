@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 )
 
@@ -23,18 +24,44 @@ func NewClientesRepo(db *sqlx.DB) *ClientesRepo {
 	return &ClientesRepo{db: db}
 }
 
-func (r *ClientesRepo) GetClientes(filtro repository.FiltroClientes) ([]models.ClientePG, error) {
+// ClientesOrdenables lista las columnas por las que se puede ordenar el listado de clientes (ordenar_por).
+// La clave es el nombre del campo en la respuesta; el texto ignora mayusculas y acentos y el CI o NIT vacio
+// cuenta como ausente.
+var ClientesOrdenables = pagination.Columns{
+	"id":              "id",
+	"nombre":          textoOrden("nombre"),
+	"apellido":        textoOrden("apellido"),
+	"numero_telefono": "numero_telefono",
+	"ci":              "NULLIF(ci, '')",
+	"nit":             "NULLIF(nit, '')",
+}
+
+const clienteOrdenPorDefecto = "apellido, nombre, id"
+
+func clienteOrderClause(f repository.FiltroClientes) string {
+	return pagination.Sort{Key: f.OrdenarPor, Desc: f.OrdenDesc}.OrderBy(ClientesOrdenables, clienteOrdenPorDefecto, "id")
+}
+
+// buildClientesQuery arma el listado. Sin orden pedido pagina por valor (apellido, nombre, id); con orden
+// pedido pagina por desplazamiento.
+func buildClientesQuery(filtro repository.FiltroClientes) (string, []interface{}) {
 	conditions, args := clienteFilterConditions(filtro)
 	idx := len(args) + 1
-	if filtro.CursorSet {
+	ordenado := filtro.OrdenarPor != ""
+	if filtro.CursorSet && !ordenado {
 		conditions = append(conditions, fmt.Sprintf("(apellido, nombre, id) > ($%d, $%d, $%d)", idx, idx+1, idx+2))
 		args = append(args, filtro.CursorApellido, filtro.CursorNombre, filtro.CursorID)
 		idx += 3
 	}
-	limitClause := ""
+	pageClause := ""
 	if filtro.PageLimit > 0 {
-		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		pageClause = fmt.Sprintf(" LIMIT $%d", idx)
 		args = append(args, filtro.PageLimit)
+		idx++
+		if ordenado && filtro.Offset > 0 {
+			pageClause += fmt.Sprintf(" OFFSET $%d", idx)
+			args = append(args, filtro.Offset)
+		}
 	}
 
 	query := fmt.Sprintf(`
@@ -42,8 +69,13 @@ func (r *ClientesRepo) GetClientes(filtro repository.FiltroClientes) ([]models.C
 		       COALESCE(ci, '') AS ci, COALESCE(nit, '') AS nit
 		FROM clientes
 		WHERE %s
-		ORDER BY apellido, nombre, id%s
-	`, strings.Join(conditions, " AND "), limitClause)
+		ORDER BY %s%s
+	`, strings.Join(conditions, " AND "), clienteOrderClause(filtro), pageClause)
+	return query, args
+}
+
+func (r *ClientesRepo) GetClientes(filtro repository.FiltroClientes) ([]models.ClientePG, error) {
+	query, args := buildClientesQuery(filtro)
 
 	var clientes []models.ClientePG
 	if err := r.db.SelectContext(queryContext(filtro.Context), &clientes, query, args...); err != nil {

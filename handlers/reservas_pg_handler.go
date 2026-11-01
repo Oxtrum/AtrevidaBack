@@ -11,6 +11,7 @@ import (
 	"atrevida-agenda-api/models"
 	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -507,11 +508,13 @@ func float64Ptr(v float64) *float64 {
 // @Param vigente_hora query string false "Hora local HH:MM desde la que una reserva sigue vigente; requiere vigente_fecha" example(15:30)
 // @Param vigencia_solo_pendientes query bool false "Aplica la vigencia solo a reservas PENDIENTE" example(false)
 // @Param orden query string false "Orden estable del listado" Enums(cronologico) example(cronologico)
+// @Param ordenar_por query string false "Campo por el que ordenar; manda sobre orden=cronologico" Enums(fecha,hora_desde,cliente,tipo,servicio,estado,local) example(cliente)
+// @Param sentido query string false "Sentido del orden; solo con ordenar_por, por defecto asc" Enums(asc,desc) example(asc)
 // @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
-// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron"
 // @Param include_total query bool false "Incluye el total de paginas" example(false)
 // @Success 200 {object} utils.APIResponse{data=reservaSimpleListResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: tipo invalido, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: tipo invalido, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [get]
 func (h *Container) GetReservasSimplePG(c *gin.Context) {
@@ -608,16 +611,33 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		"vigente_fecha": filtro.VigenteFecha, "vigente_hora": filtro.VigenteHora,
 		"vigencia_solo_pendientes": strconv.FormatBool(filtro.VigenciaPendientes), "orden": filtro.Orden,
 	}
-	var after reservationCursor
-	if !decodePaginationCursor(c, page, "reservas", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.Date.IsZero() || after.Time == "")) {
-		if !c.Writer.Written() {
-			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
-		}
+	sort, ok := parseSort(c, pgsqlrepo.ReservasOrdenables)
+	if !ok {
 		return
 	}
-	filtro.PageLimit = page.QueryLimit()
-	filtro.CursorSet = page.Cursor != ""
-	filtro.CursorLocal, filtro.CursorFecha, filtro.CursorHora, filtro.CursorID = after.Local, after.Date, after.Time, after.ID
+	var after reservationCursor
+	var afterOffset pagination.OffsetPosition
+	if sort.Active() {
+		// El orden pedido manda sobre orden=cronologico y pagina por desplazamiento. Sus claves solo se suman
+		// a los filtros del cursor cuando hay orden, para no invalidar los cursores del orden por defecto.
+		filters["ordenar_por"], filters["sentido"] = sort.Key, sort.Direction()
+		filtro.OrdenarPor, filtro.OrdenDesc = sort.Key, sort.Desc
+		if afterOffset, ok = decodeOffsetCursor(c, page, "reservas", filters); !ok {
+			return
+		}
+		filtro.Offset = afterOffset.Offset
+		filtro.PageLimit = page.QueryLimit()
+	} else {
+		if !decodePaginationCursor(c, page, "reservas", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.Date.IsZero() || after.Time == "")) {
+			if !c.Writer.Written() {
+				utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+			}
+			return
+		}
+		filtro.PageLimit = page.QueryLimit()
+		filtro.CursorSet = page.Cursor != ""
+		filtro.CursorLocal, filtro.CursorFecha, filtro.CursorHora, filtro.CursorID = after.Local, after.Date, after.Time, after.ID
+	}
 
 	resultado, err := h.ReservasPG.GetReservasSimple(filtro)
 	if err != nil {
@@ -625,6 +645,9 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		return
 	}
 	resultado, metadata, err := pagination.Build(resultado, page, "reservas", filters, func(item services.ReservaSimple) any {
+		if sort.Active() {
+			return pagination.OffsetPosition{Offset: afterOffset.Offset + page.Limit}
+		}
 		date, _ := time.Parse("2006-01-02", item.Fecha)
 		return reservationCursor{Local: item.Local, Date: date, Time: item.HoraDesde, ID: item.ID}
 	})

@@ -256,6 +256,14 @@ func (s *InventarioService) ListarMovimientos(f repository.FiltroMovimientosInve
 			return nil, errors.New("tipo de movimiento invalido")
 		}
 	}
+	if f.OrdenarPor != "" {
+		if _, ok := pgsqlrepo.MovimientosOrdenables[f.OrdenarPor]; !ok {
+			return nil, errors.New("ordenar_por invalido")
+		}
+	}
+	if f.Offset < 0 {
+		return nil, errors.New("offset invalido")
+	}
 	return s.repo.ListMovimientos(f)
 }
 

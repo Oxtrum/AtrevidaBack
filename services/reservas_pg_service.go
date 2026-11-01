@@ -582,6 +582,9 @@ type FiltroReservasSimple struct {
 	CursorFecha        time.Time
 	CursorHora         string
 	CursorID           int
+	OrdenarPor         string
+	OrdenDesc          bool
+	Offset             int
 }
 
 func (s *ReservasPGService) GetReservasAgendadasNoNotificadas(limit int, localNombre string) ([]ReservaNotificacion, error) {
@@ -640,6 +643,14 @@ func reservaNotificacionDesdePG(rv models.ReservaNotificacionPG) ReservaNotifica
 }
 
 func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]ReservaSimple, error) {
+	if f.OrdenarPor != "" {
+		if _, ok := pgsqlrepo.ReservasOrdenables[f.OrdenarPor]; !ok {
+			return nil, errors.New("ordenar_por invalido")
+		}
+	}
+	if f.Offset < 0 {
+		return nil, errors.New("offset invalido")
+	}
 	filtro := repository.FiltroReservasPG{
 		Context:            f.Context,
 		LocalNombre:        f.Local,
@@ -655,6 +666,7 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 		PageLimit:          f.PageLimit, CursorSet: f.CursorSet, CursorLocal: f.CursorLocal,
 		CursorFecha: f.CursorFecha, CursorHora: f.CursorHora, CursorID: f.CursorID,
 		VigenciaPendientes: f.VigenciaPendientes, OrdenCronologico: f.Orden == "cronologico",
+		OrdenarPor: f.OrdenarPor, OrdenDesc: f.OrdenDesc, Offset: f.Offset,
 	}
 	if f.Tipo != "" {
 		filtro.TipoEspacio = tipoNombreALetra(f.Tipo)

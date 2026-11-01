@@ -82,6 +82,10 @@ type clienteFiltrosResponse struct {
 	Apellido string `json:"apellido" example:"Lopez"`
 	// Filtro aplicado: número de teléfono del cliente
 	NumeroTelefono string `json:"numero_telefono" example:"+59170011223"`
+	// Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto (apellido, nombre)
+	OrdenarPor string `json:"ordenar_por,omitempty" example:"nombre"`
+	// Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto
+	Sentido string `json:"sentido,omitempty" example:"asc"`
 }
 
 type horarioFiltrosResponse struct {
@@ -126,6 +130,10 @@ type pagoFiltrosResponse struct {
 	NombreCajeroModificacion string `json:"nombre_cajero_modificacion" example:"Ana"`
 	// Filtro aplicado: username del cajero que modifico el pago por ultima vez
 	UsernameCajeroModificacion string `json:"username_cajero_modificacion" example:"ana"`
+	// Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto (fecha descendente)
+	OrdenarPor string `json:"ordenar_por,omitempty" example:"total_final"`
+	// Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto
+	Sentido string `json:"sentido,omitempty" example:"desc"`
 }
 
 // ─── List Responses ───

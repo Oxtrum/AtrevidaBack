@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 )
 
@@ -33,10 +34,25 @@ const estadoCobroSQL = `(CASE WHEN r.estado <> 'COMPLETADO' THEN NULL
 	WHEN r.plan_id IS NOT NULL THEN 'CUBIERTA_PAQUETE'
 	ELSE 'POR_COBRAR' END)`
 
-func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.ReservaPGCompleta, error) {
+// ReservasOrdenables lista las columnas por las que se puede ordenar el listado de reservas (ordenar_por).
+// La clave es el nombre del campo en la respuesta; el servicio ordena por el texto que muestra la tabla.
+var ReservasOrdenables = pagination.Columns{
+	"fecha":      "r.fecha",
+	"hora_desde": "r.hora_desde",
+	"cliente":    textoOrden("r.cliente"),
+	"tipo":       "r.tipo_espacio",
+	"servicio":   textoOrden("COALESCE(r.servicio_confirmado, r.servicio_nombre, r.servicio_solicitado)"),
+	"estado":     "r.estado",
+	"local":      textoOrden("r.local_nombre"),
+}
+
+// buildReservasQuery arma el listado. Sin orden pedido pagina por valor (local o cronologico); con orden
+// pedido, que manda sobre el cronologico, pagina por desplazamiento.
+func buildReservasQuery(f repository.FiltroReservasPG) (string, []interface{}) {
 	conditions, args := reservaConditions(f)
 	idx := len(args) + 1
-	if f.CursorSet {
+	ordenado := f.OrdenarPor != ""
+	if f.CursorSet && !ordenado {
 		if f.OrdenCronologico {
 			conditions = append(conditions, fmt.Sprintf("(r.fecha, r.hora_desde, r.local_nombre, r.id) > ($%d, $%d, $%d, $%d)", idx, idx+1, idx+2, idx+3))
 			args = append(args, f.CursorFecha, f.CursorHora, f.CursorLocal, f.CursorID)
@@ -50,6 +66,11 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 	if f.PageLimit > 0 {
 		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
 		args = append(args, f.PageLimit)
+		idx++
+		if ordenado && f.Offset > 0 {
+			limitClause += fmt.Sprintf(" OFFSET $%d", idx)
+			args = append(args, f.Offset)
+		}
 	}
 
 	query := fmt.Sprintf(`
@@ -65,6 +86,11 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 		WHERE %s
 		ORDER BY %s%s
 	`, strings.Join(conditions, " AND "), reservaOrderClause(f), limitClause)
+	return query, args
+}
+
+func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.ReservaPGCompleta, error) {
+	query, args := buildReservasQuery(f)
 
 	rows, err := r.db.QueryxContext(queryContext(f.Context), query, args...)
 	if err != nil {
@@ -91,6 +117,9 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 }
 
 func reservaOrderClause(f repository.FiltroReservasPG) string {
+	if f.OrdenarPor != "" {
+		return pagination.Sort{Key: f.OrdenarPor, Desc: f.OrdenDesc}.OrderBy(ReservasOrdenables, "r.local_nombre, r.fecha, r.hora_desde, r.id", "r.fecha", "r.hora_desde", "r.id")
+	}
 	if f.OrdenCronologico {
 		return "r.fecha, r.hora_desde, r.local_nombre, r.id"
 	}

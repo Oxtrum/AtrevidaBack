@@ -115,6 +115,9 @@ type movimientosFiltrosCursor struct {
 	FechaDesde string `json:"fecha_desde,omitempty"`
 	FechaHasta string `json:"fecha_hasta,omitempty"`
 	Q          string `json:"q,omitempty"`
+	// Orden pedido; vacio con el orden por defecto. Va en el cursor para rechazar uno generado con otro orden.
+	OrdenarPor string `json:"ordenar_por,omitempty"`
+	Sentido    string `json:"sentido,omitempty"`
 }
 
 type ajusteInventarioRequest struct {
@@ -569,11 +572,13 @@ func (h *Container) PatchInventarioCategoria(c *gin.Context) {
 // @Param fecha_desde query string false "Desde (YYYY-MM-DD)"
 // @Param fecha_hasta query string false "Hasta (YYYY-MM-DD)"
 // @Param q query string false "Busca por item, local o motivo"
+// @Param ordenar_por query string false "Campo por el que ordenar; sin el, creado_en descendente" Enums(creado_en,item_nombre,local_nombre,tipo,cantidad,stock_resultante,costo_unitario,motivo,usuario_nombre) example(stock_resultante)
+// @Param sentido query string false "Sentido del orden; solo con ordenar_por, por defecto asc" Enums(asc,desc) example(desc)
 // @Param limit query int false "Tamano de pagina (1-100); sin limit ni cursor devuelve los 200 mas recientes"
-// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron"
 // @Param include_total query bool false "Incluye total_registros y total_paginas"
 // @Success 200 {object} utils.APIResponse{data=movimientosInventarioResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: parametro invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: parametro invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Local no permitido para el usuario"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
@@ -591,6 +596,10 @@ func (h *Container) GetInventarioMovimientos(c *gin.Context) {
 		return
 	}
 	page, ok := parsePagination(c)
+	if !ok {
+		return
+	}
+	sort, ok := parseSort(c, pgsqlrepo.MovimientosOrdenables)
 	if !ok {
 		return
 	}
@@ -621,17 +630,28 @@ func (h *Container) GetInventarioMovimientos(c *gin.Context) {
 		FechaDesde: c.Query("fecha_desde"), FechaHasta: c.Query("fecha_hasta"),
 	}
 	var after timeCursor
-	if !decodePaginationCursor(c, page, "inventario_movimientos", filters, &after) {
-		return
-	}
-	if page.Cursor != "" && after.ID < 1 {
-		utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
-		return
+	var afterOffset pagination.OffsetPosition
+	if sort.Active() {
+		// Con orden pedido el cursor cuenta filas entregadas; el orden va en los filtros del cursor.
+		filters.OrdenarPor, filters.Sentido = sort.Key, sort.Direction()
+		f.OrdenarPor, f.OrdenDesc = sort.Key, sort.Desc
+		if afterOffset, ok = decodeOffsetCursor(c, page, "inventario_movimientos", filters); !ok {
+			return
+		}
+		f.Offset = afterOffset.Offset
+	} else {
+		if !decodePaginationCursor(c, page, "inventario_movimientos", filters, &after) {
+			return
+		}
+		if page.Cursor != "" && after.ID < 1 {
+			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+			return
+		}
+		f.CursorSet = page.Cursor != ""
+		f.CursorTime = after.CreatedAt
+		f.CursorID = after.ID
 	}
 	f.PageLimit = page.QueryLimit()
-	f.CursorSet = page.Cursor != ""
-	f.CursorTime = after.CreatedAt
-	f.CursorID = after.ID
 
 	movs, err := h.Inventario.ListarMovimientos(f)
 	if err != nil {
@@ -648,6 +668,9 @@ func (h *Container) GetInventarioMovimientos(c *gin.Context) {
 		total = &n
 	}
 	movs, metadata, err := pagination.Build(movs, page, "inventario_movimientos", filters, func(m models.MovimientoInventario) any {
+		if sort.Active() {
+			return pagination.OffsetPosition{Offset: afterOffset.Offset + page.Limit}
+		}
 		return timeCursor{CreatedAt: m.CreadoEn, ID: m.ID}
 	})
 	if err != nil {

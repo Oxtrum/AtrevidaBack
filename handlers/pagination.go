@@ -63,6 +63,29 @@ func parsePagination(c *gin.Context) (pagination.Request, bool) {
 	return request, true
 }
 
+// parseSort lee ordenar_por y sentido y los valida contra la lista blanca del listado.
+func parseSort(c *gin.Context, allowed pagination.Columns) (pagination.Sort, bool) {
+	sort, err := pagination.ParseSort(c.Query("ordenar_por"), c.Query("sentido"), allowed)
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return pagination.Sort{}, false
+	}
+	return sort, true
+}
+
+// decodeOffsetCursor lee el cursor de un listado con orden pedido: la posicion es cuantas filas ya se entregaron.
+func decodeOffsetCursor(c *gin.Context, request pagination.Request, scope string, filters any) (pagination.OffsetPosition, bool) {
+	var after pagination.OffsetPosition
+	if !decodePaginationCursor(c, request, scope, filters, &after) {
+		return after, false
+	}
+	if request.Cursor != "" && !after.Valid() {
+		utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+		return after, false
+	}
+	return after, true
+}
+
 func decodePaginationCursor(c *gin.Context, request pagination.Request, scope string, filters any, target any) bool {
 	if request.Cursor == "" {
 		return true
