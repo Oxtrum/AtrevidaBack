@@ -383,8 +383,12 @@ type PagoPG struct {
 	NombreCajeroModificacion *string `db:"nombre_cajero_modificacion" json:"nombre_cajero_modificacion,omitempty" example:"Ana Perez"`
 	// Username opcional del cajero que modifico el pago por ultima vez.
 	UsernameCajeroModificacion *string `db:"username_cajero_modificacion" json:"username_cajero_modificacion,omitempty" example:"ana"`
-	// Fecha de creacion del pago.
+	// Si es un abono a cuenta de un cliente (sin detalle de servicios) y no una venta de mostrador.
+	EsAbono bool `db:"es_abono" json:"es_abono" example:"false"`
+	// Fecha del hecho: cuando ocurrio el cobro. Puede ser anterior a registrado_en si se registro despues.
 	FechaCreacion time.Time `db:"fecha_creacion" json:"fecha_creacion" example:"2026-06-03T10:00:00Z"`
+	// Momento real en que se registro el pago en el sistema; lo pone el servidor y no se edita.
+	RegistradoEn time.Time `db:"registrado_en" json:"registrado_en" example:"2026-06-04T21:30:00Z"`
 	// Fecha de ultima modificacion del pago.
 	FechaModificacion time.Time `db:"fecha_modificacion" json:"fecha_modificacion" example:"2026-06-03T10:30:00Z"`
 }

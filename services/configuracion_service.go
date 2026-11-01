@@ -25,6 +25,8 @@ const (
 	CfgRRHHAportePatronalPct  = "rrhh.aporte_patronal_pct"
 	CfgRRHHDiasMesFaltas      = "rrhh.dias_mes_faltas"
 	CfgMostrarPaquetes        = "publico.mostrar_paquetes"
+	// CfgDiasMaximoFechaPasada limita cuantos dias atras puede ponerse la fecha del hecho; 0 = sin limite.
+	CfgDiasMaximoFechaPasada = "cobros.dias_maximo_fecha_pasada"
 )
 
 // ConfigTrastienda es la vista tipada de los parametros para uso interno.
@@ -43,6 +45,8 @@ type ConfigTrastienda struct {
 	DiasMesFaltas          int
 	// MostrarPaquetes controla la seccion de paquetes de la pagina principal.
 	MostrarPaquetes bool
+	// DiasMaximoFechaPasada: dias atras permitidos para la fecha del hecho de un movimiento; 0 = sin limite.
+	DiasMaximoFechaPasada int
 }
 
 // Ubicacion devuelve la zona horaria configurada (America/La_Paz por defecto).
@@ -122,6 +126,10 @@ func (s *ConfiguracionService) Snapshot() (ConfigTrastienda, error) {
 			}
 		case CfgMostrarPaquetes:
 			cfg.MostrarPaquetes = row.Valor == "true"
+		case CfgDiasMaximoFechaPasada:
+			if n, err := strconv.Atoi(row.Valor); err == nil && n >= 0 && n <= 365 {
+				cfg.DiasMaximoFechaPasada = n
+			}
 		case CfgRRHHDiasMesFaltas:
 			if n, err := strconv.Atoi(row.Valor); err == nil && n >= 1 && n <= 31 {
 				cfg.DiasMesFaltas = n
@@ -151,6 +159,7 @@ func (s *ConfiguracionService) Get() (map[string]interface{}, error) {
 		CfgRRHHAportePatronalPct:  cfg.AportePatronalPct,
 		CfgRRHHDiasMesFaltas:      cfg.DiasMesFaltas,
 		CfgMostrarPaquetes:        cfg.MostrarPaquetes,
+		CfgDiasMaximoFechaPasada:  cfg.DiasMaximoFechaPasada,
 	}, nil
 }
 
@@ -219,6 +228,12 @@ func validarPatchConfiguracion(patch map[string]interface{}) (map[string]string,
 			f, ok := v.(float64) // JSON numbers decode as float64
 			if !ok || f != float64(int(f)) || f < 0 || f > 31 {
 				return nil, fmt.Errorf("%s debe ser un entero entre 0 y 31", clave)
+			}
+			valores[clave] = strconv.Itoa(int(f))
+		case CfgDiasMaximoFechaPasada:
+			f, ok := v.(float64)
+			if !ok || f != float64(int(f)) || f < 0 || f > 365 {
+				return nil, fmt.Errorf("%s debe ser un entero entre 0 y 365", clave)
 			}
 			valores[clave] = strconv.Itoa(int(f))
 		case CfgRRHHDiaPagoDefecto, CfgRRHHDiasMesFaltas:

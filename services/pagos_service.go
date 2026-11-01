@@ -10,14 +10,29 @@ import (
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 )
+
+// ConfigSource entrega los parametros del sistema; lo cumple *ConfiguracionService.
+type ConfigSource interface {
+	Snapshot() (ConfigTrastienda, error)
+}
 
 type PagosService struct {
 	repo repository.PagosRepository
+	// Config es opcional: sin el, la fecha del hecho usa los defaults (UTC-4 y sin limite de dias).
+	Config ConfigSource
+	// Ahora es el reloj; solo se cambia en pruebas.
+	Ahora func() time.Time
 }
 
 func NewPagosService(repo repository.PagosRepository) *PagosService {
-	return &PagosService{repo: repo}
+	return &PagosService{repo: repo, Ahora: time.Now}
+}
+
+// resolverFechaHecho valida la fecha del hecho pedida. Devuelve nil si no se pidio una: la base pone el momento actual.
+func (s *PagosService) resolverFechaHecho(raw string) (*time.Time, error) {
+	return resolverFechaHechoConfigurada(s.Config, s.Ahora, raw)
 }
 
 type FiltroPagos struct {
@@ -44,6 +59,9 @@ type FiltroPagos struct {
 	CursorSet                  bool
 	CursorFecha                time.Time
 	CursorID                   int
+	OrdenarPor                 string
+	OrdenDesc                  bool
+	Offset                     int
 }
 
 func (s *PagosService) GetPagos(filtro FiltroPagos) ([]models.PagoPG, error) {
@@ -77,6 +95,14 @@ func toRepositoryFiltroPagos(filtro FiltroPagos) (repository.FiltroPagos, error)
 	if filtro.IDCajeroModificacion != nil && *filtro.IDCajeroModificacion <= 0 {
 		return repository.FiltroPagos{}, errors.New("id_cajero_modificacion invalido")
 	}
+	if filtro.OrdenarPor != "" {
+		if _, ok := pgsqlrepo.PagosOrdenables[filtro.OrdenarPor]; !ok {
+			return repository.FiltroPagos{}, errors.New("ordenar_por invalido")
+		}
+	}
+	if filtro.Offset < 0 {
+		return repository.FiltroPagos{}, errors.New("offset invalido")
+	}
 
 	return repository.FiltroPagos{
 		Context:                    filtro.Context,
@@ -99,6 +125,7 @@ func toRepositoryFiltroPagos(filtro FiltroPagos) (repository.FiltroPagos, error)
 		UsernameCajeroModificacion: strings.TrimSpace(filtro.UsernameCajeroModificacion),
 		PageLimit:                  filtro.PageLimit, CursorSet: filtro.CursorSet,
 		CursorFecha: filtro.CursorFecha, CursorID: filtro.CursorID,
+		OrdenarPor: filtro.OrdenarPor, OrdenDesc: filtro.OrdenDesc, Offset: filtro.Offset,
 	}, nil
 }
 
@@ -133,6 +160,8 @@ type CrearPagoInput struct {
 	Activo        bool
 	// ReservaID es la reserva que se cobra; nil en ventas de mostrador.
 	ReservaID *int
+	// FechaHecho es cuando ocurrio el cobro (YYYY-MM-DD, opcional; sin ella es ahora). No puede ser futura.
+	FechaHecho string
 	Cajero        CajeroAuditoriaInput
 	Detalle       []CrearDetallePagoInput
 }
@@ -196,8 +225,13 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	fechaHecho, err := s.resolverFechaHecho(input.FechaHecho)
+	if err != nil {
+		return "", err
+	}
 
 	return s.repo.CreatePago(repository.CrearPagoInput{
+		FechaHecho:    fechaHecho,
 		LocalID:       input.LocalID,
 		LocalNombre:   strings.TrimSpace(input.LocalNombre),
 		ClienteID:     input.ClienteID,

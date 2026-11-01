@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 )
 
@@ -23,18 +24,50 @@ func NewPagosRepo(db *sqlx.DB) *PagosRepo {
 	return &PagosRepo{db: db}
 }
 
-func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, error) {
+// PagosOrdenables lista las columnas por las que se puede pedir ordenar los pagos (ordenar_por).
+// La clave es el nombre del campo en la respuesta; el texto ignora mayusculas y acentos.
+var PagosOrdenables = pagination.Columns{
+	"codigo_pago":        "p.codigo_pago",
+	"fecha_creacion":     "p.fecha_creacion",
+	"cliente_nit":        "p.cliente_nit",
+	"cliente_nombre":     textoOrden("p.cliente_nombre"),
+	"local_nombre":       textoOrden("p.local_nombre"),
+	"primer_producto":    textoOrden("productos.primer_producto"),
+	"cantidad_productos": "productos.cantidad_productos",
+	"subtotal":           "p.subtotal",
+	"descuento":          "p.descuento",
+	"total_final":        "p.total_final",
+	"tipo_pago":          "p.tipo_pago",
+	"estado":             "p.estado",
+	"nombre_cajero":      textoOrden("p.nombre_cajero"),
+}
+
+const pagoOrdenPorDefecto = "p.fecha_creacion DESC, p.id DESC"
+
+func pagoOrderClause(f repository.FiltroPagos) string {
+	return pagination.Sort{Key: f.OrdenarPor, Desc: f.OrdenDesc}.OrderBy(PagosOrdenables, pagoOrdenPorDefecto, "p.id")
+}
+
+// buildPagosQuery arma el listado. Sin orden pedido pagina por valor (fecha, id); con orden pedido
+// pagina por desplazamiento, porque una columna arbitraria no admite cursor por valor.
+func buildPagosQuery(filtro repository.FiltroPagos) (string, []interface{}) {
 	conditions, args := pagoConditions(filtro)
 	idx := len(args) + 1
-	if filtro.CursorSet {
+	ordenado := filtro.OrdenarPor != ""
+	if filtro.CursorSet && !ordenado {
 		conditions = append(conditions, fmt.Sprintf("(p.fecha_creacion, p.id) < ($%d, $%d)", idx, idx+1))
 		args = append(args, filtro.CursorFecha, filtro.CursorID)
 		idx += 2
 	}
-	limitClause := ""
+	pageClause := ""
 	if filtro.PageLimit > 0 {
-		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		pageClause = fmt.Sprintf(" LIMIT $%d", idx)
 		args = append(args, filtro.PageLimit)
+		idx++
+		if ordenado && filtro.Offset > 0 {
+			pageClause += fmt.Sprintf(" OFFSET $%d", idx)
+			args = append(args, filtro.Offset)
+		}
 	}
 
 	query := fmt.Sprintf(`
@@ -42,8 +75,13 @@ func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, er
 		FROM pagos p
 		%s
 		WHERE %s
-		ORDER BY p.fecha_creacion DESC, p.id DESC%s
-	`, pagoSelectColumns(), pagoProductosJoin(), strings.Join(conditions, " AND "), limitClause)
+		ORDER BY %s%s
+	`, pagoSelectColumns(), pagoProductosJoin(), strings.Join(conditions, " AND "), pagoOrderClause(filtro), pageClause)
+	return query, args
+}
+
+func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, error) {
+	query, args := buildPagosQuery(filtro)
 
 	var pagos []models.PagoPG
 	if err := r.db.SelectContext(queryContext(filtro.Context), &pagos, query, args...); err != nil {
@@ -190,9 +228,9 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 		INSERT INTO pagos (
 			local_id, local_nombre, cliente_id, cliente_nit, cliente_nombre,
 			subtotal, descuento, total_final, tipo_pago, estado, activo,
-			id_cajero, nombre_cajero, username_cajero, reserva_id
+			id_cajero, nombre_cajero, username_cajero, reserva_id, fecha_creacion
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, COALESCE($16::timestamptz, NOW()))
 		RETURNING id, codigo_pago
 	`,
 		input.LocalID,
@@ -210,6 +248,7 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 		input.Cajero.Nombre,
 		input.Cajero.Username,
 		input.ReservaID,
+		input.FechaHecho,
 	).Scan(&pagoID, &codigoPago)
 	if err != nil {
 		return "", pagoInsertError(err)
@@ -394,23 +433,34 @@ func (r *PagosRepo) UpdatePago(input repository.ActualizarPagoInput) error {
 }
 
 func (r *PagosRepo) DeletePago(codigoPago string) error {
-	res, err := r.db.Exec(`
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("no se pudo eliminar el pago")
+	}
+	defer tx.Rollback()
+
+	var pagoID int
+	err = tx.Get(&pagoID, `
 		UPDATE pagos
 		SET activo = FALSE,
 		    fecha_modificacion = NOW()
 		WHERE codigo_pago = $1
 		  AND activo = TRUE
+		RETURNING id
 	`, codigoPago)
-	if err != nil {
-		return fmt.Errorf("no se pudo eliminar el pago")
-	}
-
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("no se pudo eliminar el pago")
-	}
-	if rowsAffected == 0 {
+	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("pago no encontrado")
+	}
+	if err != nil {
+		return fmt.Errorf("no se pudo eliminar el pago")
+	}
+	// Anular un abono libera lo que habia cubierto: esos cargos vuelven a quedar pendientes y las filas se
+	// conservan como anuladas para no perder el historial.
+	if _, err := tx.Exec(sqlAnularCobrosDelPago, pagoID, "Pago anulado"); err != nil {
+		return fmt.Errorf("no se pudo eliminar el pago")
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("no se pudo eliminar el pago")
 	}
 
 	return nil
@@ -602,7 +652,9 @@ func pagoSelectColumns() string {
 		p.id_cajero_modificacion,
 		p.nombre_cajero_modificacion,
 		p.username_cajero_modificacion,
+		p.es_abono,
 		p.fecha_creacion,
+		p.registrado_en,
 		p.fecha_modificacion
 	`
 }

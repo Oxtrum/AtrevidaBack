@@ -32,6 +32,11 @@ type FiltroPagos struct {
 	CursorSet                  bool
 	CursorFecha                time.Time
 	CursorID                   int
+	// OrdenarPor es una clave de pgsql.PagosOrdenables. Con orden pedido la paginacion avanza por Offset
+	// y no por CursorFecha/CursorID.
+	OrdenarPor string
+	OrdenDesc  bool
+	Offset     int
 }
 
 type CrearPagoInput struct {
@@ -48,6 +53,9 @@ type CrearPagoInput struct {
 	Activo        bool
 	// ReservaID es la reserva que se cobra; nil en ventas de mostrador.
 	ReservaID *int
+	// FechaHecho es cuando ocurrio el cobro; nil usa el momento actual. Se guarda en fecha_creacion, que es la
+	// fecha de negocio que usan reportes y orden. El momento real del registro queda en registrado_en.
+	FechaHecho *time.Time
 	Cajero        CajeroAuditoriaInput
 	Detalle       []CrearDetallePagoInput
 }
