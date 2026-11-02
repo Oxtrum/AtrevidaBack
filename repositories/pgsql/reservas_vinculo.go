@@ -19,11 +19,16 @@ const (
 
 	sqlClienteExiste = `SELECT EXISTS (SELECT 1 FROM clientes WHERE id = $1)`
 
-	sqlReservaParaVincular = `SELECT cliente_id, telefono_e164, COALESCE(numero_telefono, '') AS numero_telefono FROM reservas WHERE id = $1 FOR UPDATE`
+	sqlReservaParaVincular = `SELECT cliente_id, plan_id, telefono_e164, COALESCE(numero_telefono, '') AS numero_telefono FROM reservas WHERE id = $1 FOR UPDATE`
 
 	// Solo reservas sin cliente: una ya enlazada no se reasigna porque sus cargos pertenecen a ese cliente.
 	sqlVincularReserva = `UPDATE reservas SET cliente_id = $2, actualizado_en = NOW()
 		WHERE id = $1 AND cliente_id IS NULL`
+
+	// Equivocarse de cliente se corrige mientras no haya cargos vigentes: los cargos pertenecen al cliente.
+	sqlCargosActivosDeReserva = `SELECT COUNT(*) FROM cargos_cliente WHERE reserva_id = $1 AND anulado = FALSE`
+
+	sqlCambiarClienteReserva = `UPDATE reservas SET cliente_id = $2, actualizado_en = NOW() WHERE id = $1`
 
 	// Reemplaza el telefono del cliente por el de la reserva: no se agrega otro. Solo si cambia.
 	sqlActualizarTelefonoCliente = `UPDATE clientes SET numero_telefono = $2, telefono_e164 = $3
@@ -108,7 +113,7 @@ func (r *ReservasVinculoRepo) Sugerencias(reservaID int) ([]models.ClienteSugeri
 	return sugeridos, nil
 }
 
-// Vincular enlaza solo esa reserva con el cliente. Con actualizarTelefono, si el telefono de la reserva es distinto
+// Vincular enlaza solo esa reserva con el cliente; si ya tenia otro y no hay cargos ni paquete, lo cambia. Con actualizarTelefono, si el telefono de la reserva es distinto
 // al del cliente, el del cliente se reemplaza por el de la reserva.
 func (r *ReservasVinculoRepo) Vincular(reservaID, clienteID int, actualizarTelefono bool) (models.ResultadoVinculo, error) {
 	var resultado models.ResultadoVinculo
@@ -120,6 +125,7 @@ func (r *ReservasVinculoRepo) Vincular(reservaID, clienteID int, actualizarTelef
 
 	var actual struct {
 		ClienteID      *int    `db:"cliente_id"`
+		PlanID         *int    `db:"plan_id"`
 		TelefonoE164   *string `db:"telefono_e164"`
 		NumeroTelefono string  `db:"numero_telefono"`
 	}
@@ -129,8 +135,18 @@ func (r *ReservasVinculoRepo) Vincular(reservaID, clienteID int, actualizarTelef
 		}
 		return resultado, fmt.Errorf("no se pudo leer la reserva: %w", err)
 	}
-	if actual.ClienteID != nil {
-		return resultado, errors.New("la reserva ya tiene un cliente vinculado")
+	cambiaDeCliente := actual.ClienteID != nil && *actual.ClienteID != clienteID
+	if cambiaDeCliente {
+		var cargos int
+		if err := tx.Get(&cargos, sqlCargosActivosDeReserva, reservaID); err != nil {
+			return resultado, fmt.Errorf("no se pudieron revisar los cargos de la reserva: %w", err)
+		}
+		if cargos > 0 {
+			return resultado, errors.New("la reserva tiene cargos a nombre de otro cliente: anula el cargo antes de cambiar de cliente")
+		}
+		if actual.PlanID != nil {
+			return resultado, errors.New("la reserva usa un paquete del cliente anterior: quita el paquete antes de cambiar de cliente")
+		}
 	}
 
 	var existe bool
@@ -141,7 +157,11 @@ func (r *ReservasVinculoRepo) Vincular(reservaID, clienteID int, actualizarTelef
 		return resultado, errors.New("cliente no encontrado")
 	}
 
-	res, err := tx.Exec(sqlVincularReserva, reservaID, clienteID)
+	sentencia := sqlVincularReserva
+	if actual.ClienteID != nil {
+		sentencia = sqlCambiarClienteReserva
+	}
+	res, err := tx.Exec(sentencia, reservaID, clienteID)
 	if err != nil {
 		return resultado, fmt.Errorf("no se pudo vincular la reserva: %w", err)
 	}

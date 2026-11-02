@@ -91,6 +91,7 @@ func TestPatchReservaClienteMapeaLosErroresDelRepositorio(t *testing.T) {
 		"cliente no encontrado":                    http.StatusNotFound,
 		"la reserva ya tiene un cliente vinculado": http.StatusConflict,
 		"ya existe un cliente con ese nombre":      http.StatusConflict,
+		"la reserva tiene cargos a nombre de otro": http.StatusConflict,
 		"conexion perdida":                         http.StatusInternalServerError,
 	}
 	for mensaje, esperado := range casos {

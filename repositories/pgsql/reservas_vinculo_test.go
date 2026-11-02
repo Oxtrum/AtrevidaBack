@@ -18,7 +18,19 @@ func TestClientesPorTelefonoCompararExactoSinAproximar(t *testing.T) {
 
 func TestVincularSoloTocaReservasSinCliente(t *testing.T) {
 	if !strings.Contains(sqlVincularReserva, "cliente_id IS NULL") {
-		t.Fatalf("no puede reasignar una reserva que ya tiene cliente: %s", sqlVincularReserva)
+		t.Fatalf("la primera vinculacion solo toca reservas sin cliente: %s", sqlVincularReserva)
+	}
+}
+
+// Equivocarse de cliente se corrige mientras no haya cargos: los cargos pertenecen al cliente y no se mueven.
+func TestCambiarClienteSoloSinCargosActivos(t *testing.T) {
+	for _, parte := range []string{"cargos_cliente", "reserva_id = $1", "anulado = FALSE"} {
+		if !strings.Contains(sqlCargosActivosDeReserva, parte) {
+			t.Fatalf("falta %q en: %s", parte, sqlCargosActivosDeReserva)
+		}
+	}
+	if !strings.Contains(sqlCambiarClienteReserva, "SET cliente_id = $2") || strings.Contains(sqlCambiarClienteReserva, "IS NULL") {
+		t.Fatalf("cambiar de cliente reasigna una reserva ya vinculada: %s", sqlCambiarClienteReserva)
 	}
 }
 

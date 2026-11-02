@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"atrevida-agenda-api/cuenta"
+	repository "atrevida-agenda-api/repositories"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 )
 
@@ -147,7 +148,7 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 	}
 
 	// Anular el abono libera lo que habia aplicado.
-	if err := pgsqlrepo.NewPagosRepo(e.db).DeletePago(adelanto); err != nil {
+	if err := pgsqlrepo.NewPagosRepo(e.db).DeletePago(adelanto, repository.ConsumoActor{}); err != nil {
 		t.Fatal(err)
 	}
 	if estado, pend := e.estadoCargo(paquete); estado != cuenta.CargoParcial || pend != 400 {
@@ -434,5 +435,45 @@ func TestTrastiendaCuentaVincularEnlazaUnaReservaYPuedeActualizarElTelefono(t *t
 	despues := leerCliente()
 	if despues.Numero != nacional || despues.E164 == nil || *despues.E164 != telefono {
 		t.Fatalf("telefono del cliente = %q / %v, quiero %q / %q", despues.Numero, despues.E164, nacional, telefono)
+	}
+}
+
+// Si el cajero se equivoca de cliente, lo corrige mientras la reserva no tenga cargos. Con un cargo vigente no se
+// puede: el cargo pertenece al primer cliente y habria que anularlo antes.
+func TestTrastiendaCuentaCambiarClienteDeUnaReservaSinCargos(t *testing.T) {
+	e := setupCuenta(t)
+	var otro int
+	if err := e.db.Get(&otro, `INSERT INTO clientes (nombre, apellido, numero_telefono) VALUES ('Otro', $1, '70000000') RETURNING id`, "Cliente"+e.sufijo); err != nil {
+		t.Fatal(err)
+	}
+	var reserva int
+	if err := e.db.Get(&reserva, `
+		INSERT INTO reservas (local_id, local_nombre, tipo_espacio, fecha, hora_desde, hora_hasta, cliente, estado, servicio_nombre, cliente_id)
+		VALUES ($1, $2, 'M', CURRENT_DATE + 1, '10:00', '11:00', 'Equivocado', 'AGENDADO', 'masaje', $3) RETURNING id`,
+		e.localID, e.localName, e.clienteID); err != nil {
+		t.Fatal(err)
+	}
+	repo := pgsqlrepo.NewReservasVinculoRepo(e.db)
+	clienteDe := func() int {
+		var c int
+		if err := e.db.Get(&c, `SELECT cliente_id FROM reservas WHERE id = $1`, reserva); err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+
+	if _, err := repo.Vincular(reserva, otro, false); err != nil {
+		t.Fatalf("sin cargos debe poder cambiar de cliente: %v", err)
+	}
+	if c := clienteDe(); c != otro {
+		t.Fatalf("cliente_id = %d, quiero %d", c, otro)
+	}
+
+	mustExec(t, e.db, `INSERT INTO cargos_cliente (cliente_id, tipo, concepto, monto, reserva_id) VALUES ($1, 'SERVICIO', 'masaje', 100, $2)`, otro, reserva)
+	if _, err := repo.Vincular(reserva, e.clienteID, false); err == nil {
+		t.Fatal("con un cargo vigente no debe cambiar de cliente")
+	}
+	if c := clienteDe(); c != otro {
+		t.Fatalf("el cliente no debia cambiar: %d", c)
 	}
 }

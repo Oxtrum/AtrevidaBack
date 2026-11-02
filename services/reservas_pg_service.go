@@ -820,6 +820,7 @@ func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple
 
 	return &ReservaSimple{
 		ID:                 rv.ID,
+		ClienteID:          rv.ClienteID,
 		Local:              rv.LocalNombre,
 		Tipo:               tipoLetraANombreService(rv.TipoEspacio),
 		Fecha:              rv.Fecha.Format("2006-01-02"),

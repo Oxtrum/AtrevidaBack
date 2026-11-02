@@ -252,6 +252,27 @@ func TestGetReservaByIDAplicaLocalID(t *testing.T) {
 	}
 }
 
+// La pantalla de editar necesita saber si la reserva ya tiene cliente: sin cliente_id creia que no y ofrecia vincular
+// otra vez.
+func TestGetReservaByIDDevuelveElClienteVinculado(t *testing.T) {
+	clienteID := 12
+	service := NewReservasPGService(&reservasResumenRepo{
+		reserva: &models.ReservaPGCompleta{
+			ReservaPG: models.ReservaPG{
+				ID: 44, LocalNombre: "SAN MARTIN", TipoEspacio: "M",
+				Fecha:     time.Date(2026, time.May, 23, 0, 0, 0, 0, time.UTC),
+				HoraDesde: "09:00", HoraHasta: "10:00", Cliente: "Maria Lopez", ClienteID: &clienteID,
+			},
+		},
+	}, nil)
+
+	got, err := service.GetReservaByID(44, nil)
+
+	if err != nil || got.ClienteID == nil || *got.ClienteID != clienteID {
+		t.Fatalf("ClienteID = %v, err = %v, want 12", got, err)
+	}
+}
+
 func assertDate(t *testing.T, got *time.Time, want string, label string) {
 	t.Helper()
 	if got == nil {

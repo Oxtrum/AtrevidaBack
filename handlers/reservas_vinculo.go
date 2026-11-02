@@ -29,7 +29,7 @@ func statusVinculoError(err error) int {
 	switch {
 	case strings.Contains(msg, "no encontrad"):
 		return http.StatusNotFound
-	case strings.Contains(msg, "ya tiene un cliente"), strings.Contains(msg, "ya existe un cliente"):
+	case strings.Contains(msg, "ya tiene un cliente"), strings.Contains(msg, "ya existe un cliente"), strings.Contains(msg, "tiene cargos"), strings.Contains(msg, "usa un paquete"):
 		return http.StatusConflict
 	case strings.Contains(msg, "requerido"):
 		return http.StatusBadRequest
@@ -89,7 +89,7 @@ func (h *Container) GetSugerenciasClienteReserva(c *gin.Context) {
 
 // PatchReservaCliente godoc
 // @Summary Vincular una reserva con un cliente
-// @Description Enlaza una reserva que no tiene cliente con un cliente registrado elegido por el cajero. Solo vincula esa reserva: nada se enlaza por telefono. Con actualizar_telefono, si el telefono de la reserva es distinto al del cliente, el del cliente se reemplaza por el de la reserva (no se agrega otro). Una reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente. Devuelve cuantas reservas quedaron enlazadas y si se actualizo el telefono. Requiere token Bearer.
+// @Description Enlaza una reserva con un cliente registrado elegido por el cajero. Solo vincula esa reserva: nada se enlaza por telefono. Si la reserva ya tenia otro cliente (el cajero se equivoco) lo cambia, siempre que no tenga cargos vigentes ni paquete del cliente anterior; si los tiene responde 409 y hay que anularlos primero. Con actualizar_telefono, si el telefono de la reserva es distinto al del cliente, el del cliente se reemplaza por el de la reserva (no se agrega otro). Devuelve cuantas reservas quedaron enlazadas y si se actualizo el telefono. Requiere token Bearer.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -100,7 +100,7 @@ func (h *Container) GetSugerenciasClienteReserva(c *gin.Context) {
 // @Failure 400 {object} utils.APIResponse "cliente_id requerido o id invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Reserva o cliente no encontrado"
-// @Failure 409 {object} utils.APIResponse "La reserva ya tiene un cliente vinculado"
+// @Failure 409 {object} utils.APIResponse "La reserva tiene cargos o paquete del cliente anterior, o el telefono nuevo choca con otro cliente"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Security BearerAuth
 // @Router /bd/reservas/{id}/cliente [patch]
