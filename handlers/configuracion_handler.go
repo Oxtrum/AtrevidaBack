@@ -10,7 +10,7 @@ import (
 )
 
 type configuracionResponse struct {
-	// Parametros del sistema (clave -> valor tipado): inventario.politica_sin_stock, inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda
+	// Parametros del sistema (clave -> valor tipado): inventario.politica_sin_stock, inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda, paquetes.sesion_en_estado, cobros.dias_maximo_fecha_pasada
 	Configuracion map[string]interface{} `json:"configuracion"`
 }
 
@@ -58,7 +58,7 @@ func (h *Container) GetConfiguracionPublica(c *gin.Context) {
 
 // PatchConfiguracion godoc
 // @Summary Actualizar parametros del sistema
-// @Description Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres. Requiere token Bearer con rol admin_sys.
+// @Description Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.
 // @Tags Configuracion
 // @Accept json
 // @Produce json

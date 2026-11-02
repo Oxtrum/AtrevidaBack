@@ -105,6 +105,8 @@ type UpdateReservaInput struct {
 	LimpiarPlanID bool
 	// ResetNotificado marca la reserva como no notificada para reavisar al cliente.
 	ResetNotificado bool
+	// OnApplied se ejecuta dentro de la misma transaccion, tras aplicar los cambios y antes de confirmar.
+	OnApplied func(tx *sqlx.Tx) error
 	// EstadoActualEsperado protege la escritura contra cambios de estado
 	// concurrentes entre la lectura del servicio y esta transacción.
 	EstadoActualEsperado string

@@ -76,6 +76,7 @@ func setupTrastienda(t *testing.T) *trastiendaEnv {
 		sufijo:   fmt.Sprintf("%d", time.Now().UnixNano()),
 	}
 	env.reservas.SetInventarioConsumo(env.consumo)
+	env.reservas.SetConfiguracion(cfgSvc)
 
 	// Local propio de la prueba: aisla stock, reservas y gastos de otras ejecuciones.
 	env.localName = "LOCAL-T" + env.sufijo
@@ -83,6 +84,8 @@ func setupTrastienda(t *testing.T) *trastiendaEnv {
 	if err := conn.Get(&env.localID, `SELECT id FROM locales WHERE nombre = $1`, env.localName); err != nil {
 		t.Fatal(err)
 	}
+	// Agendar valida la capacidad real del local: sin ambientes no cabe ninguna reserva.
+	mustExec(t, conn, `INSERT INTO tipos_espacio_locales (tipo_espacio, cantidad_espacios, local_id) VALUES ('M', 5, $1), ('B', 5, $1)`, env.localID)
 	if err := conn.Get(&env.categoriaE, `SELECT id FROM categorias_financieras WHERE naturaleza = 'EGRESO' ORDER BY id LIMIT 1`); err != nil {
 		t.Fatal(err)
 	}
@@ -811,8 +814,8 @@ func (e *trastiendaEnv) nuevoPlanConSesion(servicioNombre string) (planID, planS
 		e.t.Fatal(err)
 	}
 	if err := e.db.Get(&planID, `
-		INSERT INTO planes (cliente, cliente_nombre_texto, subtotal, precio_total, local_id)
-		VALUES ('Cliente Plan', 'Cliente Plan', 100, 100, $1) RETURNING id`, e.localID); err != nil {
+		INSERT INTO planes (cliente, cliente_nombre_texto, subtotal, precio_total, local_id, estado)
+		VALUES ('Cliente Plan', 'Cliente Plan', 100, 100, $1, 'ACTIVO') RETURNING id`, e.localID); err != nil {
 		e.t.Fatal(err)
 	}
 	if err := e.db.Get(&planServicioID, `
@@ -899,5 +902,73 @@ func TestTrastiendaGastoFijoReactivadoNoCobraLosMesesEnPausa(t *testing.T) {
 	got := e.periodos(id)
 	if len(got) != 7 || got[6] != "2027-10-05" {
 		t.Fatalf("al retomar debe sumar solo octubre (jul-sep en pausa), quedo %v", got)
+	}
+}
+
+// Cuando avanza la sesion de un paquete es un parametro: al completar la reserva (por defecto) o al agendarla.
+// Rechazar una reserva agendada devuelve la sesion.
+func TestTrastiendaSesionDePaqueteSegunElParametro(t *testing.T) {
+	e := setupTrastienda(t)
+	// El parametro vive en la base compartida: se parte de su valor por defecto y se deja como estaba.
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgSesionPaqueteEnEstado: "COMPLETADO"}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = e.cfgSvc.Update(map[string]interface{}{CfgSesionPaqueteEnEstado: "COMPLETADO"}) })
+	item := e.nuevoItem("Gel sesion param", 100)
+	srv := e.nuevoServicio("Sesion param", map[int]float64{item: 10})
+	ses := func(planID int) bool {
+		var v bool
+		if err := e.db.Get(&v, `SELECT realizado FROM plan_servicios WHERE plan_id = $1 AND sesion_numero = 1`, planID); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	nueva := func() (int, int) {
+		planID, _ := e.nuevoPlanConSesion(srv)
+		r := e.nuevaReserva(srv, "PENDIENTE", 2)
+		mustExec(t, e.db, `UPDATE reservas SET plan_id = $1 WHERE id = $2`, planID, r)
+		return planID, r
+	}
+	agendar := func(r int) {
+		if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: r, Estado: "AGENDADO"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Por defecto la sesion avanza al completar, no al agendar.
+	planID, r := nueva()
+	agendar(r)
+	if ses(planID) {
+		t.Fatal("con el parametro por defecto agendar no debe marcar la sesion")
+	}
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: r, Estado: "COMPLETADO"}); err != nil {
+		t.Fatal(err)
+	}
+	if !ses(planID) {
+		t.Fatal("completar debe marcar la sesion")
+	}
+
+	// Con AGENDADO avanza al agendar, por cualquiera de las dos vias.
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgSesionPaqueteEnEstado: "AGENDADO"}); err != nil {
+		t.Fatal(err)
+	}
+	planID, r = nueva()
+	agendar(r)
+	if !ses(planID) {
+		t.Fatal("con AGENDADO, agendar debe marcar la sesion")
+	}
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: r, Estado: "RECHAZADO", Causa: "prueba"}); err != nil {
+		t.Fatal(err)
+	}
+	if ses(planID) {
+		t.Fatal("rechazar una reserva agendada debe devolver la sesion")
+	}
+
+	planID, r = nueva()
+	if _, err := e.reservas.ActualizarReservaConAvisos(ActualizarReservaPGInput{Id: r, Local: e.localName, NuevoEstado: "AGENDADO", NuevoServicioConfirmado: srv}); err != nil {
+		t.Fatalf("aprobar por PATCH: %v", err)
+	}
+	if !ses(planID) {
+		t.Fatal("con AGENDADO, aprobar por PATCH debe marcar la sesion")
 	}
 }

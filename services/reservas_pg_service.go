@@ -24,6 +24,8 @@ type ReservasPGService struct {
 	consumo *InventarioConsumo
 	// clientes enlaza las reservas con clientes registrados. Opcional: si es nil no se valida ni se vincula.
 	clientes ReservaClientes
+	// config da el momento en que avanza la sesion de un paquete. Opcional: sin ella es al completar la reserva.
+	config *ConfiguracionService
 }
 
 // ReservaClientes es lo que la reserva necesita saber de los clientes registrados.
@@ -39,6 +41,18 @@ func (s *ReservasPGService) SetClientes(c ReservaClientes) { s.clientes = c }
 
 // SetInventarioConsumo habilita la integracion con inventario (ver inventario_consumo.go).
 func (s *ReservasPGService) SetInventarioConsumo(c *InventarioConsumo) { s.consumo = c }
+
+// SetConfiguracion habilita los parametros editables (hoy: cuando avanza la sesion de un paquete).
+func (s *ReservasPGService) SetConfiguracion(c *ConfiguracionService) { s.config = c }
+
+// sesionPaqueteAlAgendar dice si el parametro pide consumir la sesion del paquete al agendar y no al completar.
+func (s *ReservasPGService) sesionPaqueteAlAgendar() bool {
+	if s.config == nil {
+		return false
+	}
+	cfg, err := s.config.Snapshot()
+	return err == nil && cfg.SesionPaqueteEnEstado == "AGENDADO"
+}
 
 func NewReservasPGService(repo repository.ReservasPGRepository, serviciosRepo *pgsqlrepo.ServiciosRepo) *ReservasPGService {
 	return &ReservasPGService{
@@ -1506,10 +1520,17 @@ func (s *ReservasPGService) actualizarEstadoReservaBase(input ActualizarEstadoRe
 		}
 		onApplied = hook
 	}
-	if estado == "COMPLETADO" {
-		// Completar una reserva imputada a un paquete consume la siguiente sesion del paquete.
+	// Una reserva imputada a un paquete consume su siguiente sesion al completarse (por defecto) o al agendarse,
+	// segun el parametro. Completar siempre lo intenta: es idempotente y cubre lo agendado antes del cambio.
+	if estado == "COMPLETADO" || (estado == "AGENDADO" && s.sesionPaqueteAlAgendar()) {
 		onApplied = combinarHooksTx(onApplied, func(tx *sqlx.Tx) error {
 			return pgsqlrepo.MarcarSesionPorReservaTx(tx, input.Id)
+		})
+	}
+	// Rechazar una reserva agendada devuelve su sesion.
+	if estado == "RECHAZADO" {
+		onApplied = combinarHooksTx(onApplied, func(tx *sqlx.Tx) error {
+			return pgsqlrepo.LiberarSesionPorReservaTx(tx, input.Id)
 		})
 	}
 	return s.repo.UpdateReservaEstado(repository.UpdateReservaEstadoInput{
@@ -1772,6 +1793,9 @@ func (s *ReservasPGService) actualizarReservaBase(input ActualizarReservaPGInput
 			return fmt.Errorf("transicion de estado invalida: %s -> %s", estadoActual, estadoFinal)
 		}
 		upd.NuevoEstado = &estadoFinal
+		if s.sesionPaqueteAlAgendar() {
+			upd.OnApplied = func(tx *sqlx.Tx) error { return pgsqlrepo.MarcarSesionPorReservaTx(tx, input.Id) }
+		}
 	}
 
 	// Una reserva AGENDADO ya tiene servicio confirmado: si cambia el servicio

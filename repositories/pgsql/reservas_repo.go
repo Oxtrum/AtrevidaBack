@@ -619,6 +619,12 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 		return fmt.Errorf("error al actualizar reserva: %w", err)
 	}
 
+	if input.OnApplied != nil {
+		if err := input.OnApplied(tx); err != nil {
+			return err
+		}
+	}
+
 	return tx.Commit()
 }
 

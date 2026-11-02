@@ -27,6 +27,8 @@ const (
 	CfgMostrarPaquetes        = "publico.mostrar_paquetes"
 	// CfgDiasMaximoFechaPasada limita cuantos dias atras puede ponerse la fecha del hecho; 0 = sin limite.
 	CfgDiasMaximoFechaPasada = "cobros.dias_maximo_fecha_pasada"
+	// CfgSesionPaqueteEnEstado dice cuando avanza la sesion de un paquete: al completar la reserva o al agendarla.
+	CfgSesionPaqueteEnEstado = "paquetes.sesion_en_estado"
 )
 
 // ConfigTrastienda es la vista tipada de los parametros para uso interno.
@@ -47,6 +49,8 @@ type ConfigTrastienda struct {
 	MostrarPaquetes bool
 	// DiasMaximoFechaPasada: dias atras permitidos para la fecha del hecho de un movimiento; 0 = sin limite.
 	DiasMaximoFechaPasada int
+	// SesionPaqueteEnEstado: COMPLETADO (por defecto) o AGENDADO; estado de la reserva que consume una sesion del paquete.
+	SesionPaqueteEnEstado string
 }
 
 // Ubicacion devuelve la zona horaria configurada (America/La_Paz por defecto).
@@ -70,7 +74,7 @@ func configPorDefecto() ConfigTrastienda {
 		ConsiderarComprometido: true, EstadoGastoFijoGen: "PENDIENTE", DiasAvisoGastoFijo: 3,
 		ZonaHoraria: "America/La_Paz", Moneda: "Bs",
 		DiaPagoDefecto: 1, AporteLaboralPct: 12.71, AportePatronalPct: 16.71, DiasMesFaltas: 30,
-		MostrarPaquetes: true,
+		MostrarPaquetes: true, SesionPaqueteEnEstado: "COMPLETADO",
 	}
 }
 
@@ -126,6 +130,10 @@ func (s *ConfiguracionService) Snapshot() (ConfigTrastienda, error) {
 			}
 		case CfgMostrarPaquetes:
 			cfg.MostrarPaquetes = row.Valor == "true"
+		case CfgSesionPaqueteEnEstado:
+			if row.Valor == "COMPLETADO" || row.Valor == "AGENDADO" {
+				cfg.SesionPaqueteEnEstado = row.Valor
+			}
 		case CfgDiasMaximoFechaPasada:
 			if n, err := strconv.Atoi(row.Valor); err == nil && n >= 0 && n <= 365 {
 				cfg.DiasMaximoFechaPasada = n
@@ -160,6 +168,7 @@ func (s *ConfiguracionService) Get() (map[string]interface{}, error) {
 		CfgRRHHDiasMesFaltas:      cfg.DiasMesFaltas,
 		CfgMostrarPaquetes:        cfg.MostrarPaquetes,
 		CfgDiasMaximoFechaPasada:  cfg.DiasMaximoFechaPasada,
+		CfgSesionPaqueteEnEstado:  cfg.SesionPaqueteEnEstado,
 	}, nil
 }
 
@@ -207,6 +216,12 @@ func validarPatchConfiguracion(patch map[string]interface{}) (map[string]string,
 			}
 			valores[clave] = val
 		case CfgDescontarEnEstado:
+			val, err := valorEnum(clave, v, "COMPLETADO", "AGENDADO")
+			if err != nil {
+				return nil, err
+			}
+			valores[clave] = val
+		case CfgSesionPaqueteEnEstado:
 			val, err := valorEnum(clave, v, "COMPLETADO", "AGENDADO")
 			if err != nil {
 				return nil, err
