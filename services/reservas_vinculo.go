@@ -15,7 +15,7 @@ const (
 type ReservasVinculoStore interface {
 	PorVincular(limit, offset int) ([]models.ReservaPorVincularPG, int, error)
 	Sugerencias(reservaID int) ([]models.ClienteSugeridoPG, error)
-	Vincular(reservaID, clienteID int, mismoTelefono bool) (int, error)
+	Vincular(reservaID, clienteID int, actualizarTelefono bool) (models.ResultadoVinculo, error)
 }
 
 // ReservasVinculoService enlaza reservas con clientes registrados a pedido del cajero.
@@ -49,18 +49,14 @@ func (s *ReservasVinculoService) Sugerencias(reservaID int) ([]models.ClienteSug
 	return s.store.Sugerencias(reservaID)
 }
 
-// Vincular enlaza la reserva con el cliente elegido. Con mismoTelefono tambien enlaza las demas reservas
-// sin cliente que tengan exactamente ese telefono.
-func (s *ReservasVinculoService) Vincular(reservaID, clienteID int, mismoTelefono bool) (models.ResultadoVinculo, error) {
+// Vincular enlaza la reserva con el cliente elegido. Solo esa reserva: nada se vincula por telefono. Con
+// actualizarTelefono el telefono del cliente pasa a ser el de la reserva.
+func (s *ReservasVinculoService) Vincular(reservaID, clienteID int, actualizarTelefono bool) (models.ResultadoVinculo, error) {
 	if reservaID <= 0 {
 		return models.ResultadoVinculo{}, errors.New("reserva_id es requerido")
 	}
 	if clienteID <= 0 {
 		return models.ResultadoVinculo{}, errors.New("cliente_id es requerido")
 	}
-	n, err := s.store.Vincular(reservaID, clienteID, mismoTelefono)
-	if err != nil {
-		return models.ResultadoVinculo{}, err
-	}
-	return models.ResultadoVinculo{Vinculadas: n}, nil
+	return s.store.Vincular(reservaID, clienteID, actualizarTelefono)
 }

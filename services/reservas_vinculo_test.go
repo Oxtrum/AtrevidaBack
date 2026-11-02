@@ -11,9 +11,9 @@ type vinculoStoreFake struct {
 	limit, offset int
 	reservaID     int
 	clienteID     int
-	mismoTelefono bool
+	actualizarTel bool
 	llamadas      int
-	vinculadas    int
+	resultado     models.ResultadoVinculo
 }
 
 func (f *vinculoStoreFake) PorVincular(limit, offset int) ([]models.ReservaPorVincularPG, int, error) {
@@ -26,10 +26,10 @@ func (f *vinculoStoreFake) Sugerencias(reservaID int) ([]models.ClienteSugeridoP
 	return []models.ClienteSugeridoPG{}, nil
 }
 
-func (f *vinculoStoreFake) Vincular(reservaID, clienteID int, mismoTelefono bool) (int, error) {
+func (f *vinculoStoreFake) Vincular(reservaID, clienteID int, actualizarTelefono bool) (models.ResultadoVinculo, error) {
 	f.llamadas++
-	f.reservaID, f.clienteID, f.mismoTelefono = reservaID, clienteID, mismoTelefono
-	return f.vinculadas, nil
+	f.reservaID, f.clienteID, f.actualizarTel = reservaID, clienteID, actualizarTelefono
+	return f.resultado, nil
 }
 
 func TestVincularReservaValidaLosIDs(t *testing.T) {
@@ -45,15 +45,15 @@ func TestVincularReservaValidaLosIDs(t *testing.T) {
 	}
 }
 
-func TestVincularReservaDevuelveCuantasQuedaronEnlazadas(t *testing.T) {
-	f := &vinculoStoreFake{vinculadas: 3}
+func TestVincularReservaPasaLaOpcionDeActualizarElTelefono(t *testing.T) {
+	f := &vinculoStoreFake{resultado: models.ResultadoVinculo{Vinculadas: 1, TelefonoActualizado: true}}
 
 	res, err := NewReservasVinculoService(f).Vincular(7, 5, true)
 
-	if err != nil || res.Vinculadas != 3 {
-		t.Fatalf("res = %+v, err = %v, want 3 vinculadas", res, err)
+	if err != nil || res.Vinculadas != 1 || !res.TelefonoActualizado {
+		t.Fatalf("res = %+v, err = %v", res, err)
 	}
-	if f.reservaID != 7 || f.clienteID != 5 || !f.mismoTelefono {
+	if f.reservaID != 7 || f.clienteID != 5 || !f.actualizarTel {
 		t.Fatalf("store = %+v", f)
 	}
 }

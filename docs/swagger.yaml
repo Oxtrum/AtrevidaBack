@@ -3291,15 +3291,15 @@ definitions:
     type: object
   handlers.vincularReservaRequest:
     properties:
+      actualizar_telefono:
+        description: Si es true, el telefono del cliente se reemplaza por el de la
+          reserva (solo si son distintos).
+        example: false
+        type: boolean
       cliente_id:
         description: Cliente registrado al que se enlaza la reserva (requerido).
         example: 12
         type: integer
-      vincular_mismo_telefono:
-        description: Si es true, tambien se enlazan las demas reservas sin cliente
-          con exactamente el mismo telefono y el mismo nombre escrito.
-        example: true
-        type: boolean
     type: object
   models.AbonoCliente:
     properties:
@@ -5278,8 +5278,11 @@ definitions:
     type: object
   models.ResultadoVinculo:
     properties:
+      telefono_actualizado:
+        example: false
+        type: boolean
       vinculadas:
-        example: 3
+        example: 1
         type: integer
     type: object
   models.Semana:
@@ -12381,12 +12384,12 @@ paths:
       consumes:
       - application/json
       description: 'Enlaza una reserva que no tiene cliente con un cliente registrado
-        elegido por el cajero. Con vincular_mismo_telefono tambien enlaza las demas
-        reservas sin cliente que tengan exactamente ese telefono E.164 y el mismo
-        nombre escrito (sin distinguir mayusculas ni espacios sobrantes): un telefono
-        compartido por varias personas no mezcla sus reservas. Una reserva que ya
-        tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente.
-        Devuelve cuantas reservas quedaron enlazadas. Requiere token Bearer.'
+        elegido por el cajero. Solo vincula esa reserva: nada se enlaza por telefono.
+        Con actualizar_telefono, si el telefono de la reserva es distinto al del cliente,
+        el del cliente se reemplaza por el de la reserva (no se agrega otro). Una
+        reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen
+        a ese cliente. Devuelve cuantas reservas quedaron enlazadas y si se actualizo
+        el telefono. Requiere token Bearer.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer

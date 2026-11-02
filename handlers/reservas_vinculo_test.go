@@ -17,8 +17,8 @@ import (
 
 type vinculoStoreHandlerFake struct {
 	reservaID, clienteID int
-	mismoTelefono        bool
-	vinculadas           int
+	actualizarTelefono   bool
+	resultado            models.ResultadoVinculo
 	err                  error
 	limit, offset        int
 }
@@ -33,9 +33,9 @@ func (f *vinculoStoreHandlerFake) Sugerencias(reservaID int) ([]models.ClienteSu
 	return []models.ClienteSugeridoPG{{ClientePG: models.ClientePG{ID: 12, Nombre: "Lucia"}, PorTelefono: true}}, f.err
 }
 
-func (f *vinculoStoreHandlerFake) Vincular(reservaID, clienteID int, mismoTelefono bool) (int, error) {
-	f.reservaID, f.clienteID, f.mismoTelefono = reservaID, clienteID, mismoTelefono
-	return f.vinculadas, f.err
+func (f *vinculoStoreHandlerFake) Vincular(reservaID, clienteID int, actualizarTelefono bool) (models.ResultadoVinculo, error) {
+	f.reservaID, f.clienteID, f.actualizarTelefono = reservaID, clienteID, actualizarTelefono
+	return f.resultado, f.err
 }
 
 func routerVinculo(store *vinculoStoreHandlerFake) *gin.Engine {
@@ -56,23 +56,24 @@ func llamarVinculo(r *gin.Engine, metodo, url, body string) *httptest.ResponseRe
 	return w
 }
 
-func TestPatchReservaClienteVinculaYDevuelveCuantas(t *testing.T) {
-	store := &vinculoStoreHandlerFake{vinculadas: 3}
+func TestPatchReservaClienteVinculaYPuedeActualizarElTelefono(t *testing.T) {
+	store := &vinculoStoreHandlerFake{resultado: models.ResultadoVinculo{Vinculadas: 1, TelefonoActualizado: true}}
 
-	w := llamarVinculo(routerVinculo(store), http.MethodPatch, "/reservas/41/cliente", `{"cliente_id":12,"vincular_mismo_telefono":true}`)
+	w := llamarVinculo(routerVinculo(store), http.MethodPatch, "/reservas/41/cliente", `{"cliente_id":12,"actualizar_telefono":true}`)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
 	}
-	if store.reservaID != 41 || store.clienteID != 12 || !store.mismoTelefono {
+	if store.reservaID != 41 || store.clienteID != 12 || !store.actualizarTelefono {
 		t.Fatalf("store = %+v", store)
 	}
 	var body struct {
 		Data struct {
-			Vinculadas int `json:"vinculadas"`
+			Vinculadas          int  `json:"vinculadas"`
+			TelefonoActualizado bool `json:"telefono_actualizado"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || body.Data.Vinculadas != 3 {
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || body.Data.Vinculadas != 1 || !body.Data.TelefonoActualizado {
 		t.Fatalf("body = %s", w.Body.String())
 	}
 }
@@ -89,6 +90,7 @@ func TestPatchReservaClienteMapeaLosErroresDelRepositorio(t *testing.T) {
 		"reserva no encontrada":                    http.StatusNotFound,
 		"cliente no encontrado":                    http.StatusNotFound,
 		"la reserva ya tiene un cliente vinculado": http.StatusConflict,
+		"ya existe un cliente con ese nombre":      http.StatusConflict,
 		"conexion perdida":                         http.StatusInternalServerError,
 	}
 	for mensaje, esperado := range casos {

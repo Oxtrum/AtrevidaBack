@@ -17,24 +17,21 @@ func TestClientesPorTelefonoCompararExactoSinAproximar(t *testing.T) {
 }
 
 func TestVincularSoloTocaReservasSinCliente(t *testing.T) {
-	for nombre, sql := range map[string]string{
-		"una reserva":    sqlVincularReserva,
-		"mismo telefono": sqlVincularMismoTelefono,
-	} {
-		if !strings.Contains(sql, "cliente_id IS NULL") {
-			t.Fatalf("%s: no puede reasignar una reserva que ya tiene cliente: %s", nombre, sql)
-		}
-	}
-	if !strings.Contains(sqlVincularMismoTelefono, "telefono_e164 = $1") {
-		t.Fatalf("el vinculo masivo debe usar el telefono exacto: %s", sqlVincularMismoTelefono)
+	if !strings.Contains(sqlVincularReserva, "cliente_id IS NULL") {
+		t.Fatalf("no puede reasignar una reserva que ya tiene cliente: %s", sqlVincularReserva)
 	}
 }
 
-// Un telefono lo pueden compartir varias personas (familia, pareja): el vinculo masivo solo debe alcanzar a las
-// reservas escritas con el mismo nombre, no a todas las del telefono.
-func TestVincularMismoTelefonoExigeElMismoNombre(t *testing.T) {
-	if !strings.Contains(sqlVincularMismoTelefono, "LOWER(TRIM(cliente)) = $3") {
-		t.Fatalf("el vinculo masivo debe comparar tambien el nombre escrito en la reserva: %s", sqlVincularMismoTelefono)
+// Vincular enlaza una sola reserva: ya no existe el vinculo masivo por telefono, que mezclaba a las personas que
+// comparten un numero.
+func TestVincularNoEnlazaOtrasReservasPorTelefono(t *testing.T) {
+	if strings.Contains(sqlActualizarTelefonoCliente, "UPDATE reservas") {
+		t.Fatalf("actualizar el telefono solo toca al cliente: %s", sqlActualizarTelefonoCliente)
+	}
+	for _, parte := range []string{"UPDATE clientes", "numero_telefono = $2", "telefono_e164 = $3", "WHERE id = $1"} {
+		if !strings.Contains(sqlActualizarTelefonoCliente, parte) {
+			t.Fatalf("falta %q en: %s", parte, sqlActualizarTelefonoCliente)
+		}
 	}
 }
 

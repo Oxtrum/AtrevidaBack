@@ -26,7 +26,8 @@ type ClienteSugeridoPG struct {
 	PorNombre bool `db:"por_nombre" json:"por_nombre"`
 }
 
-// ResultadoVinculo cuenta cuantas reservas quedaron enlazadas con el cliente.
+// ResultadoVinculo dice que paso al vincular: la reserva enlazada y si se reemplazo el telefono del cliente.
 type ResultadoVinculo struct {
-	Vinculadas int `json:"vinculadas" example:"3"`
+	Vinculadas          int  `json:"vinculadas" example:"1"`
+	TelefonoActualizado bool `json:"telefono_actualizado" example:"false"`
 }

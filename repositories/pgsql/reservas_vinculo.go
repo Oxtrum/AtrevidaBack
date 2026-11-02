@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jmoiron/sqlx"
 
@@ -20,15 +19,15 @@ const (
 
 	sqlClienteExiste = `SELECT EXISTS (SELECT 1 FROM clientes WHERE id = $1)`
 
-	sqlReservaParaVincular = `SELECT cliente_id, telefono_e164, COALESCE(cliente, '') AS cliente FROM reservas WHERE id = $1 FOR UPDATE`
+	sqlReservaParaVincular = `SELECT cliente_id, telefono_e164, COALESCE(numero_telefono, '') AS numero_telefono FROM reservas WHERE id = $1 FOR UPDATE`
 
 	// Solo reservas sin cliente: una ya enlazada no se reasigna porque sus cargos pertenecen a ese cliente.
 	sqlVincularReserva = `UPDATE reservas SET cliente_id = $2, actualizado_en = NOW()
 		WHERE id = $1 AND cliente_id IS NULL`
 
-	// Un telefono lo pueden compartir varias personas: ademas del telefono exacto se exige el mismo nombre escrito.
-	sqlVincularMismoTelefono = `UPDATE reservas SET cliente_id = $2, actualizado_en = NOW()
-		WHERE cliente_id IS NULL AND telefono_e164 = $1 AND LOWER(TRIM(cliente)) = $3`
+	// Reemplaza el telefono del cliente por el de la reserva: no se agrega otro. Solo si cambia.
+	sqlActualizarTelefonoCliente = `UPDATE clientes SET numero_telefono = $2, telefono_e164 = $3
+		WHERE id = $1 AND telefono_e164 IS DISTINCT FROM $3`
 
 	sqlContarPorVincular = `SELECT COUNT(*) FROM reservas
 		WHERE cliente_id IS NULL AND activo = TRUE AND COALESCE(estado, '') <> 'RECHAZADO'`
@@ -109,55 +108,60 @@ func (r *ReservasVinculoRepo) Sugerencias(reservaID int) ([]models.ClienteSugeri
 	return sugeridos, nil
 }
 
-// Vincular enlaza la reserva con el cliente. Con mismoTelefono tambien enlaza las demas reservas sin cliente
-// que tengan exactamente ese telefono y el mismo nombre escrito (sin distinguir mayusculas ni espacios sobrantes). Devuelve cuantas reservas quedaron enlazadas.
-func (r *ReservasVinculoRepo) Vincular(reservaID, clienteID int, mismoTelefono bool) (int, error) {
+// Vincular enlaza solo esa reserva con el cliente. Con actualizarTelefono, si el telefono de la reserva es distinto
+// al del cliente, el del cliente se reemplaza por el de la reserva.
+func (r *ReservasVinculoRepo) Vincular(reservaID, clienteID int, actualizarTelefono bool) (models.ResultadoVinculo, error) {
+	var resultado models.ResultadoVinculo
 	tx, err := r.db.Beginx()
 	if err != nil {
-		return 0, err
+		return resultado, err
 	}
 	defer tx.Rollback()
 
 	var actual struct {
-		ClienteID    *int    `db:"cliente_id"`
-		TelefonoE164 *string `db:"telefono_e164"`
-		Cliente      string  `db:"cliente"`
+		ClienteID      *int    `db:"cliente_id"`
+		TelefonoE164   *string `db:"telefono_e164"`
+		NumeroTelefono string  `db:"numero_telefono"`
 	}
 	if err := tx.Get(&actual, sqlReservaParaVincular, reservaID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, errors.New("reserva no encontrada")
+			return resultado, errors.New("reserva no encontrada")
 		}
-		return 0, fmt.Errorf("no se pudo leer la reserva: %w", err)
+		return resultado, fmt.Errorf("no se pudo leer la reserva: %w", err)
 	}
 	if actual.ClienteID != nil {
-		return 0, errors.New("la reserva ya tiene un cliente vinculado")
+		return resultado, errors.New("la reserva ya tiene un cliente vinculado")
 	}
 
 	var existe bool
 	if err := tx.Get(&existe, sqlClienteExiste, clienteID); err != nil {
-		return 0, fmt.Errorf("no se pudo verificar al cliente: %w", err)
+		return resultado, fmt.Errorf("no se pudo verificar al cliente: %w", err)
 	}
 	if !existe {
-		return 0, errors.New("cliente no encontrado")
+		return resultado, errors.New("cliente no encontrado")
 	}
 
 	res, err := tx.Exec(sqlVincularReserva, reservaID, clienteID)
 	if err != nil {
-		return 0, fmt.Errorf("no se pudo vincular la reserva: %w", err)
+		return resultado, fmt.Errorf("no se pudo vincular la reserva: %w", err)
 	}
 	vinculadas, _ := res.RowsAffected()
+	resultado.Vinculadas = int(vinculadas)
 
-	if nombre := strings.ToLower(strings.TrimSpace(actual.Cliente)); mismoTelefono && actual.TelefonoE164 != nil && *actual.TelefonoE164 != "" && nombre != "" {
-		res, err := tx.Exec(sqlVincularMismoTelefono, *actual.TelefonoE164, clienteID, nombre)
+	if actualizarTelefono && actual.TelefonoE164 != nil && *actual.TelefonoE164 != "" {
+		res, err := tx.Exec(sqlActualizarTelefonoCliente, clienteID, actual.NumeroTelefono, *actual.TelefonoE164)
 		if err != nil {
-			return 0, fmt.Errorf("no se pudieron vincular las reservas con el mismo telefono: %w", err)
+			if esUniqueClientesError(err) {
+				return resultado, errors.New("ya existe un cliente con ese nombre, apellido y numero de telefono")
+			}
+			return resultado, fmt.Errorf("no se pudo actualizar el telefono del cliente: %w", err)
 		}
-		mas, _ := res.RowsAffected()
-		vinculadas += mas
+		cambiadas, _ := res.RowsAffected()
+		resultado.TelefonoActualizado = cambiadas > 0
 	}
 
 	if err := tx.Commit(); err != nil {
-		return 0, err
+		return resultado, err
 	}
-	return int(vinculadas), nil
+	return resultado, nil
 }

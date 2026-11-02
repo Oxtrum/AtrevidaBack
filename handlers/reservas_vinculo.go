@@ -14,8 +14,8 @@ import (
 type vincularReservaRequest struct {
 	// Cliente registrado al que se enlaza la reserva (requerido).
 	ClienteID int `json:"cliente_id" example:"12"`
-	// Si es true, tambien se enlazan las demas reservas sin cliente con exactamente el mismo telefono y el mismo nombre escrito.
-	VincularMismoTelefono bool `json:"vincular_mismo_telefono" example:"true"`
+	// Si es true, el telefono del cliente se reemplaza por el de la reserva (solo si son distintos).
+	ActualizarTelefono bool `json:"actualizar_telefono" example:"false"`
 }
 
 type reservasPorVincularResponse struct {
@@ -29,7 +29,7 @@ func statusVinculoError(err error) int {
 	switch {
 	case strings.Contains(msg, "no encontrad"):
 		return http.StatusNotFound
-	case strings.Contains(msg, "ya tiene un cliente"):
+	case strings.Contains(msg, "ya tiene un cliente"), strings.Contains(msg, "ya existe un cliente"):
 		return http.StatusConflict
 	case strings.Contains(msg, "requerido"):
 		return http.StatusBadRequest
@@ -89,7 +89,7 @@ func (h *Container) GetSugerenciasClienteReserva(c *gin.Context) {
 
 // PatchReservaCliente godoc
 // @Summary Vincular una reserva con un cliente
-// @Description Enlaza una reserva que no tiene cliente con un cliente registrado elegido por el cajero. Con vincular_mismo_telefono tambien enlaza las demas reservas sin cliente que tengan exactamente ese telefono E.164 y el mismo nombre escrito (sin distinguir mayusculas ni espacios sobrantes): un telefono compartido por varias personas no mezcla sus reservas. Una reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente. Devuelve cuantas reservas quedaron enlazadas. Requiere token Bearer.
+// @Description Enlaza una reserva que no tiene cliente con un cliente registrado elegido por el cajero. Solo vincula esa reserva: nada se enlaza por telefono. Con actualizar_telefono, si el telefono de la reserva es distinto al del cliente, el del cliente se reemplaza por el de la reserva (no se agrega otro). Una reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente. Devuelve cuantas reservas quedaron enlazadas y si se actualizo el telefono. Requiere token Bearer.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -114,7 +114,7 @@ func (h *Container) PatchReservaCliente(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
 		return
 	}
-	resultado, err := h.ReservasVinculo.Vincular(id, req.ClienteID, req.VincularMismoTelefono)
+	resultado, err := h.ReservasVinculo.Vincular(id, req.ClienteID, req.ActualizarTelefono)
 	if err != nil {
 		utils.RespondError(c, statusVinculoError(err), err.Error())
 		return

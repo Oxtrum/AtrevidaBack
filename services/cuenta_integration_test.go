@@ -372,45 +372,67 @@ func TestTrastiendaCuentaCobroRechazaCargosAjenosOYaPagados(t *testing.T) {
 	}
 }
 
-// Tres personas comparten un telefono: vincular una reserva "con las demas del telefono" solo debe alcanzar a las
-// que estan escritas con el mismo nombre; las de otra persona se quedan por vincular.
-func TestTrastiendaCuentaVincularMismoTelefonoRespetaElNombre(t *testing.T) {
+// Vincular enlaza solo la reserva elegida: un telefono compartido por varias personas no arrastra las reservas de
+// las demas. Con actualizar_telefono el telefono del cliente pasa a ser el de la reserva (reemplaza al anterior).
+func TestTrastiendaCuentaVincularEnlazaUnaReservaYPuedeActualizarElTelefono(t *testing.T) {
 	e := setupCuenta(t)
 	telefono := "+5917" + e.sufijo[len(e.sufijo)-7:]
+	nacional := telefono[4:]
 	nueva := func(nombre string) int {
 		var id int
 		if err := e.db.Get(&id, `
 			INSERT INTO reservas (local_id, local_nombre, tipo_espacio, fecha, hora_desde, hora_hasta, cliente, estado,
 				servicio_nombre, telefono_e164, numero_telefono)
-			VALUES ($1, $2, 'M', CURRENT_DATE + 1, '10:00', '11:00', $3, 'PENDIENTE', 'masaje', $4, $4) RETURNING id`,
-			e.localID, e.localName, nombre, telefono); err != nil {
+			VALUES ($1, $2, 'M', CURRENT_DATE + 1, '10:00', '11:00', $3, 'PENDIENTE', 'masaje', $4, $5) RETURNING id`,
+			e.localID, e.localName, nombre, telefono, nacional); err != nil {
 			t.Fatal(err)
 		}
 		return id
 	}
-	maria1 := nueva("Maria Lopez")
-	maria2 := nueva("  maria lopez ")
-	pedro := nueva("Pedro Pascal")
+	maria := nueva("Maria Lopez")
+	otra := nueva("Maria Lopez")
 
 	repo := pgsqlrepo.NewReservasVinculoRepo(e.db)
-	n, err := repo.Vincular(maria1, e.clienteID, true)
+
+	// Sin la opcion: se vincula esa reserva y el telefono del cliente no se toca.
+	leerCliente := func() (r struct {
+		Numero string  `db:"numero_telefono"`
+		E164   *string `db:"telefono_e164"`
+	}) {
+		if err := e.db.Get(&r, `SELECT numero_telefono, telefono_e164 FROM clientes WHERE id = $1`, e.clienteID); err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	antes := leerCliente()
+	res, err := repo.Vincular(maria, e.clienteID, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 2 {
-		t.Fatalf("vinculadas = %d, quiero 2 (las dos de Maria)", n)
+	if res.Vinculadas != 1 || res.TelefonoActualizado {
+		t.Fatalf("resultado = %+v, quiero 1 vinculada y telefono sin actualizar", res)
 	}
-	cliente := func(id int) *int {
-		var c *int
-		if err := e.db.Get(&c, `SELECT cliente_id FROM reservas WHERE id = $1`, id); err != nil {
-			t.Fatal(err)
-		}
-		return c
+	if despues := leerCliente(); despues.Numero != antes.Numero {
+		t.Fatalf("el telefono del cliente no debia cambiar: %q -> %q", antes.Numero, despues.Numero)
 	}
-	if c := cliente(maria2); c == nil || *c != e.clienteID {
-		t.Fatalf("la otra reserva de Maria debe quedar vinculada, cliente_id=%v", c)
+	var vinculada *int
+	if err := e.db.Get(&vinculada, `SELECT cliente_id FROM reservas WHERE id = $1`, otra); err != nil {
+		t.Fatal(err)
 	}
-	if c := cliente(pedro); c != nil {
-		t.Fatalf("la reserva de Pedro comparte telefono pero no debe vincularse, cliente_id=%v", *c)
+	if vinculada != nil {
+		t.Fatalf("la otra reserva del mismo telefono no debe vincularse sola, cliente_id=%d", *vinculada)
+	}
+
+	// Con la opcion: el telefono del cliente se reemplaza por el de la reserva.
+	res, err = repo.Vincular(otra, e.clienteID, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Vinculadas != 1 || !res.TelefonoActualizado {
+		t.Fatalf("resultado = %+v, quiero 1 vinculada y telefono actualizado", res)
+	}
+	despues := leerCliente()
+	if despues.Numero != nacional || despues.E164 == nil || *despues.E164 != telefono {
+		t.Fatalf("telefono del cliente = %q / %v, quiero %q / %q", despues.Numero, despues.E164, nacional, telefono)
 	}
 }

@@ -10279,7 +10279,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Enlaza una reserva que no tiene cliente con un cliente registrado elegido por el cajero. Con vincular_mismo_telefono tambien enlaza las demas reservas sin cliente que tengan exactamente ese telefono E.164 y el mismo nombre escrito (sin distinguir mayusculas ni espacios sobrantes): un telefono compartido por varias personas no mezcla sus reservas. Una reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente. Devuelve cuantas reservas quedaron enlazadas. Requiere token Bearer.",
+                "description": "Enlaza una reserva que no tiene cliente con un cliente registrado elegido por el cajero. Solo vincula esa reserva: nada se enlaza por telefono. Con actualizar_telefono, si el telefono de la reserva es distinto al del cliente, el del cliente se reemplaza por el de la reserva (no se agrega otro). Una reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente. Devuelve cuantas reservas quedaron enlazadas y si se actualizo el telefono. Requiere token Bearer.",
                 "consumes": [
                     "application/json"
                 ],
@@ -17744,15 +17744,15 @@ const docTemplate = `{
         "handlers.vincularReservaRequest": {
             "type": "object",
             "properties": {
+                "actualizar_telefono": {
+                    "description": "Si es true, el telefono del cliente se reemplaza por el de la reserva (solo si son distintos).",
+                    "type": "boolean",
+                    "example": false
+                },
                 "cliente_id": {
                     "description": "Cliente registrado al que se enlaza la reserva (requerido).",
                     "type": "integer",
                     "example": 12
-                },
-                "vincular_mismo_telefono": {
-                    "description": "Si es true, tambien se enlazan las demas reservas sin cliente con exactamente el mismo telefono y el mismo nombre escrito.",
-                    "type": "boolean",
-                    "example": true
                 }
             }
         },
@@ -20393,9 +20393,13 @@ const docTemplate = `{
         "models.ResultadoVinculo": {
             "type": "object",
             "properties": {
+                "telefono_actualizado": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "vinculadas": {
                     "type": "integer",
-                    "example": 3
+                    "example": 1
                 }
             }
         },
