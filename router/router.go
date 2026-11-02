@@ -145,6 +145,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.DELETE("/locales/horarios/:id", h.DeleteHorario)
 		bd.POST("/locales", h.PostLocal)
 		bd.PATCH("/locales/:id", h.PatchLocal)
+		bd.PUT("/locales/:id/espacios", h.AuthRequired, h.GerenciaRequired, h.PutLocalEspacios)
 		bd.DELETE("/locales/:id", h.DeleteLocal)
 
 		bd.GET("/notificaciones/reservas", h.AuthRequired, h.GetNotificacionesReservasPG)

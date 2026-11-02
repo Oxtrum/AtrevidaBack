@@ -154,6 +154,34 @@ func (r *LocalesRepo) CreateLocal(nombre string, espacios []repository.TipoEspac
 	return localID, tx.Commit()
 }
 
+func (r *LocalesRepo) SetEspacios(localID int, espacios []repository.TipoEspacioInput) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var existe bool
+	if err := tx.QueryRowx(`SELECT EXISTS(SELECT 1 FROM locales WHERE id = $1)`, localID).Scan(&existe); err != nil {
+		return fmt.Errorf("error al verificar el local: %w", err)
+	}
+	if !existe {
+		return fmt.Errorf("local %d no encontrado", localID)
+	}
+
+	for _, e := range espacios {
+		if _, err := tx.Exec(`
+			INSERT INTO tipos_espacio_locales (tipo_espacio, cantidad_espacios, local_id)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (tipo_espacio, local_id) DO UPDATE
+				SET cantidad_espacios = EXCLUDED.cantidad_espacios
+		`, e.TipoEspacio, e.CantidadEspacios, localID); err != nil {
+			return fmt.Errorf("error al actualizar espacio '%s': %w", e.TipoEspacio, err)
+		}
+	}
+	return tx.Commit()
+}
+
 func (r *LocalesRepo) UpdateLocal(id int, nombre *string, activo *bool) error {
 	if nombre == nil && activo == nil {
 		return fmt.Errorf("debe especificarse al menos un campo a modificar")

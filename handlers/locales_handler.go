@@ -179,6 +179,69 @@ func (h *Container) PatchLocal(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "local actualizado correctamente"})
 }
 
+type espacioEdicionRequest struct {
+	// Tipo de espacio: M (mesa) o B (bicicleta)
+	TipoEspacio string `json:"tipo_espacio" binding:"required" example:"M"`
+	// Cantidad total de espacios de este tipo; 0 permitido (mantenimiento)
+	CantidadEspacios *int `json:"cantidad_espacios" binding:"required,min=0" example:"4"`
+}
+
+type actualizarEspaciosRequest struct {
+	// Espacios a fijar; los tipos no enviados quedan como estaban
+	Espacios []espacioEdicionRequest `json:"espacios" binding:"required,min=1,dive"`
+}
+
+// PutLocalEspacios godoc
+// @Summary Actualizar mesas y bicicletas de un local
+// @Description Fija la cantidad de espacios de un local. Param: id (path). Body: espacios (array con tipo_espacio M/B y cantidad_espacios entero >= 0; 0 deja el tipo sin espacios, por ejemplo por mantenimiento). Los tipos no enviados no se tocan. No cancela reservas existentes: si se reduce por debajo de lo ya reservado, solo se bloquean las reservas nuevas. Requiere rol admin_sys o gerencia. Response: mensaje string.
+// @Tags Locales
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "ID del local" example(3)
+// @Param payload body actualizarEspaciosRequest true "Espacios a fijar"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, tipo_espacio invalido, cantidad negativa o tipo repetido"
+// @Failure 401 {object} utils.APIResponse "Token ausente o invalido"
+// @Failure 403 {object} utils.APIResponse "Rol sin permiso"
+// @Failure 404 {object} utils.APIResponse "Local no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /bd/locales/{id}/espacios [put]
+func (h *Container) PutLocalEspacios(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		utils.RespondError(c, http.StatusBadRequest, "id inválido")
+		return
+	}
+
+	var req actualizarEspaciosRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	espacios := make([]services.EspacioInput, 0, len(req.Espacios))
+	for _, e := range req.Espacios {
+		espacios = append(espacios, services.EspacioInput{TipoEspacio: e.TipoEspacio, CantidadEspacios: *e.CantidadEspacios})
+	}
+
+	if err := h.LocalesPG.UpdateEspacios(id, espacios); err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case strings.Contains(err.Error(), "no encontrado"):
+			status = http.StatusNotFound
+		case strings.Contains(err.Error(), "tipo_espacio") ||
+			strings.Contains(err.Error(), "cantidad_espacios") ||
+			strings.Contains(err.Error(), "al menos un tipo"):
+			status = http.StatusBadRequest
+		}
+		utils.RespondError(c, status, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "espacios actualizados correctamente"})
+}
+
 // DeleteLocal godoc
 // @Summary Eliminar local
 // @Description Realiza borrado logico de un local (activo=false). Param: id (requerido, path). Response: mensaje string.
