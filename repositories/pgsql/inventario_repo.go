@@ -37,7 +37,7 @@ func redondear3(v float64) float64 { return math.Round(v*1000) / 1000 }
 
 const itemsSelectBase = `
 	SELECT i.id, i.codigo, i.nombre, i.descripcion, i.categoria_id, c.nombre AS categoria_nombre,
-	       i.unidad_medida, i.costo_referencia, i.stock_minimo,
+	       i.unidad_medida, i.costo_referencia, i.precio_venta, i.stock_minimo,
 	       COALESCE((SELECT SUM(s.cantidad) FROM inventario_stock s
 	                 WHERE s.item_id = i.id %s), 0) AS stock_actual,
 	       i.imagen_key, i.activo
@@ -75,7 +75,7 @@ func (r *InventarioRepo) ListItems(f repository.FiltroItemsInventario) ([]models
 		// cargado stock ahi: queda en 0). Un item sin stock ni uso en ningun local aparece en todos.
 		query = `
 	SELECT i.id, i.codigo, i.nombre, i.descripcion, i.categoria_id, c.nombre AS categoria_nombre,
-	       i.unidad_medida, i.costo_referencia, i.stock_minimo,
+	       i.unidad_medida, i.costo_referencia, i.precio_venta, i.stock_minimo,
 	       COALESCE(s.cantidad, 0) AS stock_actual, i.imagen_key, i.activo,
 	       l.id AS local_id, l.nombre AS local_nombre
 	FROM inventario_items i
@@ -121,7 +121,7 @@ func (r *InventarioRepo) ItemsBajoStockPorLocal(localID *int) ([]models.Inventar
 	}
 	query := `
 	SELECT i.id, i.codigo, i.nombre, i.descripcion, i.categoria_id, c.nombre AS categoria_nombre,
-	       i.unidad_medida, i.costo_referencia, i.stock_minimo,
+	       i.unidad_medida, i.costo_referencia, i.precio_venta, i.stock_minimo,
 	       COALESCE(s.cantidad, 0) AS stock_actual, i.imagen_key, i.activo,
 	       l.id AS local_id, l.nombre AS local_nombre
 	FROM inventario_items i
@@ -164,15 +164,17 @@ type ItemInput struct {
 	CategoriaID     *int
 	UnidadMedida    string
 	CostoReferencia *float64
-	StockMinimo     float64
+	// PrecioVenta es lo que se cobra el insumo; nil = sin precio definido.
+	PrecioVenta *float64
+	StockMinimo float64
 }
 
 func (r *InventarioRepo) CreateItem(in ItemInput) (int, error) {
 	var id int
 	err := r.db.QueryRowx(`
-		INSERT INTO inventario_items (nombre, descripcion, categoria_id, unidad_medida, costo_referencia, stock_minimo)
-		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-		in.Nombre, in.Descripcion, in.CategoriaID, in.UnidadMedida, in.CostoReferencia, in.StockMinimo,
+		INSERT INTO inventario_items (nombre, descripcion, categoria_id, unidad_medida, costo_referencia, precio_venta, stock_minimo)
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+		in.Nombre, in.Descripcion, in.CategoriaID, in.UnidadMedida, in.CostoReferencia, in.PrecioVenta, in.StockMinimo,
 	).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("error al crear item: %w", err)
@@ -190,6 +192,8 @@ type ItemPatch struct {
 	UnidadMedida       *string
 	CostoReferencia    *float64
 	CostoReferenciaSet bool
+	PrecioVenta        *float64
+	PrecioVentaSet     bool
 	StockMinimo        *float64
 	Activo             *bool
 }
@@ -215,6 +219,9 @@ func (r *InventarioRepo) UpdateItem(id int, p ItemPatch) error {
 	}
 	if p.CostoReferenciaSet {
 		add("costo_referencia", p.CostoReferencia)
+	}
+	if p.PrecioVentaSet {
+		add("precio_venta", p.PrecioVenta)
 	}
 	if p.StockMinimo != nil {
 		add("stock_minimo", *p.StockMinimo)

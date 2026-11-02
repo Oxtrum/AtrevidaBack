@@ -73,7 +73,7 @@ func (s *InventarioService) ServiciosQueUsan(itemID int) ([]string, error) {
 	return s.repo.ServiciosQueUsanItem(itemID)
 }
 
-func validarItem(nombre string, unidad string, costo *float64, minimo float64) error {
+func validarItem(nombre string, unidad string, costo, precioVenta *float64, minimo float64) error {
 	if strings.TrimSpace(nombre) == "" {
 		return errors.New("nombre es requerido")
 	}
@@ -85,6 +85,9 @@ func validarItem(nombre string, unidad string, costo *float64, minimo float64) e
 	}
 	if costo != nil && *costo < 0 {
 		return errors.New("costo_referencia no puede ser negativo")
+	}
+	if precioVenta != nil && *precioVenta < 0 {
+		return errors.New("precio_venta no puede ser negativo")
 	}
 	if minimo < 0 {
 		return errors.New("stock_minimo no puede ser negativo")
@@ -98,7 +101,7 @@ func (s *InventarioService) CrearItem(in pgsqlrepo.ItemInput) (*models.Inventari
 	if in.UnidadMedida == "" {
 		in.UnidadMedida = "UNIDAD"
 	}
-	if err := validarItem(in.Nombre, in.UnidadMedida, in.CostoReferencia, in.StockMinimo); err != nil {
+	if err := validarItem(in.Nombre, in.UnidadMedida, in.CostoReferencia, in.PrecioVenta, in.StockMinimo); err != nil {
 		return nil, err
 	}
 	id, err := s.repo.CreateItem(in)
@@ -126,11 +129,14 @@ func (s *InventarioService) ActualizarItem(id int, p pgsqlrepo.ItemPatch) error 
 	if p.CostoReferenciaSet && p.CostoReferencia != nil && *p.CostoReferencia < 0 {
 		return errors.New("costo_referencia no puede ser negativo")
 	}
+	if p.PrecioVentaSet && p.PrecioVenta != nil && *p.PrecioVenta < 0 {
+		return errors.New("precio_venta no puede ser negativo")
+	}
 	if p.StockMinimo != nil && *p.StockMinimo < 0 {
 		return errors.New("stock_minimo no puede ser negativo")
 	}
 	if p.Nombre == nil && p.UnidadMedida == nil && p.StockMinimo == nil && p.Activo == nil &&
-		!p.DescripcionSet && !p.CategoriaSet && !p.CostoReferenciaSet {
+		!p.DescripcionSet && !p.CategoriaSet && !p.CostoReferenciaSet && !p.PrecioVentaSet {
 		return errors.New("no se enviaron campos para actualizar")
 	}
 	return s.repo.UpdateItem(id, p)

@@ -5659,7 +5659,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Edita datos del item. No edita stock: el stock solo cambia con movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id y costo_referencia aceptan null para limpiar. Requiere token Bearer con rol admin_sys.",
+                "description": "Edita datos del item. No edita stock: el stock solo cambia con movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id, costo_referencia y precio_venta aceptan null para limpiar. Requiere token Bearer con rol admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -13823,6 +13823,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Gel conductor"
                 },
+                "precio_venta": {
+                    "description": "Precio de venta del insumo (null limpia)",
+                    "type": "number",
+                    "example": 25
+                },
                 "stock_minimo": {
                     "description": "Stock minimo",
                     "type": "number",
@@ -15326,6 +15331,11 @@ const docTemplate = `{
                     "description": "Nombre del item",
                     "type": "string",
                     "example": "Gel conductor"
+                },
+                "precio_venta": {
+                    "description": "Precio de venta del insumo (opcional); es el que se sugiere al cobrarlo",
+                    "type": "number",
+                    "example": 25
                 },
                 "stock_minimo": {
                     "description": "Stock minimo: por debajo se marca como bajo stock",
@@ -18880,6 +18890,11 @@ const docTemplate = `{
                 "nombre": {
                     "type": "string",
                     "example": "Gel conductor"
+                },
+                "precio_venta": {
+                    "description": "PrecioVenta es el precio al que se cobra el insumo; ausente si no tiene precio definido.",
+                    "type": "number",
+                    "example": 25
                 },
                 "stock_actual": {
                     "description": "StockActual es el stock del local consultado, o la suma de todos los locales.",

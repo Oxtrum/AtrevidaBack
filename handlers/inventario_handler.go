@@ -37,6 +37,8 @@ type crearInventarioItemRequest struct {
 	UnidadMedida string `json:"unidad_medida" example:"ML"`
 	// Ultimo costo de compra (se actualiza solo con cada compra)
 	CostoReferencia *float64 `json:"costo_referencia" example:"0.04"`
+	// Precio de venta del insumo (opcional); es el que se sugiere al cobrarlo
+	PrecioVenta *float64 `json:"precio_venta" example:"25"`
 	// Stock minimo: por debajo se marca como bajo stock
 	StockMinimo float64 `json:"stock_minimo" example:"500"`
 }
@@ -52,6 +54,8 @@ type actualizarInventarioItemRequest struct {
 	UnidadMedida *string `json:"unidad_medida" example:"ML"`
 	// Costo de referencia (null limpia)
 	CostoReferencia *float64 `json:"costo_referencia" example:"0.04"`
+	// Precio de venta del insumo (null limpia)
+	PrecioVenta *float64 `json:"precio_venta" example:"25"`
 	// Stock minimo
 	StockMinimo *float64 `json:"stock_minimo" example:"500"`
 	// Activo o desactivado (RN-07)
@@ -295,7 +299,7 @@ func (h *Container) CreateInventarioItem(c *gin.Context) {
 	}
 	item, err := h.Inventario.CrearItem(pgsqlrepo.ItemInput{
 		Nombre: req.Nombre, Descripcion: req.Descripcion, CategoriaID: req.CategoriaID, UnidadMedida: req.UnidadMedida,
-		CostoReferencia: req.CostoReferencia, StockMinimo: req.StockMinimo,
+		CostoReferencia: req.CostoReferencia, PrecioVenta: req.PrecioVenta, StockMinimo: req.StockMinimo,
 	})
 	if err != nil {
 		respondTrastiendaError(c, err)
@@ -306,7 +310,7 @@ func (h *Container) CreateInventarioItem(c *gin.Context) {
 
 // PatchInventarioItem godoc
 // @Summary Editar item de inventario
-// @Description Edita datos del item. No edita stock: el stock solo cambia con movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id y costo_referencia aceptan null para limpiar. Requiere token Bearer con rol admin_sys.
+// @Description Edita datos del item. No edita stock: el stock solo cambia con movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id, costo_referencia y precio_venta aceptan null para limpiar. Requiere token Bearer con rol admin_sys.
 // @Tags Inventario
 // @Accept json
 // @Produce json
@@ -336,6 +340,7 @@ func (h *Container) PatchInventarioItem(c *gin.Context) {
 		Nombre: req.Nombre, Descripcion: req.Descripcion, DescripcionSet: present["descripcion"],
 		CategoriaID: req.CategoriaID, CategoriaSet: present["categoria_id"], UnidadMedida: req.UnidadMedida,
 		CostoReferencia: req.CostoReferencia, CostoReferenciaSet: present["costo_referencia"],
+		PrecioVenta: req.PrecioVenta, PrecioVentaSet: present["precio_venta"],
 		StockMinimo: req.StockMinimo, Activo: req.Activo,
 	})
 	if err != nil {

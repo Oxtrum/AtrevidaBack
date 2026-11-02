@@ -355,6 +355,10 @@ definitions:
         description: Nombre del item
         example: Gel conductor
         type: string
+      precio_venta:
+        description: Precio de venta del insumo (null limpia)
+        example: 25
+        type: number
       stock_minimo:
         description: Stock minimo
         example: 500
@@ -1498,6 +1502,11 @@ definitions:
         description: Nombre del item
         example: Gel conductor
         type: string
+      precio_venta:
+        description: Precio de venta del insumo (opcional); es el que se sugiere al
+          cobrarlo
+        example: 25
+        type: number
       stock_minimo:
         description: 'Stock minimo: por debajo se marca como bajo stock'
         example: 500
@@ -4151,6 +4160,11 @@ definitions:
       nombre:
         example: Gel conductor
         type: string
+      precio_venta:
+        description: PrecioVenta es el precio al que se cobra el insumo; ausente si
+          no tiene precio definido.
+        example: 25
+        type: number
       stock_actual:
         description: StockActual es el stock del local consultado, o la suma de todos
           los locales.
@@ -9460,9 +9474,9 @@ paths:
       consumes:
       - application/json
       description: 'Edita datos del item. No edita stock: el stock solo cambia con
-        movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id
-        y costo_referencia aceptan null para limpiar. Requiere token Bearer con rol
-        admin_sys.'
+        movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id,
+        costo_referencia y precio_venta aceptan null para limpiar. Requiere token
+        Bearer con rol admin_sys.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer

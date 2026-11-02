@@ -28,6 +28,8 @@ type InventarioItem struct {
 	CategoriaNombre *string  `db:"categoria_nombre" json:"categoria_nombre,omitempty"`
 	UnidadMedida    string   `db:"unidad_medida" json:"unidad_medida" example:"ML"`
 	CostoReferencia *float64 `db:"costo_referencia" json:"costo_referencia,omitempty" example:"0.04"`
+	// PrecioVenta es el precio al que se cobra el insumo; ausente si no tiene precio definido.
+	PrecioVenta *float64 `db:"precio_venta" json:"precio_venta,omitempty" example:"25"`
 	StockMinimo     float64  `db:"stock_minimo" json:"stock_minimo" example:"500"`
 	// StockActual es el stock del local consultado, o la suma de todos los locales.
 	StockActual float64 `db:"stock_actual" json:"stock_actual" example:"350"`
