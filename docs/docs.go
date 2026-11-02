@@ -527,6 +527,91 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/cargos/{id}/anular": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Anula un cargo con motivo; nunca se borra. Lo que los abonos le habian aplicado se libera y vuelve a ser saldo disponible. Requiere token Bearer con rol admin_sys o gerencia.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Anular cargo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "ID del cargo",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Motivo de la anulacion",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.anularCargoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Cargo anulado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, motivo requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Rol no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cargo no encontrado o ya anulado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/categorias": {
             "get": {
                 "description": "Devuelve categorias registradas en BD. Sin filtros devuelve todas. Si se envia local o local_id, devuelve solo categorias asociadas a ese local mediante categorias_locales. Response: total (int), categorias ([]CategoriaPG con: id, nombre).",
@@ -1102,6 +1187,32 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "id",
+                            "nombre",
+                            "apellido",
+                            "numero_telefono",
+                            "ci",
+                            "nit"
+                        ],
+                        "type": "string",
+                        "example": "nombre",
+                        "description": "Campo por el que ordenar; sin el, apellido y nombre ascendente",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "asc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "example": 50,
                         "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
@@ -1110,7 +1221,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron",
                         "name": "cursor",
                         "in": "query"
                     },
@@ -1142,7 +1253,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Paginacion o cursor invalido",
+                        "description": "Paginacion o cursor invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1399,6 +1510,470 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflicto: telefono ya existe",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/abonos": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra un pago a cuenta de un cliente y lo reparte entre sus cargos pendientes en una sola transaccion. Lo que no se aplica queda como saldo disponible. Un abono no aplica mas que su monto ni un cargo recibe mas que lo que tiene pendiente. No tiene detalle de servicios: las ventas de mostrador se siguen cobrando con POST /bd/pagos y no mueven el saldo. fecha_hecho permite registrar de noche lo anotado en papel. Requiere token Bearer; un usuario limitado a un local solo puede cobrar en el suyo.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Registrar abono",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del abono y su reparto",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearAbonoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.abonoCreadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: monto no positivo, tipo de pago invalido, aplicacion que excede el pago o lo pendiente del cargo, cargo repetido, fecha_hecho futura",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente o cargo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/abonos/{codigo_pago}/aplicaciones": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Reparte entre cargos pendientes lo que un abono ya existente tiene sin aplicar (saldo disponible que llego antes que el cargo). Valida que no se aplique mas de lo disponible del abono ni mas de lo pendiente de cada cargo. Requiere token Bearer.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Aplicar saldo de un abono",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "PAGO-000123",
+                        "description": "Codigo del abono",
+                        "name": "codigo_pago",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reparto entre cargos",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.aplicarAbonoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Aplicaciones registradas",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: aplicaciones requerido, monto no positivo, excede lo disponible del abono o lo pendiente del cargo, cargo repetido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Abono o cargo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/cargos": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra lo que un cliente debe: paquete, servicio, insumo u otro concepto. Un monto 0 registra un consumo que no se cobra. fecha_hecho permite registrar de noche lo anotado en papel (no puede ser futura ni anterior a cobros.dias_maximo_fecha_pasada dias; 0 = sin limite). Requiere token Bearer.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Crear cargo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del cargo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearCargoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.cargoCreadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: tipo invalido, concepto requerido, monto negativo, fecha_hecho futura o con formato invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/cobros": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cobro de caja en una sola transaccion. El cajero marca los cargos que el cliente paga y se pagan completos, sin pagos parciales. Con usar_saldo se descuenta primero el saldo disponible del cliente; lo que falta se paga con un metodo de pago (efectivo, tarjeta, qr o transferencia) y una recarga opcional queda como saldo disponible. Sin cargos solo se recarga saldo. Si el saldo cubre todo y no hay recarga no entra dinero nuevo y no se pide metodo. Si algo falla no queda nada a medias. Requiere token Bearer; un usuario limitado a un local solo puede cobrar en el suyo.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Cobrar cargos de un cliente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cargos a pagar, uso del saldo, metodo y recarga",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.cobrarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/pgsql.CobroResultado"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: sin cargos ni recarga, cargo repetido, recarga negativa, tipo de pago invalido o faltante, fecha_hecho futura, el dinero no alcanza",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente o cargo pendiente no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/cuenta": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve la cuenta de un cliente: saldo (disponible, por pagar y deuda), cargos con su estado (PENDIENTE, PARCIAL o PAGADO) y abonos con lo que tienen sin usar. Saldo disponible es el dinero recargado y no usado; por pagar es lo que falta de los cargos vigentes; deuda es por pagar menos disponible y nunca es negativa. Las ventas de mostrador no lo mueven. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Cuenta del cliente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye los cargos anulados en la lista (no cuentan en el saldo)",
+                        "name": "incluir_anulados",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.cuentaClienteResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, incluir_anulados invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2764,6 +3339,124 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/cuentas/deudores": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista los clientes cuyo saldo es deuda (cargos no anulados mayores que abonos activos y pagados), con la mayor deuda primero salvo que se pida otro orden. El orden lo resuelve el servidor sobre todo el resultado; la paginacion avanza por desplazamiento y el cursor solo vale con la misma busqueda, ordenar_por y sentido que lo generaron. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Clientes con deuda",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "Maria",
+                        "description": "Busqueda parcial por nombre, apellido o telefono",
+                        "name": "busqueda",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "deuda",
+                            "total_cargos",
+                            "total_abonos",
+                            "nombre",
+                            "apellido",
+                            "numero_telefono"
+                        ],
+                        "type": "string",
+                        "example": "deuda",
+                        "description": "Campo por el que ordenar; sin el, mayor deuda primero",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina opcional (1-100); sin limit ni cursor devuelve todos",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye el total de registros y de paginas",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.deudoresResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden o busqueda",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "500": {
@@ -5382,6 +6075,35 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "creado_en",
+                            "item_nombre",
+                            "local_nombre",
+                            "tipo",
+                            "cantidad",
+                            "stock_resultante",
+                            "costo_unitario",
+                            "motivo",
+                            "usuario_nombre"
+                        ],
+                        "type": "string",
+                        "example": "stock_resultante",
+                        "description": "Campo por el que ordenar; sin el, creado_en descendente",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Tamano de pagina (1-100); sin limit ni cursor devuelve los 200 mas recientes",
                         "name": "limit",
@@ -5389,7 +6111,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron",
                         "name": "cursor",
                         "in": "query"
                     },
@@ -5420,7 +6142,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: parametro invalido",
+                        "description": "Error de validacion: parametro invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -6051,6 +6773,95 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/locales/{id}/espacios": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fija la cantidad de espacios de un local. Param: id (path). Body: espacios (array con tipo_espacio M/B y cantidad_espacios entero \u003e= 0; 0 deja el tipo sin espacios, por ejemplo por mantenimiento). Los tipos no enviados no se tocan. No cancela reservas existentes: si se reduce por debajo de lo ya reservado, solo se bloquean las reservas nuevas. Requiere rol admin_sys o gerencia. Response: mensaje string.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Locales"
+                ],
+                "summary": "Actualizar mesas y bicicletas de un local",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 3,
+                        "description": "ID del local",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Espacios a fijar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarEspaciosRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, tipo_espacio invalido, cantidad negativa o tipo repetido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token ausente o invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Rol sin permiso",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Local no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/notificaciones/reservas": {
             "get": {
                 "description": "Devuelve los datos minimos de reservas activas en estado AGENDADO que aun no fueron marcadas como notificadas/leidas, ordenadas por creado_en descendente (mas recientes primero). Requiere token Bearer. Los usuarios con local asignado solo ven notificaciones de su local; admin_sys ve todas. Este endpoint esta pensado para polling de la campanita del frontend; se puede consultar cada 5 o 10 minutos. Param: limit cantidad maxima a devolver (opcional, default 20, maximo 100). Response: total (int), reservas con cliente, servicio, local, fecha, horario y telefono.",
@@ -6244,7 +7055,7 @@ const docTemplate = `{
         },
         "/bd/pagos": {
             "get": {
-                "description": "Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Retorna la cabecera y un resumen de productos, sin el detalle completo. Incluye auditoria de creacion y modificacion. Filtros: codigo_pago, local, cliente, NIT, producto cobrado, tipo_pago, estado, activo y cajeros. Si activo no se envia, lista solo pagos activos.\nCada pago incluye primer_producto y cantidad_productos como resumen del detalle, sin cargar todas sus lineas. El detalle completo se consulta por codigo.",
+                "description": "Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Retorna la cabecera y un resumen de productos, sin el detalle completo. Incluye auditoria de creacion y modificacion. Filtros: codigo_pago, local, cliente, NIT, producto cobrado, tipo_pago, estado, activo y cajeros. Si activo no se envia, lista solo pagos activos.\nCada pago incluye primer_producto y cantidad_productos como resumen del detalle, sin cargar todas sus lineas. El detalle completo se consulta por codigo.\nCon ordenar_por el orden lo resuelve el servidor sobre todo el resultado, no solo la pagina visible: los vacios quedan al final y los empates se desempatan por id. Cambiar ordenar_por o sentido invalida el cursor, asi que el cliente debe volver a la primera pagina.",
                 "produces": [
                     "application/json"
                 ],
@@ -6390,6 +7201,39 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "codigo_pago",
+                            "fecha_creacion",
+                            "cliente_nit",
+                            "cliente_nombre",
+                            "local_nombre",
+                            "primer_producto",
+                            "cantidad_productos",
+                            "subtotal",
+                            "descuento",
+                            "total_final",
+                            "tipo_pago",
+                            "estado",
+                            "nombre_cajero"
+                        ],
+                        "type": "string",
+                        "example": "total_final",
+                        "description": "Campo por el que ordenar; sin el, fecha_creacion descendente",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "example": 50,
                         "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
@@ -6398,7 +7242,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron",
                         "name": "cursor",
                         "in": "query"
                     },
@@ -6430,7 +7274,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -6500,7 +7344,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -6913,7 +7757,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -7771,6 +8615,34 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "codigo",
+                            "cliente",
+                            "combo_nombre_texto",
+                            "local_nombre_texto",
+                            "precio_total",
+                            "estado",
+                            "estado_cobranza",
+                            "creado_en"
+                        ],
+                        "type": "string",
+                        "example": "precio_total",
+                        "description": "Campo por el que ordenar; manda sobre orden=prioridad_estado",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "example": 50,
                         "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
@@ -7779,7 +8651,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron",
                         "name": "cursor",
                         "in": "query"
                     },
@@ -7811,7 +8683,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: parametros invalidos",
+                        "description": "Error de validacion: parametros invalidos, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -8589,6 +9461,33 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "fecha",
+                            "hora_desde",
+                            "cliente",
+                            "tipo",
+                            "servicio",
+                            "estado",
+                            "local"
+                        ],
+                        "type": "string",
+                        "example": "cliente",
+                        "description": "Campo por el que ordenar; manda sobre orden=cronologico",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "asc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "example": 50,
                         "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
@@ -8597,7 +9496,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron",
                         "name": "cursor",
                         "in": "query"
                     },
@@ -8629,7 +9528,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: tipo invalido, estado invalido",
+                        "description": "Error de validacion: tipo invalido, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -8643,7 +9542,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).\ncosto_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.\nInventario: si la peticion trae token Bearer valido (panel interno) y el servicio tiene insumos sin stock suficiente en el local, la reserva se guarda igual y la respuesta incluye alerta_inventario y advertencias_inventario; con la politica inventario.politica_sin_stock=BLOQUEAR responde 409 con el texto stock insuficiente. El formulario publico (sin token) nunca recibe advertencias ni se bloquea.",
+                "description": "Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).\ncosto_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.\nInventario: si la peticion trae token Bearer valido (panel interno) y el servicio tiene insumos sin stock suficiente en el local, la reserva se guarda igual y la respuesta incluye alerta_inventario y advertencias_inventario; con la politica inventario.politica_sin_stock=BLOQUEAR responde 409 con el texto stock insuficiente. El formulario publico (sin token) nunca recibe advertencias ni se bloquea.\nReserva repetida: si la peticion trae token Bearer valido y el telefono ya tiene una reserva vigente (no rechazada) en la misma fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas (las ya existentes) sin crear nada. El panel debe pedir confirmacion y reenviar con confirmar_duplicado=true. El formulario publico (sin token) no recibe este aviso.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8691,7 +9590,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Conflicto: no hay espacios disponibles, el horario no esta libre o stock insuficiente de insumos con politica BLOQUEAR",
+                        "description": "Conflicto: no hay espacios disponibles, el horario no esta libre, stock insuficiente de insumos con politica BLOQUEAR, o el cliente ya tiene reserva ese dia (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -8710,7 +9609,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).\nlimpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.\nRecalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias. Si nuevo_estado es AGENDADO, inventario.descontar_en_estado=AGENDADO e inventario.permitir_stock_negativo=false, responde 409 con el texto stock insuficiente cuando el stock real del local no alcanza.",
+                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).\nlimpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.\nRecalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias. Si nuevo_estado es AGENDADO, inventario.descontar_en_estado=AGENDADO e inventario.permitir_stock_negativo=false, responde 409 con el texto stock insuficiente cuando el stock real del local no alcanza.\nReserva repetida: si nueva_fecha cambia el dia y el telefono ya tiene otra reserva vigente (no rechazada, de cualquier local) en esa fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas sin modificar nada. Reenviar con confirmar_duplicado=true para mover igual.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8770,7 +9669,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Reserva completada, sin espacios disponibles en el horario destino o, al pasar a AGENDADO con descuento al agendar y stock negativo no permitido, stock insuficiente de insumos",
+                        "description": "Reserva completada, sin espacios disponibles en el horario destino, stock insuficiente de insumos al pasar a AGENDADO con descuento al agendar, o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -12205,6 +13104,74 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "cuenta.PlanCobro": {
+            "type": "object",
+            "properties": {
+                "falta": {
+                    "description": "Falta es lo que el cliente paga ahora con un metodo de pago.",
+                    "type": "number",
+                    "example": 100
+                },
+                "nuevo_pago": {
+                    "description": "NuevoPago es el dinero nuevo que entra: lo que falta mas la recarga. Si es 0 no se pide metodo de pago.",
+                    "type": "number",
+                    "example": 100
+                },
+                "total": {
+                    "description": "Total de los cargos marcados.",
+                    "type": "number",
+                    "example": 250
+                },
+                "usa_saldo": {
+                    "description": "UsaSaldo es lo que se descuenta del saldo disponible del cliente.",
+                    "type": "number",
+                    "example": 150
+                }
+            }
+        },
+        "cuenta.Reparto": {
+            "type": "object",
+            "properties": {
+                "cargo_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 400
+                }
+            }
+        },
+        "cuenta.Saldo": {
+            "type": "object",
+            "properties": {
+                "deuda": {
+                    "description": "Deuda es lo que falta despues de usar el saldo disponible; nunca es negativa.",
+                    "type": "number",
+                    "example": 100
+                },
+                "disponible": {
+                    "description": "Disponible es el dinero que el cliente recargo y todavia no uso.",
+                    "type": "number",
+                    "example": 150
+                },
+                "por_pagar": {
+                    "description": "PorPagar es la suma de lo que le falta pagar de sus cargos vigentes.",
+                    "type": "number",
+                    "example": 250
+                }
+            }
+        },
+        "handlers.abonoCreadoResponse": {
+            "type": "object",
+            "properties": {
+                "codigo_pago": {
+                    "description": "Codigo del pago creado.",
+                    "type": "string",
+                    "example": "PAGO-000123"
+                }
+            }
+        },
         "handlers.activarServicioRequest": {
             "type": "object",
             "required": [
@@ -12453,6 +13420,22 @@ const docTemplate = `{
                 "usuario_id": {
                     "type": "integer",
                     "example": 3
+                }
+            }
+        },
+        "handlers.actualizarEspaciosRequest": {
+            "type": "object",
+            "required": [
+                "espacios"
+            ],
+            "properties": {
+                "espacios": {
+                    "description": "Espacios a fijar; los tipos no enviados quedan como estaban",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/handlers.espacioEdicionRequest"
+                    }
                 }
             }
         },
@@ -12822,6 +13805,11 @@ const docTemplate = `{
                 "local"
             ],
             "properties": {
+                "confirmar_duplicado": {
+                    "description": "true confirma mover la reserva a una fecha donde el cliente ya tiene otra reserva.",
+                    "type": "boolean",
+                    "example": false
+                },
                 "id": {
                     "description": "ID de la reserva a actualizar",
                     "type": "integer",
@@ -13185,6 +14173,16 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.anularCargoRequest": {
+            "type": "object",
+            "properties": {
+                "motivo": {
+                    "description": "Motivo de la anulacion (requerido).",
+                    "type": "string",
+                    "example": "Cargado dos veces"
+                }
+            }
+        },
         "handlers.anularCompraRequest": {
             "type": "object",
             "properties": {
@@ -13205,6 +14203,18 @@ const docTemplate = `{
                     "description": "Motivo de la anulacion",
                     "type": "string",
                     "example": "Sueldo mal calculado"
+                }
+            }
+        },
+        "handlers.aplicarAbonoRequest": {
+            "type": "object",
+            "properties": {
+                "aplicaciones": {
+                    "description": "Reparto de lo que el abono tiene sin aplicar entre cargos pendientes.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/cuenta.Reparto"
+                    }
                 }
             }
         },
@@ -13288,6 +14298,16 @@ const docTemplate = `{
                     "description": "Nueva password del usuario autenticado.",
                     "type": "string",
                     "example": "NuevoSecreto123"
+                }
+            }
+        },
+        "handlers.cargoCreadoResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID del cargo creado.",
+                    "type": "integer",
+                    "example": 12
                 }
             }
         },
@@ -13384,6 +14404,16 @@ const docTemplate = `{
                     "description": "Filtro aplicado: número de teléfono del cliente",
                     "type": "string",
                     "example": "+59170011223"
+                },
+                "ordenar_por": {
+                    "description": "Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto (apellido, nombre)",
+                    "type": "string",
+                    "example": "nombre"
+                },
+                "sentido": {
+                    "description": "Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto",
+                    "type": "string",
+                    "example": "asc"
                 }
             }
         },
@@ -13439,6 +14469,57 @@ const docTemplate = `{
                 "pago_codigo": {
                     "type": "string",
                     "example": "PAGO-000123"
+                }
+            }
+        },
+        "handlers.cobrarRequest": {
+            "type": "object",
+            "properties": {
+                "cargo_ids": {
+                    "description": "Cargos que se pagan completos. Puede ir vacio si solo se recarga saldo.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        10,
+                        11
+                    ]
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho (YYYY-MM-DD): cuando ocurrio el cobro. Opcional; sin ella es ahora. No puede ser futura.",
+                    "type": "string",
+                    "example": "2026-10-25"
+                },
+                "local_id": {
+                    "description": "Local donde se recibe el cobro.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local donde se recibe el cobro.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "nombre": {
+                    "description": "Nombre del cajero; si se omite se usa el username del token.",
+                    "type": "string",
+                    "example": "Juan Perez"
+                },
+                "recarga": {
+                    "description": "Dinero extra que queda como saldo disponible. Opcional.",
+                    "type": "number",
+                    "example": 20
+                },
+                "tipo_pago": {
+                    "description": "Metodo del dinero nuevo: efectivo, tarjeta, qr o transferencia. Solo se exige si entra dinero nuevo.",
+                    "type": "string",
+                    "example": "qr"
+                },
+                "usar_saldo": {
+                    "description": "Si es true se descuenta primero el saldo disponible del cliente; false si prefiere guardarlo.",
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },
@@ -13663,6 +14744,88 @@ const docTemplate = `{
                     "description": "Parametros del sistema (clave -\u003e valor tipado): inventario.politica_sin_stock, inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda",
                     "type": "object",
                     "additionalProperties": true
+                }
+            }
+        },
+        "handlers.crearAbonoRequest": {
+            "type": "object",
+            "properties": {
+                "aplicaciones": {
+                    "description": "Reparto del abono entre cargos pendientes. Lo que no se aplica queda como saldo disponible.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/cuenta.Reparto"
+                    }
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho (YYYY-MM-DD): cuando se entrego el dinero. Opcional; sin ella es ahora. No puede ser futura.",
+                    "type": "string",
+                    "example": "2026-10-25"
+                },
+                "local_id": {
+                    "description": "Local donde se recibe el pago.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local donde se recibe el pago.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "monto": {
+                    "description": "Monto entregado; debe ser mayor a 0.",
+                    "type": "number",
+                    "example": 500
+                },
+                "nombre": {
+                    "description": "Nombre del cajero; si se omite se usa el username del token.",
+                    "type": "string",
+                    "example": "Juan Perez"
+                },
+                "tipo_pago": {
+                    "description": "Metodo de pago: efectivo, tarjeta, qr o transferencia.",
+                    "type": "string",
+                    "example": "efectivo"
+                }
+            }
+        },
+        "handlers.crearCargoRequest": {
+            "type": "object",
+            "properties": {
+                "concepto": {
+                    "description": "Concepto legible del cargo (hasta 300 caracteres).",
+                    "type": "string",
+                    "example": "Paquete Relax 4 sesiones"
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho (YYYY-MM-DD): cuando ocurrio lo que se cobra. Opcional; sin ella es ahora. No puede ser futura.",
+                    "type": "string",
+                    "example": "2026-10-25"
+                },
+                "local_id": {
+                    "description": "Local donde ocurrio el hecho (opcional); un usuario limitado a un local solo puede usar el suyo.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "monto": {
+                    "description": "Monto del cargo; 0 registra un consumo que no se cobra.",
+                    "type": "number",
+                    "example": 1000
+                },
+                "plan_id": {
+                    "description": "Plan del que nace el cargo (opcional).",
+                    "type": "integer",
+                    "example": 21
+                },
+                "reserva_id": {
+                    "description": "Reserva de la que nace el cargo (opcional).",
+                    "type": "integer",
+                    "example": 44
+                },
+                "tipo": {
+                    "description": "Tipo del cargo: PAQUETE, SERVICIO, INSUMO u OTRO.",
+                    "type": "string",
+                    "example": "PAQUETE"
                 }
             }
         },
@@ -14070,6 +15233,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "PENDIENTE"
                 },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho (YYYY-MM-DD): cuando ocurrio el cobro. Opcional; sin ella es ahora. No puede ser futura ni\nanterior a cobros.dias_maximo_fecha_pasada dias (0 = sin limite). El momento real del registro queda en registrado_en.",
+                    "type": "string",
+                    "example": "2026-10-25"
+                },
                 "local_id": {
                     "description": "ID del local donde se registra el pago.",
                     "type": "integer",
@@ -14192,6 +15360,11 @@ const docTemplate = `{
                     "description": "Nombre del cliente",
                     "type": "string",
                     "example": "Maria Lopez"
+                },
+                "confirmar_duplicado": {
+                    "description": "Solo panel interno: true confirma crear la reserva aunque el cliente ya tenga otra ese dia.",
+                    "type": "boolean",
+                    "example": false
                 },
                 "estado": {
                     "description": "Estado inicial: PENDIENTE (default), AGENDADO",
@@ -14377,6 +15550,44 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.cuentaClienteResponse": {
+            "type": "object",
+            "properties": {
+                "cuenta": {
+                    "description": "Cuenta del cliente: saldo, cargos y abonos.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.CuentaCliente"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.deudoresResponse": {
+            "type": "object",
+            "properties": {
+                "deudores": {
+                    "description": "Clientes con deuda, con la mayor deuda primero salvo que se pida otro orden.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeudorCliente"
+                    }
+                },
+                "paginacion": {
+                    "description": "Datos de paginacion.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total": {
+                    "description": "Cantidad de clientes devueltos en esta pagina.",
+                    "type": "integer",
+                    "example": 20
+                }
+            }
+        },
         "handlers.empleadoFotoConfirmRequest": {
             "type": "object",
             "required": [
@@ -14530,6 +15741,26 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.Empleado"
                     }
+                }
+            }
+        },
+        "handlers.espacioEdicionRequest": {
+            "type": "object",
+            "required": [
+                "cantidad_espacios",
+                "tipo_espacio"
+            ],
+            "properties": {
+                "cantidad_espacios": {
+                    "description": "Cantidad total de espacios de este tipo; 0 permitido (mantenimiento)",
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 4
+                },
+                "tipo_espacio": {
+                    "description": "Tipo de espacio: M (mesa) o B (bicicleta)",
+                    "type": "string",
+                    "example": "M"
                 }
             }
         },
@@ -15206,10 +16437,20 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Ana"
                 },
+                "ordenar_por": {
+                    "description": "Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto (fecha descendente)",
+                    "type": "string",
+                    "example": "total_final"
+                },
                 "producto": {
                     "description": "Filtro aplicado: texto del producto cobrado",
                     "type": "string",
                     "example": "Limpieza facial"
+                },
+                "sentido": {
+                    "description": "Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto",
+                    "type": "string",
+                    "example": "desc"
                 },
                 "tipo_pago": {
                     "description": "Filtro aplicado: tipo de pago",
@@ -15551,6 +16792,16 @@ const docTemplate = `{
                 "orden": {
                     "type": "string",
                     "example": "prioridad_estado"
+                },
+                "ordenar_por": {
+                    "description": "Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto. Manda sobre orden",
+                    "type": "string",
+                    "example": "precio_total"
+                },
+                "sentido": {
+                    "description": "Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto",
+                    "type": "string",
+                    "example": "desc"
                 }
             }
         },
@@ -16200,6 +17451,46 @@ const docTemplate = `{
                 }
             }
         },
+        "models.AbonoCliente": {
+            "type": "object",
+            "properties": {
+                "aplicado": {
+                    "description": "Cuanto del abono ya cubrio de cargos.",
+                    "type": "number",
+                    "example": 400
+                },
+                "codigo_pago": {
+                    "description": "Codigo publico del pago.",
+                    "type": "string",
+                    "example": "PAGO-000123"
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho: cuando se entrego el dinero.",
+                    "type": "string",
+                    "example": "2026-10-25T12:00:00Z"
+                },
+                "monto": {
+                    "description": "Monto entregado.",
+                    "type": "number",
+                    "example": 500
+                },
+                "registrado_en": {
+                    "description": "Momento real en que se registro; lo pone el servidor.",
+                    "type": "string",
+                    "example": "2026-10-28T21:30:00Z"
+                },
+                "sin_aplicar": {
+                    "description": "Lo que queda sin usar de este abono (parte del saldo disponible); se calcula.",
+                    "type": "number",
+                    "example": 100
+                },
+                "tipo_pago": {
+                    "description": "Metodo de pago: efectivo, tarjeta, qr o transferencia.",
+                    "type": "string",
+                    "example": "efectivo"
+                }
+            }
+        },
         "models.Adelanto": {
             "type": "object",
             "properties": {
@@ -16316,6 +17607,96 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.AlertaReservaInventario"
                     }
+                }
+            }
+        },
+        "models.CargoCliente": {
+            "type": "object",
+            "properties": {
+                "anulado": {
+                    "description": "Si el cargo fue anulado; un cargo anulado no cuenta en el saldo.",
+                    "type": "boolean",
+                    "example": false
+                },
+                "cliente_id": {
+                    "description": "ID del cliente que debe el cargo.",
+                    "type": "integer",
+                    "example": 7
+                },
+                "concepto": {
+                    "description": "Concepto legible del cargo.",
+                    "type": "string",
+                    "example": "Paquete Relax 4 sesiones"
+                },
+                "estado": {
+                    "description": "Estado derivado: PENDIENTE, PARCIAL o PAGADO; se calcula.",
+                    "type": "string",
+                    "enum": [
+                        "PENDIENTE",
+                        "PARCIAL",
+                        "PAGADO"
+                    ],
+                    "example": "PARCIAL"
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho: cuando ocurrio lo que se cobra.",
+                    "type": "string",
+                    "example": "2026-10-25T12:00:00Z"
+                },
+                "id": {
+                    "description": "ID del cargo.",
+                    "type": "integer",
+                    "example": 12
+                },
+                "local_id": {
+                    "description": "Local donde ocurrio el hecho (opcional).",
+                    "type": "integer",
+                    "example": 1
+                },
+                "monto": {
+                    "description": "Monto del cargo; puede ser 0 para un consumo que no se cobra.",
+                    "type": "number",
+                    "example": 1000
+                },
+                "motivo_anulacion": {
+                    "description": "Motivo de la anulacion.",
+                    "type": "string"
+                },
+                "pagado": {
+                    "description": "Cuanto de este cargo ya cubren los abonos aplicados.",
+                    "type": "number",
+                    "example": 400
+                },
+                "pendiente": {
+                    "description": "Lo que falta por cubrir (monto menos pagado); se calcula.",
+                    "type": "number",
+                    "example": 600
+                },
+                "plan_id": {
+                    "description": "Plan del que nace el cargo (opcional).",
+                    "type": "integer",
+                    "example": 21
+                },
+                "registrado_en": {
+                    "description": "Momento real en que se registro el cargo; lo pone el servidor.",
+                    "type": "string",
+                    "example": "2026-10-28T21:30:00Z"
+                },
+                "reserva_id": {
+                    "description": "Reserva de la que nace el cargo (opcional).",
+                    "type": "integer",
+                    "example": 44
+                },
+                "tipo": {
+                    "description": "Tipo del cargo: PAQUETE, SERVICIO, INSUMO u OTRO.",
+                    "type": "string",
+                    "enum": [
+                        "PAQUETE",
+                        "SERVICIO",
+                        "INSUMO",
+                        "OTRO"
+                    ],
+                    "example": "PAQUETE"
                 }
             }
         },
@@ -16633,6 +18014,48 @@ const docTemplate = `{
                 }
             }
         },
+        "models.CuentaCliente": {
+            "type": "object",
+            "properties": {
+                "abonos": {
+                    "description": "Abonos del cliente, del mas reciente al mas antiguo.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AbonoCliente"
+                    }
+                },
+                "cargos": {
+                    "description": "Cargos del cliente con su estado, del mas antiguo al mas nuevo.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CargoCliente"
+                    }
+                },
+                "cliente_id": {
+                    "description": "ID del cliente.",
+                    "type": "integer",
+                    "example": 7
+                },
+                "saldo": {
+                    "description": "Saldo: dinero disponible, lo que hay por pagar y la deuda real (por pagar menos disponible).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/cuenta.Saldo"
+                        }
+                    ]
+                },
+                "total_abonos": {
+                    "description": "Total de abonos activos y pagados.",
+                    "type": "number",
+                    "example": 500
+                },
+                "total_cargos": {
+                    "description": "Total de cargos no anulados.",
+                    "type": "number",
+                    "example": 1030
+                }
+            }
+        },
         "models.DetalleLocalFinanciero": {
             "type": "object",
             "properties": {
@@ -16677,6 +18100,46 @@ const docTemplate = `{
                     "description": "Subtotal de la linea.",
                     "type": "number",
                     "example": 500
+                }
+            }
+        },
+        "models.DeudorCliente": {
+            "type": "object",
+            "properties": {
+                "apellido": {
+                    "description": "Apellido del cliente.",
+                    "type": "string",
+                    "example": "Lopez"
+                },
+                "cliente_id": {
+                    "description": "ID del cliente.",
+                    "type": "integer",
+                    "example": 7
+                },
+                "deuda": {
+                    "description": "Lo que debe: cargos menos abonos; siempre mayor a 0 en este listado.",
+                    "type": "number",
+                    "example": 530
+                },
+                "nombre": {
+                    "description": "Nombre del cliente.",
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "numero_telefono": {
+                    "description": "Telefono del cliente.",
+                    "type": "string",
+                    "example": "70011223"
+                },
+                "total_abonos": {
+                    "description": "Total de abonos activos y pagados.",
+                    "type": "number",
+                    "example": 500
+                },
+                "total_cargos": {
+                    "description": "Total de cargos no anulados.",
+                    "type": "number",
+                    "example": 1030
                 }
             }
         },
@@ -17373,13 +18836,18 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.DetallePagoPG"
                     }
                 },
+                "es_abono": {
+                    "description": "Si es un abono a cuenta de un cliente (sin detalle de servicios) y no una venta de mostrador.",
+                    "type": "boolean",
+                    "example": false
+                },
                 "estado": {
                     "description": "Estado informativo del pago.",
                     "type": "string",
                     "example": "PENDIENTE"
                 },
                 "fecha_creacion": {
-                    "description": "Fecha de creacion del pago.",
+                    "description": "Fecha del hecho: cuando ocurrio el cobro. Puede ser anterior a registrado_en si se registro despues.",
                     "type": "string",
                     "example": "2026-06-03T10:00:00Z"
                 },
@@ -17422,6 +18890,11 @@ const docTemplate = `{
                     "description": "Primer producto del detalle, para mostrar un resumen sin cargar todas las lineas.",
                     "type": "string",
                     "example": "Limpieza facial"
+                },
+                "registrado_en": {
+                    "description": "Momento real en que se registro el pago en el sistema; lo pone el servidor y no se edita.",
+                    "type": "string",
+                    "example": "2026-06-04T21:30:00Z"
                 },
                 "subtotal": {
                     "description": "Subtotal del pago antes del descuento.",
@@ -17488,13 +18961,18 @@ const docTemplate = `{
                     "type": "number",
                     "example": 50
                 },
+                "es_abono": {
+                    "description": "Si es un abono a cuenta de un cliente (sin detalle de servicios) y no una venta de mostrador.",
+                    "type": "boolean",
+                    "example": false
+                },
                 "estado": {
                     "description": "Estado informativo del pago.",
                     "type": "string",
                     "example": "PENDIENTE"
                 },
                 "fecha_creacion": {
-                    "description": "Fecha de creacion del pago.",
+                    "description": "Fecha del hecho: cuando ocurrio el cobro. Puede ser anterior a registrado_en si se registro despues.",
                     "type": "string",
                     "example": "2026-06-03T10:00:00Z"
                 },
@@ -17537,6 +19015,11 @@ const docTemplate = `{
                     "description": "Primer producto del detalle, para mostrar un resumen sin cargar todas las lineas.",
                     "type": "string",
                     "example": "Limpieza facial"
+                },
+                "registrado_en": {
+                    "description": "Momento real en que se registro el pago en el sistema; lo pone el servidor y no se edita.",
+                    "type": "string",
+                    "example": "2026-06-04T21:30:00Z"
                 },
                 "subtotal": {
                     "description": "Subtotal del pago antes del descuento.",
@@ -18698,6 +20181,19 @@ const docTemplate = `{
                 "total_registros": {
                     "type": "integer",
                     "example": 2500
+                }
+            }
+        },
+        "pgsql.CobroResultado": {
+            "type": "object",
+            "properties": {
+                "codigo_pago": {
+                    "description": "CodigoPago del dinero nuevo que entro; vacio si no entro dinero.",
+                    "type": "string",
+                    "example": "PAGO-000123"
+                },
+                "plan": {
+                    "$ref": "#/definitions/cuenta.PlanCobro"
                 }
             }
         },

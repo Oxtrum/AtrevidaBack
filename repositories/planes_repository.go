@@ -32,6 +32,11 @@ type FiltroPlanes struct {
 	CursorEstadoRank     int
 	CursorFecha          time.Time
 	CursorID             int
+	// OrdenarPor es una clave de pgsql.PlanesOrdenables; manda sobre OrdenPrioridadEstado. Con orden pedido
+	// la paginacion avanza por Offset y no por el cursor por valor.
+	OrdenarPor string
+	OrdenDesc  bool
+	Offset     int
 }
 
 type CrearPlanInput struct {

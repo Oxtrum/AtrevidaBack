@@ -10,6 +10,7 @@ import (
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 )
 
 const (
@@ -47,6 +48,9 @@ type FiltroPlanes struct {
 	CursorEstadoRank     int
 	CursorFecha          time.Time
 	CursorID             int
+	OrdenarPor           string
+	OrdenDesc            bool
+	Offset               int
 }
 
 type PlanServicioInput struct {
@@ -97,6 +101,14 @@ func NewPlanesService(repo repository.PlanesRepository, combosRepo repository.Co
 }
 
 func (s *PlanesService) ListarPlanes(f FiltroPlanes) ([]models.PlanPG, error) {
+	if f.OrdenarPor != "" {
+		if _, ok := pgsqlrepo.PlanesOrdenables[f.OrdenarPor]; !ok {
+			return nil, fmt.Errorf("ordenar_por invalido: %w", ErrPlanInvalido)
+		}
+	}
+	if f.Offset < 0 {
+		return nil, fmt.Errorf("offset invalido: %w", ErrPlanInvalido)
+	}
 	planes, err := s.repo.ListPlanes(toRepositoryFiltroPlanes(f))
 	return planes, traducirErrorRepositorioPlan(err)
 }
@@ -116,6 +128,7 @@ func toRepositoryFiltroPlanes(f FiltroPlanes) repository.FiltroPlanes {
 		OrdenPrioridadEstado: f.OrdenPrioridadEstado,
 		PageLimit:            f.PageLimit, CursorSet: f.CursorSet, CursorEstadoRank: f.CursorEstadoRank,
 		CursorFecha: f.CursorFecha, CursorID: f.CursorID,
+		OrdenarPor: f.OrdenarPor, OrdenDesc: f.OrdenDesc, Offset: f.Offset,
 	}
 }
 

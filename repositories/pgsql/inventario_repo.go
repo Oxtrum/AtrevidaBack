@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 
 	"github.com/jmoiron/sqlx"
@@ -407,8 +408,29 @@ func movimientosWhere(f repository.FiltroMovimientosInventario, withCursor bool)
 	return strings.Join(conds, " AND "), args
 }
 
-func (r *InventarioRepo) ListMovimientos(f repository.FiltroMovimientosInventario) ([]models.MovimientoInventario, error) {
-	where, args := movimientosWhere(f, true)
+// MovimientosOrdenables lista las columnas por las que se puede ordenar el kardex (ordenar_por).
+// La clave es el nombre del campo en la respuesta; el texto ignora mayusculas y acentos.
+var MovimientosOrdenables = pagination.Columns{
+	"creado_en":        "m.creado_en",
+	"item_nombre":      textoOrden("i.nombre"),
+	"local_nombre":     textoOrden("l.nombre"),
+	"tipo":             "m.tipo",
+	"cantidad":         "m.cantidad",
+	"stock_resultante": "m.stock_resultante",
+	"costo_unitario":   "m.costo_unitario",
+	"motivo":           textoOrden("m.motivo"),
+	"usuario_nombre":   textoOrden("m.usuario_nombre"),
+}
+
+func movimientosOrderClause(f repository.FiltroMovimientosInventario) string {
+	return pagination.Sort{Key: f.OrdenarPor, Desc: f.OrdenDesc}.OrderBy(MovimientosOrdenables, "m.creado_en DESC, m.id DESC", "m.id")
+}
+
+// buildMovimientosQuery arma el listado del kardex. Sin orden pedido pagina por valor (creado_en, id);
+// con orden pedido pagina por desplazamiento.
+func buildMovimientosQuery(f repository.FiltroMovimientosInventario) (string, []interface{}) {
+	ordenado := f.OrdenarPor != ""
+	where, args := movimientosWhere(f, !ordenado)
 	limit := f.PageLimit
 	if limit <= 0 {
 		limit = f.Limit
@@ -417,9 +439,12 @@ func (r *InventarioRepo) ListMovimientos(f repository.FiltroMovimientosInventari
 		}
 	}
 	args = append(args, limit)
-
-	movs := []models.MovimientoInventario{}
-	err := r.db.Select(&movs, fmt.Sprintf(`
+	pageClause := fmt.Sprintf("LIMIT $%d", len(args))
+	if ordenado && f.PageLimit > 0 && f.Offset > 0 {
+		args = append(args, f.Offset)
+		pageClause += fmt.Sprintf(" OFFSET $%d", len(args))
+	}
+	query := fmt.Sprintf(`
 		SELECT m.id, m.item_id, i.nombre AS item_nombre, m.local_id, l.nombre AS local_nombre, m.tipo,
 		       m.cantidad, m.stock_resultante, m.costo_unitario, m.reserva_id, m.compra_id, m.motivo,
 		       m.usuario_nombre, m.creado_en
@@ -427,8 +452,15 @@ func (r *InventarioRepo) ListMovimientos(f repository.FiltroMovimientosInventari
 		JOIN inventario_items i ON i.id = m.item_id
 		JOIN locales l ON l.id = m.local_id
 		WHERE %s
-		ORDER BY m.creado_en DESC, m.id DESC
-		LIMIT $%d`, where, len(args)), args...)
+		ORDER BY %s
+		%s`, where, movimientosOrderClause(f), pageClause)
+	return query, args
+}
+
+func (r *InventarioRepo) ListMovimientos(f repository.FiltroMovimientosInventario) ([]models.MovimientoInventario, error) {
+	query, args := buildMovimientosQuery(f)
+	movs := []models.MovimientoInventario{}
+	err := r.db.Select(&movs, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error al listar movimientos de inventario: %w", err)
 	}

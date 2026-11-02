@@ -16,6 +16,8 @@ type Container struct {
 	LocalesPG         *services.LocalesService
 	PagosPG           *services.PagosService
 	PlanesPG          *services.PlanesService
+	// Cuenta maneja cargos, abonos y aplicaciones de la cuenta del cliente.
+	Cuenta *services.CuentaService
 
 	// Trastienda: inventario y finanzas
 	Configuracion     *services.ConfiguracionService

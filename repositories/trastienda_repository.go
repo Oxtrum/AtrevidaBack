@@ -78,6 +78,11 @@ type FiltroMovimientosInventario struct {
 	CursorSet  bool
 	CursorTime time.Time
 	CursorID   int
+	// OrdenarPor es una clave de pgsql.MovimientosOrdenables. Con orden pedido la paginacion avanza por
+	// Offset y no por CursorTime/CursorID.
+	OrdenarPor string
+	OrdenDesc  bool
+	Offset     int
 }
 
 // FiltroMovimientosFinancieros filtra egresos e ingresos manuales.

@@ -2,11 +2,13 @@ package services
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"atrevida-agenda-api/internal/telefono"
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 )
 
 type ClientesService struct {
@@ -28,9 +30,20 @@ type FiltroClientes struct {
 	CursorApellido string
 	CursorNombre   string
 	CursorID       int
+	OrdenarPor     string
+	OrdenDesc      bool
+	Offset         int
 }
 
 func (s *ClientesService) GetClientes(filtro FiltroClientes) ([]models.ClientePG, error) {
+	if filtro.OrdenarPor != "" {
+		if _, ok := pgsqlrepo.ClientesOrdenables[filtro.OrdenarPor]; !ok {
+			return nil, errors.New("ordenar_por invalido")
+		}
+	}
+	if filtro.Offset < 0 {
+		return nil, errors.New("offset invalido")
+	}
 	return s.repo.GetClientes(toRepositoryFiltroClientes(filtro))
 }
 
@@ -47,6 +60,7 @@ func toRepositoryFiltroClientes(filtro FiltroClientes) repository.FiltroClientes
 		Busqueda:       strings.TrimSpace(filtro.Busqueda),
 		PageLimit:      filtro.PageLimit, CursorSet: filtro.CursorSet,
 		CursorApellido: filtro.CursorApellido, CursorNombre: filtro.CursorNombre, CursorID: filtro.CursorID,
+		OrdenarPor: filtro.OrdenarPor, OrdenDesc: filtro.OrdenDesc, Offset: filtro.Offset,
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 )
 
@@ -25,19 +26,40 @@ func NewPlanesRepo(db *sqlx.DB) *PlanesRepo {
 	return &PlanesRepo{db: db}
 }
 
-func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, error) {
+// PlanesOrdenables lista las columnas por las que se puede ordenar el listado de planes (ordenar_por).
+// La clave es el nombre del campo en la respuesta; el texto ignora mayusculas y acentos.
+var PlanesOrdenables = pagination.Columns{
+	"codigo":             "p.codigo",
+	"cliente":            textoOrden("p.cliente"),
+	"combo_nombre_texto": textoOrden("p.combo_nombre_texto"),
+	"local_nombre_texto": textoOrden("p.local_nombre_texto"),
+	"precio_total":       "p.precio_total",
+	"estado":             "p.estado",
+	"estado_cobranza":    "p.estado_cobranza",
+	"creado_en":          "p.creado_en",
+}
+
+// buildPlanesQuery arma el listado. Sin orden pedido pagina por valor (con la prioridad de estado si se
+// pidio); con orden pedido, que manda sobre la prioridad, pagina por desplazamiento.
+func buildPlanesQuery(f repository.FiltroPlanes) (string, []interface{}) {
 	conditions, args := planConditions(f)
 	idx := len(args) + 1
-	if f.CursorSet {
+	ordenado := f.OrdenarPor != ""
+	if f.CursorSet && !ordenado {
 		condition, cursorArgs, nextIndex := planCursorCondition(f, idx)
 		conditions = append(conditions, condition)
 		args = append(args, cursorArgs...)
 		idx = nextIndex
 	}
-	limitClause := ""
+	pageClause := ""
 	if f.PageLimit > 0 {
-		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		pageClause = fmt.Sprintf(" LIMIT $%d", idx)
 		args = append(args, f.PageLimit)
+		idx++
+		if ordenado && f.Offset > 0 {
+			pageClause += fmt.Sprintf(" OFFSET $%d", idx)
+			args = append(args, f.Offset)
+		}
 	}
 
 	query := fmt.Sprintf(`
@@ -54,7 +76,12 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 		FROM planes p
 		WHERE %s
 		ORDER BY %s%s
-	`, strings.Join(conditions, " AND "), planOrderClause(f), limitClause)
+	`, strings.Join(conditions, " AND "), planOrderClause(f), pageClause)
+	return query, args
+}
+
+func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, error) {
+	query, args := buildPlanesQuery(f)
 
 	var planes []models.PlanPG
 	if err := r.db.SelectContext(queryContext(f.Context), &planes, query, args...); err != nil {
@@ -89,6 +116,9 @@ func planStateRankSQL() string {
 }
 
 func planOrderClause(f repository.FiltroPlanes) string {
+	if f.OrdenarPor != "" {
+		return pagination.Sort{Key: f.OrdenarPor, Desc: f.OrdenDesc}.OrderBy(PlanesOrdenables, "p.creado_en DESC, p.id DESC", "p.id")
+	}
 	if f.OrdenPrioridadEstado {
 		return planStateRankSQL() + ", p.creado_en DESC, p.id DESC"
 	}

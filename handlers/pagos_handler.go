@@ -8,6 +8,7 @@ import (
 
 	"atrevida-agenda-api/models"
 	"atrevida-agenda-api/pagination"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -52,6 +53,9 @@ type crearPagoRequest struct {
 	Activo *bool `json:"activo" example:"true"`
 	// ID opcional de la reserva que se cobra con este pago; una reserva admite un solo cobro activo.
 	ReservaID *int `json:"reserva_id,omitempty" example:"44"`
+	// Fecha del hecho (YYYY-MM-DD): cuando ocurrio el cobro. Opcional; sin ella es ahora. No puede ser futura ni
+	// anterior a cobros.dias_maximo_fecha_pasada dias (0 = sin limite). El momento real del registro queda en registrado_en.
+	FechaHecho *string `json:"fecha_hecho,omitempty" example:"2026-10-25"`
 	// Nombre completo del cajero actual; si se omite o viene vacio se usa el username del token.
 	Nombre *string `json:"nombre,omitempty" example:"Juan Perez"`
 	// Detalle de servicios cobrados.
@@ -188,12 +192,15 @@ func (h *Container) GetVentasDetalle(c *gin.Context) {
 // @Param id_cajero_modificacion query int false "ID del cajero que modifico el pago por ultima vez" example(2)
 // @Param nombre_cajero_modificacion query string false "Busqueda parcial por nombre del cajero que modifico el pago por ultima vez" example(Ana)
 // @Param username_cajero_modificacion query string false "Busqueda parcial por username del cajero que modifico el pago por ultima vez" example(ana)
+// @Param ordenar_por query string false "Campo por el que ordenar; sin el, fecha_creacion descendente" Enums(codigo_pago,fecha_creacion,cliente_nit,cliente_nombre,local_nombre,primer_producto,cantidad_productos,subtotal,descuento,total_final,tipo_pago,estado,nombre_cajero) example(total_final)
+// @Param sentido query string false "Sentido del orden; solo con ordenar_por, por defecto asc" Enums(asc,desc) example(desc)
 // @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
-// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron"
 // @Param include_total query bool false "Incluye el total de paginas" example(false)
 // @Description Cada pago incluye primer_producto y cantidad_productos como resumen del detalle, sin cargar todas sus lineas. El detalle completo se consulta por codigo.
+// @Description Con ordenar_por el orden lo resuelve el servidor sobre todo el resultado, no solo la pagina visible: los vacios quedan al final y los empates se desempatan por id. Cambiar ordenar_por o sentido invalida el cursor, asi que el cliente debe volver a la primera pagina.
 // @Success 200 {object} utils.APIResponse{data=pagoListResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos [get]
@@ -226,6 +233,10 @@ func (h *Container) GetPagos(c *gin.Context) {
 	if !ok {
 		return
 	}
+	sort, ok := parseSort(c, pgsqlrepo.PagosOrdenables)
+	if !ok {
+		return
+	}
 	filters := pagoFiltrosResponse{
 		Busqueda:   strings.TrimSpace(c.Query("busqueda")),
 		CodigoPago: strings.TrimSpace(c.Query("codigo_pago")), LocalID: localID,
@@ -238,7 +249,15 @@ func (h *Container) GetPagos(c *gin.Context) {
 		UsernameCajeroModificacion: strings.TrimSpace(c.Query("username_cajero_modificacion")),
 	}
 	var after timeCursor
-	if !decodePaginationCursor(c, page, "pagos", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.CreatedAt.IsZero())) {
+	var afterOffset pagination.OffsetPosition
+	if sort.Active() {
+		// Con orden pedido el cursor cuenta filas entregadas; el orden va en los filtros para que un cursor
+		// de otro orden se rechace.
+		filters.OrdenarPor, filters.Sentido = sort.Key, sort.Direction()
+		if afterOffset, ok = decodeOffsetCursor(c, page, "pagos", filters); !ok {
+			return
+		}
+	} else if !decodePaginationCursor(c, page, "pagos", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.CreatedAt.IsZero())) {
 		if !c.Writer.Written() {
 			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
 		}
@@ -264,7 +283,8 @@ func (h *Container) GetPagos(c *gin.Context) {
 		IDCajeroModificacion:       idCajeroModificacion,
 		NombreCajeroModificacion:   c.Query("nombre_cajero_modificacion"),
 		UsernameCajeroModificacion: c.Query("username_cajero_modificacion"),
-		PageLimit:                  page.QueryLimit(), CursorSet: page.Cursor != "", CursorFecha: after.CreatedAt, CursorID: after.ID,
+		PageLimit:                  page.QueryLimit(), CursorSet: page.Cursor != "" && !sort.Active(), CursorFecha: after.CreatedAt, CursorID: after.ID,
+		OrdenarPor: sort.Key, OrdenDesc: sort.Desc, Offset: afterOffset.Offset,
 	}
 
 	pagos, err := h.PagosPG.GetPagos(filtro)
@@ -273,6 +293,9 @@ func (h *Container) GetPagos(c *gin.Context) {
 		return
 	}
 	pagos, metadata, err := pagination.Build(pagos, page, "pagos", filters, func(item models.PagoPG) any {
+		if sort.Active() {
+			return pagination.OffsetPosition{Offset: afterOffset.Offset + page.Limit}
+		}
 		return timeCursor{CreatedAt: item.FechaCreacion, ID: item.ID}
 	})
 	if err != nil {
@@ -282,6 +305,7 @@ func (h *Container) GetPagos(c *gin.Context) {
 	if includeTotal {
 		filtro.PageLimit = 0
 		filtro.CursorSet = false
+		filtro.Offset = 0
 		count, countErr := h.PagosPG.CountPagos(filtro)
 		if countErr != nil {
 			utils.RespondError(c, statusPagoError(countErr), countErr.Error())
@@ -343,7 +367,7 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param payload body crearPagoRequest true "Datos completos del pago y su detalle"
 // @Success 201 {object} utils.APIResponse{data=pagoCreatedResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Referencia no encontrada: local, cliente o servicio invalido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
@@ -382,6 +406,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 		Estado:        stringValueRequired(req.Estado),
 		Activo:        boolValueRequired(req.Activo),
 		ReservaID:     req.ReservaID,
+		FechaHecho:    stringValueRequired(req.FechaHecho),
 		Cajero:        cajero,
 		Detalle:       detalle,
 	})
@@ -406,7 +431,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 // @Param codigo_pago path string true "Codigo publico del pago" example(PAGO-000001)
 // @Param payload body actualizarPagoRequest true "Campos base a actualizar y/o detalle a sincronizar"
 // @Success 200 {object} utils.APIResponse{data=messageResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 404 {object} utils.APIResponse "Pago no encontrado"
 // @Failure 409 {object} utils.APIResponse "Conflicto: no se puede modificar un pago en estado PAGADO"

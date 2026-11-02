@@ -108,6 +108,15 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/clientes/:id", h.PatchCliente)
 		bd.DELETE("/clientes/:id", h.DeleteCliente)
 
+		// Cuenta del cliente: cargos (lo que debe), abonos (lo que entrega) y su reparto.
+		bd.GET("/clientes/:id/cuenta", h.AuthRequired, h.GetCuentaCliente)
+		bd.POST("/clientes/:id/cargos", h.AuthRequired, h.PostCargoCliente)
+		bd.POST("/clientes/:id/cobros", h.AuthRequired, h.PostCobroCliente)
+		bd.POST("/clientes/:id/abonos", h.AuthRequired, h.PostAbonoCliente)
+		bd.POST("/clientes/:id/abonos/:codigo_pago/aplicaciones", h.AuthRequired, h.PostAplicacionesAbono)
+		bd.POST("/cargos/:id/anular", h.AuthRequired, h.GerenciaRequired, h.PostAnularCargo)
+		bd.GET("/cuentas/deudores", h.AuthRequired, h.GetDeudores)
+
 		bd.GET("/servicios", h.GetServiciosPG)
 		bd.GET("/servicios/:id", h.GetServicioPGByID)
 		bd.POST("/servicios", h.CreateServicio)
@@ -146,6 +155,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.DELETE("/locales/horarios/:id", h.DeleteHorario)
 		bd.POST("/locales", h.PostLocal)
 		bd.PATCH("/locales/:id", h.PatchLocal)
+		bd.PUT("/locales/:id/espacios", h.AuthRequired, h.GerenciaRequired, h.PutLocalEspacios)
 		bd.DELETE("/locales/:id", h.DeleteLocal)
 
 		bd.GET("/notificaciones/reservas", h.AuthRequired, h.GetNotificacionesReservasPG)

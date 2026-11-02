@@ -94,6 +94,9 @@ func Build() (*gin.Engine, error) {
 	reservasPGService.SetInventarioConsumo(inventarioConsumo)
 	localesPGService := services.NewLocalesService(localesPGRepo)
 	pagosPGService := services.NewPagosService(pagosPGRepo)
+	pagosPGService.Config = configuracionService
+	cuentaService := services.NewCuentaService(pgsqlrepo.NewCuentaRepo(pgDB))
+	cuentaService.Config = configuracionService
 	planesPGService := services.NewPlanesService(planesPGRepo, combosPGRepo)
 
 	h := handlers.NewContainer(
@@ -109,6 +112,7 @@ func Build() (*gin.Engine, error) {
 		pagosPGService,
 		planesPGService,
 	)
+	h.Cuenta = cuentaService
 	h.Configuracion = configuracionService
 	h.Inventario = inventarioService
 	h.Finanzas = finanzasService

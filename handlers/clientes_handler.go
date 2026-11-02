@@ -7,6 +7,7 @@ import (
 
 	"atrevida-agenda-api/models"
 	"atrevida-agenda-api/pagination"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -52,11 +53,13 @@ type actualizarClienteRequest struct {
 // @Param apellido query string false "Busqueda parcial por apellido" example(Lopez)
 // @Param numero_telefono query string false "Busqueda por telefono; acepta 70011223, 59170011223 o +591 700-11223" example(+59170011223)
 // @Param busqueda query string false "Busqueda parcial por nombre, apellido o telefono" example(Maria Lopez)
+// @Param ordenar_por query string false "Campo por el que ordenar; sin el, apellido y nombre ascendente" Enums(id,nombre,apellido,numero_telefono,ci,nit) example(nombre)
+// @Param sentido query string false "Sentido del orden; solo con ordenar_por, por defecto asc" Enums(asc,desc) example(asc)
 // @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
-// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron"
 // @Param include_total query bool false "Calcula el total exacto de coincidencias" example(false)
 // @Success 200 {object} utils.APIResponse{data=clienteListResponse}
-// @Failure 400 {object} utils.APIResponse "Paginacion o cursor invalido"
+// @Failure 400 {object} utils.APIResponse "Paginacion o cursor invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/clientes [get]
 func (h *Container) GetClientes(c *gin.Context) {
@@ -73,22 +76,37 @@ func (h *Container) GetClientes(c *gin.Context) {
 	if !ok {
 		return
 	}
+	sort, ok := parseSort(c, pgsqlrepo.ClientesOrdenables)
+	if !ok {
+		return
+	}
 	serviceFilter := services.FiltroClientes{
 		Context: c.Request.Context(), Nombre: c.Query("nombre"), Apellido: c.Query("apellido"),
 		NumeroTelefono: c.Query("numero_telefono"), Busqueda: c.Query("busqueda"),
 	}
 	var after clientCursor
-	if !decodePaginationCursor(c, page, "clientes", filters, &after) || (page.Cursor != "" && after.ID < 1) {
-		if !c.IsAborted() && !c.Writer.Written() {
-			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+	var afterOffset pagination.OffsetPosition
+	if sort.Active() {
+		// Con orden pedido el cursor cuenta filas entregadas; el orden va en los filtros del cursor.
+		filters.OrdenarPor, filters.Sentido = sort.Key, sort.Direction()
+		serviceFilter.OrdenarPor, serviceFilter.OrdenDesc = sort.Key, sort.Desc
+		if afterOffset, ok = decodeOffsetCursor(c, page, "clientes", filters); !ok {
+			return
 		}
-		return
+		serviceFilter.Offset = afterOffset.Offset
+	} else {
+		if !decodePaginationCursor(c, page, "clientes", filters, &after) || (page.Cursor != "" && after.ID < 1) {
+			if !c.IsAborted() && !c.Writer.Written() {
+				utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+			}
+			return
+		}
+		serviceFilter.CursorSet = page.Cursor != ""
+		serviceFilter.CursorApellido = after.LastName
+		serviceFilter.CursorNombre = after.Name
+		serviceFilter.CursorID = after.ID
 	}
 	serviceFilter.PageLimit = page.QueryLimit()
-	serviceFilter.CursorSet = page.Cursor != ""
-	serviceFilter.CursorApellido = after.LastName
-	serviceFilter.CursorNombre = after.Name
-	serviceFilter.CursorID = after.ID
 	clientes, err := h.ClientesPG.GetClientes(serviceFilter)
 	if err != nil {
 		utils.RespondError(c, http.StatusInternalServerError, err.Error())
@@ -107,6 +125,9 @@ func (h *Container) GetClientes(c *gin.Context) {
 		totalRegistros = &count
 	}
 	clientes, metadata, err := pagination.Build(clientes, page, "clientes", filters, func(item models.ClientePG) any {
+		if sort.Active() {
+			return pagination.OffsetPosition{Offset: afterOffset.Offset + page.Limit}
+		}
 		return clientCursor{LastName: item.Apellido, Name: item.Nombre, ID: item.ID}
 	})
 	if err != nil {

@@ -40,6 +40,11 @@ type FiltroReservasPG struct {
 	CursorFecha        time.Time
 	CursorHora         string
 	CursorID           int
+	// OrdenarPor es una clave de pgsql.ReservasOrdenables; manda sobre OrdenCronologico. Con orden pedido
+	// la paginacion avanza por Offset y no por el cursor por valor.
+	OrdenarPor string
+	OrdenDesc  bool
+	Offset     int
 }
 
 type CreateReservaInput struct {
