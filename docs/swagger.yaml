@@ -3297,7 +3297,7 @@ definitions:
         type: integer
       vincular_mismo_telefono:
         description: Si es true, tambien se enlazan las demas reservas sin cliente
-          que tengan exactamente el mismo telefono.
+          con exactamente el mismo telefono y el mismo nombre escrito.
         example: true
         type: boolean
     type: object
@@ -12380,12 +12380,13 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Enlaza una reserva que no tiene cliente con un cliente registrado
+      description: 'Enlaza una reserva que no tiene cliente con un cliente registrado
         elegido por el cajero. Con vincular_mismo_telefono tambien enlaza las demas
-        reservas sin cliente que tengan exactamente ese telefono E.164. Una reserva
-        que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a
-        ese cliente. Devuelve cuantas reservas quedaron enlazadas. Requiere token
-        Bearer.
+        reservas sin cliente que tengan exactamente ese telefono E.164 y el mismo
+        nombre escrito (sin distinguir mayusculas ni espacios sobrantes): un telefono
+        compartido por varias personas no mezcla sus reservas. Una reserva que ya
+        tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente.
+        Devuelve cuantas reservas quedaron enlazadas. Requiere token Bearer.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer

@@ -371,3 +371,46 @@ func TestTrastiendaCuentaCobroRechazaCargosAjenosOYaPagados(t *testing.T) {
 		t.Fatal("un cargo que no es del cliente no se cobra")
 	}
 }
+
+// Tres personas comparten un telefono: vincular una reserva "con las demas del telefono" solo debe alcanzar a las
+// que estan escritas con el mismo nombre; las de otra persona se quedan por vincular.
+func TestTrastiendaCuentaVincularMismoTelefonoRespetaElNombre(t *testing.T) {
+	e := setupCuenta(t)
+	telefono := "+5917" + e.sufijo[len(e.sufijo)-7:]
+	nueva := func(nombre string) int {
+		var id int
+		if err := e.db.Get(&id, `
+			INSERT INTO reservas (local_id, local_nombre, tipo_espacio, fecha, hora_desde, hora_hasta, cliente, estado,
+				servicio_nombre, telefono_e164, numero_telefono)
+			VALUES ($1, $2, 'M', CURRENT_DATE + 1, '10:00', '11:00', $3, 'PENDIENTE', 'masaje', $4, $4) RETURNING id`,
+			e.localID, e.localName, nombre, telefono); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	maria1 := nueva("Maria Lopez")
+	maria2 := nueva("  maria lopez ")
+	pedro := nueva("Pedro Pascal")
+
+	repo := pgsqlrepo.NewReservasVinculoRepo(e.db)
+	n, err := repo.Vincular(maria1, e.clienteID, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("vinculadas = %d, quiero 2 (las dos de Maria)", n)
+	}
+	cliente := func(id int) *int {
+		var c *int
+		if err := e.db.Get(&c, `SELECT cliente_id FROM reservas WHERE id = $1`, id); err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	if c := cliente(maria2); c == nil || *c != e.clienteID {
+		t.Fatalf("la otra reserva de Maria debe quedar vinculada, cliente_id=%v", c)
+	}
+	if c := cliente(pedro); c != nil {
+		t.Fatalf("la reserva de Pedro comparte telefono pero no debe vincularse, cliente_id=%v", *c)
+	}
+}

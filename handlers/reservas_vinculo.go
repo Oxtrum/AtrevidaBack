@@ -14,7 +14,7 @@ import (
 type vincularReservaRequest struct {
 	// Cliente registrado al que se enlaza la reserva (requerido).
 	ClienteID int `json:"cliente_id" example:"12"`
-	// Si es true, tambien se enlazan las demas reservas sin cliente que tengan exactamente el mismo telefono.
+	// Si es true, tambien se enlazan las demas reservas sin cliente con exactamente el mismo telefono y el mismo nombre escrito.
 	VincularMismoTelefono bool `json:"vincular_mismo_telefono" example:"true"`
 }
 
@@ -89,7 +89,7 @@ func (h *Container) GetSugerenciasClienteReserva(c *gin.Context) {
 
 // PatchReservaCliente godoc
 // @Summary Vincular una reserva con un cliente
-// @Description Enlaza una reserva que no tiene cliente con un cliente registrado elegido por el cajero. Con vincular_mismo_telefono tambien enlaza las demas reservas sin cliente que tengan exactamente ese telefono E.164. Una reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente. Devuelve cuantas reservas quedaron enlazadas. Requiere token Bearer.
+// @Description Enlaza una reserva que no tiene cliente con un cliente registrado elegido por el cajero. Con vincular_mismo_telefono tambien enlaza las demas reservas sin cliente que tengan exactamente ese telefono E.164 y el mismo nombre escrito (sin distinguir mayusculas ni espacios sobrantes): un telefono compartido por varias personas no mezcla sus reservas. Una reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente. Devuelve cuantas reservas quedaron enlazadas. Requiere token Bearer.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json

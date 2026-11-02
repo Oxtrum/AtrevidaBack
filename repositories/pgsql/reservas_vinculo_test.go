@@ -30,6 +30,14 @@ func TestVincularSoloTocaReservasSinCliente(t *testing.T) {
 	}
 }
 
+// Un telefono lo pueden compartir varias personas (familia, pareja): el vinculo masivo solo debe alcanzar a las
+// reservas escritas con el mismo nombre, no a todas las del telefono.
+func TestVincularMismoTelefonoExigeElMismoNombre(t *testing.T) {
+	if !strings.Contains(sqlVincularMismoTelefono, "LOWER(TRIM(cliente)) = $3") {
+		t.Fatalf("el vinculo masivo debe comparar tambien el nombre escrito en la reserva: %s", sqlVincularMismoTelefono)
+	}
+}
+
 func TestPorVincularListaSoloReservasVigentesSinCliente(t *testing.T) {
 	for _, parte := range []string{"cliente_id IS NULL", "activo = TRUE", "RECHAZADO"} {
 		if !strings.Contains(sqlReservasPorVincular, parte) {

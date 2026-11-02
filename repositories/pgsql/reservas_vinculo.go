@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 
@@ -19,14 +20,15 @@ const (
 
 	sqlClienteExiste = `SELECT EXISTS (SELECT 1 FROM clientes WHERE id = $1)`
 
-	sqlReservaParaVincular = `SELECT cliente_id, telefono_e164 FROM reservas WHERE id = $1 FOR UPDATE`
+	sqlReservaParaVincular = `SELECT cliente_id, telefono_e164, COALESCE(cliente, '') AS cliente FROM reservas WHERE id = $1 FOR UPDATE`
 
 	// Solo reservas sin cliente: una ya enlazada no se reasigna porque sus cargos pertenecen a ese cliente.
 	sqlVincularReserva = `UPDATE reservas SET cliente_id = $2, actualizado_en = NOW()
 		WHERE id = $1 AND cliente_id IS NULL`
 
+	// Un telefono lo pueden compartir varias personas: ademas del telefono exacto se exige el mismo nombre escrito.
 	sqlVincularMismoTelefono = `UPDATE reservas SET cliente_id = $2, actualizado_en = NOW()
-		WHERE cliente_id IS NULL AND telefono_e164 = $1`
+		WHERE cliente_id IS NULL AND telefono_e164 = $1 AND LOWER(TRIM(cliente)) = $3`
 
 	sqlContarPorVincular = `SELECT COUNT(*) FROM reservas
 		WHERE cliente_id IS NULL AND activo = TRUE AND COALESCE(estado, '') <> 'RECHAZADO'`
@@ -108,7 +110,7 @@ func (r *ReservasVinculoRepo) Sugerencias(reservaID int) ([]models.ClienteSugeri
 }
 
 // Vincular enlaza la reserva con el cliente. Con mismoTelefono tambien enlaza las demas reservas sin cliente
-// que tengan exactamente ese telefono. Devuelve cuantas reservas quedaron enlazadas.
+// que tengan exactamente ese telefono y el mismo nombre escrito (sin distinguir mayusculas ni espacios sobrantes). Devuelve cuantas reservas quedaron enlazadas.
 func (r *ReservasVinculoRepo) Vincular(reservaID, clienteID int, mismoTelefono bool) (int, error) {
 	tx, err := r.db.Beginx()
 	if err != nil {
@@ -119,6 +121,7 @@ func (r *ReservasVinculoRepo) Vincular(reservaID, clienteID int, mismoTelefono b
 	var actual struct {
 		ClienteID    *int    `db:"cliente_id"`
 		TelefonoE164 *string `db:"telefono_e164"`
+		Cliente      string  `db:"cliente"`
 	}
 	if err := tx.Get(&actual, sqlReservaParaVincular, reservaID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -144,8 +147,8 @@ func (r *ReservasVinculoRepo) Vincular(reservaID, clienteID int, mismoTelefono b
 	}
 	vinculadas, _ := res.RowsAffected()
 
-	if mismoTelefono && actual.TelefonoE164 != nil && *actual.TelefonoE164 != "" {
-		res, err := tx.Exec(sqlVincularMismoTelefono, *actual.TelefonoE164, clienteID)
+	if nombre := strings.ToLower(strings.TrimSpace(actual.Cliente)); mismoTelefono && actual.TelefonoE164 != nil && *actual.TelefonoE164 != "" && nombre != "" {
+		res, err := tx.Exec(sqlVincularMismoTelefono, *actual.TelefonoE164, clienteID, nombre)
 		if err != nil {
 			return 0, fmt.Errorf("no se pudieron vincular las reservas con el mismo telefono: %w", err)
 		}
