@@ -281,6 +281,8 @@ type ReservaPG struct {
 	HoraDesde          string    `db:"hora_desde"` // TIME → string "09:00:00"
 	HoraHasta          string    `db:"hora_hasta"`
 	Cliente            string    `db:"cliente"`
+	// ClienteID es el cliente registrado al que pertenece la reserva; nil si esta por vincular.
+	ClienteID          *int      `db:"cliente_id"`
 	Estado             *string   `db:"estado"`
 	NumeroTelefono     *string   `db:"numero_telefono"`
 	TelefonoE164       *string   `db:"telefono_e164"`

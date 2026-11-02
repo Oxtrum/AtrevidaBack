@@ -13,6 +13,8 @@ type Container struct {
 	CombosPG          *services.CombosService
 	PaquetesPG        *services.PaquetesService
 	ReservasPG        *services.ReservasPGService
+	// ReservasVinculo enlaza reservas con clientes registrados (reservas por vincular).
+	ReservasVinculo *services.ReservasVinculoService
 	LocalesPG         *services.LocalesService
 	PagosPG           *services.PagosService
 	PlanesPG          *services.PlanesService

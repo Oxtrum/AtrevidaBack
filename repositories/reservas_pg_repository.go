@@ -54,6 +54,8 @@ type CreateReservaInput struct {
 	HoraDesde          string
 	HoraHasta          string
 	Cliente            string
+	// ClienteID enlaza la reserva con un cliente registrado; nil la deja por vincular.
+	ClienteID          *int
 	Estado             string
 	NumeroTelefono     string
 	TelefonoE164       *string

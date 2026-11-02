@@ -22,7 +22,20 @@ type ReservasPGService struct {
 	// consumo conecta con el inventario (insumos por servicio). Opcional: si es nil
 	// las reservas funcionan igual que antes, sin avisos ni descuentos de stock.
 	consumo *InventarioConsumo
+	// clientes enlaza las reservas con clientes registrados. Opcional: si es nil no se valida ni se vincula.
+	clientes ReservaClientes
 }
+
+// ReservaClientes es lo que la reserva necesita saber de los clientes registrados.
+type ReservaClientes interface {
+	// IDsPorTelefono devuelve los clientes cuyo telefono E.164 es exactamente ese.
+	IDsPorTelefono(e164 string) ([]int, error)
+	// Existe indica si el cliente existe.
+	Existe(id int) (bool, error)
+}
+
+// SetClientes habilita el enlace de reservas con clientes registrados (ver reservas_cliente.go).
+func (s *ReservasPGService) SetClientes(c ReservaClientes) { s.clientes = c }
 
 // SetInventarioConsumo habilita la integracion con inventario (ver inventario_consumo.go).
 func (s *ReservasPGService) SetInventarioConsumo(c *InventarioConsumo) { s.consumo = c }
@@ -506,6 +519,8 @@ type ReservaSimple struct {
 	HoraDesde          string   `json:"hora_desde" example:"09:00"`
 	HoraHasta          string   `json:"hora_hasta" example:"10:00"`
 	Cliente            string   `json:"cliente" example:"Maria Lopez"`
+	// ClienteID es el cliente registrado dueño de la reserva; ausente si esta por vincular.
+	ClienteID          *int     `json:"cliente_id,omitempty" example:"12"`
 	Estado             *string  `json:"estado,omitempty" example:"AGENDADO"`
 	NumeroTelefono     *string  `json:"numero_telefono,omitempty" example:"+59170011223"`
 	TelefonoE164       *string  `json:"telefono_e164,omitempty" example:"+59170011223"`
@@ -768,6 +783,7 @@ func reservaSimpleDesdePG(rv models.ReservaPGCompleta) ReservaSimple {
 		HoraDesde:          formatHoraService(rv.HoraDesde),
 		HoraHasta:          formatHoraService(rv.HoraHasta),
 		Cliente:            rv.Cliente,
+		ClienteID:          rv.ClienteID,
 		Estado:             rv.Estado,
 		NumeroTelefono:     rv.NumeroTelefono,
 		TelefonoE164:       rv.TelefonoE164,
@@ -1044,6 +1060,8 @@ type CrearReservaPGInput struct {
 	HoraHasta          string
 	Tipo               string
 	Cliente            string
+	// ClienteID lo elige el panel interno. El formulario publico no lo manda: se vincula solo por telefono exacto y unico.
+	ClienteID          *int
 	Telefono           string
 	TelefonoE164       *string
 	Estado             string
@@ -1253,7 +1271,10 @@ func (s *ReservasPGService) crearReservaBase(input CrearReservaPGInput) (int, st
 		}
 	}
 
-	// When no sabes
+	clienteID, err := s.clienteDeLaReserva(input, telefonoE164)
+	if err != nil {
+		return 0, "", err
+	}
 
 	id, err := s.repo.CreateReserva(repository.CreateReservaInput{
 		LocalNombre:        input.Local,
@@ -1262,6 +1283,7 @@ func (s *ReservasPGService) crearReservaBase(input CrearReservaPGInput) (int, st
 		HoraDesde:          input.HoraDesde,
 		HoraHasta:          horaHasta,
 		Cliente:            input.Cliente,
+		ClienteID:          clienteID,
 		Estado:             estadoFinal,
 		NumeroTelefono:     input.Telefono,
 		TelefonoE164:       telefonoE164,

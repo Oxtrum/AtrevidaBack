@@ -9581,7 +9581,13 @@
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: campo requerido faltante, estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion",
+                        "description": "Error de validacion: campo requerido faltante (en el panel interno tambien cliente_id), estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "El cliente_id enviado por el panel no existe",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -9958,6 +9964,79 @@
                 }
             }
         },
+        "/bd/reservas/por-vincular": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista las reservas vigentes (no anuladas ni rechazadas) que todavia no tienen un cliente registrado, las mas recientes primero. Vienen del formulario publico cuando el telefono no coincidio exacto con un unico cliente, o del historico. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservas BD"
+                ],
+                "summary": "Reservas por vincular",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina (1-100, por defecto 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 0,
+                        "description": "Reservas a saltar",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reservasPorVincularResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/reservas/resumen": {
             "get": {
                 "description": "Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).",
@@ -10170,6 +10249,179 @@
                     },
                     "404": {
                         "description": "Reserva no encontrada o ya inactiva",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/reservas/{id}/cliente": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Enlaza una reserva que no tiene cliente con un cliente registrado elegido por el cajero. Con vincular_mismo_telefono tambien enlaza las demas reservas sin cliente que tengan exactamente ese telefono E.164. Una reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente. Devuelve cuantas reservas quedaron enlazadas. Requiere token Bearer.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservas BD"
+                ],
+                "summary": "Vincular una reserva con un cliente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 41,
+                        "description": "ID de la reserva",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cliente elegido",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.vincularReservaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.ResultadoVinculo"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "cliente_id requerido o id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Reserva o cliente no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "La reserva ya tiene un cliente vinculado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/reservas/{id}/sugerencias-cliente": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Propone clientes que podrian ser el dueño de una reserva por vincular: los que comparten telefono (ultimos 8 digitos) o nombre completo, con los de telefono primero. Es solo una pista (por_telefono, por_nombre): nunca vincula; el cajero elige. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservas BD"
+                ],
+                "summary": "Clientes sugeridos para una reserva",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 41,
+                        "description": "ID de la reserva",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.ClienteSugeridoPG"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -15358,6 +15610,11 @@
                     "type": "string",
                     "example": "Maria Lopez"
                 },
+                "cliente_id": {
+                    "description": "Cliente registrado dueño de la reserva. Requerido en el panel interno (con token); el formulario publico lo ignora y la reserva se enlaza sola solo si el telefono coincide exacto con un unico cliente, si no queda por vincular.",
+                    "type": "integer",
+                    "example": 12
+                },
                 "confirmar_duplicado": {
                     "description": "Solo panel interno: true confirma crear la reserva aunque el cliente ya tenga otra ese dia.",
                     "type": "boolean",
@@ -17290,6 +17547,22 @@
                 }
             }
         },
+        "handlers.reservasPorVincularResponse": {
+            "type": "object",
+            "properties": {
+                "reservas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReservaPorVincularPG"
+                    }
+                },
+                "total": {
+                    "description": "Total de reservas vigentes sin cliente.",
+                    "type": "integer",
+                    "example": 9
+                }
+            }
+        },
         "handlers.servicioFiltrosResponse": {
             "type": "object",
             "properties": {
@@ -17445,6 +17718,21 @@
                     "description": "true si el periodo tiene mas lineas que el limite y solo se devolvieron las mas antiguas.",
                     "type": "boolean",
                     "example": false
+                }
+            }
+        },
+        "handlers.vincularReservaRequest": {
+            "type": "object",
+            "properties": {
+                "cliente_id": {
+                    "description": "Cliente registrado al que se enlaza la reserva (requerido).",
+                    "type": "integer",
+                    "example": 12
+                },
+                "vincular_mismo_telefono": {
+                    "description": "Si es true, tambien se enlazan las demas reservas sin cliente que tengan exactamente el mismo telefono.",
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },
@@ -17776,6 +18064,50 @@
                 "numero_telefono": {
                     "type": "string",
                     "example": "+59170011223"
+                },
+                "telefono_e164": {
+                    "description": "TelefonoE164 es la forma internacional canónica opcional durante la transición.",
+                    "type": "string",
+                    "example": "+59170011223"
+                }
+            }
+        },
+        "models.ClienteSugeridoPG": {
+            "type": "object",
+            "properties": {
+                "apellido": {
+                    "type": "string",
+                    "example": "Lopez"
+                },
+                "ci": {
+                    "description": "Cedula de identidad del cliente; vacia si no se registro.",
+                    "type": "string",
+                    "example": "8765432"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "nit": {
+                    "description": "NIT de facturacion por defecto del cliente; vacio si no se registro.",
+                    "type": "string",
+                    "example": "1234567"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "numero_telefono": {
+                    "type": "string",
+                    "example": "+59170011223"
+                },
+                "por_nombre": {
+                    "description": "PorNombre: el nombre completo coincide, sin distinguir mayusculas ni acentos.",
+                    "type": "boolean"
+                },
+                "por_telefono": {
+                    "description": "PorTelefono: el telefono coincide (comparando los ultimos 8 digitos).",
+                    "type": "boolean"
                 },
                 "telefono_e164": {
                     "description": "TelefonoE164 es la forma internacional canónica opcional durante la transición.",
@@ -19956,6 +20288,50 @@
                 }
             }
         },
+        "models.ReservaPorVincularPG": {
+            "type": "object",
+            "properties": {
+                "cliente": {
+                    "type": "string",
+                    "example": "Lucia Paredes"
+                },
+                "estado": {
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "fecha": {
+                    "type": "string"
+                },
+                "hora_desde": {
+                    "type": "string",
+                    "example": "10:00:00"
+                },
+                "hora_hasta": {
+                    "type": "string",
+                    "example": "11:00:00"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 41
+                },
+                "local": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "numero_telefono": {
+                    "type": "string",
+                    "example": "+59171235566"
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion laser"
+                },
+                "telefono_e164": {
+                    "type": "string",
+                    "example": "+59171235566"
+                }
+            }
+        },
         "models.ReservaSlot": {
             "type": "object",
             "properties": {
@@ -19971,6 +20347,15 @@
                 "hora": {
                     "type": "string",
                     "example": "09:00"
+                }
+            }
+        },
+        "models.ResultadoVinculo": {
+            "type": "object",
+            "properties": {
+                "vinculadas": {
+                    "type": "integer",
+                    "example": 3
                 }
             }
         },
@@ -20386,6 +20771,11 @@
                 "cliente": {
                     "type": "string",
                     "example": "Maria Lopez"
+                },
+                "cliente_id": {
+                    "description": "ClienteID es el cliente registrado dueño de la reserva; ausente si esta por vincular.",
+                    "type": "integer",
+                    "example": 12
                 },
                 "costo_variable": {
                     "description": "Modalidad del servicio guardada en la reserva; ausente en historicos desconocidos.",

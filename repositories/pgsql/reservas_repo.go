@@ -77,7 +77,7 @@ func buildReservasQuery(f repository.FiltroReservasPG) (string, []interface{}) {
 		SELECT
 			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
+			r.cliente, r.cliente_id, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
 			` + estadoCobroSQL + ` AS estado_cobro,
@@ -246,7 +246,7 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 		SELECT
 			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
+			r.cliente, r.cliente_id, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
 			` + estadoCobroSQL + ` AS estado_cobro,
@@ -372,15 +372,15 @@ func (r *ReservasRepo) CreateReserva(input repository.CreateReservaInput) (int, 
 			local_id, local_nombre, tipo_espacio,
 			fecha, hora_desde, hora_hasta,
 			cliente, estado, numero_telefono, telefono_e164, plan_id, servicio_nombre,
-			servicio_solicitado, servicio_confirmado, precio, notas, costo_variable
-		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+			servicio_solicitado, servicio_confirmado, precio, notas, costo_variable, cliente_id
+		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
 		RETURNING id
 	`,
 		localID, input.LocalNombre, strings.ToUpper(input.TipoEspacio),
 		input.Fecha, input.HoraDesde, input.HoraHasta,
 		input.Cliente, input.Estado, nullStr(input.NumeroTelefono), input.TelefonoE164, input.PlanID,
 		nullStr(input.ServicioNombre), nullStr(input.ServicioSolicitado),
-		input.ServicioConfirmado, input.Precio, nullStr(input.Notas), input.CostoVariable,
+		input.ServicioConfirmado, input.Precio, nullStr(input.Notas), input.CostoVariable, input.ClienteID,
 	).Scan(&reservaID)
 	if err != nil {
 		return 0, fmt.Errorf("error al insertar reserva: %w", err)

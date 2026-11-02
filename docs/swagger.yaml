@@ -1722,6 +1722,13 @@ definitions:
         description: Nombre del cliente
         example: Maria Lopez
         type: string
+      cliente_id:
+        description: Cliente registrado dueño de la reserva. Requerido en el panel
+          interno (con token); el formulario publico lo ignora y la reserva se enlaza
+          sola solo si el telefono coincide exacto con un unico cliente, si no queda
+          por vincular.
+        example: 12
+        type: integer
       confirmar_duplicado:
         description: 'Solo panel interno: true confirma crear la reserva aunque el
           cliente ya tenga otra ese dia.'
@@ -3155,6 +3162,17 @@ definitions:
         example: 15
         type: integer
     type: object
+  handlers.reservasPorVincularResponse:
+    properties:
+      reservas:
+        items:
+          $ref: '#/definitions/models.ReservaPorVincularPG'
+        type: array
+      total:
+        description: Total de reservas vigentes sin cliente.
+        example: 9
+        type: integer
+    type: object
   handlers.servicioFiltrosResponse:
     properties:
       categoria:
@@ -3260,6 +3278,18 @@ definitions:
         description: true si el periodo tiene mas lineas que el limite y solo se devolvieron
           las mas antiguas.
         example: false
+        type: boolean
+    type: object
+  handlers.vincularReservaRequest:
+    properties:
+      cliente_id:
+        description: Cliente registrado al que se enlaza la reserva (requerido).
+        example: 12
+        type: integer
+      vincular_mismo_telefono:
+        description: Si es true, tambien se enlazan las demas reservas sin cliente
+          que tengan exactamente el mismo telefono.
+        example: true
         type: boolean
     type: object
   models.AbonoCliente:
@@ -3508,6 +3538,42 @@ definitions:
       numero_telefono:
         example: "+59170011223"
         type: string
+      telefono_e164:
+        description: TelefonoE164 es la forma internacional canónica opcional durante
+          la transición.
+        example: "+59170011223"
+        type: string
+    type: object
+  models.ClienteSugeridoPG:
+    properties:
+      apellido:
+        example: Lopez
+        type: string
+      ci:
+        description: Cedula de identidad del cliente; vacia si no se registro.
+        example: "8765432"
+        type: string
+      id:
+        example: 12
+        type: integer
+      nit:
+        description: NIT de facturacion por defecto del cliente; vacio si no se registro.
+        example: "1234567"
+        type: string
+      nombre:
+        example: Maria
+        type: string
+      numero_telefono:
+        example: "+59170011223"
+        type: string
+      por_nombre:
+        description: 'PorNombre: el nombre completo coincide, sin distinguir mayusculas
+          ni acentos.'
+        type: boolean
+      por_telefono:
+        description: 'PorTelefono: el telefono coincide (comparando los ultimos 8
+          digitos).'
+        type: boolean
       telefono_e164:
         description: TelefonoE164 es la forma internacional canónica opcional durante
           la transición.
@@ -5139,6 +5205,38 @@ definitions:
         example: M
         type: string
     type: object
+  models.ReservaPorVincularPG:
+    properties:
+      cliente:
+        example: Lucia Paredes
+        type: string
+      estado:
+        example: PENDIENTE
+        type: string
+      fecha:
+        type: string
+      hora_desde:
+        example: "10:00:00"
+        type: string
+      hora_hasta:
+        example: "11:00:00"
+        type: string
+      id:
+        example: 41
+        type: integer
+      local:
+        example: SAN MARTIN
+        type: string
+      numero_telefono:
+        example: "+59171235566"
+        type: string
+      servicio:
+        example: Depilacion laser
+        type: string
+      telefono_e164:
+        example: "+59171235566"
+        type: string
+    type: object
   models.ReservaSlot:
     properties:
       dias:
@@ -5150,6 +5248,12 @@ definitions:
       hora:
         example: "09:00"
         type: string
+    type: object
+  models.ResultadoVinculo:
+    properties:
+      vinculadas:
+        example: 3
+        type: integer
     type: object
   models.Semana:
     properties:
@@ -5454,6 +5558,11 @@ definitions:
       cliente:
         example: Maria Lopez
         type: string
+      cliente_id:
+        description: ClienteID es el cliente registrado dueño de la reserva; ausente
+          si esta por vincular.
+        example: 12
+        type: integer
       costo_variable:
         description: Modalidad del servicio guardada en la reserva; ausente en historicos
           desconocidos.
@@ -12119,8 +12228,13 @@ paths:
                   $ref: '#/definitions/handlers.reservaCreatedResponse'
               type: object
         "400":
-          description: 'Error de validacion: campo requerido faltante, estado invalido,
-            servicio requiere evaluacion, formato incorrecto u horario fuera de atencion'
+          description: 'Error de validacion: campo requerido faltante (en el panel
+            interno tambien cliente_id), estado invalido, servicio requiere evaluacion,
+            formato incorrecto u horario fuera de atencion'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: El cliente_id enviado por el panel no existe
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
@@ -12228,6 +12342,122 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Obtener reserva por ID
+      tags:
+      - Reservas BD
+  /bd/reservas/{id}/cliente:
+    patch:
+      consumes:
+      - application/json
+      description: Enlaza una reserva que no tiene cliente con un cliente registrado
+        elegido por el cajero. Con vincular_mismo_telefono tambien enlaza las demas
+        reservas sin cliente que tengan exactamente ese telefono E.164. Una reserva
+        que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a
+        ese cliente. Devuelve cuantas reservas quedaron enlazadas. Requiere token
+        Bearer.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la reserva
+        example: 41
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Cliente elegido
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.vincularReservaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ResultadoVinculo'
+              type: object
+        "400":
+          description: cliente_id requerido o id invalido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Reserva o cliente no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: La reserva ya tiene un cliente vinculado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Vincular una reserva con un cliente
+      tags:
+      - Reservas BD
+  /bd/reservas/{id}/sugerencias-cliente:
+    get:
+      description: 'Propone clientes que podrian ser el dueño de una reserva por vincular:
+        los que comparten telefono (ultimos 8 digitos) o nombre completo, con los
+        de telefono primero. Es solo una pista (por_telefono, por_nombre): nunca vincula;
+        el cajero elige. Requiere token Bearer.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID de la reserva
+        example: 41
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.ClienteSugeridoPG'
+                  type: array
+              type: object
+        "400":
+          description: id invalido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Clientes sugeridos para una reserva
       tags:
       - Reservas BD
   /bd/reservas/calendario:
@@ -12416,6 +12646,54 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Actualizar notificacion de reserva
+      tags:
+      - Reservas BD
+  /bd/reservas/por-vincular:
+    get:
+      description: Lista las reservas vigentes (no anuladas ni rechazadas) que todavia
+        no tienen un cliente registrado, las mas recientes primero. Vienen del formulario
+        publico cuando el telefono no coincidio exacto con un unico cliente, o del
+        historico. Requiere token Bearer.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Tamano de pagina (1-100, por defecto 50)
+        example: 50
+        in: query
+        name: limit
+        type: integer
+      - description: Reservas a saltar
+        example: 0
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reservasPorVincularResponse'
+              type: object
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Reservas por vincular
       tags:
       - Reservas BD
   /bd/reservas/resumen:

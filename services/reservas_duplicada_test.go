@@ -47,6 +47,7 @@ func inputReservaDia() CrearReservaPGInput {
 		HoraHasta:   "09:00",
 		Tipo:        "M",
 		Cliente:     "Diego",
+		ClienteID:   entero(5),
 		Telefono:    "70011223",
 		Autenticado: true,
 	}
