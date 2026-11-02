@@ -545,6 +545,7 @@ func float64Ptr(v float64) *float64 {
 // @Param fecha query string false "Fecha exacta YYYY-MM-DD" example(2026-05-23)
 // @Param fecha_desde query string false "Fecha inicio rango YYYY-MM-DD" example(2026-05-19)
 // @Param fecha_hasta query string false "Fecha fin rango YYYY-MM-DD" example(2026-05-24)
+// @Param cliente_id query int false "Solo las reservas de este cliente registrado (ficha del cliente)" example(12)
 // @Param cliente query string false "Nombre del cliente" example(Maria Lopez)
 // @Param numero_telefono query string false "Numero de telefono; acepta 70011223, 59170011223 o +591 700-11223" example(+59170011223)
 // @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado" example(depilacion)
@@ -609,6 +610,16 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		return
 	}
 
+	var clienteID *int
+	if raw := strings.TrimSpace(c.Query("cliente_id")); raw != "" {
+		id, err := strconv.Atoi(raw)
+		if err != nil || id < 1 {
+			utils.RespondError(c, http.StatusBadRequest, "cliente_id debe ser un entero positivo")
+			return
+		}
+		clienteID = &id
+	}
+
 	filtro := services.FiltroReservasSimple{
 		Context:            c.Request.Context(),
 		Local:              strings.TrimSpace(c.Query("local")),
@@ -616,6 +627,7 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		FechaDesde:         strings.TrimSpace(c.Query("fecha_desde")),
 		FechaHasta:         strings.TrimSpace(c.Query("fecha_hasta")),
 		Cliente:            strings.TrimSpace(c.Query("cliente")),
+		ClienteID:          clienteID,
 		NumeroTelefono:     strings.TrimSpace(c.Query("numero_telefono")),
 		ServicioSolicitado: strings.TrimSpace(c.Query("servicio_solicitado")),
 		ServicioConfirmado: strings.TrimSpace(c.Query("servicio_confirmado")),
@@ -655,7 +667,7 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 	}
 	filters := map[string]string{
 		"local": filtro.Local, "fecha": filtro.Fecha, "fecha_desde": filtro.FechaDesde, "fecha_hasta": filtro.FechaHasta,
-		"cliente": filtro.Cliente, "numero_telefono": filtro.NumeroTelefono, "servicio_solicitado": filtro.ServicioSolicitado,
+		"cliente": filtro.Cliente, "cliente_id": c.Query("cliente_id"), "numero_telefono": filtro.NumeroTelefono, "servicio_solicitado": filtro.ServicioSolicitado,
 		"servicio_confirmado": filtro.ServicioConfirmado, "busqueda": filtro.Busqueda,
 		"estado": filtro.Estado, "excluir_estado": filtro.ExcluirEstado, "tipo": filtro.Tipo,
 		"vigente_fecha": filtro.VigenteFecha, "vigente_hora": filtro.VigenteHora,

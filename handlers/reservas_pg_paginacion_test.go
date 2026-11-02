@@ -163,3 +163,40 @@ func TestGetReservasSimpleRechazaVigenciaIncompleta(t *testing.T) {
 		t.Fatalf("status = %d, want 400", w.Code)
 	}
 }
+
+func TestGetReservasSimpleFiltraPorClienteID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &reservasPaginationRepo{rows: reservaRows(2), total: 2}
+	handler := &Container{ReservasPG: services.NewReservasPGService(repo, nil)}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/bd/reservas?cliente_id=12&limit=50&include_total=true", nil)
+
+	handler.GetReservasSimplePG(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	if repo.filter.ClienteID == nil || *repo.filter.ClienteID != 12 {
+		t.Fatalf("filtro listado sin cliente_id: %#v", repo.filter)
+	}
+	if repo.countFilter.ClienteID == nil || *repo.countFilter.ClienteID != 12 {
+		t.Fatalf("filtro conteo sin cliente_id: %#v", repo.countFilter)
+	}
+}
+
+func TestGetReservasSimpleRechazaClienteIDInvalido(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := &Container{ReservasPG: services.NewReservasPGService(&reservasPaginationRepo{}, nil)}
+	for _, valor := range []string{"abc", "0", "-3"} {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/bd/reservas?cliente_id="+valor, nil)
+
+		handler.GetReservasSimplePG(c)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("cliente_id=%s: status = %d, want 400", valor, w.Code)
+		}
+	}
+}

@@ -9346,6 +9346,13 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "Solo las reservas de este cliente registrado (ficha del cliente)",
+                        "name": "cliente_id",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "example": "Maria Lopez",
                         "description": "Nombre del cliente",

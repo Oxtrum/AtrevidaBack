@@ -18,6 +18,8 @@ type FiltroReservasPG struct {
 	FechaDesde         *time.Time
 	FechaHasta         *time.Time
 	Cliente            string
+	// ClienteID filtra las reservas de un cliente registrado.
+	ClienteID          *int
 	NumeroTelefono     string
 	TelefonoE164       *string
 	ServicioSolicitado string

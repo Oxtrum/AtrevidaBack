@@ -578,6 +578,8 @@ type FiltroReservasSimple struct {
 	FechaDesde         string
 	FechaHasta         string
 	Cliente            string
+	// ClienteID filtra las reservas de un cliente registrado.
+	ClienteID          *int
 	NumeroTelefono     string
 	ServicioSolicitado string
 	ServicioConfirmado string
@@ -670,6 +672,7 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 		Context:            f.Context,
 		LocalNombre:        f.Local,
 		Cliente:            f.Cliente,
+		ClienteID:          f.ClienteID,
 		NumeroTelefono:     f.NumeroTelefono,
 		ServicioSolicitado: f.ServicioSolicitado,
 		ServicioConfirmado: f.ServicioConfirmado,
@@ -733,7 +736,7 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 
 func (s *ReservasPGService) CountReservasSimple(f FiltroReservasSimple) (int, error) {
 	filtro := repository.FiltroReservasPG{
-		Context: f.Context, LocalNombre: f.Local, Cliente: f.Cliente,
+		Context: f.Context, LocalNombre: f.Local, Cliente: f.Cliente, ClienteID: f.ClienteID,
 		NumeroTelefono: f.NumeroTelefono, ServicioSolicitado: f.ServicioSolicitado,
 		ServicioConfirmado: f.ServicioConfirmado, Busqueda: f.Busqueda,
 		Estado: f.Estado, ExcluirEstado: f.ExcluirEstado, SoloActivas: true,

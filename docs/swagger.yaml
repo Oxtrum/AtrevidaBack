@@ -12009,6 +12009,11 @@ paths:
         in: query
         name: fecha_hasta
         type: string
+      - description: Solo las reservas de este cliente registrado (ficha del cliente)
+        example: 12
+        in: query
+        name: cliente_id
+        type: integer
       - description: Nombre del cliente
         example: Maria Lopez
         in: query

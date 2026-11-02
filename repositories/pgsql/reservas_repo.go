@@ -158,6 +158,9 @@ func reservaConditions(f repository.FiltroReservasPG) ([]string, []interface{}) 
 	if f.FechaHasta != nil {
 		add("r.fecha <= $%d", *f.FechaHasta)
 	}
+	if f.ClienteID != nil {
+		add("r.cliente_id = $%d", *f.ClienteID)
+	}
 	if f.Cliente != "" {
 		add("r.cliente ILIKE $%d", "%"+f.Cliente+"%")
 	}
