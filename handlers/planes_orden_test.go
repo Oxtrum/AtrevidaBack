@@ -81,6 +81,22 @@ func TestGetPlanesPasaElOrdenPedidoAlRepositorio(t *testing.T) {
 	}
 }
 
+// La ficha del cliente pide sus paquetes por id: el nombre no sirve, hay clientes homonimos.
+func TestGetPlanesFiltraPorClienteID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &planesOrdenRepo{rows: planesFilas(1)}
+	h := &Container{PlanesPG: services.NewPlanesService(repo, nil)}
+
+	w := getPlanesOrden(h, "cliente_id=12")
+
+	if w.Code != http.StatusOK || repo.filter.ClienteID == nil || *repo.filter.ClienteID != 12 {
+		t.Fatalf("status=%d filtro=%#v", w.Code, repo.filter)
+	}
+	if w := getPlanesOrden(h, "cliente_id=abc"); w.Code != http.StatusBadRequest {
+		t.Fatalf("cliente_id invalido: status = %d, want 400", w.Code)
+	}
+}
+
 func TestGetPlanesSinOrdenPedidoConservaLaPrioridadDeEstado(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &planesOrdenRepo{rows: planesFilas(3)}

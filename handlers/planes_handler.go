@@ -21,6 +21,7 @@ type planFiltrosResponse struct {
 	Cliente        string `json:"cliente" example:"Maria"`
 	Local          string `json:"local" example:"SAN MARTIN"`
 	LocalID        *int   `json:"local_id,omitempty" example:"1"`
+	ClienteID      *int   `json:"cliente_id,omitempty" example:"12"`
 	Estado         string `json:"estado" example:"ACTIVO"`
 	EstadoCobranza string `json:"estado_cobranza" example:"PENDIENTE"`
 	FechaDesde     string `json:"fecha_desde" example:"2026-07-01"`
@@ -115,6 +116,7 @@ type cobrarPlanRequest struct {
 // @Param cliente query string false "Busqueda parcial por nombre del cliente" example(Maria)
 // @Param local query string false "Busqueda parcial por nombre del local" example(SAN MARTIN)
 // @Param local_id query int false "ID exacto del local" example(1)
+// @Param cliente_id query int false "ID exacto del cliente (la ficha del cliente lo usa; el nombre no distingue homonimos)" example(12)
 // @Param estado query string false "Filtrar por estado contractual: RESERVADO, ACTIVO, COMPLETADO, VENCIDO, CANCELADO" example(ACTIVO)
 // @Param estado_cobranza query string false "Filtrar por estado de cobranza: PENDIENTE, PARCIAL, PAGADO, VENCIDO" example(PENDIENTE)
 // @Param fecha_desde query string false "Fecha de creacion desde (YYYY-MM-DD)" example(2026-07-01)
@@ -146,6 +148,12 @@ func (h *Container) GetPlanes(c *gin.Context) {
 	filtroLocalID := localID
 	if scope.LocalID != nil {
 		filtroLocalID = scope.LocalID
+	}
+
+	clienteID, err := optionalPositiveInt(c, "cliente_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	var fechaDesde, fechaHasta *time.Time
@@ -180,7 +188,7 @@ func (h *Container) GetPlanes(c *gin.Context) {
 	}
 	filters := planFiltrosResponse{
 		Busqueda: strings.TrimSpace(c.Query("busqueda")),
-		Cliente:  strings.TrimSpace(c.Query("cliente")), Local: strings.TrimSpace(c.Query("local")), LocalID: filtroLocalID,
+		Cliente:  strings.TrimSpace(c.Query("cliente")), Local: strings.TrimSpace(c.Query("local")), LocalID: filtroLocalID, ClienteID: clienteID,
 		Estado: strings.TrimSpace(c.Query("estado")), EstadoCobranza: strings.TrimSpace(c.Query("estado_cobranza")),
 		FechaDesde: c.Query("fecha_desde"), FechaHasta: c.Query("fecha_hasta"),
 		Orden: orden,
@@ -221,6 +229,7 @@ func (h *Container) GetPlanes(c *gin.Context) {
 		Cliente:              strings.TrimSpace(c.Query("cliente")),
 		Local:                strings.TrimSpace(c.Query("local")),
 		LocalID:              filtroLocalID,
+		ClienteID:            clienteID,
 		Estado:               strings.TrimSpace(c.Query("estado")),
 		EstadoCobranza:       strings.TrimSpace(c.Query("estado_cobranza")),
 		FechaDesde:           fechaDesde,
