@@ -142,6 +142,24 @@ type crearReservaPGRequest struct {
 	Notas string `json:"notas" example:"Primera sesion del plan"`
 	// ID del plan asociado (opcional)
 	PlanID *int `json:"plan_id" example:"21"`
+	// Solo panel interno: true confirma crear la reserva aunque el cliente ya tenga otra ese dia.
+	ConfirmarDuplicado bool `json:"confirmar_duplicado" example:"false"`
+}
+
+// reservaDuplicadaItemResponse resume una reserva que el cliente ya tiene en el dia.
+type reservaDuplicadaItemResponse struct {
+	ID        int    `json:"id" example:"44"`
+	Local     string `json:"local" example:"SAN MARTIN"`
+	HoraDesde string `json:"hora_desde" example:"10:00"`
+	HoraHasta string `json:"hora_hasta" example:"11:00"`
+	Servicio  string `json:"servicio" example:"Limpieza facial"`
+	Estado    string `json:"estado" example:"AGENDADO"`
+}
+
+// reservaDuplicadaResponse es el data del 409 cuando el cliente ya tiene reservas ese dia.
+type reservaDuplicadaResponse struct {
+	Codigo   string                         `json:"codigo" example:"RESERVA_DUPLICADA"`
+	Reservas []reservaDuplicadaItemResponse `json:"reservas"`
 }
 
 // PostReservaPG godoc
@@ -155,7 +173,8 @@ type crearReservaPGRequest struct {
 // @Description Inventario: si la peticion trae token Bearer valido (panel interno) y el servicio tiene insumos sin stock suficiente en el local, la reserva se guarda igual y la respuesta incluye alerta_inventario y advertencias_inventario; con la politica inventario.politica_sin_stock=BLOQUEAR responde 409 con el texto stock insuficiente. El formulario publico (sin token) nunca recibe advertencias ni se bloquea.
 // @Success 201 {object} utils.APIResponse{data=reservaCreatedResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion"
-// @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles, el horario no esta libre o stock insuficiente de insumos con politica BLOQUEAR"
+// @Description Reserva repetida: si la peticion trae token Bearer valido y el telefono ya tiene una reserva vigente (no rechazada) en la misma fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas (las ya existentes) sin crear nada. El panel debe pedir confirmacion y reenviar con confirmar_duplicado=true. El formulario publico (sin token) no recibe este aviso.
+// @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles, el horario no esta libre, stock insuficiente de insumos con politica BLOQUEAR, o el cliente ya tiene reserva ese dia (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [post]
 func (h *Container) PostReservaPG(c *gin.Context) {
@@ -201,8 +220,14 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		Precio:             req.Precio,
 		Notas:              strings.TrimSpace(req.Notas),
 		PlanID:             req.PlanID,
+		ConfirmarDuplicado: req.ConfirmarDuplicado,
 	})
 
+	var duplicada *services.ReservaDuplicadaError
+	if errors.As(err, &duplicada) {
+		respondReservaDuplicada(c, duplicada)
+		return
+	}
 	if err != nil {
 		status := http.StatusInternalServerError
 		errLower := strings.ToLower(err.Error())
@@ -229,6 +254,24 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		Mensaje:                "Reserva creada correctamente",
 		AlertaInventario:       autenticado && resultado.AlertaInventario,
 		AdvertenciasInventario: resultado.AdvertenciasInventario,
+	})
+}
+
+func respondReservaDuplicada(c *gin.Context, e *services.ReservaDuplicadaError) {
+	items := make([]reservaDuplicadaItemResponse, 0, len(e.Reservas))
+	for _, rv := range e.Reservas {
+		items = append(items, reservaDuplicadaItemResponse{
+			ID: rv.ID, Local: rv.Local, HoraDesde: rv.HoraDesde, HoraHasta: rv.HoraHasta,
+			Servicio: rv.Servicio, Estado: rv.Estado,
+		})
+	}
+	msg := e.Error()
+	c.JSON(http.StatusConflict, utils.APIResponse{
+		Code:    http.StatusConflict,
+		Data:    reservaDuplicadaResponse{Codigo: "RESERVA_DUPLICADA", Reservas: items},
+		Error:   true,
+		Message: &msg,
+		Status:  "CONFLICT",
 	})
 }
 
@@ -755,6 +798,8 @@ type actualizarReservaPGRequest struct {
 	LimpiarPlanID bool `json:"limpiar_plan_id" example:"false"`
 	// Confirma la reserva en la misma transacción que los cambios enviados.
 	NuevoEstado string `json:"nuevo_estado,omitempty" example:"AGENDADO"`
+	// true confirma mover la reserva a una fecha donde el cliente ya tiene otra reserva.
+	ConfirmarDuplicado bool `json:"confirmar_duplicado,omitempty" example:"false"`
 }
 
 // PatchReservaPG godoc
@@ -771,7 +816,8 @@ type actualizarReservaPGRequest struct {
 // @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar, fecha pasada u horario fuera de atencion"
 // @Failure 401 {object} utils.APIResponse "Token ausente o invalido"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
-// @Failure 409 {object} utils.APIResponse "Reserva completada, sin espacios disponibles en el horario destino o, al pasar a AGENDADO con descuento al agendar y stock negativo no permitido, stock insuficiente de insumos"
+// @Description Reserva repetida: si nueva_fecha cambia el dia y el telefono ya tiene otra reserva vigente (no rechazada, de cualquier local) en esa fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas sin modificar nada. Reenviar con confirmar_duplicado=true para mover igual.
+// @Failure 409 {object} utils.APIResponse "Reserva completada, sin espacios disponibles en el horario destino, stock insuficiente de insumos al pasar a AGENDADO con descuento al agendar, o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [patch]
 func (h *Container) PatchReservaPG(c *gin.Context) {
@@ -837,8 +883,14 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		NuevoPlanID:             req.NuevoPlanID,
 		LimpiarPlanID:           req.LimpiarPlanID,
 		NuevoEstado:             req.NuevoEstado,
+		ConfirmarDuplicado:      req.ConfirmarDuplicado,
 	})
 
+	var duplicada *services.ReservaDuplicadaError
+	if errors.As(err, &duplicada) {
+		respondReservaDuplicada(c, duplicada)
+		return
+	}
 	if err != nil {
 		if errors.Is(err, repository.ErrCapacidadNoDisponible) || errors.Is(err, repository.ErrEstadoReservaModificado) ||
 			strings.Contains(strings.ToLower(err.Error()), "stock insuficiente") {

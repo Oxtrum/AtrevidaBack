@@ -241,6 +241,17 @@ definitions:
         example: 3
         type: integer
     type: object
+  handlers.actualizarEspaciosRequest:
+    properties:
+      espacios:
+        description: Espacios a fijar; los tipos no enviados quedan como estaban
+        items:
+          $ref: '#/definitions/handlers.espacioEdicionRequest'
+        minItems: 1
+        type: array
+    required:
+    - espacios
+    type: object
   handlers.actualizarEstadoReservaPGRequest:
     properties:
       causa:
@@ -523,6 +534,11 @@ definitions:
     type: object
   handlers.actualizarReservaPGRequest:
     properties:
+      confirmar_duplicado:
+        description: true confirma mover la reserva a una fecha donde el cliente ya
+          tiene otra reserva.
+        example: false
+        type: boolean
       id:
         description: ID de la reserva a actualizar
         example: 44
@@ -1706,6 +1722,11 @@ definitions:
         description: Nombre del cliente
         example: Maria Lopez
         type: string
+      confirmar_duplicado:
+        description: 'Solo panel interno: true confirma crear la reserva aunque el
+          cliente ya tenga otra ese dia.'
+        example: false
+        type: boolean
       estado:
         description: 'Estado inicial: PENDIENTE (default), AGENDADO'
         example: PENDIENTE
@@ -1971,6 +1992,21 @@ definitions:
         items:
           $ref: '#/definitions/models.Empleado'
         type: array
+    type: object
+  handlers.espacioEdicionRequest:
+    properties:
+      cantidad_espacios:
+        description: Cantidad total de espacios de este tipo; 0 permitido (mantenimiento)
+        example: 4
+        minimum: 0
+        type: integer
+      tipo_espacio:
+        description: 'Tipo de espacio: M (mesa) o B (bicicleta)'
+        example: M
+        type: string
+    required:
+    - cantidad_espacios
+    - tipo_espacio
     type: object
   handlers.espacioRequest:
     properties:
@@ -9800,6 +9836,67 @@ paths:
       summary: Actualizar local
       tags:
       - Locales
+  /bd/locales/{id}/espacios:
+    put:
+      consumes:
+      - application/json
+      description: 'Fija la cantidad de espacios de un local. Param: id (path). Body:
+        espacios (array con tipo_espacio M/B y cantidad_espacios entero >= 0; 0 deja
+        el tipo sin espacios, por ejemplo por mantenimiento). Los tipos no enviados
+        no se tocan. No cancela reservas existentes: si se reduce por debajo de lo
+        ya reservado, solo se bloquean las reservas nuevas. Requiere rol admin_sys
+        o gerencia. Response: mensaje string.'
+      parameters:
+      - description: ID del local
+        example: 3
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Espacios a fijar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.actualizarEspaciosRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: id invalido, tipo_espacio invalido, cantidad
+            negativa o tipo repetido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token ausente o invalido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Rol sin permiso
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Local no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Actualizar mesas y bicicletas de un local
+      tags:
+      - Locales
   /bd/locales/horarios:
     get:
       description: 'Devuelve los horarios activos de un local con filtro opcional.
@@ -11907,6 +12004,7 @@ paths:
         Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).
         limpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.
         Recalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias. Si nuevo_estado es AGENDADO, inventario.descontar_en_estado=AGENDADO e inventario.permitir_stock_negativo=false, responde 409 con el texto stock insuficiente cuando el stock real del local no alcanza.
+        Reserva repetida: si nueva_fecha cambia el dia y el telefono ya tiene otra reserva vigente (no rechazada, de cualquier local) en esa fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas sin modificar nada. Reenviar con confirmar_duplicado=true para mover igual.
       parameters:
       - description: Datos para actualizar la reserva
         in: body
@@ -11941,8 +12039,9 @@ paths:
             $ref: '#/definitions/utils.APIResponse'
         "409":
           description: Reserva completada, sin espacios disponibles en el horario
-            destino o, al pasar a AGENDADO con descuento al agendar y stock negativo
-            no permitido, stock insuficiente de insumos
+            destino, stock insuficiente de insumos al pasar a AGENDADO con descuento
+            al agendar, o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA,
+            ver reservaDuplicadaResponse)
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
@@ -11961,6 +12060,7 @@ paths:
         Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).
         costo_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.
         Inventario: si la peticion trae token Bearer valido (panel interno) y el servicio tiene insumos sin stock suficiente en el local, la reserva se guarda igual y la respuesta incluye alerta_inventario y advertencias_inventario; con la politica inventario.politica_sin_stock=BLOQUEAR responde 409 con el texto stock insuficiente. El formulario publico (sin token) nunca recibe advertencias ni se bloquea.
+        Reserva repetida: si la peticion trae token Bearer valido y el telefono ya tiene una reserva vigente (no rechazada) en la misma fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas (las ya existentes) sin crear nada. El panel debe pedir confirmacion y reenviar con confirmar_duplicado=true. El formulario publico (sin token) no recibe este aviso.
       parameters:
       - description: Datos de la reserva
         in: body
@@ -11987,7 +12087,8 @@ paths:
             $ref: '#/definitions/utils.APIResponse'
         "409":
           description: 'Conflicto: no hay espacios disponibles, el horario no esta
-            libre o stock insuficiente de insumos con politica BLOQUEAR'
+            libre, stock insuficiente de insumos con politica BLOQUEAR, o el cliente
+            ya tiene reserva ese dia (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
