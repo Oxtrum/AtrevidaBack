@@ -9886,6 +9886,289 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/rrhh/empleados/{id}/foto": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Persiste la clave de la foto del empleado tras una subida exitosa, borra la foto anterior del storage y devuelve una URL firmada de lectura. La clave debe ser la emitida por upload-url para este mismo empleado. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Confirmar foto de empleado subida",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del empleado",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Clave de la foto subida",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.empleadoFotoConfirmRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadoFotoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, foto_key faltante o que no corresponde al empleado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Borra el objeto del storage y limpia la clave de la foto del empleado. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Quitar foto de empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del empleado",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/empleados/{id}/foto/upload-url": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve una URL firmada para que el cliente suba la foto (webp) directo al storage, sin pasar los bytes por el backend. La clave es nueva en cada llamada (personal/{id}/{uuid}.webp) y queda en una carpeta privada. El PUT a upload_url debe enviar exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/rrhh/empleados/{id}/foto enviando foto_key. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Emitir URL firmada para subir la foto de un empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del empleado",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadoFotoUploadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/rrhh/planillas": {
             "get": {
                 "security": [
@@ -14094,6 +14377,51 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.empleadoFotoConfirmRequest": {
+            "type": "object",
+            "required": [
+                "foto_key"
+            ],
+            "properties": {
+                "foto_key": {
+                    "description": "Clave devuelta por upload-url tras subir el archivo",
+                    "type": "string",
+                    "example": "personal/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
+                }
+            }
+        },
+        "handlers.empleadoFotoResponse": {
+            "type": "object",
+            "properties": {
+                "foto_url": {
+                    "description": "URL firmada y temporal de lectura de la foto",
+                    "type": "string",
+                    "example": "https://bucket.s3.sa-east-1.amazonaws.com/personal/1/3f2a9c.webp?X-Amz-Signature=abc"
+                }
+            }
+        },
+        "handlers.empleadoFotoUploadResponse": {
+            "type": "object",
+            "properties": {
+                "foto_key": {
+                    "description": "Clave del objeto en el bucket; es lo que el cliente debe confirmar",
+                    "type": "string",
+                    "example": "personal/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
+                },
+                "headers": {
+                    "description": "Headers que el cliente debe enviar tal cual en el PUT (van firmados en la URL)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "upload_url": {
+                    "description": "URL firmada a la que el cliente hace PUT con el archivo",
+                    "type": "string",
+                    "example": "https://bucket.s3.sa-east-1.amazonaws.com/personal/1/3f2a9c.webp?X-Amz-Signature=abc"
+                }
+            }
+        },
         "handlers.empleadoRequest": {
             "type": "object",
             "required": [
@@ -16412,6 +16740,11 @@ const docTemplate = `{
                 "fecha_ingreso": {
                     "type": "string",
                     "example": "2026-01-01"
+                },
+                "foto_url": {
+                    "description": "FotoURL es una URL firmada y temporal de lectura; se calcula en el servicio a partir de FotoKey.",
+                    "type": "string",
+                    "example": "https://bucket.s3.sa-east-1.amazonaws.com/personal/1/ab12.webp?X-Amz-Signature=abc"
                 },
                 "id": {
                     "type": "integer",

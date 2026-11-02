@@ -62,12 +62,15 @@ func Build() (*gin.Engine, error) {
 	)
 	configuracionService := services.NewConfiguracionService(configuracionRepo)
 	inventarioService := services.NewInventarioService(inventarioRepo, configuracionService)
-	// Imagenes de inventario en S3: sin S3_BUCKET el Storage queda nil y los endpoints de imagen responden 503.
-	if s3Storage, err := services.NewS3Storage(
+	// Imagenes en S3 (inventario y fotos del personal): sin S3_BUCKET el Storage queda nil y los endpoints de imagen responden 503.
+	s3Storage, err := services.NewS3Storage(
 		context.Background(), config.App.S3.Bucket, config.App.S3.Region, config.App.S3.PublicBaseURL,
-	); err != nil {
+	)
+	if err != nil {
 		log.Printf("[S3] almacenamiento de imagenes deshabilitado: %v", err)
-	} else if s3Storage != nil {
+		s3Storage = nil
+	}
+	if s3Storage != nil {
 		inventarioService.Storage = s3Storage
 	}
 	inventarioConsumo := services.NewInventarioConsumo(inventarioRepo, configuracionService)
@@ -77,6 +80,9 @@ func Build() (*gin.Engine, error) {
 	gastosFijosService := services.NewGastosFijosService(finanzasRepo, configuracionService, finanzasService)
 	reporteFinancieroService := services.NewReporteFinancieroService(finanzasRepo, inventarioRepo, gastosFijosService, configuracionService)
 	rrhhService := services.NewRRHHService(pgsqlrepo.NewRRHHRepo(pgDB), configuracionService)
+	if s3Storage != nil {
+		rrhhService.Storage = s3Storage
+	}
 	reporteFinancieroService.Planillas = rrhhService
 
 	// Sesiones de plan marcadas a mano descuentan insumos en la misma transaccion (RN-18).

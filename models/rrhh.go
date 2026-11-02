@@ -19,6 +19,10 @@ type Empleado struct {
 	FechaBaja     *string `db:"fecha_baja" json:"fecha_baja,omitempty"`
 	Activo        bool    `db:"activo" json:"activo" example:"true"`
 	Notas         *string `db:"notas" json:"notas,omitempty"`
+	// FotoKey es la clave del objeto en el storage (nunca se expone al cliente).
+	FotoKey *string `db:"foto_key" json:"-"`
+	// FotoURL es una URL firmada y temporal de lectura; se calcula en el servicio a partir de FotoKey.
+	FotoURL *string `db:"-" json:"foto_url,omitempty" example:"https://bucket.s3.sa-east-1.amazonaws.com/personal/1/ab12.webp?X-Amz-Signature=abc"`
 	// DiaPagoEfectivo es el dia propio o el por defecto de configuracion; se calcula en el servicio.
 	DiaPagoEfectivo int `db:"-" json:"dia_pago_efectivo" example:"1"`
 	// AdelantosPendientes suma los adelantos aun no descontados en una planilla.

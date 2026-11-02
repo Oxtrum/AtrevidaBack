@@ -85,6 +85,18 @@ func (s *S3Storage) Eliminar(path string) error {
 	return nil
 }
 
+// URLLecturaFirmada emite una URL de lectura temporal para un objeto privado (no cubierto por la politica publica).
+func (s *S3Storage) URLLecturaFirmada(path string, ttl time.Duration) (string, error) {
+	req, err := s.presign.PresignGetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(path),
+	}, s3.WithPresignExpires(ttl))
+	if err != nil {
+		return "", fmt.Errorf("error al firmar URL de lectura en S3: %w", err)
+	}
+	return req.URL, nil
+}
+
 // URLPublica arma la URL de lectura: el dominio publico (CloudFront) si esta configurado,
 // o la URL del bucket (requiere lectura publica en el bucket).
 func (s *S3Storage) URLPublica(path string) string {

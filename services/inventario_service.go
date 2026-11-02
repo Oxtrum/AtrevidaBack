@@ -1,8 +1,6 @@
 package services
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -33,24 +31,11 @@ func NewInventarioService(repo *pgsqlrepo.InventarioRepo, config *ConfiguracionS
 // prefijoImagenItem es la carpeta de las imagenes de un item en el storage.
 func prefijoImagenItem(id int) string { return fmt.Sprintf("inventario/%d/", id) }
 
-// nuevaClaveImagenItem genera una clave nueva por subida: asi el navegador/CDN nunca sirve la imagen vieja al reemplazarla.
-func nuevaClaveImagenItem(id int) (string, error) {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("error al generar clave de imagen: %w", err)
-	}
-	return prefijoImagenItem(id) + hex.EncodeToString(b) + ".webp", nil
-}
+func nuevaClaveImagenItem(id int) (string, error) { return nuevaClaveImagen(prefijoImagenItem(id)) }
 
 // validarClaveImagenItem exige que la clave confirmada sea de este item y tenga la forma que emite el backend.
 func validarClaveImagenItem(id int, key string) error {
-	prefijo := prefijoImagenItem(id)
-	nombre := strings.TrimPrefix(key, prefijo)
-	base := strings.TrimSuffix(nombre, ".webp")
-	if !strings.HasPrefix(key, prefijo) || base == nombre || base == "" || strings.ContainsAny(base, `/\.`) {
-		return errors.New("imagen_key invalida: debe ser la clave emitida por upload-url para este item")
-	}
-	return nil
+	return validarClaveImagen(prefijoImagenItem(id), "imagen_key", key)
 }
 
 func (s *InventarioService) completar(item *models.InventarioItem) {

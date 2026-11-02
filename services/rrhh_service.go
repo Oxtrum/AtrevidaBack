@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"time"
@@ -15,9 +16,15 @@ const (
 	planillaSueldo = "SUELDO"
 )
 
+// fotoEmpleadoTTL es la vigencia de la URL firmada con la que el panel muestra la foto.
+const fotoEmpleadoTTL = time.Hour
+
 type RRHHService struct {
 	repo   *pgsqlrepo.RRHHRepo
 	config *ConfiguracionService
+	// Storage es opcional: si es nil, la foto de los empleados queda deshabilitada.
+	// Las fotos son privadas: se leen con URL firmada temporal.
+	Storage ObjectStorageFirmado
 }
 
 func NewRRHHService(repo *pgsqlrepo.RRHHRepo, config *ConfiguracionService) *RRHHService {
@@ -44,8 +51,22 @@ func (s *RRHHService) ListarEmpleados(soloActivos bool) ([]models.Empleado, erro
 	}
 	for i := range emps {
 		emps[i].DiaPagoEfectivo = diaPagoEfectivo(emps[i], cfg)
+		s.completarFoto(&emps[i])
 	}
 	return emps, nil
+}
+
+// completarFoto arma la URL firmada de la foto. Si la firma falla se omite la foto: no debe tumbar la ficha.
+func (s *RRHHService) completarFoto(e *models.Empleado) {
+	if s.Storage == nil || e.FotoKey == nil || *e.FotoKey == "" {
+		return
+	}
+	url, err := s.Storage.URLLecturaFirmada(*e.FotoKey, fotoEmpleadoTTL)
+	if err != nil {
+		log.Printf("[rrhh] no se pudo firmar la foto del empleado %d: %v", e.ID, err)
+		return
+	}
+	e.FotoURL = &url
 }
 
 func (s *RRHHService) ObtenerEmpleado(id int) (*models.Empleado, error) {
@@ -58,7 +79,68 @@ func (s *RRHHService) ObtenerEmpleado(id int) (*models.Empleado, error) {
 		return nil, err
 	}
 	e.DiaPagoEfectivo = diaPagoEfectivo(*e, cfg)
+	s.completarFoto(e)
 	return e, nil
+}
+
+// ─── Foto del empleado ────────────────────────────────────────────────────────
+
+func prefijoFotoEmpleado(id int) string { return fmt.Sprintf("personal/%d/", id) }
+
+func (s *RRHHService) GenerarURLSubidaFoto(id int) (SubidaFirmada, error) {
+	if _, err := s.repo.GetEmpleado(id); err != nil {
+		return SubidaFirmada{}, err
+	}
+	if s.Storage == nil {
+		return SubidaFirmada{}, ErrAlmacenamientoNoConfigurado
+	}
+	key, err := nuevaClaveImagen(prefijoFotoEmpleado(id))
+	if err != nil {
+		return SubidaFirmada{}, err
+	}
+	return s.Storage.CrearURLSubida(key)
+}
+
+// ConfirmarFoto guarda la clave tras una subida exitosa, borra la foto anterior y devuelve una URL de lectura firmada.
+func (s *RRHHService) ConfirmarFoto(id int, key string) (string, error) {
+	if s.Storage == nil {
+		return "", ErrAlmacenamientoNoConfigurado
+	}
+	key = strings.TrimSpace(key)
+	if err := validarClaveImagen(prefijoFotoEmpleado(id), "foto_key", key); err != nil {
+		return "", err
+	}
+	emp, err := s.repo.GetEmpleado(id)
+	if err != nil {
+		return "", err
+	}
+	if err := s.repo.SetFotoKey(id, &key); err != nil {
+		return "", err
+	}
+	// Borrar la anterior es limpieza: si falla, la foto nueva ya quedo guardada.
+	if anterior := emp.FotoKey; anterior != nil && *anterior != "" && *anterior != key {
+		if err := s.Storage.Eliminar(*anterior); err != nil {
+			log.Printf("[rrhh] no se pudo borrar la foto anterior %q del empleado %d: %v", *anterior, id, err)
+		}
+	}
+	return s.Storage.URLLecturaFirmada(key, fotoEmpleadoTTL)
+}
+
+func (s *RRHHService) EliminarFoto(id int) error {
+	if s.Storage == nil {
+		return ErrAlmacenamientoNoConfigurado
+	}
+	emp, err := s.repo.GetEmpleado(id)
+	if err != nil {
+		return err
+	}
+	if emp.FotoKey == nil || *emp.FotoKey == "" {
+		return nil
+	}
+	if err := s.Storage.Eliminar(*emp.FotoKey); err != nil {
+		return err
+	}
+	return s.repo.SetFotoKey(id, nil)
 }
 
 type EmpleadoInput struct {

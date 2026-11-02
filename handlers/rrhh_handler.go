@@ -23,6 +23,25 @@ type empleadoResponse struct {
 	Empleado models.Empleado `json:"empleado"`
 }
 
+type empleadoFotoUploadResponse struct {
+	// URL firmada a la que el cliente hace PUT con el archivo
+	UploadURL string `json:"upload_url" example:"https://bucket.s3.sa-east-1.amazonaws.com/personal/1/3f2a9c.webp?X-Amz-Signature=abc"`
+	// Clave del objeto en el bucket; es lo que el cliente debe confirmar
+	FotoKey string `json:"foto_key" example:"personal/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"`
+	// Headers que el cliente debe enviar tal cual en el PUT (van firmados en la URL)
+	Headers map[string]string `json:"headers,omitempty"`
+}
+
+type empleadoFotoConfirmRequest struct {
+	// Clave devuelta por upload-url tras subir el archivo
+	FotoKey string `json:"foto_key" binding:"required" example:"personal/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"`
+}
+
+type empleadoFotoResponse struct {
+	// URL firmada y temporal de lectura de la foto
+	FotoURL string `json:"foto_url" example:"https://bucket.s3.sa-east-1.amazonaws.com/personal/1/3f2a9c.webp?X-Amz-Signature=abc"`
+}
+
 type empleadoRequest struct {
 	// Nombre
 	Nombre string `json:"nombre" binding:"required" example:"Maria"`
@@ -310,6 +329,104 @@ func (h *Container) PatchEmpleado(c *gin.Context) {
 		return
 	}
 	utils.Respond(c, http.StatusOK, empleadoResponse{Empleado: *emp})
+}
+
+// PostEmpleadoFotoUploadURL godoc
+// @Summary Emitir URL firmada para subir la foto de un empleado
+// @Description Devuelve una URL firmada para que el cliente suba la foto (webp) directo al storage, sin pasar los bytes por el backend. La clave es nueva en cada llamada (personal/{id}/{uuid}.webp) y queda en una carpeta privada. El PUT a upload_url debe enviar exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/rrhh/empleados/{id}/foto enviando foto_key. Requiere token Bearer con rol admin_sys.
+// @Tags RRHH
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del empleado" example(1)
+// @Success 200 {object} utils.APIResponse{data=empleadoFotoUploadResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Empleado no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Failure 503 {object} utils.APIResponse "Almacenamiento de imagenes no configurado"
+// @Security BearerAuth
+// @Router /bd/rrhh/empleados/{id}/foto/upload-url [post]
+func (h *Container) PostEmpleadoFotoUploadURL(c *gin.Context) {
+	id, err := requiredPositiveParam(c, "id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	subida, err := h.RRHH.GenerarURLSubidaFoto(id)
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, empleadoFotoUploadResponse{
+		UploadURL: subida.UploadURL, FotoKey: subida.Path, Headers: subida.Headers,
+	})
+}
+
+// PutEmpleadoFoto godoc
+// @Summary Confirmar foto de empleado subida
+// @Description Persiste la clave de la foto del empleado tras una subida exitosa, borra la foto anterior del storage y devuelve una URL firmada de lectura. La clave debe ser la emitida por upload-url para este mismo empleado. Requiere token Bearer con rol admin_sys.
+// @Tags RRHH
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del empleado" example(1)
+// @Param payload body empleadoFotoConfirmRequest true "Clave de la foto subida"
+// @Success 200 {object} utils.APIResponse{data=empleadoFotoResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, foto_key faltante o que no corresponde al empleado"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Empleado no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Failure 503 {object} utils.APIResponse "Almacenamiento de imagenes no configurado"
+// @Security BearerAuth
+// @Router /bd/rrhh/empleados/{id}/foto [put]
+func (h *Container) PutEmpleadoFoto(c *gin.Context) {
+	id, err := requiredPositiveParam(c, "id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	var req empleadoFotoConfirmRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "foto_key es requerido")
+		return
+	}
+	url, err := h.RRHH.ConfirmarFoto(id, req.FotoKey)
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, empleadoFotoResponse{FotoURL: url})
+}
+
+// DeleteEmpleadoFoto godoc
+// @Summary Quitar foto de empleado
+// @Description Borra el objeto del storage y limpia la clave de la foto del empleado. Requiere token Bearer con rol admin_sys.
+// @Tags RRHH
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del empleado" example(1)
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Empleado no encontrado"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Failure 503 {object} utils.APIResponse "Almacenamiento de imagenes no configurado"
+// @Security BearerAuth
+// @Router /bd/rrhh/empleados/{id}/foto [delete]
+func (h *Container) DeleteEmpleadoFoto(c *gin.Context) {
+	id, err := requiredPositiveParam(c, "id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.RRHH.EliminarFoto(id); err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "foto eliminada correctamente"})
 }
 
 // ─── Adelantos ────────────────────────────────────────────────────────────────

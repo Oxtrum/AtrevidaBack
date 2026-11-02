@@ -31,7 +31,7 @@ func NewRRHHRepo(db *sqlx.DB) *RRHHRepo {
 const empleadoSelect = `
 	SELECT e.id, e.nombre, e.apellido, e.ci, e.cargo, e.telefono, e.local_id, l.nombre AS local_nombre, e.usuario_id,
 	       e.sueldo_base, e.dia_pago::int AS dia_pago, e.aplica_aportes, e.metodo_pago,
-	       e.fecha_ingreso::text AS fecha_ingreso, e.fecha_baja::text AS fecha_baja, e.activo, e.notas,
+	       e.fecha_ingreso::text AS fecha_ingreso, e.fecha_baja::text AS fecha_baja, e.activo, e.notas, e.foto_key,
 	       COALESCE((SELECT SUM(a.monto) FROM adelantos_empleado a
 	                 WHERE a.empleado_id = e.id AND a.planilla_id IS NULL AND NOT a.anulado), 0) AS adelantos_pendientes
 	FROM empleados e
@@ -107,6 +107,23 @@ func (r *RRHHRepo) UpdateEmpleado(id int, in EmpleadoInput) error {
 		return fmt.Errorf("error al actualizar empleado: %w", err)
 	}
 	n, err := affectedRows(res, "actualizar empleado")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrEmpleadoNoEnc
+	}
+	return nil
+}
+
+// SetFotoKey guarda (o limpia, con nil) la clave de la foto del empleado.
+func (r *RRHHRepo) SetFotoKey(id int, key *string) error {
+	res, err := r.db.Exec(
+		`UPDATE empleados SET foto_key = $1, fecha_modificacion = NOW() WHERE id = $2`, key, id)
+	if err != nil {
+		return fmt.Errorf("error al actualizar foto del empleado: %w", err)
+	}
+	n, err := affectedRows(res, "actualizar foto del empleado")
 	if err != nil {
 		return err
 	}
