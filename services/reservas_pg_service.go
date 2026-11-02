@@ -989,6 +989,32 @@ type CrearReservaPGInput struct {
 	Precio             *float64
 	Notas              string
 	PlanID             *int
+	// Autenticado indica que la peticion trae un token valido (panel interno). Solo esos
+	// usuarios reciben el aviso de reserva repetida.
+	Autenticado bool
+	// ConfirmarDuplicado indica que el usuario ya vio el aviso de que el cliente tiene otra
+	// reserva ese dia y quiere crearla igual.
+	ConfirmarDuplicado bool
+}
+
+// ReservaDuplicadaItem resume una reserva que el cliente ya tiene en el dia.
+type ReservaDuplicadaItem struct {
+	ID        int
+	Local     string
+	HoraDesde string
+	HoraHasta string
+	Servicio  string
+	Estado    string
+}
+
+// ReservaDuplicadaError avisa que el cliente ya tiene reservas ese dia. El panel interno
+// debe pedir confirmacion y reenviar con ConfirmarDuplicado.
+type ReservaDuplicadaError struct {
+	Reservas []ReservaDuplicadaItem
+}
+
+func (e *ReservaDuplicadaError) Error() string {
+	return "el cliente ya tiene una reserva ese dia"
 }
 
 func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error) {
@@ -1107,6 +1133,14 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		return 0, err
 	}*/
 
+	// Aviso de reserva repetida (solo panel interno): el formulario publico no consulta
+	// reservas ajenas, para no exponer datos de otros clientes.
+	if input.Autenticado && !input.ConfirmarDuplicado {
+		if err := s.avisarReservaDuplicada(input.Telefono, fecha, 0); err != nil {
+			return 0, err
+		}
+	}
+
 	// When no sabes
 
 	id, err := s.repo.CreateReserva(repository.CreateReservaInput{
@@ -1128,6 +1162,43 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		PlanID:             input.PlanID,
 	})
 	return id, err
+}
+
+// avisarReservaDuplicada devuelve ReservaDuplicadaError si el telefono ya tiene reservas
+// vigentes (no rechazadas) en la fecha, en cualquier local. excluirID omite la reserva que
+// se esta moviendo para que no se avise contra si misma.
+func (s *ReservasPGService) avisarReservaDuplicada(telefono string, fecha time.Time, excluirID int) error {
+	// Sin telefono el filtro no restringe nada y traeria reservas de todos los clientes.
+	if strings.TrimSpace(telefono) == "" {
+		return nil
+	}
+	existentes, err := s.repo.GetReservas(repository.FiltroReservasPG{
+		Fecha:          &fecha,
+		NumeroTelefono: telefono,
+		SoloActivas:    true,
+	})
+	if err != nil {
+		return err
+	}
+	var items []ReservaDuplicadaItem
+	for _, rv := range existentes {
+		estado := strings.ToUpper(strings.TrimSpace(stringValue(rv.Estado)))
+		if estado == "RECHAZADO" || rv.ID == excluirID {
+			continue
+		}
+		items = append(items, ReservaDuplicadaItem{
+			ID:        rv.ID,
+			Local:     rv.LocalNombre,
+			HoraDesde: formatHoraService(rv.HoraDesde),
+			HoraHasta: formatHoraService(rv.HoraHasta),
+			Servicio:  strings.TrimSpace(stringValue(rv.ServicioNombre)),
+			Estado:    estado,
+		})
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	return &ReservaDuplicadaError{Reservas: items}
 }
 
 func (s *ReservasPGService) servicioParaReserva(input CrearReservaPGInput) (*models.ServicioItem, bool) {
@@ -1287,6 +1358,9 @@ type ActualizarReservaPGInput struct {
 	// LimpiarPlanID desvincula la reserva de su plan (plan_id = NULL).
 	LimpiarPlanID bool
 	NuevoEstado   string
+	// ConfirmarDuplicado indica que el usuario ya vio que el cliente tiene otra reserva en la
+	// nueva fecha y quiere mover la reserva igual.
+	ConfirmarDuplicado bool
 }
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
@@ -1443,6 +1517,19 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 		return errors.New("no se puede editar una reserva completada")
 	}
 	upd.EstadoActualEsperado = estadoActual
+
+	// Mover la reserva a otro dia: avisar si el cliente ya tiene otra ese dia (el PATCH es
+	// siempre del panel interno, asi que no hace falta distinguir el formulario publico).
+	if upd.NuevaFecha != nil && !input.ConfirmarDuplicado &&
+		upd.NuevaFecha.Format("2006-01-02") != current.Fecha.Format("2006-01-02") {
+		telefono := input.NuevoNumeroTelefono
+		if telefono == "" {
+			telefono = stringValue(current.NumeroTelefono)
+		}
+		if err := s.avisarReservaDuplicada(telefono, *upd.NuevaFecha, input.Id); err != nil {
+			return err
+		}
+	}
 	if strings.TrimSpace(input.NuevoEstado) != "" {
 		estadoFinal, err := NormalizarEstadoReserva(input.NuevoEstado)
 		if err != nil {
