@@ -406,7 +406,7 @@ func NormalizarEstadoPago(raw string) (string, error) {
 }
 
 // TiposPago es la lista cerrada de metodos con los que se cobra. Debe coincidir con chk_pagos_tipo_pago en la
-// base (migracion 000073); agregar uno exige una migracion nueva.
+// base (migracion 000074); agregar uno exige una migracion nueva.
 var TiposPago = []string{"efectivo", "tarjeta", "qr", "transferencia"}
 
 func NormalizarTipoPago(raw string) (string, error) {

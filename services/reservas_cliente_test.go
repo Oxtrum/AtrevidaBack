@@ -166,7 +166,7 @@ func TestCrearReservaPublicaIgnoraUnClienteIDQueVengaDelCliente(t *testing.T) {
 }
 
 func TestLaMigracionDelHistoricoSoloEnlazaTelefonosExactosYUnicos(t *testing.T) {
-	sql, err := os.ReadFile("../migrations/000074_reservas_cliente_y_precio_insumos.up.sql")
+	sql, err := os.ReadFile("../migrations/000075_reservas_cliente_y_precio_insumos.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

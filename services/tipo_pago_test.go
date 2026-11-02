@@ -45,7 +45,7 @@ func TestTiposPagoEsLaListaCerradaQueUsaLaValidacion(t *testing.T) {
 }
 
 func TestLaMigracionDeTiposPagoCoincideConLaLista(t *testing.T) {
-	sql, err := os.ReadFile("../migrations/000073_tipos_pago_cuatro_metodos.up.sql")
+	sql, err := os.ReadFile("../migrations/000074_tipos_pago_cuatro_metodos.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

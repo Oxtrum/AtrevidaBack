@@ -2,7 +2,7 @@ package services
 
 // Pruebas de integracion de la cuenta del cliente contra una BD PostgreSQL real (ver la cabecera de
 // trastienda_integration_test.go): comprueban el SQL de cargos, abonos y aplicaciones, que las pruebas con
-// repositorio falso no ejecutan. Requieren la migracion 000070 y la 000071.
+// repositorio falso no ejecutan. Requieren las migraciones 000071 a 000075.
 //
 //	TRASTIENDA_TEST_DB=atrevida_migtest go test ./services -run TrastiendaCuenta -v
 
