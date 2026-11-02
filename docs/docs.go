@@ -17982,15 +17982,30 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 21
                 },
+                "plan_nombre": {
+                    "description": "Nombre del paquete del que nace el cargo (opcional).",
+                    "type": "string",
+                    "example": "Paquete Relax"
+                },
                 "registrado_en": {
                     "description": "Momento real en que se registro el cargo; lo pone el servidor.",
                     "type": "string",
                     "example": "2026-10-28T21:30:00Z"
                 },
+                "reserva_fecha": {
+                    "description": "Fecha de la reserva de la que nace el cargo, para saber cuando se uso (opcional).",
+                    "type": "string",
+                    "example": "2026-10-25T00:00:00Z"
+                },
                 "reserva_id": {
                     "description": "Reserva de la que nace el cargo (opcional).",
                     "type": "integer",
                     "example": 44
+                },
+                "reserva_servicio": {
+                    "description": "Servicio de la reserva de la que nace el cargo (opcional).",
+                    "type": "string",
+                    "example": "Masaje relajante"
                 },
                 "tipo": {
                     "description": "Tipo del cargo: PAQUETE, SERVICIO, INSUMO u OTRO.",

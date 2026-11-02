@@ -3471,14 +3471,27 @@ definitions:
         description: Plan del que nace el cargo (opcional).
         example: 21
         type: integer
+      plan_nombre:
+        description: Nombre del paquete del que nace el cargo (opcional).
+        example: Paquete Relax
+        type: string
       registrado_en:
         description: Momento real en que se registro el cargo; lo pone el servidor.
         example: "2026-10-28T21:30:00Z"
+        type: string
+      reserva_fecha:
+        description: Fecha de la reserva de la que nace el cargo, para saber cuando
+          se uso (opcional).
+        example: "2026-10-25T00:00:00Z"
         type: string
       reserva_id:
         description: Reserva de la que nace el cargo (opcional).
         example: 44
         type: integer
+      reserva_servicio:
+        description: Servicio de la reserva de la que nace el cargo (opcional).
+        example: Masaje relajante
+        type: string
       tipo:
         description: 'Tipo del cargo: PAQUETE, SERVICIO, INSUMO u OTRO.'
         enum:

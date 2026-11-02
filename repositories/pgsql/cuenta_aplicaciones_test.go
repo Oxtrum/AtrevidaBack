@@ -82,3 +82,14 @@ func TestElSaldoDisponibleSeBloqueaParaQueDosCobrosNoGastenElMismoDinero(t *test
 		}
 	}
 }
+
+func TestListarCargosTraeDeDondeNaceCadaCargo(t *testing.T) {
+	for _, parte := range []string{"LEFT JOIN reservas", "LEFT JOIN planes", "reserva_fecha", "reserva_servicio", "plan_nombre"} {
+		if !strings.Contains(sqlListarCargos, parte) {
+			t.Fatalf("el listado de cargos debe traer su origen; falta %q: %s", parte, sqlListarCargos)
+		}
+	}
+	if strings.Contains(sqlListarCargos, "INNER JOIN") || strings.Contains(sqlListarCargos, "\n\t\tJOIN ") {
+		t.Fatal("un cargo manual no tiene reserva ni plan: los cruces deben ser LEFT JOIN")
+	}
+}

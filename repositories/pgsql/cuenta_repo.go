@@ -18,8 +18,13 @@ const (
 	sqlListarCargos = `
 		SELECT c.id, c.cliente_id, c.local_id, c.tipo, c.concepto, c.monto,
 		       COALESCE((SELECT SUM(a.monto) FROM pago_aplicaciones a WHERE a.cargo_id = c.id AND a.anulado = FALSE), 0) AS pagado,
-		       c.fecha_hecho, c.registrado_en, c.reserva_id, c.plan_id, c.anulado, c.motivo_anulacion
+		       c.fecha_hecho, c.registrado_en, c.reserva_id, c.plan_id, c.anulado, c.motivo_anulacion,
+		       rv.fecha AS reserva_fecha,
+		       COALESCE(rv.servicio_confirmado, rv.servicio_nombre, rv.servicio_solicitado) AS reserva_servicio,
+		       pl.combo_nombre_texto AS plan_nombre
 		FROM cargos_cliente c
+		LEFT JOIN reservas rv ON rv.id = c.reserva_id
+		LEFT JOIN planes pl ON pl.id = c.plan_id
 		WHERE c.cliente_id = $1 AND ($2 OR c.anulado = FALSE)
 		ORDER BY c.fecha_hecho, c.id`
 

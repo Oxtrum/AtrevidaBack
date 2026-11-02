@@ -34,6 +34,12 @@ type CargoCliente struct {
 	ReservaID *int `db:"reserva_id" json:"reserva_id,omitempty" example:"44"`
 	// Plan del que nace el cargo (opcional).
 	PlanID *int `db:"plan_id" json:"plan_id,omitempty" example:"21"`
+	// Fecha de la reserva de la que nace el cargo, para saber cuando se uso (opcional).
+	ReservaFecha *time.Time `db:"reserva_fecha" json:"reserva_fecha,omitempty" example:"2026-10-25T00:00:00Z"`
+	// Servicio de la reserva de la que nace el cargo (opcional).
+	ReservaServicio *string `db:"reserva_servicio" json:"reserva_servicio,omitempty" example:"Masaje relajante"`
+	// Nombre del paquete del que nace el cargo (opcional).
+	PlanNombre *string `db:"plan_nombre" json:"plan_nombre,omitempty" example:"Paquete Relax"`
 	// Si el cargo fue anulado; un cargo anulado no cuenta en el saldo.
 	Anulado bool `db:"anulado" json:"anulado" example:"false"`
 	// Motivo de la anulacion.
