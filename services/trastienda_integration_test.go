@@ -77,6 +77,7 @@ func setupTrastienda(t *testing.T) *trastiendaEnv {
 	}
 	env.reservas.SetInventarioConsumo(env.consumo)
 	env.reservas.SetConfiguracion(cfgSvc)
+	env.reservas.SetPlanes(pgsqlrepo.NewPlanesRepo(conn))
 
 	// Local propio de la prueba: aisla stock, reservas y gastos de otras ejecuciones.
 	env.localName = "LOCAL-T" + env.sufijo

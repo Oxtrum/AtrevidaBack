@@ -93,6 +93,7 @@ func Build() (*gin.Engine, error) {
 	reservasPGService := services.NewReservasPGService(reservasPGRepo, serviciosPGRepo)
 	reservasPGService.SetInventarioConsumo(inventarioConsumo)
 	reservasPGService.SetConfiguracion(configuracionService)
+	reservasPGService.SetPlanes(planesPGRepo)
 	reservasVinculoRepo := pgsqlrepo.NewReservasVinculoRepo(pgDB)
 	reservasPGService.SetClientes(reservasVinculoRepo)
 	localesPGService := services.NewLocalesService(localesPGRepo)

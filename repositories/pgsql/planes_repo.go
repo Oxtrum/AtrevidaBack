@@ -96,6 +96,15 @@ func buildPlanesQuery(f repository.FiltroPlanes) (string, []interface{}) {
 	return query, args
 }
 
+// EstadoCobranza devuelve el estado de cobranza vigente de un paquete (ver planEstadoCobranzaSQL).
+func (r *PlanesRepo) EstadoCobranza(planID int) (string, error) {
+	var estado string
+	if err := r.db.Get(&estado, `SELECT (`+planEstadoCobranzaSQL+`) FROM planes p WHERE p.id = $1`, planID); err != nil {
+		return "", fmt.Errorf("%w: plan con id %d", repository.ErrPlanNoEncontrado, planID)
+	}
+	return estado, nil
+}
+
 func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, error) {
 	query, args := buildPlanesQuery(f)
 

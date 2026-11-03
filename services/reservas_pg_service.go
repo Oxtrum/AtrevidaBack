@@ -26,6 +26,13 @@ type ReservasPGService struct {
 	clientes ReservaClientes
 	// config da el momento en que avanza la sesion de un paquete. Opcional: sin ella es al completar la reserva.
 	config *ConfiguracionService
+	// planes da la cobranza de un paquete. Opcional: sin el no se exige que este pagado.
+	planes PlanesCobranza
+}
+
+// PlanesCobranza es lo que la reserva necesita saber del pago de un paquete.
+type PlanesCobranza interface {
+	EstadoCobranza(planID int) (string, error)
 }
 
 // ReservaClientes es lo que la reserva necesita saber de los clientes registrados.
@@ -44,6 +51,29 @@ func (s *ReservasPGService) SetInventarioConsumo(c *InventarioConsumo) { s.consu
 
 // SetConfiguracion habilita los parametros editables (hoy: cuando avanza la sesion de un paquete).
 func (s *ReservasPGService) SetConfiguracion(c *ConfiguracionService) { s.config = c }
+
+// SetPlanes habilita la regla de uso del paquete segun su pago (parametro paquetes.usar_desde).
+func (s *ReservasPGService) SetPlanes(p PlanesCobranza) { s.planes = p }
+
+// validarPaqueteUsable rechaza imputar una reserva a un paquete sin pagar cuando el parametro pide PAGADO. Con CUENTA
+// (por defecto) el paquete se usa apenas se vende, aunque quede debiendo.
+func (s *ReservasPGService) validarPaqueteUsable(planID int) error {
+	if s.config == nil || s.planes == nil {
+		return nil
+	}
+	cfg, err := s.config.Snapshot()
+	if err != nil || cfg.UsarPaqueteDesde != "PAGADO" {
+		return nil
+	}
+	cobranza, err := s.planes.EstadoCobranza(planID)
+	if err != nil {
+		return err
+	}
+	if cobranza != "PAGADO" {
+		return errors.New("el paquete todavía no está pagado: se puede usar cuando esté pagado")
+	}
+	return nil
+}
 
 // sesionPaqueteAlAgendar dice si el parametro pide consumir la sesion del paquete al agendar y no al completar.
 func (s *ReservasPGService) sesionPaqueteAlAgendar() bool {
@@ -1164,6 +1194,12 @@ func (s *ReservasPGService) crearReservaBase(input CrearReservaPGInput) (int, st
 		return 0, "", fmt.Errorf("formato de fecha inválido, use YYYY-MM-DD")
 	}
 
+	if input.PlanID != nil {
+		if err := s.validarPaqueteUsable(*input.PlanID); err != nil {
+			return 0, "", err
+		}
+	}
+
 	horaHasta := input.HoraHasta
 	if horaHasta == "" {
 		horaHasta = sumar60Min(input.HoraDesde)
@@ -1754,6 +1790,12 @@ func (s *ReservasPGService) actualizarReservaBase(input ActualizarReservaPGInput
 			return errors.New("No se pudo encontrar la reserva")
 		}
 		return errors.New("No se pudo recuperar la reserva")
+	}
+	// Solo al cambiar de paquete: guardar otros datos de una reserva ya imputada no vuelve a pedir el pago.
+	if !input.LimpiarPlanID && input.NuevoPlanID != nil && (current.PlanID == nil || *current.PlanID != *input.NuevoPlanID) {
+		if err := s.validarPaqueteUsable(*input.NuevoPlanID); err != nil {
+			return err
+		}
 	}
 	estadoActual, err := estadoReservaActual(current)
 	if err != nil {

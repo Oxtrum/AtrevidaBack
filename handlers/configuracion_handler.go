@@ -58,7 +58,7 @@ func (h *Container) GetConfiguracionPublica(c *gin.Context) {
 
 // PatchConfiguracion godoc
 // @Summary Actualizar parametros del sistema
-// @Description Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.
+// @Description Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); paquetes.usar_desde CUENTA|PAGADO (desde cuando se puede usar un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.
 // @Tags Configuracion
 // @Accept json
 // @Produce json
