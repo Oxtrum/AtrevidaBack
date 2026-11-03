@@ -310,7 +310,7 @@ func (r *InventarioRepo) UpdateCategoria(id int, nombre *string, activo *bool) e
 
 func signoMovimiento(tipo string) float64 {
 	switch tipo {
-	case repository.MovEntradaCompra, repository.MovReversionServicio, repository.MovAjustePositivo:
+	case repository.MovEntradaCompra, repository.MovReversionServicio, repository.MovAjustePositivo, repository.MovReversionVenta:
 		return 1
 	default:
 		return -1
@@ -350,10 +350,10 @@ func AplicarMovimientoStock(tx *sqlx.Tx, in repository.MovimientoStockInput) (fl
 	if _, err := tx.Exec(`
 		INSERT INTO inventario_movimientos
 			(item_id, local_id, tipo, cantidad, stock_resultante, costo_unitario, reserva_id,
-			 plan_movimiento_id, compra_id, motivo, usuario_id, usuario_nombre)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+			 plan_movimiento_id, compra_id, pago_id, cargo_id, motivo, usuario_id, usuario_nombre)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
 		in.ItemID, in.LocalID, in.Tipo, in.Cantidad, nuevo, in.CostoUnitario, in.ReservaID,
-		in.PlanMovimientoID, in.CompraID, nullStr(in.Motivo), in.UsuarioID, nullStr(in.UsuarioNombre)); err != nil {
+		in.PlanMovimientoID, in.CompraID, in.PagoID, in.CargoID, nullStr(in.Motivo), in.UsuarioID, nullStr(in.UsuarioNombre)); err != nil {
 		return 0, fmt.Errorf("error al registrar movimiento de inventario: %w", err)
 	}
 	return nuevo, nil
@@ -657,7 +657,8 @@ func (r *InventarioRepo) ValorStock(localID *int) (float64, int, error) {
 	return valor, bajos, nil
 }
 
-// ConsumoServicios suma el costo de las salidas por servicio en el rango (valorizado a costo unitario del item).
+// ConsumoServicios suma el costo de los insumos que salieron en el rango, por servicios y por ventas de caja,
+// netas de sus reversiones (valorizado a costo unitario del item).
 func (r *InventarioRepo) ConsumoServicios(desde, hasta string, localID *int) (float64, error) {
 	args := []interface{}{desde, hasta}
 	cond := ""
@@ -668,10 +669,10 @@ func (r *InventarioRepo) ConsumoServicios(desde, hasta string, localID *int) (fl
 	var total float64
 	err := r.db.Get(&total, fmt.Sprintf(`
 		SELECT COALESCE(SUM(
-			CASE WHEN m.tipo = 'SALIDA_SERVICIO' THEN m.cantidad ELSE -m.cantidad END
+			CASE WHEN m.tipo IN ('SALIDA_SERVICIO', 'SALIDA_VENTA') THEN m.cantidad ELSE -m.cantidad END
 			* COALESCE(m.costo_unitario, i.costo_referencia, 0)), 0)
 		FROM inventario_movimientos m JOIN inventario_items i ON i.id = m.item_id
-		WHERE m.tipo IN ('SALIDA_SERVICIO', 'REVERSION_SERVICIO')
+		WHERE m.tipo IN ('SALIDA_SERVICIO', 'REVERSION_SERVICIO', 'SALIDA_VENTA', 'REVERSION_VENTA')
 		  AND m.creado_en >= $1::date AND m.creado_en < ($2::date + 1) %s`, cond), args...)
 	if err != nil {
 		return 0, fmt.Errorf("error al calcular consumo de servicios: %w", err)

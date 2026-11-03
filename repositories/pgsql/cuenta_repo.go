@@ -6,17 +6,19 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/cuenta"
 	"atrevida-agenda-api/models"
+	repository "atrevida-agenda-api/repositories"
 )
 
 // Consultas sobre pago_aplicaciones (en pantalla: cobros, "este pago cubre X Bs de este cargo"). Ninguna fila se
 // borra ni se edita: anular marca la fila y las sumas ignoran las anuladas.
 const (
 	sqlListarCargos = `
-		SELECT c.id, c.cliente_id, c.local_id, c.tipo, c.concepto, c.monto,
+		SELECT c.id, c.cliente_id, c.local_id, c.tipo, c.concepto, c.monto, c.item_id, c.cantidad,
 		       COALESCE((SELECT SUM(a.monto) FROM pago_aplicaciones a WHERE a.cargo_id = c.id AND a.anulado = FALSE), 0) AS pagado,
 		       c.fecha_hecho, c.registrado_en, c.reserva_id, c.plan_id, c.anulado, c.motivo_anulacion,
 		       rv.fecha AS reserva_fecha,
@@ -92,6 +94,12 @@ type CargoInput struct {
 	PlanID      *int
 	CreadoPorID *int
 	CreadoPor   string
+	// ItemID y Cantidad: insumo del inventario que se cobra (solo cargos de tipo INSUMO). Al crear el cargo baja su
+	// stock en LocalID, en la misma transaccion.
+	ItemID   *int
+	Cantidad *float64
+	// PermitirStockNegativo deja cobrar un insumo sin stock suficiente (inventario.permitir_stock_negativo).
+	PermitirStockNegativo bool
 }
 
 // AbonoInput crea un abono (pago a cuenta) y lo reparte entre cargos.
@@ -147,30 +155,72 @@ func errCuenta(format string, args ...interface{}) error {
 
 // CrearCargo registra un cargo para un cliente existente.
 func (r *CuentaRepo) CrearCargo(in CargoInput) (int, error) {
+	ids, err := r.CrearCargos([]CargoInput{in})
+	if err != nil {
+		return 0, err
+	}
+	return ids[0], nil
+}
+
+// CrearCargos registra varios cargos en una sola transaccion: si uno falla (cliente inexistente, insumo sin stock),
+// no queda ninguno ni se descuenta stock.
+func (r *CuentaRepo) CrearCargos(cargos []CargoInput) ([]int, error) {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	ids := make([]int, 0, len(cargos))
+	for _, in := range cargos {
+		id, err := crearCargoTx(tx, in)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("no se pudo crear el cargo: %w", err)
+	}
+	return ids, nil
+}
+
+func crearCargoTx(tx *sqlx.Tx, in CargoInput) (int, error) {
 	var existe bool
-	if err := r.db.Get(&existe, `SELECT EXISTS (SELECT 1 FROM clientes WHERE id = $1)`, in.ClienteID); err != nil {
+	if err := tx.Get(&existe, `SELECT EXISTS (SELECT 1 FROM clientes WHERE id = $1)`, in.ClienteID); err != nil {
 		return 0, fmt.Errorf("no se pudo verificar el cliente: %w", err)
 	}
 	if !existe {
 		return 0, errCuenta("cliente no encontrado")
 	}
 	var id int
-	err := r.db.Get(&id, `
+	err := tx.Get(&id, `
 		INSERT INTO cargos_cliente (
-			cliente_id, local_id, tipo, concepto, monto, fecha_hecho, reserva_id, plan_id, creado_por_id, creado_por
+			cliente_id, local_id, tipo, concepto, monto, fecha_hecho, reserva_id, plan_id, creado_por_id, creado_por,
+			item_id, cantidad
 		)
-		VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, NOW()), $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, NOW()), $7, $8, $9, $10, $11, $12)
 		RETURNING id`,
-		in.ClienteID, in.LocalID, in.Tipo, in.Concepto, in.Monto, in.FechaHecho, in.ReservaID, in.PlanID, in.CreadoPorID, in.CreadoPor)
+		in.ClienteID, in.LocalID, in.Tipo, in.Concepto, in.Monto, in.FechaHecho, in.ReservaID, in.PlanID, in.CreadoPorID, in.CreadoPor,
+		in.ItemID, in.Cantidad)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" && in.ItemID != nil {
+			return 0, repository.ErrItemNoEncontrado
+		}
 		return 0, fmt.Errorf("no se pudo crear el cargo: %w", err)
+	}
+	// El cargo y el descuento de stock van juntos: si el insumo no alcanza, no queda el cargo.
+	if in.ItemID != nil {
+		if err := descontarInsumoDeCargo(tx, id, in); err != nil {
+			return 0, err
+		}
 	}
 	return id, nil
 }
 
 // AnularCargo anula un cargo con motivo y libera lo que los abonos le habian aplicado: ese dinero vuelve a ser
 // saldo disponible.
-func (r *CuentaRepo) AnularCargo(id int, motivo string) error {
+func (r *CuentaRepo) AnularCargo(id int, motivo string, actor repository.ConsumoActor) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
@@ -189,6 +239,10 @@ func (r *CuentaRepo) AnularCargo(id int, motivo string) error {
 	}
 	if _, err := tx.Exec(sqlAnularCobrosDelCargo, id, "Cargo anulado: "+motivo); err != nil {
 		return fmt.Errorf("no se pudieron liberar los cobros del cargo: %w", err)
+	}
+	// Si el cargo cobraba un insumo, vuelve al stock.
+	if err := revertirInsumoDeCargo(tx, id, actor); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

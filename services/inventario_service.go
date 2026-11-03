@@ -242,7 +242,8 @@ func (s *InventarioService) ListarMovimientos(f repository.FiltroMovimientosInve
 	if f.Tipo != "" {
 		switch f.Tipo {
 		case repository.MovEntradaCompra, repository.MovSalidaServicio, repository.MovReversionServicio,
-			repository.MovAjustePositivo, repository.MovAjusteNegativo:
+			repository.MovAjustePositivo, repository.MovAjusteNegativo,
+			repository.MovSalidaVenta, repository.MovReversionVenta:
 		default:
 			return nil, errors.New("tipo de movimiento invalido")
 		}

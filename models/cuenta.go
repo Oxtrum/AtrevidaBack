@@ -20,6 +20,10 @@ type CargoCliente struct {
 	Concepto string `db:"concepto" json:"concepto" example:"Paquete Relax 4 sesiones"`
 	// Monto del cargo; puede ser 0 para un consumo que no se cobra.
 	Monto float64 `db:"monto" json:"monto" example:"1000"`
+	// Insumo del inventario que se cobra (solo en cargos de tipo INSUMO).
+	ItemID *int `db:"item_id" json:"item_id,omitempty" example:"15"`
+	// Cantidad del insumo cobrada (solo en cargos de tipo INSUMO).
+	Cantidad *float64 `db:"cantidad" json:"cantidad,omitempty" example:"2"`
 	// Cuanto de este cargo ya cubren los abonos aplicados.
 	Pagado float64 `db:"pagado" json:"pagado" example:"400"`
 	// Lo que falta por cubrir (monto menos pagado); se calcula.

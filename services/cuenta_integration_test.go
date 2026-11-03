@@ -163,7 +163,7 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 	}
 
 	// Anular un cargo: sale del saldo.
-	if err := e.svc.AnularCargo(anestesia, "cargada por error"); err != nil {
+	if err := e.svc.AnularCargo(anestesia, "cargada por error", CajeroAuditoriaInput{}); err != nil {
 		t.Fatal(err)
 	}
 	var motivo string
@@ -178,7 +178,7 @@ func TestTrastiendaCuentaFlujoCompleto(t *testing.T) {
 	if disp, por, deuda := e.cuenta(); disp != 0 || por != 400 || deuda != 400 {
 		t.Fatalf("tras anular la anestesia = disponible %v por pagar %v deuda %v", disp, por, deuda)
 	}
-	if err := e.svc.AnularCargo(anestesia, "otra vez"); err == nil {
+	if err := e.svc.AnularCargo(anestesia, "otra vez", CajeroAuditoriaInput{}); err == nil {
 		t.Fatal("anular dos veces el mismo cargo debe fallar")
 	}
 }

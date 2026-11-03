@@ -553,7 +553,7 @@ func float64Ptr(v float64) *float64 {
 // @Param busqueda query string false "Busqueda parcial por ID, cliente, telefono, servicio, local o fecha" example(Maria)
 // @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(COMPLETADO)
 // @Param excluir_estado query string false "Estado que se excluye del resultado" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(COMPLETADO)
-// @Param estado_cobro query string false "Filtra reservas completadas segun su cobro: COBRADA, CUBIERTA_PAQUETE o POR_COBRAR" Enums(COBRADA,CUBIERTA_PAQUETE,POR_COBRAR) example(POR_COBRAR)
+// @Param estado_cobro query string false "Filtra reservas completadas segun su cobro: COBRADA, A_CUENTA, CUBIERTA_PAQUETE o POR_COBRAR" Enums(COBRADA,A_CUENTA,CUBIERTA_PAQUETE,POR_COBRAR) example(POR_COBRAR)
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta) example(bicicleta)
 // @Param vigente_fecha query string false "Fecha local desde la que una reserva sigue vigente; requiere vigente_hora" example(2026-08-12)
 // @Param vigente_hora query string false "Hora local HH:MM desde la que una reserva sigue vigente; requiere vigente_fecha" example(15:30)

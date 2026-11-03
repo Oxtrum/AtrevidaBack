@@ -18,6 +18,8 @@ import (
 type crearDetallePagoRequest struct {
 	// ID opcional del servicio cobrado; puede enviarse null.
 	ServicioID *int `json:"servicio_id" example:"8"`
+	// ID opcional del insumo del inventario que se vende en la linea; no se combina con servicio_id. Al crear el pago se descuenta su stock del local y se registra SALIDA_VENTA en el kardex.
+	ItemID *int `json:"item_id,omitempty" example:"15"`
 	// Texto del servicio cobrado.
 	Servicio *string `json:"servicio" example:"Limpieza facial"`
 	// Precio unitario cobrado; puede diferir del precio referencial del servicio.
@@ -360,7 +362,7 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 
 // CreatePago godoc
 // @Summary Crear pago
-// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario de cada detalle puede diferir del precio referencial del servicio; el backend calcula su subtotal como precio_unitario por cantidad. subtotal y total_final de cabecera son opcionales y, si se envian, deben coincidir con el detalle y descuento calculados. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.
+// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario de cada detalle puede diferir del precio referencial del servicio; el backend calcula su subtotal como precio_unitario por cantidad. subtotal y total_final de cabecera son opcionales y, si se envian, deben coincidir con el detalle y descuento calculados. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Un item puede llevar item_id (insumo del inventario, excluyente con servicio_id): al crear el pago se descuenta ese stock del local en la misma transaccion y queda SALIDA_VENTA en el kardex; si no alcanza el stock e inventario.permitir_stock_negativo es false, responde 409 y no se crea el pago. Response: codigo_pago generado incrementalmente.
 // @Tags Pagos
 // @Accept json
 // @Produce json
@@ -369,7 +371,8 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 // @Success 201 {object} utils.APIResponse{data=pagoCreatedResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
-// @Failure 404 {object} utils.APIResponse "Referencia no encontrada: local, cliente o servicio invalido"
+// @Failure 404 {object} utils.APIResponse "Referencia no encontrada: local, cliente, servicio o insumo invalido"
+// @Failure 409 {object} utils.APIResponse "Stock insuficiente para un insumo vendido"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos [post]
 func (h *Container) CreatePago(c *gin.Context) {
@@ -386,6 +389,7 @@ func (h *Container) CreatePago(c *gin.Context) {
 	for _, d := range req.Detalle {
 		detalle = append(detalle, services.CrearDetallePagoInput{
 			ServicioID:     d.ServicioID,
+			ItemID:         d.ItemID,
 			Servicio:       stringValueRequired(d.Servicio),
 			PrecioUnitario: floatValueRequired(d.PrecioUnitario),
 			Cantidad:       intValueRequired(d.Cantidad),
@@ -506,7 +510,7 @@ func (h *Container) PatchPago(c *gin.Context) {
 
 // DeletePago godoc
 // @Summary Eliminar pago
-// @Description Realiza borrado logico de un pago activo por codigo_pago (activo=false). Requiere token Bearer. No elimina fisicamente la cabecera ni el detalle.
+// @Description Realiza borrado logico de un pago activo por codigo_pago (activo=false). Requiere token Bearer. No elimina fisicamente la cabecera ni el detalle. Si el pago vendio insumos, devuelve su stock al local con REVERSION_VENTA en el kardex, a nombre de quien anula y una sola vez por insumo.
 // @Tags Pagos
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -524,7 +528,12 @@ func (h *Container) DeletePago(c *gin.Context) {
 		return
 	}
 
-	err := h.PagosPG.DeletePago(codigoPago)
+	cajero, ok := cajeroAuditoriaFromRequest(c, nil)
+	if !ok {
+		return
+	}
+
+	err := h.PagosPG.DeletePago(codigoPago, cajero)
 	if err != nil {
 		utils.RespondError(c, statusPagoError(err), err.Error())
 		return
@@ -680,7 +689,8 @@ func statusPagoError(err error) int {
 		strings.Contains(lower, "debe enviar"),
 		strings.Contains(lower, "no puede"):
 		return http.StatusBadRequest
-	case strings.Contains(lower, "ya existe"), strings.Contains(lower, "ya tiene un cobro"):
+	case strings.Contains(lower, "ya existe"), strings.Contains(lower, "ya tiene un cobro"),
+		strings.Contains(lower, "stock insuficiente"), strings.Contains(lower, "con insumos"):
 		return http.StatusConflict
 	default:
 		return http.StatusInternalServerError

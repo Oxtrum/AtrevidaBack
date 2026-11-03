@@ -257,13 +257,18 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 	for _, d := range input.Detalle {
 		_, err = tx.Exec(`
 			INSERT INTO detalle_pagos (
-				pago_id, servicio_id, servicio, precio_unitario, cantidad, subtotal
+				pago_id, servicio_id, item_id, servicio, precio_unitario, cantidad, subtotal
 			)
-			VALUES ($1,$2,$3,$4,$5,$6)
-		`, pagoID, d.ServicioID, d.Servicio, d.PrecioUnitario, d.Cantidad, d.Subtotal)
+			VALUES ($1,$2,$3,$4,$5,$6,$7)
+		`, pagoID, d.ServicioID, d.ItemID, d.Servicio, d.PrecioUnitario, d.Cantidad, d.Subtotal)
 		if err != nil {
 			return "", pagoInsertError(err)
 		}
+	}
+
+	// El cobro y el descuento de stock van en la misma transaccion: si un insumo no alcanza, no queda el pago.
+	if err := descontarInsumosVendidos(tx, pagoID, codigoPago, input); err != nil {
+		return "", err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -303,6 +308,13 @@ func (r *PagosRepo) UpdatePago(input repository.ActualizarPagoInput) error {
 	}
 
 	if input.Detalle != nil {
+		var insumos int
+		if err := tx.Get(&insumos, `SELECT COUNT(*) FROM detalle_pagos WHERE pago_id = $1 AND item_id IS NOT NULL`, actual.ID); err != nil {
+			return fmt.Errorf("no se pudo validar el detalle del pago")
+		}
+		if insumos > 0 {
+			return errors.New("no se puede editar el detalle de un pago con insumos: anula el pago y registra otro")
+		}
 		if err := r.syncDetallePago(tx, actual.ID, *input.Detalle); err != nil {
 			return err
 		}
@@ -432,7 +444,7 @@ func (r *PagosRepo) UpdatePago(input repository.ActualizarPagoInput) error {
 	return tx.Commit()
 }
 
-func (r *PagosRepo) DeletePago(codigoPago string) error {
+func (r *PagosRepo) DeletePago(codigoPago string, actor repository.ConsumoActor) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return fmt.Errorf("no se pudo eliminar el pago")
@@ -458,6 +470,9 @@ func (r *PagosRepo) DeletePago(codigoPago string) error {
 	// conservan como anuladas para no perder el historial.
 	if _, err := tx.Exec(sqlAnularCobrosDelPago, pagoID, "Pago anulado"); err != nil {
 		return fmt.Errorf("no se pudo eliminar el pago")
+	}
+	if err := revertirInsumosVendidos(tx, pagoID, codigoPago, actor); err != nil {
+		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("no se pudo eliminar el pago")
@@ -498,7 +513,8 @@ func (r *PagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) (repos
 		FROM pagos p WHERE %s
 	), detalle AS (
 		SELECT dp.pago_id, COALESCE(SUM(dp.cantidad),0)::int cantidad
-		FROM detalle_pagos dp JOIN base b ON b.id=dp.pago_id GROUP BY dp.pago_id
+		FROM detalle_pagos dp JOIN base b ON b.id=dp.pago_id
+		WHERE dp.servicio_id IS NOT NULL GROUP BY dp.pago_id
 	)
 	SELECT COALESCE(base.local_nombre,'') local_nombre,
 		GROUPING(base.local_nombre)::int::boolean es_general,
@@ -533,7 +549,7 @@ func (r *PagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) (repos
 		GROUPING(base.local_nombre)::int::boolean es_general, BTRIM(dp.servicio) servicio,
 		COALESCE(SUM(dp.cantidad),0)::int cantidad, COALESCE(SUM(dp.subtotal),0) monto_total
 	FROM base JOIN detalle_pagos dp ON dp.pago_id=base.id
-	WHERE NULLIF(BTRIM(dp.servicio),'') IS NOT NULL
+	WHERE NULLIF(BTRIM(dp.servicio),'') IS NOT NULL AND dp.servicio_id IS NOT NULL
 	GROUP BY GROUPING SETS ((dp.servicio),(base.local_nombre,dp.servicio))
 	ORDER BY es_general, local_nombre, servicio`, where)
 	if err := tx.SelectContext(ctx, &result.Servicios, serviciosQuery, args...); err != nil {
@@ -548,7 +564,7 @@ func (r *PagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) (repos
 func (r *PagosRepo) getDetallePago(pagoID int) ([]models.DetallePagoPG, error) {
 	var detalle []models.DetallePagoPG
 	err := r.db.Select(&detalle, `
-		SELECT id, pago_id, servicio_id, servicio, precio_unitario, cantidad, subtotal
+		SELECT id, pago_id, servicio_id, item_id, servicio, precio_unitario, cantidad, subtotal
 		FROM detalle_pagos
 		WHERE pago_id = $1
 		ORDER BY id
@@ -674,7 +690,7 @@ func pagoInsertError(err error) error {
 	if errors.As(err, &pqErr) {
 		switch pqErr.Code {
 		case "23503":
-			return fmt.Errorf("referencia no encontrada: local, cliente o servicio invalido")
+			return fmt.Errorf("referencia no encontrada: local, cliente, servicio o insumo invalido")
 		case "23514":
 			return fmt.Errorf("datos de pago invalidos")
 		case "23505":
@@ -683,6 +699,13 @@ func pagoInsertError(err error) error {
 	}
 	return fmt.Errorf("no se pudo guardar el pago")
 }
+
+// tipoLineaSQL clasifica una linea de detalle: insumo (item_id), servicio del catalogo (servicio_id), paquete (la
+// caja los nombra "Paquete: ...") u otra linea libre. Va dentro de un Sprintf: el % del LIKE se escribe %%.
+const tipoLineaSQL = `CASE WHEN dp.item_id IS NOT NULL THEN 'INSUMO'
+			WHEN dp.servicio_id IS NOT NULL THEN 'SERVICIO'
+			WHEN dp.servicio LIKE 'Paquete: %%' THEN 'PAQUETE'
+			ELSE 'OTRO' END`
 
 // ListVentasDetalle usa las mismas reglas que GetResumenPagos (pagos activos y PAGADOS del rango, local opcional),
 // pero devuelve cada linea de detalle en vez de agregados.
@@ -707,7 +730,7 @@ func (r *PagosRepo) ListVentasDetalle(filtro repository.FiltroResumenPagos, limi
 		       COALESCE(p.cliente_nombre, '') AS cliente_nombre, COALESCE(p.cliente_nit, '') AS cliente_nit,
 		       COALESCE(NULLIF(BTRIM(p.nombre_cajero), ''), '') AS cajero,
 		       COALESCE(NULLIF(BTRIM(p.tipo_pago), ''), 'sin_tipo') AS tipo_pago,
-		       BTRIM(dp.servicio) AS servicio, dp.cantidad, dp.precio_unitario, dp.subtotal,
+		       BTRIM(dp.servicio) AS servicio, `+tipoLineaSQL+` AS tipo_linea, dp.cantidad, dp.precio_unitario, dp.subtotal,
 		       ROUND(CASE WHEN p.subtotal > 0 THEN p.descuento * dp.subtotal / p.subtotal ELSE 0 END, 2) AS descuento_prorrateado,
 		       p.total_final AS total_pago
 		FROM pagos p

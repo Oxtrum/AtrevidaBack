@@ -33,7 +33,7 @@ func (r *pagosOrdenRepo) GetPagoByCodigo(string) (*models.PagoCompletoPG, error)
 }
 func (r *pagosOrdenRepo) CreatePago(repository.CrearPagoInput) (string, error) { return "", nil }
 func (r *pagosOrdenRepo) UpdatePago(repository.ActualizarPagoInput) error     { return nil }
-func (r *pagosOrdenRepo) DeletePago(string) error                              { return nil }
+func (r *pagosOrdenRepo) DeletePago(string, repository.ConsumoActor) error     { return nil }
 func (r *pagosOrdenRepo) GetResumenPagos(repository.FiltroResumenPagos) (repository.PagoResumenAgregado, error) {
 	return repository.PagoResumenAgregado{}, nil
 }

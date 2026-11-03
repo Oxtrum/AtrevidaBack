@@ -52,7 +52,7 @@ func (f *fakePagosRepo) UpdatePago(input repository.ActualizarPagoInput) error {
 	return nil
 }
 
-func (f *fakePagosRepo) DeletePago(codigoPago string) error {
+func (f *fakePagosRepo) DeletePago(codigoPago string, actor repository.ConsumoActor) error {
 	return nil
 }
 

@@ -549,7 +549,7 @@ type ReservaSimple struct {
 	Notificado    bool    `json:"notificado" example:"false"`
 	// AlertaInventario avisa que faltaba stock de insumos al agendar (solo informativo).
 	AlertaInventario bool   `json:"alerta_inventario" example:"false"`
-	// EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay un pago), CUBIERTA_PAQUETE (la paga un paquete) o POR_COBRAR.
+	// EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay un pago), A_CUENTA (quedo como cargo del cliente), CUBIERTA_PAQUETE (la paga un paquete) o POR_COBRAR.
 	EstadoCobro *string `json:"estado_cobro,omitempty" example:"POR_COBRAR"`
 	CreadoEn      string  `json:"creado_en" example:"2026-05-23T15:04:05Z"`
 	ActualizadoEn string  `json:"actualizado_en" example:"2026-05-23T16:04:05Z"`
@@ -600,7 +600,7 @@ type FiltroReservasSimple struct {
 	Busqueda           string
 	Estado             string
 	ExcluirEstado      string
-	// EstadoCobro filtra reservas completadas: COBRADA, CUBIERTA_PAQUETE o POR_COBRAR.
+	// EstadoCobro filtra reservas completadas: COBRADA, A_CUENTA, CUBIERTA_PAQUETE o POR_COBRAR.
 	EstadoCobro        string
 	Tipo               string
 	VigenteFecha       string

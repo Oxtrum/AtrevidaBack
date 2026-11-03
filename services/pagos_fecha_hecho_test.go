@@ -21,7 +21,7 @@ func (r *pagosFechaRepo) CreatePago(in repository.CrearPagoInput) (string, error
 	return "PAGO-000001", nil
 }
 func (r *pagosFechaRepo) UpdatePago(repository.ActualizarPagoInput) error { return nil }
-func (r *pagosFechaRepo) DeletePago(string) error                          { return nil }
+func (r *pagosFechaRepo) DeletePago(string, repository.ConsumoActor) error { return nil }
 func (r *pagosFechaRepo) GetResumenPagos(repository.FiltroResumenPagos) (repository.PagoResumenAgregado, error) {
 	return repository.PagoResumenAgregado{}, nil
 }

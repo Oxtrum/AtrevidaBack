@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"atrevida-agenda-api/cuenta"
 	"atrevida-agenda-api/models"
+	repository "atrevida-agenda-api/repositories"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 	"atrevida-agenda-api/services"
 
@@ -20,6 +22,7 @@ import (
 type cuentaStoreFake struct {
 	existe      bool
 	cargo       *pgsqlrepo.CargoInput
+	cargos      []pgsqlrepo.CargoInput
 	abono       *pgsqlrepo.AbonoInput
 	cobro       *pgsqlrepo.CobroInput
 	errCobro    error
@@ -39,7 +42,15 @@ func (f *cuentaStoreFake) CrearCargo(in pgsqlrepo.CargoInput) (int, error) {
 	f.cargo = &in
 	return 12, nil
 }
-func (f *cuentaStoreFake) AnularCargo(id int, motivo string) error {
+func (f *cuentaStoreFake) CrearCargos(in []pgsqlrepo.CargoInput) ([]int, error) {
+	f.cargos = in
+	ids := make([]int, len(in))
+	for i := range in {
+		ids[i] = 12 + i
+	}
+	return ids, nil
+}
+func (f *cuentaStoreFake) AnularCargo(id int, motivo string, _ repository.ConsumoActor) error {
 	f.anuladoID, f.anuladoMot = id, motivo
 	return nil
 }
@@ -399,5 +410,30 @@ func TestPostCobroClienteMapeaLasReglasA4xxYLaInfraA500(t *testing.T) {
 	infra := &cuentaStoreFake{existe: true, errCobro: assertErr("no se pudo registrar el cobro")}
 	if w := llamarCuenta(hCuenta(infra).PostCobroCliente, clienteSiete, body, adminCuenta); w.Code != http.StatusInternalServerError {
 		t.Fatalf("infraestructura: status = %d", w.Code)
+	}
+}
+
+func TestStatusCuentaErrorMapeaStockInsuficienteAConflicto(t *testing.T) {
+	err := fmt.Errorf("%w: no alcanza Crema", repository.ErrStockInsuficiente)
+	if got := statusCuentaError(err); got != http.StatusConflict {
+		t.Fatalf("status = %d, quiero 409", got)
+	}
+}
+
+func TestPostCargosClienteLoteCreaTodosYPideMonto(t *testing.T) {
+	f := &cuentaStoreFake{existe: true}
+	params := gin.Params{{Key: "id", Value: "7"}}
+	cuerpo := `{"cargos":[{"tipo":"SERVICIO","concepto":"Limpieza","monto":100},{"tipo":"INSUMO","concepto":"Crema","monto":20,"local_id":1,"item_id":5,"cantidad":2}]}`
+	if w := llamarCuenta(hCuenta(f).PostCargosClienteLote, params, cuerpo, adminCuenta); w.Code != http.StatusCreated {
+		t.Fatalf("status = %d: %s", w.Code, w.Body.String())
+	}
+	if len(f.cargos) != 2 || f.cargos[1].ItemID == nil || *f.cargos[1].ItemID != 5 {
+		t.Fatalf("cargos recibidos = %+v", f.cargos)
+	}
+	if w := llamarCuenta(hCuenta(f).PostCargosClienteLote, params, `{"cargos":[{"tipo":"SERVICIO","concepto":"x"}]}`, adminCuenta); w.Code != http.StatusBadRequest {
+		t.Fatalf("sin monto: status = %d, quiero 400", w.Code)
+	}
+	if w := llamarCuenta(hCuenta(f).PostCargosClienteLote, params, `{"cargos":[]}`, adminCuenta); w.Code != http.StatusBadRequest {
+		t.Fatalf("lote vacio: status = %d, quiero 400", w.Code)
 	}
 }

@@ -31,6 +31,20 @@ type crearCargoRequest struct {
 	ReservaID *int `json:"reserva_id,omitempty" example:"44"`
 	// Plan del que nace el cargo (opcional).
 	PlanID *int `json:"plan_id,omitempty" example:"21"`
+	// Insumo del inventario que se cobra (solo tipo INSUMO). Exige local_id: al crear el cargo baja el stock de ese local.
+	ItemID *int `json:"item_id,omitempty" example:"15"`
+	// Cantidad del insumo (requerida con item_id).
+	Cantidad float64 `json:"cantidad,omitempty" example:"2"`
+}
+
+type crearCargosLoteRequest struct {
+	// Cargos a crear juntos; si uno falla no se crea ninguno.
+	Cargos []crearCargoRequest `json:"cargos"`
+}
+
+type cargosCreadosResponse struct {
+	// IDs de los cargos creados, en el orden enviado.
+	IDs []int `json:"ids" example:"12,13"`
 }
 
 type anularCargoRequest struct {
@@ -102,6 +116,8 @@ func statusCuentaError(err error) int {
 	switch {
 	case strings.Contains(msg, "no encontrad"):
 		return http.StatusNotFound
+	case strings.Contains(msg, "stock insuficiente"):
+		return http.StatusConflict
 	case errors.As(err, &regla):
 		return http.StatusBadRequest
 	}
@@ -204,13 +220,72 @@ func (h *Container) PostCargoCliente(c *gin.Context) {
 	cargoID, err := h.Cuenta.CrearCargo(services.CrearCargoInput{
 		ClienteID: id, LocalID: localID, Tipo: req.Tipo, Concepto: req.Concepto, Monto: *req.Monto,
 		FechaHecho: req.FechaHecho, ReservaID: req.ReservaID, PlanID: req.PlanID,
-		CreadoPorID: creadoPorID, CreadoPor: creadoPor,
+		CreadoPorID: creadoPorID, CreadoPor: creadoPor, ItemID: req.ItemID, Cantidad: req.Cantidad,
 	})
 	if err != nil {
 		respondCuentaError(c, err)
 		return
 	}
 	utils.Respond(c, http.StatusCreated, cargoCreadoResponse{ID: cargoID}, "Cargo creado")
+}
+
+// PostCargosClienteLote godoc
+// @Summary Crear varios cargos
+// @Description Registra varios cargos de un cliente en una sola transaccion, p. ej. lo que se deja a cuenta desde la caja. Cada cargo sigue las reglas de POST /bd/clientes/{id}/cargos; los de insumo bajan su stock en la misma transaccion. Si uno falla (cliente inexistente, insumo sin stock con inventario.permitir_stock_negativo=false, datos invalidos) no se crea ninguno y no se descuenta stock. Requiere token Bearer.
+// @Tags Cuenta del cliente
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del cliente" example(7)
+// @Param payload body crearCargosLoteRequest true "Cargos a crear"
+// @Success 201 {object} utils.APIResponse{data=cargosCreadosResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: cargos vacio, tipo invalido, concepto requerido, monto negativo, item_id sin local o cantidad"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Local no permitido para el usuario"
+// @Failure 404 {object} utils.APIResponse "Cliente o insumo no encontrado"
+// @Failure 409 {object} utils.APIResponse "Stock insuficiente para un insumo"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Security BearerAuth
+// @Router /bd/clientes/{id}/cargos/lote [post]
+func (h *Container) PostCargosClienteLote(c *gin.Context) {
+	id, ok := pathInt(c, "id")
+	if !ok {
+		return
+	}
+	var req crearCargosLoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+	creadoPor, _ := authenticatedUsername(c)
+	var creadoPorID *int
+	if uid, ok := authenticatedUserID(c); ok {
+		creadoPorID = &uid
+	}
+	entradas := make([]services.CrearCargoInput, 0, len(req.Cargos))
+	for _, cargo := range req.Cargos {
+		if cargo.Monto == nil {
+			utils.RespondError(c, http.StatusBadRequest, "monto es requerido")
+			return
+		}
+		localID := cargo.LocalID
+		if localID != nil {
+			if localID, ok = resolverLocalID(c, localID); !ok {
+				return
+			}
+		}
+		entradas = append(entradas, services.CrearCargoInput{
+			ClienteID: id, LocalID: localID, Tipo: cargo.Tipo, Concepto: cargo.Concepto, Monto: *cargo.Monto,
+			FechaHecho: cargo.FechaHecho, ReservaID: cargo.ReservaID, PlanID: cargo.PlanID,
+			CreadoPorID: creadoPorID, CreadoPor: creadoPor, ItemID: cargo.ItemID, Cantidad: cargo.Cantidad,
+		})
+	}
+	ids, err := h.Cuenta.CrearCargos(id, entradas)
+	if err != nil {
+		respondCuentaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusCreated, cargosCreadosResponse{IDs: ids}, "Cargos creados")
 }
 
 // PostAnularCargo godoc
@@ -240,7 +315,12 @@ func (h *Container) PostAnularCargo(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, "body invalido")
 		return
 	}
-	if err := h.Cuenta.AnularCargo(id, req.Motivo); err != nil {
+	var quienID *int
+	if uid, ok := authenticatedUserID(c); ok {
+		quienID = &uid
+	}
+	quien, _ := authenticatedUsername(c)
+	if err := h.Cuenta.AnularCargo(id, req.Motivo, services.CajeroAuditoriaInput{ID: quienID, Nombre: quien}); err != nil {
 		respondCuentaError(c, err)
 		return
 	}

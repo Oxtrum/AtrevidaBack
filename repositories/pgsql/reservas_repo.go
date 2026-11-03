@@ -28,9 +28,11 @@ func NewReservasRepo(db *sqlx.DB) *ReservasRepo {
 
 // GET
 // estadoCobroSQL calcula el estado de cobro de una reserva COMPLETADA (alias r): COBRADA si tiene un
-// pago PAGADO ligado, CUBIERTA_PAQUETE si la paga un paquete y POR_COBRAR en otro caso. Nulo si no esta completada.
+// pago PAGADO ligado, A_CUENTA si quedo como cargo de la cuenta del cliente, CUBIERTA_PAQUETE si la paga un paquete y
+// POR_COBRAR en otro caso. Nulo si no esta completada.
 const estadoCobroSQL = `(CASE WHEN r.estado <> 'COMPLETADO' THEN NULL
 	WHEN EXISTS (SELECT 1 FROM pagos pg WHERE pg.reserva_id = r.id AND pg.activo = TRUE AND pg.estado = 'PAGADO') THEN 'COBRADA'
+	WHEN EXISTS (SELECT 1 FROM cargos_cliente cc WHERE cc.reserva_id = r.id AND cc.anulado = FALSE) THEN 'A_CUENTA'
 	WHEN r.plan_id IS NOT NULL THEN 'CUBIERTA_PAQUETE'
 	ELSE 'POR_COBRAR' END)`
 

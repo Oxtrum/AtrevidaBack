@@ -28,6 +28,8 @@ type VentaDetalleLinea struct {
 	TipoPago string `json:"tipo_pago" example:"efectivo"`
 	// Servicio cobrado.
 	Servicio string `json:"servicio" example:"Limpieza facial"`
+	// Que se vendio: SERVICIO (del catalogo), INSUMO, PAQUETE u OTRO (linea libre).
+	TipoLinea string `json:"tipo_linea" example:"SERVICIO" enums:"SERVICIO,INSUMO,PAQUETE,OTRO"`
 	// Cantidad vendida del servicio.
 	Cantidad int `json:"cantidad" example:"2"`
 	// Precio unitario del servicio.
@@ -79,7 +81,7 @@ func (s *PagosService) GetVentasDetalle(input ResumenPagosInput) (*VentasDetalle
 	for i, f := range filas {
 		lineas[i] = VentaDetalleLinea{
 			CodigoPago: f.CodigoPago, Fecha: f.Fecha, Local: f.Local, ClienteNombre: f.ClienteNombre,
-			ClienteNIT: f.ClienteNIT, Cajero: f.Cajero, TipoPago: f.TipoPago, Servicio: f.Servicio,
+			ClienteNIT: f.ClienteNIT, Cajero: f.Cajero, TipoPago: f.TipoPago, Servicio: f.Servicio, TipoLinea: f.TipoLinea,
 			Cantidad: f.Cantidad, PrecioUnitario: f.PrecioUnitario, Subtotal: f.Subtotal,
 			DescuentoProrrateado: f.DescuentoProrrateado, TotalPago: f.TotalPago,
 		}

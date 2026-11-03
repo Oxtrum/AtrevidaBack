@@ -29,7 +29,7 @@ type FiltroReservasPG struct {
 	ExcluirEstado      string
 	TipoEspacio        string
 	PlanID             *int
-	// EstadoCobro filtra reservas completadas: COBRADA, CUBIERTA_PAQUETE o POR_COBRAR.
+	// EstadoCobro filtra reservas completadas: COBRADA, A_CUENTA, CUBIERTA_PAQUETE o POR_COBRAR.
 	EstadoCobro        string
 	SoloActivas        bool
 	VigenteFecha       *time.Time

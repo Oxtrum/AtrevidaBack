@@ -9,6 +9,7 @@ import (
 
 	"atrevida-agenda-api/cuenta"
 	"atrevida-agenda-api/models"
+	repository "atrevida-agenda-api/repositories"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 )
 
@@ -16,7 +17,8 @@ import (
 type cuentaStore interface {
 	ClienteExiste(clienteID int) (bool, error)
 	CrearCargo(in pgsqlrepo.CargoInput) (int, error)
-	AnularCargo(id int, motivo string) error
+	CrearCargos(in []pgsqlrepo.CargoInput) ([]int, error)
+	AnularCargo(id int, motivo string, actor repository.ConsumoActor) error
 	ListarCargos(clienteID int, incluirAnulados bool) ([]models.CargoCliente, error)
 	ListarAbonos(clienteID int) ([]models.AbonoCliente, error)
 	TotalesCuenta(clienteID int) (abonos, cargos float64, err error)
@@ -107,42 +109,115 @@ type CrearCargoInput struct {
 	PlanID      *int
 	CreadoPorID *int
 	CreadoPor   string
+	// ItemID y Cantidad: insumo que se cobra (solo tipo INSUMO). Exige LocalID: el stock baja en ese local.
+	ItemID   *int
+	Cantidad float64
 }
 
 func redondearMonto2(v float64) float64 { return math.Round(v*100) / 100 }
 
 // CrearCargo valida y registra un cargo para un cliente.
 func (s *CuentaService) CrearCargo(in CrearCargoInput) (int, error) {
-	if in.ClienteID < 1 {
-		return 0, errors.New("cliente_id es requerido")
-	}
-	tipo := strings.ToUpper(strings.TrimSpace(in.Tipo))
-	if !tiposCargo[tipo] {
-		return 0, errors.New("tipo invalido, valores permitidos: PAQUETE, SERVICIO, INSUMO, OTRO")
-	}
-	concepto := strings.TrimSpace(in.Concepto)
-	if concepto == "" {
-		return 0, errors.New("concepto es requerido")
-	}
-	if len([]rune(concepto)) > maxConceptoCargo {
-		return 0, fmt.Errorf("concepto no puede superar %d caracteres", maxConceptoCargo)
-	}
-	if math.IsNaN(in.Monto) || math.IsInf(in.Monto, 0) || in.Monto < 0 {
-		return 0, errors.New("monto no puede ser negativo")
-	}
-	fechaHecho, err := resolverFechaHechoConfigurada(s.Config, s.Ahora, in.FechaHecho)
+	cargo, err := s.prepararCargo(in)
 	if err != nil {
 		return 0, err
 	}
-	return s.store.CrearCargo(pgsqlrepo.CargoInput{
+	return s.store.CrearCargo(cargo)
+}
+
+// CrearCargos valida y registra varios cargos de un cliente en una sola transaccion (p. ej. lo que se deja a cuenta
+// desde la caja): si uno falla no queda ninguno.
+func (s *CuentaService) CrearCargos(clienteID int, entradas []CrearCargoInput) ([]int, error) {
+	if len(entradas) == 0 {
+		return nil, errors.New("cargos es requerido: envia al menos uno")
+	}
+	cargos := make([]pgsqlrepo.CargoInput, 0, len(entradas))
+	for _, in := range entradas {
+		in.ClienteID = clienteID
+		cargo, err := s.prepararCargo(in)
+		if err != nil {
+			return nil, err
+		}
+		cargos = append(cargos, cargo)
+	}
+	return s.store.CrearCargos(cargos)
+}
+
+// prepararCargo valida un cargo y lo deja listo para guardar.
+func (s *CuentaService) prepararCargo(in CrearCargoInput) (pgsqlrepo.CargoInput, error) {
+	var vacio pgsqlrepo.CargoInput
+	if in.ClienteID < 1 {
+		return vacio, errors.New("cliente_id es requerido")
+	}
+	tipo := strings.ToUpper(strings.TrimSpace(in.Tipo))
+	if !tiposCargo[tipo] {
+		return vacio, errors.New("tipo invalido, valores permitidos: PAQUETE, SERVICIO, INSUMO, OTRO")
+	}
+	concepto := strings.TrimSpace(in.Concepto)
+	if concepto == "" {
+		return vacio, errors.New("concepto es requerido")
+	}
+	if len([]rune(concepto)) > maxConceptoCargo {
+		return vacio, fmt.Errorf("concepto no puede superar %d caracteres", maxConceptoCargo)
+	}
+	if math.IsNaN(in.Monto) || math.IsInf(in.Monto, 0) || in.Monto < 0 {
+		return vacio, errors.New("monto no puede ser negativo")
+	}
+	fechaHecho, err := resolverFechaHechoConfigurada(s.Config, s.Ahora, in.FechaHecho)
+	if err != nil {
+		return vacio, err
+	}
+	cargo := pgsqlrepo.CargoInput{
 		ClienteID: in.ClienteID, LocalID: in.LocalID, Tipo: tipo, Concepto: concepto,
 		Monto: redondearMonto2(in.Monto), FechaHecho: fechaHecho, ReservaID: in.ReservaID, PlanID: in.PlanID,
 		CreadoPorID: in.CreadoPorID, CreadoPor: strings.TrimSpace(in.CreadoPor),
-	})
+	}
+	if in.ItemID != nil {
+		if err := validarCargoDeInsumo(tipo, in); err != nil {
+			return vacio, err
+		}
+		cantidad := math.Round(in.Cantidad*1000) / 1000
+		cargo.ItemID, cargo.Cantidad = in.ItemID, &cantidad
+		if cargo.PermitirStockNegativo, err = s.permiteStockNegativo(); err != nil {
+			return vacio, err
+		}
+	}
+	return cargo, nil
+}
+
+// validarCargoDeInsumo: el insumo solo va en cargos de tipo INSUMO, con local (el stock es por local) y cantidad.
+func validarCargoDeInsumo(tipo string, in CrearCargoInput) error {
+	if *in.ItemID < 1 {
+		return errors.New("item_id invalido")
+	}
+	if tipo != "INSUMO" {
+		return errors.New("item_id solo aplica a cargos de insumo")
+	}
+	if in.LocalID == nil {
+		return errors.New("local_id es requerido en un cargo de insumo: el stock baja en ese local")
+	}
+	if math.IsNaN(in.Cantidad) || math.IsInf(in.Cantidad, 0) || in.Cantidad <= 0 {
+		return errors.New("cantidad debe ser mayor a 0")
+	}
+	return nil
+}
+
+// permiteStockNegativo lee inventario.permitir_stock_negativo; sin configuracion usa el valor por defecto.
+func (s *CuentaService) permiteStockNegativo() (bool, error) {
+	cfg := configPorDefecto()
+	if s.Config != nil {
+		snapshot, err := s.Config.Snapshot()
+		if err != nil {
+			return false, err
+		}
+		cfg = snapshot
+	}
+	return cfg.PermitirStockNegativo, nil
 }
 
 // AnularCargo anula un cargo con motivo; lo que tenia aplicado vuelve a ser saldo a favor.
-func (s *CuentaService) AnularCargo(id int, motivo string) error {
+// quien anula queda en el kardex si el cargo cobraba un insumo y se devuelve su stock.
+func (s *CuentaService) AnularCargo(id int, motivo string, quien CajeroAuditoriaInput) error {
 	if id < 1 {
 		return errors.New("id debe ser un entero positivo")
 	}
@@ -150,7 +225,7 @@ func (s *CuentaService) AnularCargo(id int, motivo string) error {
 	if motivo == "" {
 		return errors.New("motivo es requerido")
 	}
-	return s.store.AnularCargo(id, motivo)
+	return s.store.AnularCargo(id, motivo, repository.ConsumoActor{UsuarioID: quien.ID, UsuarioNombre: strings.TrimSpace(quien.Nombre)})
 }
 
 // CrearAbonoInput es el pedido de un abono (pago a cuenta) con su reparto.

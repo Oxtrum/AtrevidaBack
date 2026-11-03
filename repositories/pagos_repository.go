@@ -56,8 +56,10 @@ type CrearPagoInput struct {
 	// FechaHecho es cuando ocurrio el cobro; nil usa el momento actual. Se guarda en fecha_creacion, que es la
 	// fecha de negocio que usan reportes y orden. El momento real del registro queda en registrado_en.
 	FechaHecho *time.Time
-	Cajero        CajeroAuditoriaInput
-	Detalle       []CrearDetallePagoInput
+	// PermitirStockNegativo deja vender insumos sin stock suficiente (inventario.permitir_stock_negativo).
+	PermitirStockNegativo bool
+	Cajero                CajeroAuditoriaInput
+	Detalle               []CrearDetallePagoInput
 }
 
 type CajeroAuditoriaInput struct {
@@ -67,7 +69,9 @@ type CajeroAuditoriaInput struct {
 }
 
 type CrearDetallePagoInput struct {
-	ServicioID     *int
+	ServicioID *int
+	// ItemID es el insumo del inventario vendido en la linea; excluye a ServicioID.
+	ItemID         *int
 	Servicio       string
 	PrecioUnitario float64
 	Cantidad       int
@@ -149,6 +153,8 @@ type VentaDetalleRow struct {
 	Cajero               string    `db:"cajero"`
 	TipoPago             string    `db:"tipo_pago"`
 	Servicio             string    `db:"servicio"`
+	// TipoLinea separa lo vendido: SERVICIO, INSUMO, PAQUETE u OTRO (linea libre).
+	TipoLinea            string    `db:"tipo_linea"`
 	Cantidad             int       `db:"cantidad"`
 	PrecioUnitario       float64   `db:"precio_unitario"`
 	Subtotal             float64   `db:"subtotal"`
@@ -180,7 +186,8 @@ type PagosRepository interface {
 	GetPagoByCodigo(codigoPago string) (*models.PagoCompletoPG, error)
 	CreatePago(input CrearPagoInput) (string, error)
 	UpdatePago(input ActualizarPagoInput) error
-	DeletePago(codigoPago string) error
+	// DeletePago anula el pago. actor queda en el kardex si hay que devolver insumos vendidos.
+	DeletePago(codigoPago string, actor ConsumoActor) error
 	GetResumenPagos(filtro FiltroResumenPagos) (PagoResumenAgregado, error)
 	// ListVentasDetalle devuelve hasta limite lineas de venta del periodo, de la mas antigua a la mas reciente.
 	ListVentasDetalle(filtro FiltroResumenPagos, limite int) ([]VentaDetalleRow, error)

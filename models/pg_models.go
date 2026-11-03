@@ -298,7 +298,7 @@ type ReservaPG struct {
 	Notificado         bool      `db:"notificado"`
 	// AlertaInventario es true si al crear/agendar faltaba stock de insumos (trastienda).
 	AlertaInventario bool      `db:"alerta_inventario"`
-	// EstadoCobro solo se calcula en reservas COMPLETADAS: COBRADA, CUBIERTA_PAQUETE o POR_COBRAR.
+	// EstadoCobro solo se calcula en reservas COMPLETADAS: COBRADA, A_CUENTA, CUBIERTA_PAQUETE o POR_COBRAR.
 	EstadoCobro *string `db:"estado_cobro"`
 	CreadoEn           time.Time `db:"creado_en"`
 	ActualizadoEn      time.Time `db:"actualizado_en"`
@@ -402,6 +402,8 @@ type DetallePagoPG struct {
 	PagoID int `db:"pago_id" json:"-"`
 	// ID opcional del servicio cobrado.
 	ServicioID *int `db:"servicio_id" json:"servicio_id,omitempty" example:"8"`
+	// ID opcional del insumo vendido; su salida de stock queda en el kardex.
+	ItemID *int `db:"item_id" json:"item_id,omitempty" example:"15"`
 	// Texto del servicio cobrado.
 	Servicio string `db:"servicio" json:"servicio" example:"Limpieza facial"`
 	// Precio unitario del servicio.

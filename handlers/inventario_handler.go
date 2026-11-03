@@ -573,7 +573,7 @@ func (h *Container) PatchInventarioCategoria(c *gin.Context) {
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
 // @Param item_id query int false "Filtrar por item"
 // @Param local_id query int false "Filtrar por local (admin_sys)"
-// @Param tipo query string false "ENTRADA_COMPRA, SALIDA_SERVICIO, REVERSION_SERVICIO, AJUSTE_POSITIVO o AJUSTE_NEGATIVO"
+// @Param tipo query string false "ENTRADA_COMPRA, SALIDA_SERVICIO, REVERSION_SERVICIO, SALIDA_VENTA, REVERSION_VENTA, AJUSTE_POSITIVO o AJUSTE_NEGATIVO"
 // @Param fecha_desde query string false "Desde (YYYY-MM-DD)"
 // @Param fecha_hasta query string false "Hasta (YYYY-MM-DD)"
 // @Param q query string false "Busca por item, local o motivo"

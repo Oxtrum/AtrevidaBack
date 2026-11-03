@@ -7,6 +7,7 @@ import (
 
 	"atrevida-agenda-api/cuenta"
 	"atrevida-agenda-api/models"
+	repository "atrevida-agenda-api/repositories"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 )
 
@@ -31,7 +32,10 @@ func (f *cuentaFake) CrearCargo(in pgsqlrepo.CargoInput) (int, error) {
 	f.cargoCreado = &in
 	return 12, nil
 }
-func (f *cuentaFake) AnularCargo(id int, motivo string) error {
+func (f *cuentaFake) CrearCargos(in []pgsqlrepo.CargoInput) ([]int, error) {
+	return make([]int, len(in)), nil
+}
+func (f *cuentaFake) AnularCargo(id int, motivo string, _ repository.ConsumoActor) error {
 	f.anuladoID, f.anuladoMotivo = id, motivo
 	return nil
 }
@@ -155,10 +159,10 @@ func TestCrearCargoRechazaDatosInvalidos(t *testing.T) {
 
 func TestAnularCargoExigeMotivo(t *testing.T) {
 	f := &cuentaFake{}
-	if err := servicioCuenta(f).AnularCargo(12, "   "); err == nil || !strings.Contains(err.Error(), "motivo es requerido") {
+	if err := servicioCuenta(f).AnularCargo(12, "   ", CajeroAuditoriaInput{}); err == nil || !strings.Contains(err.Error(), "motivo es requerido") {
 		t.Fatalf("error = %v", err)
 	}
-	if err := servicioCuenta(f).AnularCargo(12, " duplicado "); err != nil {
+	if err := servicioCuenta(f).AnularCargo(12, " duplicado ", CajeroAuditoriaInput{}); err != nil {
 		t.Fatal(err)
 	}
 	if f.anuladoID != 12 || f.anuladoMotivo != "duplicado" {

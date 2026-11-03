@@ -23,6 +23,8 @@ const (
 	MovReversionServicio  = "REVERSION_SERVICIO"
 	MovAjustePositivo     = "AJUSTE_POSITIVO"
 	MovAjusteNegativo     = "AJUSTE_NEGATIVO"
+	MovSalidaVenta        = "SALIDA_VENTA"
+	MovReversionVenta     = "REVERSION_VENTA"
 	ReservaEstadoAgendado = "AGENDADO"
 )
 
@@ -37,6 +39,10 @@ type MovimientoStockInput struct {
 	ReservaID        *int
 	PlanMovimientoID *int
 	CompraID         *int
+	// PagoID es el pago de caja que origina una SALIDA_VENTA o su REVERSION_VENTA.
+	PagoID *int
+	// CargoID es el cargo de la cuenta de un cliente que origina una SALIDA_VENTA o su REVERSION_VENTA.
+	CargoID *int
 	Motivo           string
 	UsuarioID        *int
 	UsuarioNombre    string
