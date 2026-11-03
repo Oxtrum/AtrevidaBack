@@ -1804,6 +1804,109 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/clientes/{id}/cargos/lote": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra varios cargos de un cliente en una sola transaccion, p. ej. lo que se deja a cuenta desde la caja. Cada cargo sigue las reglas de POST /bd/clientes/{id}/cargos; los de insumo bajan su stock en la misma transaccion. Si uno falla (cliente inexistente, insumo sin stock con inventario.permitir_stock_negativo=false, datos invalidos) no se crea ninguno y no se descuenta stock. Requiere token Bearer.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Crear varios cargos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cargos a crear",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearCargosLoteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.cargosCreadosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: cargos vacio, tipo invalido, concepto requerido, monto negativo, item_id sin local o cantidad",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente o insumo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Stock insuficiente para un insumo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/clientes/{id}/cobros": {
             "post": {
                 "security": [
@@ -3235,7 +3338,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres. Requiere token Bearer con rol admin_sys.",
+                "description": "Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6052,7 +6155,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "ENTRADA_COMPRA, SALIDA_SERVICIO, REVERSION_SERVICIO, AJUSTE_POSITIVO o AJUSTE_NEGATIVO",
+                        "description": "ENTRADA_COMPRA, SALIDA_SERVICIO, REVERSION_SERVICIO, SALIDA_VENTA, REVERSION_VENTA, AJUSTE_POSITIVO o AJUSTE_NEGATIVO",
                         "name": "tipo",
                         "in": "query"
                     },
@@ -7294,7 +7397,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario de cada detalle puede diferir del precio referencial del servicio; el backend calcula su subtotal como precio_unitario por cantidad. subtotal y total_final de cabecera son opcionales y, si se envian, deben coincidir con el detalle y descuento calculados. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
+                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario de cada detalle puede diferir del precio referencial del servicio; el backend calcula su subtotal como precio_unitario por cantidad. subtotal y total_final de cabecera son opcionales y, si se envian, deben coincidir con el detalle y descuento calculados. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Un item puede llevar item_id (insumo del inventario, excluyente con servicio_id): al crear el pago se descuenta ese stock del local en la misma transaccion y queda SALIDA_VENTA en el kardex; si no alcanza el stock e inventario.permitir_stock_negativo es false, responde 409 y no se crea el pago. Response: codigo_pago generado incrementalmente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7356,7 +7459,13 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Referencia no encontrada: local, cliente o servicio invalido",
+                        "description": "Referencia no encontrada: local, cliente, servicio o insumo invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Stock insuficiente para un insumo vendido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -7627,7 +7736,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Realiza borrado logico de un pago activo por codigo_pago (activo=false). Requiere token Bearer. No elimina fisicamente la cabecera ni el detalle.",
+                "description": "Realiza borrado logico de un pago activo por codigo_pago (activo=false). Requiere token Bearer. No elimina fisicamente la cabecera ni el detalle. Si el pago vendio insumos, devuelve su stock al local con REVERSION_VENTA en el kardex, a nombre de quien anula y una sola vez por insumo.",
                 "produces": [
                     "application/json"
                 ],
@@ -8578,6 +8687,13 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "ID exacto del cliente (la ficha del cliente lo usa; el nombre no distingue homonimos)",
+                        "name": "cliente_id",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "example": "ACTIVO",
                         "description": "Filtrar por estado contractual: RESERVADO, ACTIVO, COMPLETADO, VENCIDO, CANCELADO",
@@ -9416,12 +9532,13 @@ const docTemplate = `{
                     {
                         "enum": [
                             "COBRADA",
+                            "A_CUENTA",
                             "CUBIERTA_PAQUETE",
                             "POR_COBRAR"
                         ],
                         "type": "string",
                         "example": "POR_COBRAR",
-                        "description": "Filtra reservas completadas segun su cobro: COBRADA, CUBIERTA_PAQUETE o POR_COBRAR",
+                        "description": "Filtra reservas completadas segun su cobro: COBRADA, A_CUENTA, CUBIERTA_PAQUETE o POR_COBRAR",
                         "name": "estado_cobro",
                         "in": "query"
                     },
@@ -10279,7 +10396,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Enlaza una reserva que no tiene cliente con un cliente registrado elegido por el cajero. Solo vincula esa reserva: nada se enlaza por telefono. Con actualizar_telefono, si el telefono de la reserva es distinto al del cliente, el del cliente se reemplaza por el de la reserva (no se agrega otro). Una reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen a ese cliente. Devuelve cuantas reservas quedaron enlazadas y si se actualizo el telefono. Requiere token Bearer.",
+                "description": "Enlaza una reserva con un cliente registrado elegido por el cajero. Solo vincula esa reserva: nada se enlaza por telefono. Si la reserva ya tenia otro cliente (el cajero se equivoco) lo cambia, siempre que no tenga cargos vigentes ni paquete del cliente anterior; si los tiene responde 409 y hay que anularlos primero. Con actualizar_telefono, si el telefono de la reserva es distinto al del cliente, el del cliente se reemplaza por el de la reserva (no se agrega otro). Devuelve cuantas reservas quedaron enlazadas y si se actualizo el telefono. Requiere token Bearer.",
                 "consumes": [
                     "application/json"
                 ],
@@ -10355,7 +10472,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "La reserva ya tiene un cliente vinculado",
+                        "description": "La reserva tiene cargos o paquete del cliente anterior, o el telefono nuevo choca con otro cliente",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -14575,6 +14692,22 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.cargosCreadosResponse": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "description": "IDs de los cargos creados, en el orden enviado.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        12,
+                        13
+                    ]
+                }
+            }
+        },
         "handlers.categoriaListResponse": {
             "type": "object",
             "properties": {
@@ -15005,7 +15138,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "configuracion": {
-                    "description": "Parametros del sistema (clave -\u003e valor tipado): inventario.politica_sin_stock, inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda",
+                    "description": "Parametros del sistema (clave -\u003e valor tipado): inventario.politica_sin_stock, inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda, paquetes.sesion_en_estado, cobros.dias_maximo_fecha_pasada",
                     "type": "object",
                     "additionalProperties": true
                 }
@@ -15056,6 +15189,11 @@ const docTemplate = `{
         "handlers.crearCargoRequest": {
             "type": "object",
             "properties": {
+                "cantidad": {
+                    "description": "Cantidad del insumo (requerida con item_id).",
+                    "type": "number",
+                    "example": 2
+                },
                 "concepto": {
                     "description": "Concepto legible del cargo (hasta 300 caracteres).",
                     "type": "string",
@@ -15065,6 +15203,11 @@ const docTemplate = `{
                     "description": "Fecha del hecho (YYYY-MM-DD): cuando ocurrio lo que se cobra. Opcional; sin ella es ahora. No puede ser futura.",
                     "type": "string",
                     "example": "2026-10-25"
+                },
+                "item_id": {
+                    "description": "Insumo del inventario que se cobra (solo tipo INSUMO). Exige local_id: al crear el cargo baja el stock de ese local.",
+                    "type": "integer",
+                    "example": 15
                 },
                 "local_id": {
                     "description": "Local donde ocurrio el hecho (opcional); un usuario limitado a un local solo puede usar el suyo.",
@@ -15090,6 +15233,18 @@ const docTemplate = `{
                     "description": "Tipo del cargo: PAQUETE, SERVICIO, INSUMO u OTRO.",
                     "type": "string",
                     "example": "PAQUETE"
+                }
+            }
+        },
+        "handlers.crearCargosLoteRequest": {
+            "type": "object",
+            "properties": {
+                "cargos": {
+                    "description": "Cargos a crear juntos; si uno falla no se crea ninguno.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.crearCargoRequest"
+                    }
                 }
             }
         },
@@ -15290,6 +15445,11 @@ const docTemplate = `{
                     "description": "Cantidad cobrada.",
                     "type": "integer",
                     "example": 2
+                },
+                "item_id": {
+                    "description": "ID opcional del insumo del inventario que se vende en la linea; no se combina con servicio_id. Al crear el pago se descuenta su stock del local y se registra SALIDA_VENTA en el kardex.",
+                    "type": "integer",
+                    "example": 15
                 },
                 "precio_unitario": {
                     "description": "Precio unitario cobrado; puede diferir del precio referencial del servicio.",
@@ -17039,6 +17199,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Maria"
                 },
+                "cliente_id": {
+                    "type": "integer",
+                    "example": 12
+                },
                 "estado": {
                     "type": "string",
                     "example": "ACTIVO"
@@ -17923,6 +18087,11 @@ const docTemplate = `{
                     "type": "boolean",
                     "example": false
                 },
+                "cantidad": {
+                    "description": "Cantidad del insumo cobrada (solo en cargos de tipo INSUMO).",
+                    "type": "number",
+                    "example": 2
+                },
                 "cliente_id": {
                     "description": "ID del cliente que debe el cargo.",
                     "type": "integer",
@@ -17952,6 +18121,11 @@ const docTemplate = `{
                     "description": "ID del cargo.",
                     "type": "integer",
                     "example": 12
+                },
+                "item_id": {
+                    "description": "Insumo del inventario que se cobra (solo en cargos de tipo INSUMO).",
+                    "type": "integer",
+                    "example": 15
                 },
                 "local_id": {
                     "description": "Local donde ocurrio el hecho (opcional).",
@@ -18445,6 +18619,11 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 25
                 },
+                "item_id": {
+                    "description": "ID opcional del insumo vendido; su salida de stock queda en el kardex.",
+                    "type": "integer",
+                    "example": 15
+                },
                 "precio_unitario": {
                     "description": "Precio unitario del servicio.",
                     "type": "number",
@@ -18686,6 +18865,11 @@ const docTemplate = `{
                     "description": "Saldo acumulado del rango filtrado hasta este movimiento (solo cuentan los PAGADO)",
                     "type": "number",
                     "example": 1250.5
+                },
+                "ts": {
+                    "description": "Momento del movimiento; en los gastos y egresos solo importa el dia (llega a las 00:00).",
+                    "type": "string",
+                    "example": "2026-10-18T15:30:00-04:00"
                 }
             }
         },
@@ -20184,6 +20368,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "consumo_servicios": {
+                    "description": "Costo de los insumos que salieron en el periodo por servicios y por ventas de caja, netos de reversiones.",
                     "type": "number",
                     "example": 2100
                 },
@@ -20835,7 +21020,7 @@ const docTemplate = `{
                     "example": "AGENDADO"
                 },
                 "estado_cobro": {
-                    "description": "EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay un pago), CUBIERTA_PAQUETE (la paga un paquete) o POR_COBRAR.",
+                    "description": "EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay un pago), A_CUENTA (quedo como cargo del cliente), CUBIERTA_PAQUETE (la paga un paquete) o POR_COBRAR.",
                     "type": "string",
                     "example": "POR_COBRAR"
                 },
@@ -20958,6 +21143,17 @@ const docTemplate = `{
                     "description": "Subtotal de la linea antes de descuentos.",
                     "type": "number",
                     "example": 300
+                },
+                "tipo_linea": {
+                    "description": "Que se vendio: SERVICIO (del catalogo), INSUMO, PAQUETE u OTRO (linea libre).",
+                    "type": "string",
+                    "enum": [
+                        "SERVICIO",
+                        "INSUMO",
+                        "PAQUETE",
+                        "OTRO"
+                    ],
+                    "example": "SERVICIO"
                 },
                 "tipo_pago": {
                     "description": "Tipo de pago: qr, efectivo o sin_tipo.",

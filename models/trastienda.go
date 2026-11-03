@@ -248,8 +248,9 @@ type FlujoMovimiento struct {
 	// PAGADO, PENDIENTE o ANULADO
 	Estado string `db:"estado" json:"estado" example:"PAGADO"`
 	// Saldo acumulado del rango filtrado hasta este movimiento (solo cuentan los PAGADO)
-	Saldo float64   `db:"saldo" json:"saldo" example:"1250.5"`
-	Ts    time.Time `db:"ts" json:"-"`
+	Saldo float64 `db:"saldo" json:"saldo" example:"1250.5"`
+	// Momento del movimiento; en los gastos y egresos solo importa el dia (llega a las 00:00).
+	Ts time.Time `db:"ts" json:"ts" example:"2026-10-18T15:30:00-04:00"`
 }
 
 // FlujoTotales resume el rango filtrado.
@@ -316,6 +317,7 @@ type DetalleLocalFinanciero struct {
 type ReporteInventarioResumen struct {
 	ValorStock       float64 `json:"valor_stock" example:"5400"`
 	ItemsBajoStock   int     `json:"items_bajo_stock" example:"3"`
+	// Costo de los insumos que salieron en el periodo por servicios y por ventas de caja, netos de reversiones.
 	ConsumoServicios float64 `json:"consumo_servicios" example:"2100"`
 }
 

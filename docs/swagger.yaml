@@ -926,6 +926,17 @@ definitions:
         example: 12
         type: integer
     type: object
+  handlers.cargosCreadosResponse:
+    properties:
+      ids:
+        description: IDs de los cargos creados, en el orden enviado.
+        example:
+        - 12
+        - 13
+        items:
+          type: integer
+        type: array
+    type: object
   handlers.categoriaListResponse:
     properties:
       categorias:
@@ -1244,7 +1255,7 @@ definitions:
         description: 'Parametros del sistema (clave -> valor tipado): inventario.politica_sin_stock,
           inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido,
           finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria,
-          finanzas.moneda'
+          finanzas.moneda, paquetes.sesion_en_estado, cobros.dias_maximo_fecha_pasada'
         type: object
     type: object
   handlers.crearAbonoRequest:
@@ -1283,6 +1294,10 @@ definitions:
     type: object
   handlers.crearCargoRequest:
     properties:
+      cantidad:
+        description: Cantidad del insumo (requerida con item_id).
+        example: 2
+        type: number
       concepto:
         description: Concepto legible del cargo (hasta 300 caracteres).
         example: Paquete Relax 4 sesiones
@@ -1292,6 +1307,11 @@ definitions:
           Opcional; sin ella es ahora. No puede ser futura.'
         example: "2026-10-25"
         type: string
+      item_id:
+        description: 'Insumo del inventario que se cobra (solo tipo INSUMO). Exige
+          local_id: al crear el cargo baja el stock de ese local.'
+        example: 15
+        type: integer
       local_id:
         description: Local donde ocurrio el hecho (opcional); un usuario limitado
           a un local solo puede usar el suyo.
@@ -1313,6 +1333,14 @@ definitions:
         description: 'Tipo del cargo: PAQUETE, SERVICIO, INSUMO u OTRO.'
         example: PAQUETE
         type: string
+    type: object
+  handlers.crearCargosLoteRequest:
+    properties:
+      cargos:
+        description: Cargos a crear juntos; si uno falla no se crea ninguno.
+        items:
+          $ref: '#/definitions/handlers.crearCargoRequest'
+        type: array
     type: object
   handlers.crearCategoriaFinancieraRequest:
     properties:
@@ -1465,6 +1493,12 @@ definitions:
       cantidad:
         description: Cantidad cobrada.
         example: 2
+        type: integer
+      item_id:
+        description: ID opcional del insumo del inventario que se vende en la linea;
+          no se combina con servicio_id. Al crear el pago se descuenta su stock del
+          local y se registra SALIDA_VENTA en el kardex.
+        example: 15
         type: integer
       precio_unitario:
         description: Precio unitario cobrado; puede diferir del precio referencial
@@ -2781,6 +2815,9 @@ definitions:
       cliente:
         example: Maria
         type: string
+      cliente_id:
+        example: 12
+        type: integer
       estado:
         example: ACTIVO
         type: string
@@ -3424,6 +3461,10 @@ definitions:
         description: Si el cargo fue anulado; un cargo anulado no cuenta en el saldo.
         example: false
         type: boolean
+      cantidad:
+        description: Cantidad del insumo cobrada (solo en cargos de tipo INSUMO).
+        example: 2
+        type: number
       cliente_id:
         description: ID del cliente que debe el cargo.
         example: 7
@@ -3447,6 +3488,10 @@ definitions:
       id:
         description: ID del cargo.
         example: 12
+        type: integer
+      item_id:
+        description: Insumo del inventario que se cobra (solo en cargos de tipo INSUMO).
+        example: 15
         type: integer
       local_id:
         description: Local donde ocurrio el hecho (opcional).
@@ -3816,6 +3861,11 @@ definitions:
         description: ID del detalle de pago.
         example: 25
         type: integer
+      item_id:
+        description: ID opcional del insumo vendido; su salida de stock queda en el
+          kardex.
+        example: 15
+        type: integer
       precio_unitario:
         description: Precio unitario del servicio.
         example: 250
@@ -4002,6 +4052,11 @@ definitions:
           cuentan los PAGADO)
         example: 1250.5
         type: number
+      ts:
+        description: Momento del movimiento; en los gastos y egresos solo importa
+          el dia (llega a las 00:00).
+        example: "2026-10-18T15:30:00-04:00"
+        type: string
     type: object
   models.FlujoTotales:
     properties:
@@ -5120,6 +5175,8 @@ definitions:
   models.ReporteInventarioResumen:
     properties:
       consumo_servicios:
+        description: Costo de los insumos que salieron en el periodo por servicios
+          y por ventas de caja, netos de reversiones.
         example: 2100
         type: number
       items_bajo_stock:
@@ -5606,7 +5663,8 @@ definitions:
         type: string
       estado_cobro:
         description: 'EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay
-          un pago), CUBIERTA_PAQUETE (la paga un paquete) o POR_COBRAR.'
+          un pago), A_CUENTA (quedo como cargo del cliente), CUBIERTA_PAQUETE (la
+          paga un paquete) o POR_COBRAR.'
         example: POR_COBRAR
         type: string
       fecha:
@@ -5702,6 +5760,16 @@ definitions:
         description: Subtotal de la linea antes de descuentos.
         example: 300
         type: number
+      tipo_linea:
+        description: 'Que se vendio: SERVICIO (del catalogo), INSUMO, PAQUETE u OTRO
+          (linea libre).'
+        enum:
+        - SERVICIO
+        - INSUMO
+        - PAQUETE
+        - OTRO
+        example: SERVICIO
+        type: string
       tipo_pago:
         description: 'Tipo de pago: qr, efectivo o sin_tipo.'
         example: efectivo
@@ -6945,6 +7013,77 @@ paths:
       summary: Crear cargo
       tags:
       - Cuenta del cliente
+  /bd/clientes/{id}/cargos/lote:
+    post:
+      consumes:
+      - application/json
+      description: Registra varios cargos de un cliente en una sola transaccion, p.
+        ej. lo que se deja a cuenta desde la caja. Cada cargo sigue las reglas de
+        POST /bd/clientes/{id}/cargos; los de insumo bajan su stock en la misma transaccion.
+        Si uno falla (cliente inexistente, insumo sin stock con inventario.permitir_stock_negativo=false,
+        datos invalidos) no se crea ninguno y no se descuenta stock. Requiere token
+        Bearer.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: ID del cliente
+        example: 7
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Cargos a crear
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.crearCargosLoteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.cargosCreadosResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: cargos vacio, tipo invalido, concepto
+            requerido, monto negativo, item_id sin local o cantidad'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Local no permitido para el usuario
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Cliente o insumo no encontrado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Stock insuficiente para un insumo
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Crear varios cargos
+      tags:
+      - Cuenta del cliente
   /bd/clientes/{id}/cobros:
     post:
       consumes:
@@ -7903,8 +8042,9 @@ paths:
         ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo
         y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado
         PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria
-        zona IANA; finanzas.moneda texto de 1 a 5 caracteres. Requiere token Bearer
-        con rol admin_sys.'
+        zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado
+        COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); cobros.dias_maximo_fecha_pasada
+        entero 0-365. Requiere token Bearer con rol admin_sys.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -9746,8 +9886,8 @@ paths:
         in: query
         name: local_id
         type: integer
-      - description: ENTRADA_COMPRA, SALIDA_SERVICIO, REVERSION_SERVICIO, AJUSTE_POSITIVO
-          o AJUSTE_NEGATIVO
+      - description: ENTRADA_COMPRA, SALIDA_SERVICIO, REVERSION_SERVICIO, SALIDA_VENTA,
+          REVERSION_VENTA, AJUSTE_POSITIVO o AJUSTE_NEGATIVO
         in: query
         name: tipo
         type: string
@@ -10619,8 +10759,12 @@ paths:
         calcula su subtotal como precio_unitario por cantidad. subtotal y total_final
         de cabecera son opcionales y, si se envian, deben coincidir con el detalle
         y descuento calculados. Cada item de detalle debe incluir servicio_id (puede
-        ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago
-        generado incrementalmente.'
+        ser null), servicio, precio_unitario, cantidad y subtotal. Un item puede llevar
+        item_id (insumo del inventario, excluyente con servicio_id): al crear el pago
+        se descuenta ese stock del local en la misma transaccion y queda SALIDA_VENTA
+        en el kardex; si no alcanza el stock e inventario.permitir_stock_negativo
+        es false, responde 409 y no se crea el pago. Response: codigo_pago generado
+        incrementalmente.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -10658,7 +10802,12 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
-          description: 'Referencia no encontrada: local, cliente o servicio invalido'
+          description: 'Referencia no encontrada: local, cliente, servicio o insumo
+            invalido'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Stock insuficiente para un insumo vendido
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
@@ -10671,7 +10820,9 @@ paths:
   /bd/pagos/{codigo_pago}:
     delete:
       description: Realiza borrado logico de un pago activo por codigo_pago (activo=false).
-        Requiere token Bearer. No elimina fisicamente la cabecera ni el detalle.
+        Requiere token Bearer. No elimina fisicamente la cabecera ni el detalle. Si
+        el pago vendio insumos, devuelve su stock al local con REVERSION_VENTA en
+        el kardex, a nombre de quien anula y una sola vez por insumo.
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -11497,6 +11648,12 @@ paths:
         in: query
         name: local_id
         type: integer
+      - description: ID exacto del cliente (la ficha del cliente lo usa; el nombre
+          no distingue homonimos)
+        example: 12
+        in: query
+        name: cliente_id
+        type: integer
       - description: 'Filtrar por estado contractual: RESERVADO, ACTIVO, COMPLETADO,
           VENCIDO, CANCELADO'
         example: ACTIVO
@@ -12076,10 +12233,11 @@ paths:
         in: query
         name: excluir_estado
         type: string
-      - description: 'Filtra reservas completadas segun su cobro: COBRADA, CUBIERTA_PAQUETE
-          o POR_COBRAR'
+      - description: 'Filtra reservas completadas segun su cobro: COBRADA, A_CUENTA,
+          CUBIERTA_PAQUETE o POR_COBRAR'
         enum:
         - COBRADA
+        - A_CUENTA
         - CUBIERTA_PAQUETE
         - POR_COBRAR
         example: POR_COBRAR
@@ -12383,13 +12541,14 @@ paths:
     patch:
       consumes:
       - application/json
-      description: 'Enlaza una reserva que no tiene cliente con un cliente registrado
-        elegido por el cajero. Solo vincula esa reserva: nada se enlaza por telefono.
-        Con actualizar_telefono, si el telefono de la reserva es distinto al del cliente,
-        el del cliente se reemplaza por el de la reserva (no se agrega otro). Una
-        reserva que ya tiene cliente no se reasigna (409), porque sus cargos pertenecen
-        a ese cliente. Devuelve cuantas reservas quedaron enlazadas y si se actualizo
-        el telefono. Requiere token Bearer.'
+      description: 'Enlaza una reserva con un cliente registrado elegido por el cajero.
+        Solo vincula esa reserva: nada se enlaza por telefono. Si la reserva ya tenia
+        otro cliente (el cajero se equivoco) lo cambia, siempre que no tenga cargos
+        vigentes ni paquete del cliente anterior; si los tiene responde 409 y hay
+        que anularlos primero. Con actualizar_telefono, si el telefono de la reserva
+        es distinto al del cliente, el del cliente se reemplaza por el de la reserva
+        (no se agrega otro). Devuelve cuantas reservas quedaron enlazadas y si se
+        actualizo el telefono. Requiere token Bearer.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -12434,7 +12593,8 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
-          description: La reserva ya tiene un cliente vinculado
+          description: La reserva tiene cargos o paquete del cliente anterior, o el
+            telefono nuevo choca con otro cliente
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":

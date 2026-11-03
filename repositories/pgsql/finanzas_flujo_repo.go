@@ -24,7 +24,8 @@ type FiltroFlujo struct {
 // Los pagos en BORRADOR o inactivos no son movimientos de caja y se excluyen.
 const flujoBaseSQL = `
 	SELECT 'pago-' || p.id AS clave, 'VENTA' AS origen, p.codigo_pago AS codigo, 'INGRESO' AS naturaleza,
-	       'Venta' AS categoria, ('Venta a ' || p.cliente_nombre) AS detalle,
+	       CASE WHEN p.es_abono THEN 'Cobro de cuenta' ELSE 'Venta' END AS categoria,
+	       (CASE WHEN p.es_abono THEN 'Cobro a ' ELSE 'Venta a ' END || p.cliente_nombre) AS detalle,
 	       p.local_id, p.local_nombre, p.total_final AS monto, p.estado,
 	       p.fecha_creacion AS ts, p.fecha_creacion::date AS fecha
 	FROM pagos p
