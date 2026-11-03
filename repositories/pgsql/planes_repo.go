@@ -26,6 +26,22 @@ func NewPlanesRepo(db *sqlx.DB) *PlanesRepo {
 	return &PlanesRepo{db: db}
 }
 
+// planEstadoCobranzaSQL da el estado de cobranza de un plan (alias p). Un paquete vendido con cargos (cuenta del
+// cliente) se cobra por esos cargos: PAGADO si lo cobrado cubre lo cargado, PARCIAL si hay algo cobrado y PENDIENTE si
+// nada. Un plan sin cargos conserva el estado guardado (las cuotas y el cobro antiguos).
+const planEstadoCobranzaSQL = `CASE
+	WHEN EXISTS (SELECT 1 FROM cargos_cliente cp WHERE cp.plan_id = p.id AND cp.anulado = FALSE) THEN
+		CASE
+			WHEN COALESCE((SELECT SUM(a.monto) FROM pago_aplicaciones a JOIN cargos_cliente cp ON cp.id = a.cargo_id
+				WHERE cp.plan_id = p.id AND cp.anulado = FALSE AND a.anulado = FALSE), 0)
+				>= (SELECT SUM(cp.monto) FROM cargos_cliente cp WHERE cp.plan_id = p.id AND cp.anulado = FALSE) THEN 'PAGADO'
+			WHEN COALESCE((SELECT SUM(a.monto) FROM pago_aplicaciones a JOIN cargos_cliente cp ON cp.id = a.cargo_id
+				WHERE cp.plan_id = p.id AND cp.anulado = FALSE AND a.anulado = FALSE), 0) > 0 THEN 'PARCIAL'
+			ELSE 'PENDIENTE'
+		END
+	ELSE p.estado_cobranza
+END`
+
 // PlanesOrdenables lista las columnas por las que se puede ordenar el listado de planes (ordenar_por).
 // La clave es el nombre del campo en la respuesta; el texto ignora mayusculas y acentos.
 var PlanesOrdenables = pagination.Columns{
@@ -35,7 +51,7 @@ var PlanesOrdenables = pagination.Columns{
 	"local_nombre_texto": textoOrden("p.local_nombre_texto"),
 	"precio_total":       "p.precio_total",
 	"estado":             "p.estado",
-	"estado_cobranza":    "p.estado_cobranza",
+	"estado_cobranza":    planEstadoCobranzaSQL,
 	"creado_en":          "p.creado_en",
 }
 
@@ -70,7 +86,7 @@ func buildPlanesQuery(f repository.FiltroPlanes) (string, []interface{}) {
 			p.cliente_id, p.cliente_nombre_texto, p.local_nombre_texto,
 			p.combo_id_origen, p.combo_nombre_texto,
 			p.fecha_inicio, p.fecha_fin,
-			p.estado, p.estado_cobranza, p.tipo_pago,
+			p.estado, (`+planEstadoCobranzaSQL+`) AS estado_cobranza, p.tipo_pago,
 			p.subtotal, p.descuento, p.precio_total, p.moneda,
 			p.creado_por, p.actualizado_por, p.actualizado_en
 		FROM planes p
@@ -164,7 +180,7 @@ func planConditions(f repository.FiltroPlanes) ([]string, []interface{}) {
 		add("p.estado = $%d", f.Estado)
 	}
 	if f.EstadoCobranza != "" {
-		add("p.estado_cobranza = $%d", f.EstadoCobranza)
+		add("("+planEstadoCobranzaSQL+") = $%d", f.EstadoCobranza)
 	}
 	if f.FechaDesde != nil {
 		add("p.creado_en >= $%d", *f.FechaDesde)
@@ -185,7 +201,7 @@ func (r *PlanesRepo) GetPlanByID(id int) (*models.PlanCompletoPG, error) {
 			p.cliente_id, p.cliente_nombre_texto, p.local_nombre_texto,
 			p.combo_id_origen, p.combo_nombre_texto,
 			p.fecha_inicio, p.fecha_fin,
-			p.estado, p.estado_cobranza, p.tipo_pago,
+			p.estado, (`+planEstadoCobranzaSQL+`) AS estado_cobranza, p.tipo_pago,
 			p.subtotal, p.descuento, p.precio_total, p.moneda,
 			p.creado_por, p.actualizado_por, p.actualizado_en
 		FROM planes p
