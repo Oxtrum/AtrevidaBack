@@ -214,7 +214,7 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 			subtotal, descuento, total_final, tipo_pago, estado, activo,
 			id_cajero, nombre_cajero, username_cajero, reserva_id, fecha_creacion
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, COALESCE($15::timestamptz, NOW()))
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, COALESCE($16::timestamptz, NOW()))
 		RETURNING id, codigo_pago
 	`,
 		input.LocalID,

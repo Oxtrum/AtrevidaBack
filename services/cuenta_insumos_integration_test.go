@@ -13,6 +13,15 @@ import (
 	repository "atrevida-agenda-api/repositories"
 )
 
+type movCargoInsumo struct {
+	Tipo            string   `db:"tipo"`
+	Cantidad        float64  `db:"cantidad"`
+	StockResultante float64  `db:"stock_resultante"`
+	CostoUnitario   *float64 `db:"costo_unitario"`
+	UsuarioNombre   *string  `db:"usuario_nombre"`
+	Motivo          *string  `db:"motivo"`
+}
+
 func (e *cuentaEnv) cargoInsumo(item int, cantidad, monto float64) (int, error) {
 	e.t.Helper()
 	return e.svc.CrearCargo(CrearCargoInput{
@@ -21,9 +30,9 @@ func (e *cuentaEnv) cargoInsumo(item int, cantidad, monto float64) (int, error) 
 	})
 }
 
-func (e *cuentaEnv) movimientosDeCargo(cargoID int) []movVenta {
+func (e *cuentaEnv) movimientosDeCargo(cargoID int) []movCargoInsumo {
 	e.t.Helper()
-	out := []movVenta{}
+	out := []movCargoInsumo{}
 	if err := e.db.Select(&out, `
 		SELECT tipo, cantidad, stock_resultante, costo_unitario, usuario_nombre, motivo
 		FROM inventario_movimientos WHERE cargo_id = $1 ORDER BY id`, cargoID); err != nil {
