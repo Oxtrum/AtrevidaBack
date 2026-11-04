@@ -350,10 +350,10 @@ func AplicarMovimientoStock(tx *sqlx.Tx, in repository.MovimientoStockInput) (fl
 	if _, err := tx.Exec(`
 		INSERT INTO inventario_movimientos
 			(item_id, local_id, tipo, cantidad, stock_resultante, costo_unitario, reserva_id,
-			 plan_movimiento_id, compra_id, pago_id, cargo_id, motivo, usuario_id, usuario_nombre)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+			 plan_movimiento_id, compra_id, pago_id, cargo_id, atencion_id, motivo, usuario_id, usuario_nombre)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
 		in.ItemID, in.LocalID, in.Tipo, in.Cantidad, nuevo, in.CostoUnitario, in.ReservaID,
-		in.PlanMovimientoID, in.CompraID, in.PagoID, in.CargoID, nullStr(in.Motivo), in.UsuarioID, nullStr(in.UsuarioNombre)); err != nil {
+		in.PlanMovimientoID, in.CompraID, in.PagoID, in.CargoID, in.AtencionID, nullStr(in.Motivo), in.UsuarioID, nullStr(in.UsuarioNombre)); err != nil {
 		return 0, fmt.Errorf("error al registrar movimiento de inventario: %w", err)
 	}
 	return nuevo, nil

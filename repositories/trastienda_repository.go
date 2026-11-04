@@ -43,9 +43,11 @@ type MovimientoStockInput struct {
 	PagoID *int
 	// CargoID es el cargo de la cuenta de un cliente que origina una SALIDA_VENTA o su REVERSION_VENTA.
 	CargoID *int
-	Motivo           string
-	UsuarioID        *int
-	UsuarioNombre    string
+	// AtencionID identifica el cierre operativo que origino el movimiento.
+	AtencionID    *int
+	Motivo        string
+	UsuarioID     *int
+	UsuarioNombre string
 	// PermitirNegativo deja el stock bajo cero en lugar de devolver ErrStockInsuficiente.
 	PermitirNegativo bool
 }

@@ -137,42 +137,6 @@ func TestTrastiendaCargoInsumoValidaLosDatos(t *testing.T) {
 	}
 }
 
-
-func (e *cuentaEnv) estadoCobro(reservaID int) string {
-	e.t.Helper()
-	r, err := e.reservas.GetReservaByID(reservaID, nil)
-	if err != nil {
-		e.t.Fatal(err)
-	}
-	if r.EstadoCobro == nil {
-		return ""
-	}
-	return *r.EstadoCobro
-}
-
-// Una reserva completada con un cargo vigente ya no es "por cobrar": queda a cuenta del cliente.
-func TestTrastiendaReservaConCargoQuedaACuenta(t *testing.T) {
-	e := setupCuenta(t)
-	srv := e.nuevoServicio("Masaje", nil)
-	reserva := e.nuevaReserva(srv, "COMPLETADO", 0)
-	if got := e.estadoCobro(reserva); got != "POR_COBRAR" {
-		t.Fatalf("estado_cobro sin cargo = %q, quiero POR_COBRAR", got)
-	}
-	id, err := e.svc.CrearCargo(CrearCargoInput{ClienteID: e.clienteID, Tipo: "SERVICIO", Concepto: "Masaje", Monto: 100, ReservaID: &reserva})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := e.estadoCobro(reserva); got != "A_CUENTA" {
-		t.Fatalf("estado_cobro con cargo = %q, quiero A_CUENTA", got)
-	}
-	if err := e.svc.AnularCargo(id, "error", CajeroAuditoriaInput{}); err != nil {
-		t.Fatal(err)
-	}
-	if got := e.estadoCobro(reserva); got != "POR_COBRAR" {
-		t.Fatalf("estado_cobro con el cargo anulado = %q, quiero POR_COBRAR", got)
-	}
-}
-
 func TestTrastiendaCargosEnLoteSeCreanJuntosOYNingunoSiUnoFalla(t *testing.T) {
 	e := setupCuenta(t)
 	crema := e.nuevoItem("Crema", 10)

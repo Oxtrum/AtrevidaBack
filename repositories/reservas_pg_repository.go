@@ -11,13 +11,13 @@ import (
 )
 
 type FiltroReservasPG struct {
-	Context            context.Context
-	LocalID            *int
-	LocalNombre        string
-	Fecha              *time.Time
-	FechaDesde         *time.Time
-	FechaHasta         *time.Time
-	Cliente            string
+	Context     context.Context
+	LocalID     *int
+	LocalNombre string
+	Fecha       *time.Time
+	FechaDesde  *time.Time
+	FechaHasta  *time.Time
+	Cliente     string
 	// ClienteID filtra las reservas de un cliente registrado.
 	ClienteID          *int
 	NumeroTelefono     string
@@ -29,8 +29,6 @@ type FiltroReservasPG struct {
 	ExcluirEstado      string
 	TipoEspacio        string
 	PlanID             *int
-	// EstadoCobro filtra reservas completadas: COBRADA, A_CUENTA, CUBIERTA_PAQUETE o POR_COBRAR.
-	EstadoCobro        string
 	SoloActivas        bool
 	VigenteFecha       *time.Time
 	VigenteHora        string
@@ -50,12 +48,12 @@ type FiltroReservasPG struct {
 }
 
 type CreateReservaInput struct {
-	LocalNombre        string
-	TipoEspacio        string
-	Fecha              time.Time
-	HoraDesde          string
-	HoraHasta          string
-	Cliente            string
+	LocalNombre string
+	TipoEspacio string
+	Fecha       time.Time
+	HoraDesde   string
+	HoraHasta   string
+	Cliente     string
 	// ClienteID enlaza la reserva con un cliente registrado; nil la deja por vincular.
 	ClienteID          *int
 	Estado             string

@@ -30,7 +30,7 @@ type InventarioItem struct {
 	CostoReferencia *float64 `db:"costo_referencia" json:"costo_referencia,omitempty" example:"0.04"`
 	// PrecioVenta es el precio al que se cobra el insumo; ausente si no tiene precio definido.
 	PrecioVenta *float64 `db:"precio_venta" json:"precio_venta,omitempty" example:"25"`
-	StockMinimo     float64  `db:"stock_minimo" json:"stock_minimo" example:"500"`
+	StockMinimo float64  `db:"stock_minimo" json:"stock_minimo" example:"500"`
 	// StockActual es el stock del local consultado, o la suma de todos los locales.
 	StockActual float64 `db:"stock_actual" json:"stock_actual" example:"350"`
 	// BajoStock es true cuando StockActual <= StockMinimo (RN-05).
@@ -70,6 +70,8 @@ type ServicioInsumo struct {
 	ItemNombre        string  `db:"item_nombre" json:"item_nombre,omitempty" example:"Gel conductor"`
 	UnidadMedida      string  `db:"unidad_medida" json:"unidad_medida,omitempty" example:"ML"`
 	CantidadPorSesion float64 `db:"cantidad_por_sesion" json:"cantidad_por_sesion" example:"30"`
+	// Disponible es el stock actual del item en el local de la reserva.
+	Disponible float64 `db:"disponible" json:"disponible" example:"100"`
 }
 
 // AdvertenciaInventario describe un insumo sin stock suficiente (RN-12).
@@ -315,8 +317,8 @@ type DetalleLocalFinanciero struct {
 
 // ReporteInventarioResumen resume el estado del inventario en el reporte.
 type ReporteInventarioResumen struct {
-	ValorStock       float64 `json:"valor_stock" example:"5400"`
-	ItemsBajoStock   int     `json:"items_bajo_stock" example:"3"`
+	ValorStock     float64 `json:"valor_stock" example:"5400"`
+	ItemsBajoStock int     `json:"items_bajo_stock" example:"3"`
 	// Costo de los insumos que salieron en el periodo por servicios y por ventas de caja, netos de reversiones.
 	ConsumoServicios float64 `json:"consumo_servicios" example:"2100"`
 }

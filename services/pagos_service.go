@@ -158,12 +158,11 @@ type CrearPagoInput struct {
 	TipoPago      string
 	Estado        string
 	Activo        bool
-	// ReservaID es la reserva que se cobra; nil en ventas de mostrador.
-	ReservaID *int
+	ReservaID     *int
 	// FechaHecho es cuando ocurrio el cobro (YYYY-MM-DD, opcional; sin ella es ahora). No puede ser futura.
 	FechaHecho string
-	Cajero        CajeroAuditoriaInput
-	Detalle       []CrearDetallePagoInput
+	Cajero     CajeroAuditoriaInput
+	Detalle    []CrearDetallePagoInput
 }
 
 type CajeroAuditoriaInput struct {
@@ -173,9 +172,7 @@ type CajeroAuditoriaInput struct {
 }
 
 type CrearDetallePagoInput struct {
-	ServicioID *int
-	// ItemID es el insumo del inventario que se vende en la linea; no se combina con ServicioID.
-	ItemID         *int
+	ServicioID     *int
 	Servicio       string
 	PrecioUnitario float64
 	Cantidad       int
@@ -198,20 +195,14 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 
 	detalle := make([]repository.CrearDetallePagoInput, 0, len(input.Detalle))
 	sumaDetalle := 0.0
-	hayInsumos := false
 	for _, d := range input.Detalle {
-		if err := validarLineaInsumo(d.ServicioID, d.ItemID); err != nil {
-			return "", err
-		}
 		precioUnitario, subtotalDetalle, err := normalizarDetallePago(d.ServicioID, d.Servicio, d.PrecioUnitario, d.Cantidad)
 		if err != nil {
 			return "", err
 		}
 		sumaDetalle += subtotalDetalle
-		hayInsumos = hayInsumos || d.ItemID != nil
 		detalle = append(detalle, repository.CrearDetallePagoInput{
 			ServicioID:     d.ServicioID,
-			ItemID:         d.ItemID,
 			Servicio:       strings.TrimSpace(d.Servicio),
 			PrecioUnitario: precioUnitario,
 			Cantidad:       d.Cantidad,
@@ -238,13 +229,6 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 		return "", err
 	}
 
-	permitirStockNegativo := false
-	if hayInsumos {
-		if permitirStockNegativo, err = s.permiteStockNegativo(); err != nil {
-			return "", err
-		}
-	}
-
 	return s.repo.CreatePago(repository.CrearPagoInput{
 		FechaHecho:    fechaHecho,
 		LocalID:       input.LocalID,
@@ -261,36 +245,7 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 		ReservaID:     input.ReservaID,
 		Cajero:        cajero,
 		Detalle:       detalle,
-
-		PermitirStockNegativo: permitirStockNegativo,
 	})
-}
-
-// validarLineaInsumo comprueba que una linea sea servicio o insumo, no ambos, y que el item_id sea valido.
-func validarLineaInsumo(servicioID, itemID *int) error {
-	if itemID == nil {
-		return nil
-	}
-	if *itemID <= 0 {
-		return errors.New("item_id invalido")
-	}
-	if servicioID != nil {
-		return errors.New("una linea no puede ser servicio e insumo a la vez")
-	}
-	return nil
-}
-
-// permiteStockNegativo lee inventario.permitir_stock_negativo; sin configuracion usa el valor por defecto.
-func (s *PagosService) permiteStockNegativo() (bool, error) {
-	cfg := configPorDefecto()
-	if s.Config != nil {
-		snapshot, err := s.Config.Snapshot()
-		if err != nil {
-			return false, err
-		}
-		cfg = snapshot
-	}
-	return cfg.PermitirStockNegativo, nil
 }
 
 type ActualizarPagoInput struct {

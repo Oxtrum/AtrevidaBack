@@ -27,15 +27,6 @@ func NewReservasRepo(db *sqlx.DB) *ReservasRepo {
 }
 
 // GET
-// estadoCobroSQL calcula el estado de cobro de una reserva COMPLETADA (alias r): COBRADA si tiene un
-// pago PAGADO ligado, A_CUENTA si quedo como cargo de la cuenta del cliente, CUBIERTA_PAQUETE si la paga un paquete y
-// POR_COBRAR en otro caso. Nulo si no esta completada.
-const estadoCobroSQL = `(CASE WHEN r.estado <> 'COMPLETADO' THEN NULL
-	WHEN EXISTS (SELECT 1 FROM pagos pg WHERE pg.reserva_id = r.id AND pg.activo = TRUE AND pg.estado = 'PAGADO') THEN 'COBRADA'
-	WHEN EXISTS (SELECT 1 FROM cargos_cliente cc WHERE cc.reserva_id = r.id AND cc.anulado = FALSE) THEN 'A_CUENTA'
-	WHEN r.plan_id IS NOT NULL THEN 'CUBIERTA_PAQUETE'
-	ELSE 'POR_COBRAR' END)`
-
 // ReservasOrdenables lista las columnas por las que se puede ordenar el listado de reservas (ordenar_por).
 // La clave es el nombre del campo en la respuesta; el servicio ordena por el texto que muestra la tabla.
 var ReservasOrdenables = pagination.Columns{
@@ -82,7 +73,6 @@ func buildReservasQuery(f repository.FiltroReservasPG) (string, []interface{}) {
 			r.cliente, r.cliente_id, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
-			` + estadoCobroSQL + ` AS estado_cobro,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
@@ -200,9 +190,6 @@ func reservaConditions(f repository.FiltroReservasPG) ([]string, []interface{}) 
 	if f.PlanID != nil {
 		add("r.plan_id = $%d", *f.PlanID)
 	}
-	if f.EstadoCobro != "" {
-		add(estadoCobroSQL+" = $%d", f.EstadoCobro)
-	}
 	if f.SoloActivas {
 		conditions = append(conditions, "r.activo = TRUE")
 	}
@@ -254,7 +241,6 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 			r.cliente, r.cliente_id, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
-			` + estadoCobroSQL + ` AS estado_cobro,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE r.id = $1

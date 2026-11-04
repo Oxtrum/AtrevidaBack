@@ -206,22 +206,6 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 	}
 	defer tx.Rollback()
 
-	if input.ReservaID != nil {
-		var existe, ya int
-		if err := tx.Get(&existe, `SELECT COUNT(*) FROM reservas WHERE id = $1 AND activo = TRUE`, *input.ReservaID); err != nil {
-			return "", fmt.Errorf("error al verificar la reserva: %w", err)
-		}
-		if existe == 0 {
-			return "", errors.New("reserva no encontrada")
-		}
-		if err := tx.Get(&ya, `SELECT COUNT(*) FROM pagos WHERE reserva_id = $1 AND activo = TRUE`, *input.ReservaID); err != nil {
-			return "", fmt.Errorf("error al verificar cobros de la reserva: %w", err)
-		}
-		if ya > 0 {
-			return "", errors.New("la reserva ya tiene un cobro registrado")
-		}
-	}
-
 	var pagoID int
 	var codigoPago string
 	err = tx.QueryRowx(`
@@ -230,7 +214,7 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 			subtotal, descuento, total_final, tipo_pago, estado, activo,
 			id_cajero, nombre_cajero, username_cajero, reserva_id, fecha_creacion
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, COALESCE($16::timestamptz, NOW()))
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, COALESCE($15::timestamptz, NOW()))
 		RETURNING id, codigo_pago
 	`,
 		input.LocalID,
@@ -257,18 +241,13 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 	for _, d := range input.Detalle {
 		_, err = tx.Exec(`
 			INSERT INTO detalle_pagos (
-				pago_id, servicio_id, item_id, servicio, precio_unitario, cantidad, subtotal
+				pago_id, servicio_id, servicio, precio_unitario, cantidad, subtotal
 			)
-			VALUES ($1,$2,$3,$4,$5,$6,$7)
-		`, pagoID, d.ServicioID, d.ItemID, d.Servicio, d.PrecioUnitario, d.Cantidad, d.Subtotal)
+			VALUES ($1,$2,$3,$4,$5,$6)
+		`, pagoID, d.ServicioID, d.Servicio, d.PrecioUnitario, d.Cantidad, d.Subtotal)
 		if err != nil {
 			return "", pagoInsertError(err)
 		}
-	}
-
-	// El cobro y el descuento de stock van en la misma transaccion: si un insumo no alcanza, no queda el pago.
-	if err := descontarInsumosVendidos(tx, pagoID, codigoPago, input); err != nil {
-		return "", err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -662,6 +641,7 @@ func pagoSelectColumns() string {
 		p.tipo_pago,
 		p.estado,
 		p.activo,
+		p.reserva_id,
 		p.id_cajero,
 		COALESCE(p.nombre_cajero, '') AS nombre_cajero,
 		p.username_cajero,
@@ -690,10 +670,13 @@ func pagoInsertError(err error) error {
 	if errors.As(err, &pqErr) {
 		switch pqErr.Code {
 		case "23503":
-			return fmt.Errorf("referencia no encontrada: local, cliente, servicio o insumo invalido")
+			return fmt.Errorf("referencia no encontrada: local, cliente, reserva o servicio invalido")
 		case "23514":
 			return fmt.Errorf("datos de pago invalidos")
 		case "23505":
+			if pqErr.ConstraintName == "uq_pagos_reserva_activo" {
+				return fmt.Errorf("la reserva ya tiene un cobro activo")
+			}
 			return fmt.Errorf("ya existe un pago con ese codigo")
 		}
 	}

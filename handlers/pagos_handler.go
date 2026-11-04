@@ -18,8 +18,6 @@ import (
 type crearDetallePagoRequest struct {
 	// ID opcional del servicio cobrado; puede enviarse null.
 	ServicioID *int `json:"servicio_id" example:"8"`
-	// ID opcional del insumo del inventario que se vende en la linea; no se combina con servicio_id. Al crear el pago se descuenta su stock del local y se registra SALIDA_VENTA en el kardex.
-	ItemID *int `json:"item_id,omitempty" example:"15"`
 	// Texto del servicio cobrado.
 	Servicio *string `json:"servicio" example:"Limpieza facial"`
 	// Precio unitario cobrado; puede diferir del precio referencial del servicio.
@@ -53,7 +51,7 @@ type crearPagoRequest struct {
 	Estado *string `json:"estado" example:"PENDIENTE"`
 	// Estado activo inicial del pago.
 	Activo *bool `json:"activo" example:"true"`
-	// ID opcional de la reserva que se cobra con este pago; una reserva admite un solo cobro activo.
+	// Referencia opcional a una reserva. Caja no envia este campo y el pago no altera el estado de la reserva.
 	ReservaID *int `json:"reserva_id,omitempty" example:"44"`
 	// Fecha del hecho (YYYY-MM-DD): cuando ocurrio el cobro. Opcional; sin ella es ahora. No puede ser futura ni
 	// anterior a cobros.dias_maximo_fecha_pasada dias (0 = sin limite). El momento real del registro queda en registrado_en.
@@ -362,7 +360,7 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 
 // CreatePago godoc
 // @Summary Crear pago
-// @Description Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario de cada detalle puede diferir del precio referencial del servicio; el backend calcula su subtotal como precio_unitario por cantidad. subtotal y total_final de cabecera son opcionales y, si se envian, deben coincidir con el detalle y descuento calculados. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Un item puede llevar item_id (insumo del inventario, excluyente con servicio_id): al crear el pago se descuenta ese stock del local en la misma transaccion y queda SALIDA_VENTA en el kardex; si no alcanza el stock e inventario.permitir_stock_negativo es false, responde 409 y no se crea el pago. Response: codigo_pago generado incrementalmente.
+// @Description Crea un pago por servicios explicitamente cobrados y registra su detalle en una transaccion. Puede conservar una referencia opcional a reserva_id, pero no consulta ni cambia el estado de la reserva; Caja no envia esa referencia. No descuenta insumos individuales. Requiere token Bearer. Los campos de auditoria y el codigo se generan desde BD/token. cliente_id y cliente_nit son opcionales. El precio_unitario de cada detalle puede diferir del precio referencial; subtotal y total_final opcionales deben coincidir con detalle y descuento. Response: codigo_pago generado incrementalmente.
 // @Tags Pagos
 // @Accept json
 // @Produce json
@@ -371,8 +369,8 @@ func (h *Container) GetPagoByCodigo(c *gin.Context) {
 // @Success 201 {object} utils.APIResponse{data=pagoCreatedResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
-// @Failure 404 {object} utils.APIResponse "Referencia no encontrada: local, cliente, servicio o insumo invalido"
-// @Failure 409 {object} utils.APIResponse "Stock insuficiente para un insumo vendido"
+// @Failure 404 {object} utils.APIResponse "Referencia no encontrada: local, cliente, reserva o servicio invalido"
+// @Failure 409 {object} utils.APIResponse "La reserva ya tiene un cobro activo"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos [post]
 func (h *Container) CreatePago(c *gin.Context) {
@@ -389,7 +387,6 @@ func (h *Container) CreatePago(c *gin.Context) {
 	for _, d := range req.Detalle {
 		detalle = append(detalle, services.CrearDetallePagoInput{
 			ServicioID:     d.ServicioID,
-			ItemID:         d.ItemID,
 			Servicio:       stringValueRequired(d.Servicio),
 			PrecioUnitario: floatValueRequired(d.PrecioUnitario),
 			Cantidad:       intValueRequired(d.Cantidad),

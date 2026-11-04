@@ -51,15 +51,12 @@ type CrearPagoInput struct {
 	TipoPago      string
 	Estado        string
 	Activo        bool
-	// ReservaID es la reserva que se cobra; nil en ventas de mostrador.
-	ReservaID *int
+	ReservaID     *int
 	// FechaHecho es cuando ocurrio el cobro; nil usa el momento actual. Se guarda en fecha_creacion, que es la
 	// fecha de negocio que usan reportes y orden. El momento real del registro queda en registrado_en.
 	FechaHecho *time.Time
-	// PermitirStockNegativo deja vender insumos sin stock suficiente (inventario.permitir_stock_negativo).
-	PermitirStockNegativo bool
-	Cajero                CajeroAuditoriaInput
-	Detalle               []CrearDetallePagoInput
+	Cajero     CajeroAuditoriaInput
+	Detalle    []CrearDetallePagoInput
 }
 
 type CajeroAuditoriaInput struct {
@@ -69,9 +66,7 @@ type CajeroAuditoriaInput struct {
 }
 
 type CrearDetallePagoInput struct {
-	ServicioID *int
-	// ItemID es el insumo del inventario vendido en la linea; excluye a ServicioID.
-	ItemID         *int
+	ServicioID     *int
 	Servicio       string
 	PrecioUnitario float64
 	Cantidad       int
@@ -145,21 +140,21 @@ type PagoResumenServicioRow struct {
 // VentaDetalleRow es una linea de venta (un servicio dentro de un pago PAGADO) con el descuento del pago
 // repartido en proporcion a su subtotal, para que las sumas por servicio, local o dia cuadren con total_final.
 type VentaDetalleRow struct {
-	CodigoPago           string    `db:"codigo_pago"`
-	Fecha                time.Time `db:"fecha"`
-	Local                string    `db:"local"`
-	ClienteNombre        string    `db:"cliente_nombre"`
-	ClienteNIT           string    `db:"cliente_nit"`
-	Cajero               string    `db:"cajero"`
-	TipoPago             string    `db:"tipo_pago"`
-	Servicio             string    `db:"servicio"`
+	CodigoPago    string    `db:"codigo_pago"`
+	Fecha         time.Time `db:"fecha"`
+	Local         string    `db:"local"`
+	ClienteNombre string    `db:"cliente_nombre"`
+	ClienteNIT    string    `db:"cliente_nit"`
+	Cajero        string    `db:"cajero"`
+	TipoPago      string    `db:"tipo_pago"`
+	Servicio      string    `db:"servicio"`
 	// TipoLinea separa lo vendido: SERVICIO, INSUMO, PAQUETE u OTRO (linea libre).
-	TipoLinea            string    `db:"tipo_linea"`
-	Cantidad             int       `db:"cantidad"`
-	PrecioUnitario       float64   `db:"precio_unitario"`
-	Subtotal             float64   `db:"subtotal"`
-	DescuentoProrrateado float64   `db:"descuento_prorrateado"`
-	TotalPago            float64   `db:"total_pago"`
+	TipoLinea            string  `db:"tipo_linea"`
+	Cantidad             int     `db:"cantidad"`
+	PrecioUnitario       float64 `db:"precio_unitario"`
+	Subtotal             float64 `db:"subtotal"`
+	DescuentoProrrateado float64 `db:"descuento_prorrateado"`
+	TotalPago            float64 `db:"total_pago"`
 }
 
 type PagoResumenAgregado struct {
