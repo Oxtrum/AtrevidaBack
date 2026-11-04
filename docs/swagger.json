@@ -524,6 +524,169 @@
                 }
             }
         },
+        "/bd/atenciones": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista las atenciones del local autorizado con paginación por desplazamiento.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Listar atenciones",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Cantidad de resultados",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Resultados que se omiten",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al listar atenciones",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/insumos-sugeridos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve los insumos configurados para el servicio de la reserva.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Listar insumos sugeridos de una reserva",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID de reserva",
+                        "name": "reserva_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "reserva_id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar insumos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve una atención con sus insumos registrados.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Obtener atención",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID de atención",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Atención no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/cargos/{id}/anular": {
             "post": {
                 "security": [
@@ -3335,7 +3498,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.",
+                "description": "Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); paquetes.usar_desde CUENTA|PAGADO (desde cuando se puede usar un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7394,7 +7557,7 @@
                 }
             },
             "post": {
-                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario de cada detalle puede diferir del precio referencial del servicio; el backend calcula su subtotal como precio_unitario por cantidad. subtotal y total_final de cabecera son opcionales y, si se envian, deben coincidir con el detalle y descuento calculados. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Un item puede llevar item_id (insumo del inventario, excluyente con servicio_id): al crear el pago se descuenta ese stock del local en la misma transaccion y queda SALIDA_VENTA en el kardex; si no alcanza el stock e inventario.permitir_stock_negativo es false, responde 409 y no se crea el pago. Response: codigo_pago generado incrementalmente.",
+                "description": "Crea un pago por servicios explicitamente cobrados y registra su detalle en una transaccion. Puede conservar una referencia opcional a reserva_id, pero no consulta ni cambia el estado de la reserva; Caja no envia esa referencia. No descuenta insumos individuales. Requiere token Bearer. Los campos de auditoria y el codigo se generan desde BD/token. cliente_id y cliente_nit son opcionales. El precio_unitario de cada detalle puede diferir del precio referencial; subtotal y total_final opcionales deben coincidir con detalle y descuento. Response: codigo_pago generado incrementalmente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7456,13 +7619,13 @@
                         }
                     },
                     "404": {
-                        "description": "Referencia no encontrada: local, cliente, servicio o insumo invalido",
+                        "description": "Referencia no encontrada: local, cliente, reserva o servicio invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
                     "409": {
-                        "description": "Stock insuficiente para un insumo vendido",
+                        "description": "La reserva ya tiene un cobro activo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -8636,6 +8799,58 @@
                 }
             }
         },
+        "/bd/personal/sugerencias": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Busca nombres coincidentes entre los empleados activos accesibles en el local.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Sugerir personal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Texto de búsqueda (mínimo 2 caracteres)",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al buscar personal",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/planes": {
             "get": {
                 "description": "Devuelve todos los planes que cumplan los filtros aplicados. Un plan es un contrato adquirido por un cliente; no es un combo de catalogo. Requiere token Bearer. Los usuarios no admin_sys solo ven planes de su local asignado.",
@@ -9528,19 +9743,6 @@
                     },
                     {
                         "enum": [
-                            "COBRADA",
-                            "A_CUENTA",
-                            "CUBIERTA_PAQUETE",
-                            "POR_COBRAR"
-                        ],
-                        "type": "string",
-                        "example": "POR_COBRAR",
-                        "description": "Filtra reservas completadas segun su cobro: COBRADA, A_CUENTA, CUBIERTA_PAQUETE o POR_COBRAR",
-                        "name": "estado_cobro",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
                             "mesa",
                             "bicicleta"
                         ],
@@ -9950,7 +10152,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO, RECHAZADO→PENDIENTE. COMPLETADO no admite cambios.\nConfirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.\nInventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.",
+                "description": "Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO o RECHAZADO (requerido). COMPLETADO solo se puede establecer al registrar una atención. causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→RECHAZADO, RECHAZADO→PENDIENTE.\nConfirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.\nInventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.",
                 "consumes": [
                     "application/json"
                 ],
@@ -10010,7 +10212,7 @@
                         }
                     },
                     "409": {
-                        "description": "Conflicto: no hay espacios disponibles para confirmar la reserva, o stock insuficiente de insumos",
+                        "description": "Conflicto: una reserva solo se completa mediante el registro de una atención, no hay espacios disponibles o el stock es insuficiente",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -10379,6 +10581,82 @@
                     },
                     "500": {
                         "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/reservas/{id}/atencion": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra la atención real y cambia una reserva AGENDADA a COMPLETADO en una sola transacción. Con inventario.politica_sin_stock=ADVERTIR, los insumos sin stock suficiente quedan en PENDIENTE_STOCK sin descuento parcial; con BLOQUEAR se revierte el cierre y responde 409.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Registrar atención y cerrar reserva",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID de reserva",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos de atención",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.registrarAtencionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validación",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Reserva no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Reserva no atendible o stock insuficiente",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -15443,11 +15721,6 @@
                     "type": "integer",
                     "example": 2
                 },
-                "item_id": {
-                    "description": "ID opcional del insumo del inventario que se vende en la linea; no se combina con servicio_id. Al crear el pago se descuenta su stock del local y se registra SALIDA_VENTA en el kardex.",
-                    "type": "integer",
-                    "example": 15
-                },
                 "precio_unitario": {
                     "description": "Precio unitario cobrado; puede diferir del precio referencial del servicio.",
                     "type": "number",
@@ -15680,7 +15953,7 @@
                     "example": "Juan Perez"
                 },
                 "reserva_id": {
-                    "description": "ID opcional de la reserva que se cobra con este pago; una reserva admite un solo cobro activo.",
+                    "description": "Referencia opcional a una reserva. Caja no envia este campo y el pago no altera el estado de la reserva.",
                     "type": "integer",
                     "example": 44
                 },
@@ -17385,6 +17658,51 @@
                     "items": {
                         "$ref": "#/definitions/handlers.comboServicioCatalogoRequest"
                     }
+                }
+            }
+        },
+        "handlers.registrarAtencionRequest": {
+            "type": "object",
+            "required": [
+                "empleado_nombre",
+                "fecha_atencion",
+                "lugar"
+            ],
+            "properties": {
+                "empleado_id": {
+                    "type": "integer"
+                },
+                "empleado_nombre": {
+                    "type": "string"
+                },
+                "fecha_atencion": {
+                    "type": "string"
+                },
+                "hora_fin": {
+                    "type": "string"
+                },
+                "hora_inicio": {
+                    "type": "string"
+                },
+                "insumos": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "cantidad": {
+                                "type": "number"
+                            },
+                            "item_id": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                },
+                "lugar": {
+                    "type": "string"
+                },
+                "observaciones": {
+                    "type": "string"
                 }
             }
         },
@@ -19446,6 +19764,11 @@
                     "type": "string",
                     "example": "2026-06-04T21:30:00Z"
                 },
+                "reserva_id": {
+                    "description": "Referencia opcional conservada por compatibilidad; no determina el estado del pago ni de la reserva.",
+                    "type": "integer",
+                    "example": 44
+                },
                 "subtotal": {
                     "description": "Subtotal del pago antes del descuento.",
                     "type": "number",
@@ -19570,6 +19893,11 @@
                     "description": "Momento real en que se registro el pago en el sistema; lo pone el servidor y no se edita.",
                     "type": "string",
                     "example": "2026-06-04T21:30:00Z"
+                },
+                "reserva_id": {
+                    "description": "Referencia opcional conservada por compatibilidad; no determina el estado del pago ni de la reserva.",
+                    "type": "integer",
+                    "example": 44
                 },
                 "subtotal": {
                     "description": "Subtotal del pago antes del descuento.",
@@ -20607,6 +20935,11 @@
                     "type": "number",
                     "example": 30
                 },
+                "disponible": {
+                    "description": "Disponible es el stock actual del item en el local de la reserva.",
+                    "type": "number",
+                    "example": 100
+                },
                 "item_id": {
                     "type": "integer",
                     "example": 1
@@ -21015,11 +21348,6 @@
                 "estado": {
                     "type": "string",
                     "example": "AGENDADO"
-                },
-                "estado_cobro": {
-                    "description": "EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay un pago), A_CUENTA (quedo como cargo del cliente), CUBIERTA_PAQUETE (la paga un paquete) o POR_COBRAR.",
-                    "type": "string",
-                    "example": "POR_COBRAR"
                 },
                 "fecha": {
                     "type": "string",

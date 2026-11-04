@@ -1494,12 +1494,6 @@ definitions:
         description: Cantidad cobrada.
         example: 2
         type: integer
-      item_id:
-        description: ID opcional del insumo del inventario que se vende en la linea;
-          no se combina con servicio_id. Al crear el pago se descuenta su stock del
-          local y se registra SALIDA_VENTA en el kardex.
-        example: 15
-        type: integer
       precio_unitario:
         description: Precio unitario cobrado; puede diferir del precio referencial
           del servicio.
@@ -1687,8 +1681,8 @@ definitions:
         example: Juan Perez
         type: string
       reserva_id:
-        description: ID opcional de la reserva que se cobra con este pago; una reserva
-          admite un solo cobro activo.
+        description: Referencia opcional a una reserva. Caja no envia este campo y
+          el pago no altera el estado de la reserva.
         example: 44
         type: integer
       subtotal:
@@ -2951,6 +2945,36 @@ definitions:
         items:
           $ref: '#/definitions/handlers.comboServicioCatalogoRequest'
         type: array
+    type: object
+  handlers.registrarAtencionRequest:
+    properties:
+      empleado_id:
+        type: integer
+      empleado_nombre:
+        type: string
+      fecha_atencion:
+        type: string
+      hora_fin:
+        type: string
+      hora_inicio:
+        type: string
+      insumos:
+        items:
+          properties:
+            cantidad:
+              type: number
+            item_id:
+              type: integer
+          type: object
+        type: array
+      lugar:
+        type: string
+      observaciones:
+        type: string
+    required:
+    - empleado_nombre
+    - fecha_atencion
+    - lugar
     type: object
   handlers.registrarUsuarioRequest:
     properties:
@@ -4493,6 +4517,11 @@ definitions:
           el servidor y no se edita.
         example: "2026-06-04T21:30:00Z"
         type: string
+      reserva_id:
+        description: Referencia opcional conservada por compatibilidad; no determina
+          el estado del pago ni de la reserva.
+        example: 44
+        type: integer
       subtotal:
         description: Subtotal del pago antes del descuento.
         example: 500
@@ -4598,6 +4627,11 @@ definitions:
           el servidor y no se edita.
         example: "2026-06-04T21:30:00Z"
         type: string
+      reserva_id:
+        description: Referencia opcional conservada por compatibilidad; no determina
+          el estado del pago ni de la reserva.
+        example: 44
+        type: integer
       subtotal:
         description: Subtotal del pago antes del descuento.
         example: 500
@@ -5357,6 +5391,10 @@ definitions:
       cantidad_por_sesion:
         example: 30
         type: number
+      disponible:
+        description: Disponible es el stock actual del item en el local de la reserva.
+        example: 100
+        type: number
       item_id:
         example: 1
         type: integer
@@ -5660,12 +5698,6 @@ definitions:
         type: string
       estado:
         example: AGENDADO
-        type: string
-      estado_cobro:
-        description: 'EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay
-          un pago), A_CUENTA (quedo como cargo del cliente), CUBIERTA_PAQUETE (la
-          paga un paquete) o POR_COBRAR.'
-        example: POR_COBRAR
         type: string
       fecha:
         example: "2026-05-23"
@@ -6153,6 +6185,110 @@ paths:
       summary: Cambiar local de usuario
       tags:
       - Auth
+  /bd/atenciones:
+    get:
+      description: Lista las atenciones del local autorizado con paginación por desplazamiento.
+      parameters:
+      - default: 50
+        description: Cantidad de resultados
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Resultados que se omiten
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error al listar atenciones
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar atenciones
+      tags:
+      - Atenciones
+  /bd/atenciones/{id}:
+    get:
+      description: Devuelve una atención con sus insumos registrados.
+      parameters:
+      - description: ID de atención
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Atención no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Obtener atención
+      tags:
+      - Atenciones
+  /bd/atenciones/insumos-sugeridos:
+    get:
+      description: Devuelve los insumos configurados para el servicio de la reserva.
+      parameters:
+      - description: ID de reserva
+        in: query
+        name: reserva_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: reserva_id invalido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error al consultar insumos
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar insumos sugeridos de una reserva
+      tags:
+      - Atenciones
   /bd/cargos/{id}/anular:
     post:
       consumes:
@@ -8043,7 +8179,8 @@ paths:
         y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado
         PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria
         zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado
-        COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); cobros.dias_maximo_fecha_pasada
+        COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); paquetes.usar_desde
+        CUENTA|PAGADO (desde cuando se puede usar un paquete); cobros.dias_maximo_fecha_pasada
         entero 0-365. Requiere token Bearer con rol admin_sys.'
       parameters:
       - default: Bearer <token>
@@ -10747,24 +10884,14 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Crea un pago independiente junto con su detalle en una sola transaccion.
-        Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto
-        codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan
-        desde BD/token. Puede enviarse nombre para guardar el nombre completo del
-        cajero; si se omite o viene vacio se usa el username del token. id_cajero
-        y username_cajero se toman del token y los campos de auditoria no son editables.
-        cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como
-        null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario
-        de cada detalle puede diferir del precio referencial del servicio; el backend
-        calcula su subtotal como precio_unitario por cantidad. subtotal y total_final
-        de cabecera son opcionales y, si se envian, deben coincidir con el detalle
-        y descuento calculados. Cada item de detalle debe incluir servicio_id (puede
-        ser null), servicio, precio_unitario, cantidad y subtotal. Un item puede llevar
-        item_id (insumo del inventario, excluyente con servicio_id): al crear el pago
-        se descuenta ese stock del local en la misma transaccion y queda SALIDA_VENTA
-        en el kardex; si no alcanza el stock e inventario.permitir_stock_negativo
-        es false, responde 409 y no se crea el pago. Response: codigo_pago generado
-        incrementalmente.'
+      description: 'Crea un pago por servicios explicitamente cobrados y registra
+        su detalle en una transaccion. Puede conservar una referencia opcional a reserva_id,
+        pero no consulta ni cambia el estado de la reserva; Caja no envia esa referencia.
+        No descuenta insumos individuales. Requiere token Bearer. Los campos de auditoria
+        y el codigo se generan desde BD/token. cliente_id y cliente_nit son opcionales.
+        El precio_unitario de cada detalle puede diferir del precio referencial; subtotal
+        y total_final opcionales deben coincidir con detalle y descuento. Response:
+        codigo_pago generado incrementalmente.'
       parameters:
       - default: Bearer <token>
         description: Token Bearer
@@ -10802,12 +10929,12 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "404":
-          description: 'Referencia no encontrada: local, cliente, servicio o insumo
+          description: 'Referencia no encontrada: local, cliente, reserva o servicio
             invalido'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
-          description: Stock insuficiente para un insumo vendido
+          description: La reserva ya tiene un cobro activo
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
@@ -11615,6 +11742,40 @@ paths:
       summary: Mostrar u ocultar paquete en la pagina principal
       tags:
       - Paquetes BD
+  /bd/personal/sugerencias:
+    get:
+      description: Busca nombres coincidentes entre los empleados activos accesibles
+        en el local.
+      parameters:
+      - description: Texto de búsqueda (mínimo 2 caracteres)
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error al buscar personal
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Sugerir personal
+      tags:
+      - Atenciones
   /bd/planes:
     get:
       description: Devuelve todos los planes que cumplan los filtros aplicados. Un
@@ -12233,17 +12394,6 @@ paths:
         in: query
         name: excluir_estado
         type: string
-      - description: 'Filtra reservas completadas segun su cobro: COBRADA, A_CUENTA,
-          CUBIERTA_PAQUETE o POR_COBRAR'
-        enum:
-        - COBRADA
-        - A_CUENTA
-        - CUBIERTA_PAQUETE
-        - POR_COBRAR
-        example: POR_COBRAR
-        in: query
-        name: estado_cobro
-        type: string
       - description: Tipo de reserva
         enum:
         - mesa
@@ -12537,6 +12687,58 @@ paths:
       summary: Obtener reserva por ID
       tags:
       - Reservas BD
+  /bd/reservas/{id}/atencion:
+    post:
+      consumes:
+      - application/json
+      description: Registra la atención real y cambia una reserva AGENDADA a COMPLETADO
+        en una sola transacción. Con inventario.politica_sin_stock=ADVERTIR, los insumos
+        sin stock suficiente quedan en PENDIENTE_STOCK sin descuento parcial; con
+        BLOQUEAR se revierte el cierre y responde 409.
+      parameters:
+      - description: ID de reserva
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Datos de atención
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.registrarAtencionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Error de validación
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Reserva no encontrada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Reserva no atendible o stock insuficiente
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Registrar atención y cerrar reserva
+      tags:
+      - Atenciones
   /bd/reservas/{id}/cliente:
     patch:
       consumes:
@@ -12754,7 +12956,7 @@ paths:
       consumes:
       - application/json
       description: |-
-        Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO, RECHAZADO→PENDIENTE. COMPLETADO no admite cambios.
+        Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO o RECHAZADO (requerido). COMPLETADO solo se puede establecer al registrar una atención. causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→RECHAZADO, RECHAZADO→PENDIENTE.
         Confirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.
         Inventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.
       parameters:
@@ -12790,8 +12992,8 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "409":
-          description: 'Conflicto: no hay espacios disponibles para confirmar la reserva,
-            o stock insuficiente de insumos'
+          description: 'Conflicto: una reserva solo se completa mediante el registro
+            de una atención, no hay espacios disponibles o el stock es insuficiente'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "500":
