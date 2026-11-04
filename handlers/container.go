@@ -15,9 +15,9 @@ type Container struct {
 	ReservasPG        *services.ReservasPGService
 	// ReservasVinculo enlaza reservas con clientes registrados (reservas por vincular).
 	ReservasVinculo *services.ReservasVinculoService
-	LocalesPG         *services.LocalesService
-	PagosPG           *services.PagosService
-	PlanesPG          *services.PlanesService
+	LocalesPG       *services.LocalesService
+	PagosPG         *services.PagosService
+	PlanesPG        *services.PlanesService
 	// Cuenta maneja cargos, abonos y aplicaciones de la cuenta del cliente.
 	Cuenta *services.CuentaService
 
@@ -28,6 +28,7 @@ type Container struct {
 	GastosFijos       *services.GastosFijosService
 	ReporteFinanciero *services.ReporteFinancieroService
 	RRHH              *services.RRHHService
+	Atenciones        *services.AtencionesService
 	// JobSecret permite al job diario generar gastos fijos sin token de usuario.
 	JobSecret string
 }

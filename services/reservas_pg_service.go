@@ -556,13 +556,13 @@ func getRangoTiempoDisp(desdeStr, hastaStr string) (time.Time, time.Time) {
 
 // ReservaSimple es la representación plana de una reserva para GET /bd/reservas.
 type ReservaSimple struct {
-	ID                 int      `json:"id" example:"44"`
-	Local              string   `json:"local" example:"SAN MARTIN"`
-	Tipo               string   `json:"tipo" example:"M"`
-	Fecha              string   `json:"fecha" example:"2026-05-23"`
-	HoraDesde          string   `json:"hora_desde" example:"09:00"`
-	HoraHasta          string   `json:"hora_hasta" example:"10:00"`
-	Cliente            string   `json:"cliente" example:"Maria Lopez"`
+	ID        int    `json:"id" example:"44"`
+	Local     string `json:"local" example:"SAN MARTIN"`
+	Tipo      string `json:"tipo" example:"M"`
+	Fecha     string `json:"fecha" example:"2026-05-23"`
+	HoraDesde string `json:"hora_desde" example:"09:00"`
+	HoraHasta string `json:"hora_hasta" example:"10:00"`
+	Cliente   string `json:"cliente" example:"Maria Lopez"`
 	// ClienteID es el cliente registrado dueño de la reserva; ausente si esta por vincular.
 	ClienteID          *int     `json:"cliente_id,omitempty" example:"12"`
 	Estado             *string  `json:"estado,omitempty" example:"AGENDADO"`
@@ -579,10 +579,8 @@ type ReservaSimple struct {
 	Notificado    bool    `json:"notificado" example:"false"`
 	// AlertaInventario avisa que faltaba stock de insumos al agendar (solo informativo).
 	AlertaInventario bool   `json:"alerta_inventario" example:"false"`
-	// EstadoCobro solo viene en reservas COMPLETADAS: COBRADA (hay un pago), A_CUENTA (quedo como cargo del cliente), CUBIERTA_PAQUETE (la paga un paquete) o POR_COBRAR.
-	EstadoCobro *string `json:"estado_cobro,omitempty" example:"POR_COBRAR"`
-	CreadoEn      string  `json:"creado_en" example:"2026-05-23T15:04:05Z"`
-	ActualizadoEn string  `json:"actualizado_en" example:"2026-05-23T16:04:05Z"`
+	CreadoEn         string `json:"creado_en" example:"2026-05-23T15:04:05Z"`
+	ActualizadoEn    string `json:"actualizado_en" example:"2026-05-23T16:04:05Z"`
 }
 
 type ResumenReservasSemana struct {
@@ -616,12 +614,12 @@ type ResumenReservas struct {
 }
 
 type FiltroReservasSimple struct {
-	Context            context.Context
-	Local              string
-	Fecha              string
-	FechaDesde         string
-	FechaHasta         string
-	Cliente            string
+	Context    context.Context
+	Local      string
+	Fecha      string
+	FechaDesde string
+	FechaHasta string
+	Cliente    string
 	// ClienteID filtra las reservas de un cliente registrado.
 	ClienteID          *int
 	NumeroTelefono     string
@@ -630,8 +628,6 @@ type FiltroReservasSimple struct {
 	Busqueda           string
 	Estado             string
 	ExcluirEstado      string
-	// EstadoCobro filtra reservas completadas: COBRADA, A_CUENTA, CUBIERTA_PAQUETE o POR_COBRAR.
-	EstadoCobro        string
 	Tipo               string
 	VigenteFecha       string
 	VigenteHora        string
@@ -723,7 +719,6 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 		Busqueda:           f.Busqueda,
 		Estado:             f.Estado,
 		ExcluirEstado:      f.ExcluirEstado,
-		EstadoCobro:        f.EstadoCobro,
 		SoloActivas:        true,
 		PageLimit:          f.PageLimit, CursorSet: f.CursorSet, CursorLocal: f.CursorLocal,
 		CursorFecha: f.CursorFecha, CursorHora: f.CursorHora, CursorID: f.CursorID,
@@ -843,7 +838,6 @@ func reservaSimpleDesdePG(rv models.ReservaPGCompleta) ReservaSimple {
 		Notas:              rv.Notas,
 		Notificado:         rv.Notificado,
 		AlertaInventario:   rv.AlertaInventario,
-		EstadoCobro:        rv.EstadoCobro,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
 		ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
 	}
@@ -883,7 +877,6 @@ func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple
 		Notas:              rv.Notas,
 		Notificado:         rv.Notificado,
 		AlertaInventario:   rv.AlertaInventario,
-		EstadoCobro:        rv.EstadoCobro,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
 		ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
 	}, nil
@@ -1102,12 +1095,12 @@ func formatHoraService(h string) string {
 
 // POST
 type CrearReservaPGInput struct {
-	Local              string
-	Fecha              string
-	HoraDesde          string
-	HoraHasta          string
-	Tipo               string
-	Cliente            string
+	Local     string
+	Fecha     string
+	HoraDesde string
+	HoraHasta string
+	Tipo      string
+	Cliente   string
 	// ClienteID lo elige el panel interno. El formulario publico no lo manda: se vincula solo por telefono exacto y unico.
 	ClienteID          *int
 	Telefono           string
@@ -1483,6 +1476,9 @@ func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReserv
 // descontar (por defecto COMPLETADO) descuenta los insumos en la misma transaccion (RN-14); si no
 // alcanza y la configuracion no permite stock negativo, el cambio no se aplica (409).
 func (s *ReservasPGService) ActualizarEstadoReservaConAvisos(input ActualizarEstadoReservaInput) (ActualizarEstadoReservaResultado, error) {
+	if strings.EqualFold(strings.TrimSpace(input.Estado), "COMPLETADO") {
+		return ActualizarEstadoReservaResultado{}, errors.New("una reserva solo se completa al registrar una atencion")
+	}
 	err := s.actualizarEstadoReservaBase(input)
 	var res ActualizarEstadoReservaResultado
 	if err != nil || s.consumo == nil {

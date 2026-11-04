@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -208,14 +209,14 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 	resultado, err := h.ReservasPG.CrearReservaConAvisos(services.CrearReservaPGInput{
 		Autenticado: autenticado,
 		Actor:       consumoActor(c),
-		Local:     strings.TrimSpace(req.Local),
-		Fecha:     strings.TrimSpace(req.Fecha),
-		HoraDesde: strings.TrimSpace(req.HoraDesde),
-		HoraHasta: strings.TrimSpace(req.HoraHasta),
-		Tipo:      tipoNorm,
-		Cliente:   strings.TrimSpace(req.Cliente),
-		ClienteID: req.ClienteID,
-		Telefono:  telefono, TelefonoE164: req.TelefonoE164,
+		Local:       strings.TrimSpace(req.Local),
+		Fecha:       strings.TrimSpace(req.Fecha),
+		HoraDesde:   strings.TrimSpace(req.HoraDesde),
+		HoraHasta:   strings.TrimSpace(req.HoraHasta),
+		Tipo:        tipoNorm,
+		Cliente:     strings.TrimSpace(req.Cliente),
+		ClienteID:   req.ClienteID,
+		Telefono:    telefono, TelefonoE164: req.TelefonoE164,
 		Estado:             estadoFinal,
 		ServicioID:         req.ServicioID,
 		Servicio:           strings.TrimSpace(req.Servicio),
@@ -553,7 +554,6 @@ func float64Ptr(v float64) *float64 {
 // @Param busqueda query string false "Busqueda parcial por ID, cliente, telefono, servicio, local o fecha" example(Maria)
 // @Param estado query string false "Estado de la reserva" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(COMPLETADO)
 // @Param excluir_estado query string false "Estado que se excluye del resultado" Enums(PENDIENTE,RECHAZADO,AGENDADO,COMPLETADO) example(COMPLETADO)
-// @Param estado_cobro query string false "Filtra reservas completadas segun su cobro: COBRADA, A_CUENTA, CUBIERTA_PAQUETE o POR_COBRAR" Enums(COBRADA,A_CUENTA,CUBIERTA_PAQUETE,POR_COBRAR) example(POR_COBRAR)
 // @Param tipo query string false "Tipo de reserva" Enums(mesa,bicicleta) example(bicicleta)
 // @Param vigente_fecha query string false "Fecha local desde la que una reserva sigue vigente; requiere vigente_hora" example(2026-08-12)
 // @Param vigente_hora query string false "Hora local HH:MM desde la que una reserva sigue vigente; requiere vigente_fecha" example(15:30)
@@ -634,7 +634,6 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		Busqueda:           strings.TrimSpace(c.Query("busqueda")),
 		Estado:             strings.TrimSpace(c.Query("estado")),
 		ExcluirEstado:      strings.TrimSpace(c.Query("excluir_estado")),
-		EstadoCobro:        strings.ToUpper(strings.TrimSpace(c.Query("estado_cobro"))),
 		Tipo:               paramTipo,
 		VigenteFecha:       vigenteFecha,
 		VigenteHora:        vigenteHora,
@@ -953,7 +952,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 
 // PatchReservaEstadoPG godoc
 // @Summary Actualizar estado de reserva
-// @Description Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO, RECHAZADO→PENDIENTE. COMPLETADO no admite cambios.
+// @Description Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO o RECHAZADO (requerido). COMPLETADO solo se puede establecer al registrar una atención. causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→RECHAZADO, RECHAZADO→PENDIENTE.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -965,7 +964,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 // @Failure 400 {object} utils.APIResponse "Error de validacion: estado invalido, transicion no permitida, campo requerido faltante"
 // @Failure 401 {object} utils.APIResponse "Token ausente o invalido"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
-// @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles para confirmar la reserva, o stock insuficiente de insumos"
+// @Failure 409 {object} utils.APIResponse "Conflicto: una reserva solo se completa mediante el registro de una atención, no hay espacios disponibles o el stock es insuficiente"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/estado [patch]
 func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
@@ -977,6 +976,11 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 
 	if req.Id <= 0 {
 		utils.RespondError(c, http.StatusBadRequest, "id no valido")
+		return
+	}
+	if strings.EqualFold(strings.TrimSpace(req.Estado), "COMPLETADO") {
+		log.Printf("[reservas] event=transicion_completado_bloqueada reserva_id=%d", req.Id)
+		utils.RespondError(c, http.StatusConflict, "una reserva solo se completa al registrar una atencion")
 		return
 	}
 

@@ -80,6 +80,7 @@ func Build() (*gin.Engine, error) {
 	gastosFijosService := services.NewGastosFijosService(finanzasRepo, configuracionService, finanzasService)
 	reporteFinancieroService := services.NewReporteFinancieroService(finanzasRepo, inventarioRepo, gastosFijosService, configuracionService)
 	rrhhService := services.NewRRHHService(pgsqlrepo.NewRRHHRepo(pgDB), configuracionService)
+	atencionesService := services.NewAtencionesService(pgsqlrepo.NewAtencionesRepo(pgDB), configuracionService)
 	if s3Storage != nil {
 		rrhhService.Storage = s3Storage
 	}
@@ -124,6 +125,7 @@ func Build() (*gin.Engine, error) {
 	h.GastosFijos = gastosFijosService
 	h.ReporteFinanciero = reporteFinancieroService
 	h.RRHH = rrhhService
+	h.Atenciones = atencionesService
 	h.JobSecret = config.App.Jobs.Secret
 
 	return router.Setup(h), nil

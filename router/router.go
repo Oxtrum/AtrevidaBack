@@ -176,6 +176,13 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.POST("/reservas", h.PostReservaPG)
 		bd.PATCH("/reservas", h.AuthRequired, h.PatchReservaPG)
 		bd.PATCH("/reservas/estado", h.AuthRequired, h.PatchReservaEstadoPG)
+		bd.POST("/reservas/:id/atencion", h.AuthRequired, h.PostAtencion)
+		bd.GET("/atenciones", h.AuthRequired, h.GetAtenciones)
+		bd.GET("/atenciones/:id", h.AuthRequired, h.GetAtencion)
+		bd.PUT("/atenciones/:id", h.AuthRequired, h.PutAtencion)
+		bd.POST("/atenciones/:id/desactivar", h.AuthRequired, h.PostDesactivarAtencion)
+		bd.GET("/personal/sugerencias", h.AuthRequired, h.GetPersonalSugerencias)
+		bd.GET("/atenciones/insumos-sugeridos", h.AuthRequired, h.GetInsumosSugeridos)
 
 		bd.GET("/pagos", h.AuthRequired, h.GetPagos)
 		bd.GET("/pagos/resumen", h.AuthRequired, h.GetResumenPagos)
