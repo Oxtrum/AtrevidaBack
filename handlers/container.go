@@ -16,6 +16,8 @@ type Container struct {
 	LocalesPG         *services.LocalesService
 	PagosPG           *services.PagosService
 	PlanesPG          *services.PlanesService
+	// Turnstile valida el captcha del formulario publico de reservas (peticiones sin token de usuario).
+	Turnstile *services.TurnstileVerifier
 }
 
 func NewContainer(

@@ -5222,7 +5222,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).\ncosto_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.\nReserva repetida: si la peticion trae token Bearer valido y el telefono ya tiene una reserva vigente (no rechazada) en la misma fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas (las ya existentes) sin crear nada. El panel debe pedir confirmacion y reenviar con confirmar_duplicado=true. El formulario publico (sin token) no recibe este aviso.",
+                "description": "Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).\ncosto_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.\nReserva repetida: si la peticion trae token Bearer valido y el telefono ya tiene una reserva vigente (no rechazada) en la misma fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas (las ya existentes) sin crear nada. El panel debe pedir confirmacion y reenviar con confirmar_duplicado=true. El formulario publico (sin token) no recibe este aviso.\nTurnstile: sin token Bearer valido (formulario publico) el body debe traer cf-turnstile-response, que el backend valida con Cloudflare (siteverify, accion reservation_create y hostname permitido). Con token Bearer valido no se exige.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5269,6 +5269,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "403": {
+                        "description": "Turnstile verification failed: Cloudflare no valida el token del formulario publico",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "409": {
                         "description": "Conflicto: no hay espacios disponibles, el horario no esta libre, o el cliente ya tiene reserva ese dia (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)",
                         "schema": {
@@ -5277,6 +5283,18 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "No se pudo consultar a Cloudflare para validar Turnstile",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Turnstile no esta configurado en el servidor (TURNSTILE_SECRET_KEY y TURNSTILE_ALLOWED_HOSTNAMES)",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -7992,6 +8010,11 @@ const docTemplate = `{
                 "numero_telefono"
             ],
             "properties": {
+                "cf-turnstile-response": {
+                    "description": "Solo formulario publico (sin token de usuario): token del widget de Cloudflare Turnstile. El panel interno no lo envia.",
+                    "type": "string",
+                    "example": "0.AbCdEf..."
+                },
                 "cliente": {
                     "description": "Nombre del cliente",
                     "type": "string",

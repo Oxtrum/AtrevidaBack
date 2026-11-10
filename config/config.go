@@ -14,6 +14,19 @@ type Config struct {
 	DB      DBConfig
 	Auth    AuthConfig
 	Storage StorageConfig
+	// Turnstile valida el captcha del formulario publico de reservas.
+	Turnstile TurnstileConfig
+}
+
+// TurnstileConfig son los datos para validar tokens de Cloudflare Turnstile (siteverify).
+// Sin SecretKey o sin AllowedHostnames, las reservas publicas se rechazan (falla cerrado), salvo Disabled.
+type TurnstileConfig struct {
+	// SecretKey es la secret key del widget cuya site key usa el front.
+	SecretKey string
+	// AllowedHostnames: dominios aceptados, separados por coma (TURNSTILE_ALLOWED_HOSTNAMES).
+	AllowedHostnames []string
+	// Disabled omite la verificacion; solo para desarrollo local (TURNSTILE_DISABLED=true).
+	Disabled bool
 }
 
 // StorageConfig apunta al bucket de Supabase Storage usado para imagenes de combos.
@@ -64,7 +77,23 @@ func Load() {
 			SecretKey:   os.Getenv("SUPABASE_SECRET_KEY"),
 			Bucket:      getEnvDefault("SUPABASE_STORAGE_BUCKET", "paquetes"),
 		},
+		Turnstile: TurnstileConfig{
+			SecretKey:        strings.TrimSpace(os.Getenv("TURNSTILE_SECRET_KEY")),
+			AllowedHostnames: splitCSV(os.Getenv("TURNSTILE_ALLOWED_HOSTNAMES")),
+			Disabled:         strings.EqualFold(strings.TrimSpace(os.Getenv("TURNSTILE_DISABLED")), "true"),
+		},
 	}
+}
+
+// splitCSV separa una lista por comas, sin espacios ni elementos vacios.
+func splitCSV(value string) []string {
+	out := []string{}
+	for _, part := range strings.Split(value, ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func getEnvDefault(key, fallback string) string {

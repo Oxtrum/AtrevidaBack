@@ -1,6 +1,8 @@
 package app
 
 import (
+	"log"
+
 	"atrevida-agenda-api/config"
 	"atrevida-agenda-api/db"
 	"atrevida-agenda-api/docs"
@@ -70,6 +72,17 @@ func Build() (*gin.Engine, error) {
 		pagosPGService,
 		planesPGService,
 	)
+	h.Turnstile = &services.TurnstileVerifier{
+		Secret:           config.App.Turnstile.SecretKey,
+		AllowedHostnames: config.App.Turnstile.AllowedHostnames,
+		Action:           "reservation_create",
+		Disabled:         config.App.Turnstile.Disabled,
+	}
+	if config.App.Turnstile.Disabled {
+		log.Println("[turnstile] DESACTIVADO (TURNSTILE_DISABLED=true): las reservas publicas no se verifican. Solo para desarrollo local.")
+	} else if config.App.Turnstile.SecretKey == "" || len(config.App.Turnstile.AllowedHostnames) == 0 {
+		log.Println("[turnstile] falta TURNSTILE_SECRET_KEY o TURNSTILE_ALLOWED_HOSTNAMES: las reservas publicas se rechazaran (503).")
+	}
 
 	return router.Setup(h), nil
 }

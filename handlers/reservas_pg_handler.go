@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -143,6 +144,8 @@ type crearReservaPGRequest struct {
 	PlanID *int `json:"plan_id" example:"21"`
 	// Solo panel interno: true confirma crear la reserva aunque el cliente ya tenga otra ese dia.
 	ConfirmarDuplicado bool `json:"confirmar_duplicado" example:"false"`
+	// Solo formulario publico (sin token de usuario): token del widget de Cloudflare Turnstile. El panel interno no lo envia.
+	TurnstileToken string `json:"cf-turnstile-response,omitempty" example:"0.AbCdEf..."`
 }
 
 // reservaDuplicadaItemResponse resume una reserva que el cliente ya tiene en el dia.
@@ -161,6 +164,22 @@ type reservaDuplicadaResponse struct {
 	Reservas []reservaDuplicadaItemResponse `json:"reservas"`
 }
 
+// respondTurnstileError traduce el fallo del captcha al codigo HTTP que corresponde.
+func respondTurnstileError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, services.ErrTurnstileTokenRequerido):
+		utils.RespondError(c, http.StatusBadRequest, "Falta la verificación de seguridad (Turnstile)")
+	case errors.Is(err, services.ErrTurnstileRechazado):
+		utils.RespondError(c, http.StatusForbidden, "Turnstile verification failed")
+	case errors.Is(err, services.ErrTurnstileNoConfigurado):
+		log.Printf("[turnstile] reserva publica rechazada: %v", err)
+		utils.RespondError(c, http.StatusServiceUnavailable, "La verificación de seguridad no está disponible")
+	default:
+		log.Printf("[turnstile] no se pudo validar el token: %v", err)
+		utils.RespondError(c, http.StatusBadGateway, "No se pudo validar la verificación de seguridad, intenta de nuevo")
+	}
+}
+
 // PostReservaPG godoc
 // @Summary Crear reserva en base de datos
 // @Description Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).
@@ -173,7 +192,11 @@ type reservaDuplicadaResponse struct {
 // @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion"
 // @Description Reserva repetida: si la peticion trae token Bearer valido y el telefono ya tiene una reserva vigente (no rechazada) en la misma fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas (las ya existentes) sin crear nada. El panel debe pedir confirmacion y reenviar con confirmar_duplicado=true. El formulario publico (sin token) no recibe este aviso.
 // @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles, el horario no esta libre, o el cliente ya tiene reserva ese dia (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)"
+// @Description Turnstile: sin token Bearer valido (formulario publico) el body debe traer cf-turnstile-response, que el backend valida con Cloudflare (siteverify, accion reservation_create y hostname permitido). Con token Bearer valido no se exige.
+// @Failure 403 {object} utils.APIResponse "Turnstile verification failed: Cloudflare no valida el token del formulario publico"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Failure 502 {object} utils.APIResponse "No se pudo consultar a Cloudflare para validar Turnstile"
+// @Failure 503 {object} utils.APIResponse "Turnstile no esta configurado en el servidor (TURNSTILE_SECRET_KEY y TURNSTILE_ALLOWED_HOSTNAMES)"
 // @Router /bd/reservas [post]
 func (h *Container) PostReservaPG(c *gin.Context) {
 	var req crearReservaPGRequest
@@ -197,8 +220,18 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		}
 	}
 
+	// Sin token de usuario es el formulario publico: exige el captcha validado aqui (y no en el proxy del front,
+	// porque un token de Turnstile solo sirve una vez y asi tampoco se salta llamando al backend directo).
+	autenticado := h.tokenBearerValido(c)
+	if !autenticado {
+		if err := h.Turnstile.Verify(c.Request.Context(), req.TurnstileToken, c.ClientIP()); err != nil {
+			respondTurnstileError(c, err)
+			return
+		}
+	}
+
 	id, err := h.ReservasPG.CrearReserva(services.CrearReservaPGInput{
-		Autenticado: h.tokenBearerValido(c),
+		Autenticado: autenticado,
 		Local:     strings.TrimSpace(req.Local),
 		Fecha:     strings.TrimSpace(req.Fecha),
 		HoraDesde: strings.TrimSpace(req.HoraDesde),
