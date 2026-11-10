@@ -95,6 +95,31 @@ func TestTurnstileRechazaRespuestasInvalidas(t *testing.T) {
 	}
 }
 
+func TestTurnstileRechazoIncluyeElMotivo(t *testing.T) {
+	casos := map[string]struct {
+		respuesta string
+		esperado  []string
+	}{
+		"codigo de cloudflare": {`{"success":false,"error-codes":["invalid-input-secret"]}`, []string{"invalid-input-secret"}},
+		"accion distinta":      {`{"success":true,"action":"otra","hostname":"atrevida.test"}`, []string{`action="otra"`, `reservation_create`}},
+		"hostname ajeno":       {`{"success":true,"action":"reservation_create","hostname":"malo.test"}`, []string{`hostname="malo.test"`, `atrevida.test`}},
+	}
+	for nombre, caso := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			srv := cloudflareFalso(t, caso.respuesta, nil)
+			err := verificadorDePrueba(srv.URL).Verify(context.Background(), "tok", "")
+			if !errors.Is(err, ErrTurnstileRechazado) {
+				t.Fatalf("Verify = %v, quiero ErrTurnstileRechazado", err)
+			}
+			for _, trozo := range caso.esperado {
+				if !strings.Contains(err.Error(), trozo) {
+					t.Fatalf("error %q no menciona %q", err.Error(), trozo)
+				}
+			}
+		})
+	}
+}
+
 func TestTurnstileSinConfiguracionFallaCerrado(t *testing.T) {
 	srv := cloudflareFalso(t, `{"success":true,"action":"reservation_create","hostname":"atrevida.test"}`, nil)
 

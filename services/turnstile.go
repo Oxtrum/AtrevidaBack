@@ -98,10 +98,43 @@ func (v *TurnstileVerifier) Verify(ctx context.Context, token, remoteIP string) 
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return ErrTurnstileRechazado
 	}
-	if !r.Success || r.Action != v.Action || !v.hostnamePermitido(r.Hostname) {
-		return ErrTurnstileRechazado
+	switch {
+	case !r.Success:
+		return &turnstileRechazo{
+			motivo:  strings.Join(r.ErrorCodes, ","),
+			detalle: fmt.Sprintf("Cloudflare no valida el token (error-codes=%v)", r.ErrorCodes),
+		}
+	case r.Action != v.Action:
+		return &turnstileRechazo{
+			motivo:  "action=" + r.Action,
+			detalle: fmt.Sprintf("action=%q, se esperaba %q", r.Action, v.Action),
+		}
+	case !v.hostnamePermitido(r.Hostname):
+		return &turnstileRechazo{
+			motivo:  "hostname=" + r.Hostname,
+			detalle: fmt.Sprintf("hostname=%q no esta en TURNSTILE_ALLOWED_HOSTNAMES (%v)", r.Hostname, v.AllowedHostnames),
+		}
 	}
 	return nil
+}
+
+// turnstileRechazo es ErrTurnstileRechazado con el motivo. detalle es para el log del servidor;
+// motivo es corto y seguro de mostrar al cliente (no revela secretos ni la configuracion).
+type turnstileRechazo struct {
+	motivo  string
+	detalle string
+}
+
+func (e *turnstileRechazo) Error() string { return ErrTurnstileRechazado.Error() + ": " + e.detalle }
+func (e *turnstileRechazo) Unwrap() error { return ErrTurnstileRechazado }
+
+// TurnstileMotivo devuelve el motivo corto de un rechazo de Cloudflare, o "" si el error no lo trae.
+func TurnstileMotivo(err error) string {
+	var r *turnstileRechazo
+	if errors.As(err, &r) {
+		return r.motivo
+	}
+	return ""
 }
 
 func (v *TurnstileVerifier) hostnamePermitido(hostname string) bool {
