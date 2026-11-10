@@ -221,7 +221,8 @@ func (r *InventarioRepo) RecalcularAlerta(reservaID int, considerarComprometido 
 // RecalcularAlertasAbiertas reevalua alerta_inventario de las reservas futuras PENDIENTE/AGENDADO.
 // El stock puede cambiar sin tocar las reservas (ajuste, vencimiento, compra, consumo de otra
 // reserva), asi que el flag guardado al agendar queda desactualizado. localID nil = todos los locales.
-func (r *InventarioRepo) RecalcularAlertasAbiertas(localID *int, considerarComprometido bool) error {
+// Devuelve las advertencias de cada reserva evaluada (por id) para no tener que recalcularlas.
+func (r *InventarioRepo) RecalcularAlertasAbiertas(localID *int, considerarComprometido bool) (map[int][]models.AdvertenciaInventario, error) {
 	ids := []int{}
 	query := `
 		SELECT id FROM reservas
@@ -233,14 +234,17 @@ func (r *InventarioRepo) RecalcularAlertasAbiertas(localID *int, considerarCompr
 		args = append(args, *localID)
 	}
 	if err := r.db.Select(&ids, query+` ORDER BY fecha, hora_desde`, args...); err != nil {
-		return fmt.Errorf("error al listar reservas abiertas: %w", err)
+		return nil, fmt.Errorf("error al listar reservas abiertas: %w", err)
 	}
+	warnings := make(map[int][]models.AdvertenciaInventario, len(ids))
 	for _, id := range ids {
-		if _, err := r.RecalcularAlerta(id, considerarComprometido); err != nil {
-			return err
+		warns, err := r.RecalcularAlerta(id, considerarComprometido)
+		if err != nil {
+			return nil, err
 		}
+		warnings[id] = warns
 	}
-	return nil
+	return warnings, nil
 }
 
 // EstadoDeReserva devuelve el estado actual de la reserva.
