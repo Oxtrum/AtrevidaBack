@@ -53,33 +53,6 @@ func TestPostReservaPublicaConTokenRechazadoDa403(t *testing.T) {
 	}
 }
 
-// Sin acceso a los logs del servidor, el 403 debe decir por que se rechazo (sin filtrar secretos ni la lista permitida).
-func TestPostReservaPublicaRechazoTurnstileInformaElMotivo(t *testing.T) {
-	casos := map[string]struct {
-		respuesta string
-		motivo    string
-	}{
-		"codigo de cloudflare": {`{"success":false,"error-codes":["invalid-input-secret"]}`, "invalid-input-secret"},
-		"hostname ajeno":       {`{"success":true,"action":"reservation_create","hostname":"www.malo.test"}`, "hostname=www.malo.test"},
-		"accion distinta":      {`{"success":true,"action":"otra","hostname":"atrevida.test"}`, "action=otra"},
-	}
-	for nombre, caso := range casos {
-		t.Run(nombre, func(t *testing.T) {
-			h := &Container{Turnstile: cloudflareQueResponde(t, caso.respuesta)}
-			w := postReservaPublica(t, h, `,"cf-turnstile-response":"tok"`)
-			if w.Code != http.StatusForbidden {
-				t.Fatalf("status = %d, quiero 403; body = %s", w.Code, w.Body.String())
-			}
-			if !strings.Contains(w.Body.String(), caso.motivo) {
-				t.Fatalf("body %s no menciona %q", w.Body.String(), caso.motivo)
-			}
-			if strings.Contains(w.Body.String(), "TURNSTILE_ALLOWED_HOSTNAMES") {
-				t.Fatalf("el body no debe revelar la configuracion: %s", w.Body.String())
-			}
-		})
-	}
-}
-
 func TestPostReservaPublicaSinTurnstileConfiguradoDa503(t *testing.T) {
 	h := &Container{}
 	w := postReservaPublica(t, h, `,"cf-turnstile-response":"tok"`)

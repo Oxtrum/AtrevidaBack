@@ -170,12 +170,7 @@ func respondTurnstileError(c *gin.Context, err error) {
 	case errors.Is(err, services.ErrTurnstileTokenRequerido):
 		utils.RespondError(c, http.StatusBadRequest, "Falta la verificación de seguridad (Turnstile)")
 	case errors.Is(err, services.ErrTurnstileRechazado):
-		log.Printf("[turnstile] reserva publica rechazada: %v", err)
-		mensaje := "Turnstile verification failed"
-		if motivo := services.TurnstileMotivo(err); motivo != "" {
-			mensaje += " (" + motivo + ")"
-		}
-		utils.RespondError(c, http.StatusForbidden, mensaje)
+		utils.RespondError(c, http.StatusForbidden, "Turnstile verification failed")
 	case errors.Is(err, services.ErrTurnstileNoConfigurado):
 		log.Printf("[turnstile] reserva publica rechazada: %v", err)
 		utils.RespondError(c, http.StatusServiceUnavailable, "La verificación de seguridad no está disponible")
