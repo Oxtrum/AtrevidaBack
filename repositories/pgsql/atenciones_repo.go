@@ -257,7 +257,9 @@ func (r *AtencionesRepo) Obtener(id int) (*models.Atencion, error) {
 	return &a, err
 }
 
-func (r *AtencionesRepo) Listar(localID *int, limit, offset int) ([]models.Atencion, error) {
+// Listar devuelve las atenciones activas, de la mas reciente a la mas antigua. desde y hasta (YYYY-MM-DD, incluidos)
+// acotan por fecha de atencion; nil = sin limite.
+func (r *AtencionesRepo) Listar(localID *int, desde, hasta *string, limit, offset int) ([]models.Atencion, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
@@ -269,7 +271,15 @@ func (r *AtencionesRepo) Listar(localID *int, limit, offset int) ([]models.Atenc
 	where := "a.activo=TRUE"
 	if localID != nil {
 		args = append(args, *localID)
-		where += " AND a.local_id=$1"
+		where += " AND a.local_id=$" + fmt.Sprint(len(args))
+	}
+	if desde != nil {
+		args = append(args, *desde)
+		where += " AND a.fecha_atencion>=$" + fmt.Sprint(len(args)) + "::date"
+	}
+	if hasta != nil {
+		args = append(args, *hasta)
+		where += " AND a.fecha_atencion<=$" + fmt.Sprint(len(args)) + "::date"
 	}
 	args = append(args, limit)
 	args = append(args, offset)
@@ -277,9 +287,9 @@ func (r *AtencionesRepo) Listar(localID *int, limit, offset int) ([]models.Atenc
 	return out, err
 }
 
-func (r *AtencionesRepo) Contar(localID *int) (int, error) {
+func (r *AtencionesRepo) Contar(localID *int, desde, hasta *string) (int, error) {
 	var total int
-	err := r.db.Get(&total, `SELECT COUNT(*) FROM atenciones WHERE activo=TRUE AND ($1::int IS NULL OR local_id=$1)`, localID)
+	err := r.db.Get(&total, `SELECT COUNT(*) FROM atenciones WHERE activo=TRUE AND ($1::int IS NULL OR local_id=$1) AND ($2::date IS NULL OR fecha_atencion>=$2::date) AND ($3::date IS NULL OR fecha_atencion<=$3::date)`, localID, desde, hasta)
 	return total, err
 }
 

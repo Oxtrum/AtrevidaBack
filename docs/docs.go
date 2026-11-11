@@ -534,7 +534,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lista las atenciones del local autorizado con paginación por desplazamiento.",
+                "description": "Lista las atenciones activas del local autorizado, de la más reciente a la más antigua, con paginación por desplazamiento. fecha_desde y fecha_hasta acotan por fecha de atención (incluidas); para un solo día se envía el mismo valor en ambas.",
                 "produces": [
                     "application/json"
                 ],
@@ -556,11 +556,35 @@ const docTemplate = `{
                         "description": "Resultados que se omiten",
                         "name": "offset",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtra por local (solo usuarios sin local asignado)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Primer día a incluir, YYYY-MM-DD",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Último día a incluir, YYYY-MM-DD",
+                        "name": "fecha_hasta",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validación: local_id o fechas inválidas",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -10598,7 +10622,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Registra la atención real y cambia una reserva AGENDADA a COMPLETADO en una sola transacción. Con inventario.politica_sin_stock=ADVERTIR, los insumos sin stock suficiente quedan en PENDIENTE_STOCK sin descuento parcial; con BLOQUEAR se revierte el cierre y responde 409.",
+                "description": "Registra la atención real y cambia una reserva AGENDADA a COMPLETADO en una sola transacción. Los insumos sin stock suficiente quedan en PENDIENTE_STOCK sin descuento parcial. Con inventario.politica_sin_stock=BLOQUEAR responde 409 salvo que el usuario confirme expresamente el faltante mediante confirmar_stock_insuficiente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -12417,6 +12441,90 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Planilla no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/reportes/atenciones": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Ranking del personal segun las atenciones registradas en el periodo (semanal de lunes a domingo, quincenal del 1 al 15 y del 16 a fin de mes, o mensual) que contiene a la fecha indicada. Devuelve un bloque general y uno por local, cada uno con totales, ranking, atenciones por dia y los usuarios que registraron. Compara contra el periodo anterior equivalente. Solo cuenta atenciones activas; quien atendio se agrupa por empleado de RRHH o, si no esta vinculado, por el nombre escrito. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Reporte de personal que mas atiende",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "mensual",
+                        "description": "semanal, quincenal o mensual",
+                        "name": "periodo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cualquier dia del periodo, YYYY-MM-DD (por defecto hoy)",
+                        "name": "fecha",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reporteAtencionesRRHHResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: periodo o fecha invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -17672,6 +17780,9 @@ const docTemplate = `{
                 "lugar"
             ],
             "properties": {
+                "confirmar_stock_insuficiente": {
+                    "type": "boolean"
+                },
                 "empleado_id": {
                     "type": "integer"
                 },
@@ -17736,6 +17847,19 @@ const docTemplate = `{
                     "description": "Nombre de usuario a registrar.",
                     "type": "string",
                     "example": "operador"
+                }
+            }
+        },
+        "handlers.reporteAtencionesRRHHResponse": {
+            "type": "object",
+            "properties": {
+                "reporte": {
+                    "description": "Reporte de personal del periodo",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ReporteAtencionesRRHH"
+                        }
+                    ]
                 }
             }
         },
@@ -18394,6 +18518,21 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.AlertaReservaInventario"
                     }
+                }
+            }
+        },
+        "models.AtencionesDia": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "description": "Atenciones de ese dia",
+                    "type": "integer",
+                    "example": 7
+                },
+                "fecha": {
+                    "description": "Dia (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-10"
                 }
             }
         },
@@ -20008,6 +20147,96 @@ const docTemplate = `{
                 }
             }
         },
+        "models.PersonalAtenciones": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "description": "Atenciones del periodo",
+                    "type": "integer",
+                    "example": 38
+                },
+                "atenciones_anterior": {
+                    "description": "Atenciones del periodo anterior",
+                    "type": "integer",
+                    "example": 31
+                },
+                "cargo": {
+                    "description": "Cargo del empleado",
+                    "type": "string",
+                    "example": "Masajista"
+                },
+                "clientes_distintos": {
+                    "description": "Clientes distintos atendidos",
+                    "type": "integer",
+                    "example": 27
+                },
+                "dias_trabajados": {
+                    "description": "Dias en los que atendio",
+                    "type": "integer",
+                    "example": 20
+                },
+                "duracion_promedio_min": {
+                    "description": "Duracion media en minutos de sus atenciones con horario",
+                    "type": "number",
+                    "example": 60
+                },
+                "empleado_id": {
+                    "description": "Empleado de RRHH; null si se escribio un nombre que no esta en Empleados",
+                    "type": "integer",
+                    "example": 4
+                },
+                "locales": {
+                    "description": "Locales donde atendio en el periodo, separados por coma",
+                    "type": "string",
+                    "example": "SAN MARTIN, PASEO ARANJUEZ"
+                },
+                "minutos_atendidos": {
+                    "description": "Minutos atendidos (solo atenciones con horario)",
+                    "type": "integer",
+                    "example": 2280
+                },
+                "nombre": {
+                    "description": "Nombre de quien atendio",
+                    "type": "string",
+                    "example": "Maria Rojas"
+                },
+                "participacion_pct": {
+                    "description": "Porcentaje de las atenciones del bloque",
+                    "type": "number",
+                    "example": 30.6
+                },
+                "posicion": {
+                    "description": "Puesto en el ranking (1 = quien mas atendio)",
+                    "type": "integer",
+                    "example": 1
+                },
+                "promedio_por_dia": {
+                    "description": "Atenciones por dia trabajado",
+                    "type": "number",
+                    "example": 1.9
+                },
+                "servicio_top": {
+                    "description": "Servicio que mas realizo",
+                    "type": "string",
+                    "example": "Masaje reductor"
+                },
+                "servicio_top_cantidad": {
+                    "description": "Veces que realizo ese servicio",
+                    "type": "integer",
+                    "example": 14
+                },
+                "ultima_atencion": {
+                    "description": "Fecha de su ultima atencion del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "variacion_pct": {
+                    "description": "Cambio contra el periodo anterior en %; null si antes no atendio",
+                    "type": "number",
+                    "example": 22.6
+                }
+            }
+        },
         "models.PlanCompletoPG": {
             "type": "object",
             "properties": {
@@ -20598,6 +20827,115 @@ const docTemplate = `{
                 }
             }
         },
+        "models.RegistradorAtenciones": {
+            "type": "object",
+            "properties": {
+                "participacion_pct": {
+                    "description": "Porcentaje de las atenciones del bloque",
+                    "type": "number",
+                    "example": 41.9
+                },
+                "registros": {
+                    "description": "Atenciones que registro",
+                    "type": "integer",
+                    "example": 52
+                },
+                "usuario": {
+                    "description": "Usuario que registro la atencion en el sistema",
+                    "type": "string",
+                    "example": "recepcion.sm"
+                }
+            }
+        },
+        "models.ReporteAtencionesBloque": {
+            "type": "object",
+            "properties": {
+                "local_id": {
+                    "description": "Local del bloque; null en el bloque general y en atenciones sin local",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local; \"General\" en el bloque general",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "ranking": {
+                    "description": "Personal ordenado del que mas atendio al que menos",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PersonalAtenciones"
+                    }
+                },
+                "registradores": {
+                    "description": "Usuarios que registraron las atenciones en el sistema",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RegistradorAtenciones"
+                    }
+                },
+                "resumen": {
+                    "description": "Totales del bloque",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ResumenAtencionesRRHH"
+                        }
+                    ]
+                },
+                "serie": {
+                    "description": "Atenciones por dia; solo trae los dias con atenciones",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AtencionesDia"
+                    }
+                }
+            }
+        },
+        "models.ReporteAtencionesRRHH": {
+            "type": "object",
+            "properties": {
+                "desde": {
+                    "description": "Primer dia del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-01"
+                },
+                "desde_anterior": {
+                    "description": "Primer dia del periodo anterior con el que se compara",
+                    "type": "string",
+                    "example": "2026-10-01"
+                },
+                "general": {
+                    "description": "Todos los locales juntos",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ReporteAtencionesBloque"
+                        }
+                    ]
+                },
+                "hasta": {
+                    "description": "Ultimo dia del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-30"
+                },
+                "hasta_anterior": {
+                    "description": "Ultimo dia del periodo anterior con el que se compara",
+                    "type": "string",
+                    "example": "2026-10-31"
+                },
+                "locales": {
+                    "description": "Un bloque por local con atenciones en el periodo, del que mas atendio al que menos",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReporteAtencionesBloque"
+                    }
+                },
+                "periodo": {
+                    "description": "Periodo pedido: semanal, quincenal o mensual",
+                    "type": "string",
+                    "example": "mensual"
+                }
+            }
+        },
         "models.ReporteFinanciero": {
             "type": "object",
             "properties": {
@@ -20913,6 +21251,66 @@ const docTemplate = `{
                 "vinculadas": {
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "models.ResumenAtencionesRRHH": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "description": "Atenciones del periodo",
+                    "type": "integer",
+                    "example": 124
+                },
+                "atenciones_anterior": {
+                    "description": "Atenciones del periodo anterior",
+                    "type": "integer",
+                    "example": 110
+                },
+                "clientes_distintos": {
+                    "description": "Clientes distintos atendidos",
+                    "type": "integer",
+                    "example": 80
+                },
+                "dias_con_atencion": {
+                    "description": "Dias con al menos una atencion",
+                    "type": "integer",
+                    "example": 24
+                },
+                "duracion_promedio_min": {
+                    "description": "Duracion media en minutos de las atenciones con horario",
+                    "type": "number",
+                    "example": 60
+                },
+                "minutos_atendidos": {
+                    "description": "Minutos atendidos, sumando solo las atenciones con hora de inicio y fin",
+                    "type": "integer",
+                    "example": 7440
+                },
+                "personal": {
+                    "description": "Personas distintas que atendieron",
+                    "type": "integer",
+                    "example": 6
+                },
+                "promedio_diario": {
+                    "description": "Atenciones por dia trabajado",
+                    "type": "number",
+                    "example": 5.2
+                },
+                "promedio_por_persona": {
+                    "description": "Atenciones por persona",
+                    "type": "number",
+                    "example": 20.7
+                },
+                "sin_horario": {
+                    "description": "Atenciones registradas sin hora de inicio o fin",
+                    "type": "integer",
+                    "example": 3
+                },
+                "variacion_pct": {
+                    "description": "Cambio contra el periodo anterior en %; null si el anterior no tuvo atenciones",
+                    "type": "number",
+                    "example": 12.7
                 }
             }
         },

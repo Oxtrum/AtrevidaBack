@@ -132,11 +132,37 @@ func (s *AtencionesService) InsumosSugeridos(reservaID int, localID *int) ([]mod
 	}
 	return s.repo.InsumosSugeridos(reservaID, localID)
 }
-func (s *AtencionesService) Listar(localID *int, limit, offset int) ([]models.Atencion, error) {
-	return s.repo.Listar(localID, limit, offset)
+// FiltroFechasAtencion valida un rango opcional de fechas de atencion (YYYY-MM-DD, incluidos); vacio = sin limite.
+func FiltroFechasAtencion(desde, hasta string) (*string, *string, error) {
+	leer := func(nombre, valor string) (*string, error) {
+		valor = strings.TrimSpace(valor)
+		if valor == "" {
+			return nil, nil
+		}
+		if _, err := time.Parse("2006-01-02", valor); err != nil {
+			return nil, errors.New(nombre + " debe tener formato YYYY-MM-DD")
+		}
+		return &valor, nil
+	}
+	d, err := leer("fecha_desde", desde)
+	if err != nil {
+		return nil, nil, err
+	}
+	h, err := leer("fecha_hasta", hasta)
+	if err != nil {
+		return nil, nil, err
+	}
+	if d != nil && h != nil && *d > *h {
+		return nil, nil, errors.New("fecha_desde no puede ser posterior a fecha_hasta")
+	}
+	return d, h, nil
 }
-func (s *AtencionesService) Contar(localID *int) (int, error) {
-	return s.repo.Contar(localID)
+
+func (s *AtencionesService) Listar(localID *int, desde, hasta *string, limit, offset int) ([]models.Atencion, error) {
+	return s.repo.Listar(localID, desde, hasta, limit, offset)
+}
+func (s *AtencionesService) Contar(localID *int, desde, hasta *string) (int, error) {
+	return s.repo.Contar(localID, desde, hasta)
 }
 func (s *AtencionesService) Obtener(id int) (*models.Atencion, error) {
 	if id <= 0 {

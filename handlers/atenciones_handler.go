@@ -98,13 +98,17 @@ func (h *Container) PostAtencion(c *gin.Context) {
 
 // GetAtenciones godoc
 // @Summary Listar atenciones
-// @Description Lista las atenciones del local autorizado con paginación por desplazamiento.
+// @Description Lista las atenciones activas del local autorizado, de la más reciente a la más antigua, con paginación por desplazamiento. fecha_desde y fecha_hasta acotan por fecha de atención (incluidas); para un solo día se envía el mismo valor en ambas.
 // @Tags Atenciones
 // @Produce json
 // @Security BearerAuth
 // @Param limit query int false "Cantidad de resultados" default(50)
 // @Param offset query int false "Resultados que se omiten" default(0)
+// @Param local_id query int false "Filtra por local (solo usuarios sin local asignado)"
+// @Param fecha_desde query string false "Primer día a incluir, YYYY-MM-DD"
+// @Param fecha_hasta query string false "Último día a incluir, YYYY-MM-DD"
 // @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Error de validación: local_id o fechas inválidas"
 // @Failure 401 {object} utils.APIResponse "Token requerido"
 // @Failure 403 {object} utils.APIResponse "Sin acceso al local"
 // @Failure 500 {object} utils.APIResponse "Error al listar atenciones"
@@ -126,12 +130,17 @@ func (h *Container) GetAtenciones(c *gin.Context) {
 	}
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-	xs, e := h.Atenciones.Listar(localID, limit, offset)
+	desde, hasta, e := services.FiltroFechasAtencion(c.Query("fecha_desde"), c.Query("fecha_hasta"))
+	if e != nil {
+		utils.RespondError(c, 400, e.Error())
+		return
+	}
+	xs, e := h.Atenciones.Listar(localID, desde, hasta, limit, offset)
 	if e != nil {
 		utils.RespondError(c, 500, e.Error())
 		return
 	}
-	total, e := h.Atenciones.Contar(localID)
+	total, e := h.Atenciones.Contar(localID, desde, hasta)
 	if e != nil {
 		utils.RespondError(c, 500, e.Error())
 		return

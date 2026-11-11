@@ -2948,6 +2948,8 @@ definitions:
     type: object
   handlers.registrarAtencionRequest:
     properties:
+      confirmar_stock_insuficiente:
+        type: boolean
       empleado_id:
         type: integer
       empleado_nombre:
@@ -3000,6 +3002,13 @@ definitions:
     - password
     - rol_codigo
     - username
+    type: object
+  handlers.reporteAtencionesRRHHResponse:
+    properties:
+      reporte:
+        allOf:
+        - $ref: '#/definitions/models.ReporteAtencionesRRHH'
+        description: Reporte de personal del periodo
     type: object
   handlers.reservaAvisosResponse:
     properties:
@@ -3478,6 +3487,17 @@ definitions:
         items:
           $ref: '#/definitions/models.AlertaReservaInventario'
         type: array
+    type: object
+  models.AtencionesDia:
+    properties:
+      atenciones:
+        description: Atenciones de ese dia
+        example: 7
+        type: integer
+      fecha:
+        description: Dia (YYYY-MM-DD)
+        example: "2026-11-10"
+        type: string
     type: object
   models.CargoCliente:
     properties:
@@ -4707,6 +4727,78 @@ definitions:
       servicio_texto:
         type: string
     type: object
+  models.PersonalAtenciones:
+    properties:
+      atenciones:
+        description: Atenciones del periodo
+        example: 38
+        type: integer
+      atenciones_anterior:
+        description: Atenciones del periodo anterior
+        example: 31
+        type: integer
+      cargo:
+        description: Cargo del empleado
+        example: Masajista
+        type: string
+      clientes_distintos:
+        description: Clientes distintos atendidos
+        example: 27
+        type: integer
+      dias_trabajados:
+        description: Dias en los que atendio
+        example: 20
+        type: integer
+      duracion_promedio_min:
+        description: Duracion media en minutos de sus atenciones con horario
+        example: 60
+        type: number
+      empleado_id:
+        description: Empleado de RRHH; null si se escribio un nombre que no esta en
+          Empleados
+        example: 4
+        type: integer
+      locales:
+        description: Locales donde atendio en el periodo, separados por coma
+        example: SAN MARTIN, PASEO ARANJUEZ
+        type: string
+      minutos_atendidos:
+        description: Minutos atendidos (solo atenciones con horario)
+        example: 2280
+        type: integer
+      nombre:
+        description: Nombre de quien atendio
+        example: Maria Rojas
+        type: string
+      participacion_pct:
+        description: Porcentaje de las atenciones del bloque
+        example: 30.6
+        type: number
+      posicion:
+        description: Puesto en el ranking (1 = quien mas atendio)
+        example: 1
+        type: integer
+      promedio_por_dia:
+        description: Atenciones por dia trabajado
+        example: 1.9
+        type: number
+      servicio_top:
+        description: Servicio que mas realizo
+        example: Masaje reductor
+        type: string
+      servicio_top_cantidad:
+        description: Veces que realizo ese servicio
+        example: 14
+        type: integer
+      ultima_atencion:
+        description: Fecha de su ultima atencion del periodo (YYYY-MM-DD)
+        example: "2026-11-10"
+        type: string
+      variacion_pct:
+        description: Cambio contra el periodo anterior en %; null si antes no atendio
+        example: 22.6
+        type: number
+    type: object
   models.PlanCompletoPG:
     properties:
       activo:
@@ -5140,6 +5232,85 @@ definitions:
         example: 43557
         type: number
     type: object
+  models.RegistradorAtenciones:
+    properties:
+      participacion_pct:
+        description: Porcentaje de las atenciones del bloque
+        example: 41.9
+        type: number
+      registros:
+        description: Atenciones que registro
+        example: 52
+        type: integer
+      usuario:
+        description: Usuario que registro la atencion en el sistema
+        example: recepcion.sm
+        type: string
+    type: object
+  models.ReporteAtencionesBloque:
+    properties:
+      local_id:
+        description: Local del bloque; null en el bloque general y en atenciones sin
+          local
+        example: 1
+        type: integer
+      local_nombre:
+        description: Nombre del local; "General" en el bloque general
+        example: SAN MARTIN
+        type: string
+      ranking:
+        description: Personal ordenado del que mas atendio al que menos
+        items:
+          $ref: '#/definitions/models.PersonalAtenciones'
+        type: array
+      registradores:
+        description: Usuarios que registraron las atenciones en el sistema
+        items:
+          $ref: '#/definitions/models.RegistradorAtenciones'
+        type: array
+      resumen:
+        allOf:
+        - $ref: '#/definitions/models.ResumenAtencionesRRHH'
+        description: Totales del bloque
+      serie:
+        description: Atenciones por dia; solo trae los dias con atenciones
+        items:
+          $ref: '#/definitions/models.AtencionesDia'
+        type: array
+    type: object
+  models.ReporteAtencionesRRHH:
+    properties:
+      desde:
+        description: Primer dia del periodo (YYYY-MM-DD)
+        example: "2026-11-01"
+        type: string
+      desde_anterior:
+        description: Primer dia del periodo anterior con el que se compara
+        example: "2026-10-01"
+        type: string
+      general:
+        allOf:
+        - $ref: '#/definitions/models.ReporteAtencionesBloque'
+        description: Todos los locales juntos
+      hasta:
+        description: Ultimo dia del periodo (YYYY-MM-DD)
+        example: "2026-11-30"
+        type: string
+      hasta_anterior:
+        description: Ultimo dia del periodo anterior con el que se compara
+        example: "2026-10-31"
+        type: string
+      locales:
+        description: Un bloque por local con atenciones en el periodo, del que mas
+          atendio al que menos
+        items:
+          $ref: '#/definitions/models.ReporteAtencionesBloque'
+        type: array
+      periodo:
+        description: 'Periodo pedido: semanal, quincenal o mensual'
+        example: mensual
+        type: string
+    type: object
   models.ReporteFinanciero:
     properties:
       detalle_por_local:
@@ -5375,6 +5546,55 @@ definitions:
       vinculadas:
         example: 1
         type: integer
+    type: object
+  models.ResumenAtencionesRRHH:
+    properties:
+      atenciones:
+        description: Atenciones del periodo
+        example: 124
+        type: integer
+      atenciones_anterior:
+        description: Atenciones del periodo anterior
+        example: 110
+        type: integer
+      clientes_distintos:
+        description: Clientes distintos atendidos
+        example: 80
+        type: integer
+      dias_con_atencion:
+        description: Dias con al menos una atencion
+        example: 24
+        type: integer
+      duracion_promedio_min:
+        description: Duracion media en minutos de las atenciones con horario
+        example: 60
+        type: number
+      minutos_atendidos:
+        description: Minutos atendidos, sumando solo las atenciones con hora de inicio
+          y fin
+        example: 7440
+        type: integer
+      personal:
+        description: Personas distintas que atendieron
+        example: 6
+        type: integer
+      promedio_diario:
+        description: Atenciones por dia trabajado
+        example: 5.2
+        type: number
+      promedio_por_persona:
+        description: Atenciones por persona
+        example: 20.7
+        type: number
+      sin_horario:
+        description: Atenciones registradas sin hora de inicio o fin
+        example: 3
+        type: integer
+      variacion_pct:
+        description: Cambio contra el periodo anterior en %; null si el anterior no
+          tuvo atenciones
+        example: 12.7
+        type: number
     type: object
   models.Semana:
     properties:
@@ -6187,7 +6407,10 @@ paths:
       - Auth
   /bd/atenciones:
     get:
-      description: Lista las atenciones del local autorizado con paginación por desplazamiento.
+      description: Lista las atenciones activas del local autorizado, de la más reciente
+        a la más antigua, con paginación por desplazamiento. fecha_desde y fecha_hasta
+        acotan por fecha de atención (incluidas); para un solo día se envía el mismo
+        valor en ambas.
       parameters:
       - default: 50
         description: Cantidad de resultados
@@ -6199,11 +6422,27 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Filtra por local (solo usuarios sin local asignado)
+        in: query
+        name: local_id
+        type: integer
+      - description: Primer día a incluir, YYYY-MM-DD
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Último día a incluir, YYYY-MM-DD
+        in: query
+        name: fecha_hasta
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: 'Error de validación: local_id o fechas inválidas'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "401":
@@ -12692,9 +12931,9 @@ paths:
       consumes:
       - application/json
       description: Registra la atención real y cambia una reserva AGENDADA a COMPLETADO
-        en una sola transacción. Con inventario.politica_sin_stock=ADVERTIR, los insumos
-        sin stock suficiente quedan en PENDIENTE_STOCK sin descuento parcial; con
-        BLOQUEAR se revierte el cierre y responde 409.
+        en una sola transacción. Los insumos sin stock suficiente quedan en PENDIENTE_STOCK
+        sin descuento parcial. Con inventario.politica_sin_stock=BLOQUEAR responde
+        409 salvo que el usuario confirme expresamente el faltante mediante confirmar_stock_insuficiente.
       parameters:
       - description: ID de reserva
         in: path
@@ -14194,6 +14433,64 @@ paths:
       security:
       - BearerAuth: []
       summary: Planillas pendientes de generar
+      tags:
+      - RRHH
+  /bd/rrhh/reportes/atenciones:
+    get:
+      description: Ranking del personal segun las atenciones registradas en el periodo
+        (semanal de lunes a domingo, quincenal del 1 al 15 y del 16 a fin de mes,
+        o mensual) que contiene a la fecha indicada. Devuelve un bloque general y
+        uno por local, cada uno con totales, ranking, atenciones por dia y los usuarios
+        que registraron. Compara contra el periodo anterior equivalente. Solo cuenta
+        atenciones activas; quien atendio se agrupa por empleado de RRHH o, si no
+        esta vinculado, por el nombre escrito. Requiere token Bearer con rol admin_sys.
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - default: mensual
+        description: semanal, quincenal o mensual
+        in: query
+        name: periodo
+        type: string
+      - description: Cualquier dia del periodo, YYYY-MM-DD (por defecto hoy)
+        in: query
+        name: fecha
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reporteAtencionesRRHHResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: periodo o fecha invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Reporte de personal que mas atiende
       tags:
       - RRHH
   /bd/rrhh/tipos-bono:
