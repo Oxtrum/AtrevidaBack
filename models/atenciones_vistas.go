@@ -61,6 +61,7 @@ type SeguimientoItem struct {
 	ReservaID                int             `db:"reserva_id" json:"reserva_id" example:"21"`
 	Fecha                    string          `db:"fecha" json:"fecha" example:"2026-11-10"`
 	HoraInicio               *string         `db:"hora_inicio" json:"hora_inicio,omitempty" example:"09:00"`
+	HoraFin                  *string         `db:"hora_fin" json:"hora_fin,omitempty" example:"09:50"`
 	Cliente                  string          `db:"cliente" json:"cliente" example:"Maria Lopez"`
 	Servicio                 string          `db:"servicio" json:"servicio" example:"Depilacion Laser"`
 	LocalID                  *int            `db:"local_id" json:"local_id,omitempty" example:"1"`

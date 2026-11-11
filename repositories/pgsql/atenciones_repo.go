@@ -671,13 +671,13 @@ func seguimientoQuery(f repository.FiltroSeguimiento, count bool) (string, []any
 		p := add("%" + q + "%")
 		conds = append(conds, fmt.Sprintf("(%s LIKE %s OR %s LIKE %s OR %s LIKE %s OR %s LIKE %s OR CAST(reserva_id AS TEXT) LIKE %s)", textoBusquedaAtencion("cliente"), p, textoBusquedaAtencion("servicio"), p, textoBusquedaAtencion("empleado_nombre"), p, textoBusquedaAtencion("local_nombre"), p, p))
 	}
-	selectColumns := "tipo, atencion_id, reserva_id, TO_CHAR(fecha, 'YYYY-MM-DD') AS fecha, hora_inicio, cliente, servicio, local_id, local_nombre, empleado_nombre, motivo, insumos_pendientes, detalle_insumos_pendientes, puede_atender, puede_editar_atencion"
+	selectColumns := "tipo, atencion_id, reserva_id, TO_CHAR(fecha, 'YYYY-MM-DD') AS fecha, hora_inicio, hora_fin, cliente, servicio, local_id, local_nombre, empleado_nombre, motivo, insumos_pendientes, detalle_insumos_pendientes, puede_atender, puede_editar_atencion"
 	if count {
 		selectColumns = "COUNT(*)"
 	}
 	query := fmt.Sprintf(`WITH casos AS (
 		SELECT 'DEDUCCION_PENDIENTE'::text AS tipo, a.id AS atencion_id, a.reserva_id, a.fecha_atencion AS fecha,
-		       TO_CHAR(a.hora_inicio,'HH24:MI') AS hora_inicio, COALESCE(r.cliente,'') AS cliente, %s AS servicio,
+		       TO_CHAR(a.hora_inicio,'HH24:MI') AS hora_inicio, TO_CHAR(a.hora_fin,'HH24:MI') AS hora_fin, COALESCE(r.cliente,'') AS cliente, %s AS servicio,
 		       a.local_id, COALESCE(l.nombre,r.local_nombre,'') AS local_nombre, a.empleado_nombre,
 		       NULL::text AS motivo, COUNT(ai.id)::int AS insumos_pendientes,
 		       string_agg(CONCAT(ai.item_nombre, ': ', ai.cantidad_usada - ai.cantidad_descontada, ' ', ai.unidad_medida), ', ' ORDER BY ai.item_nombre) AS detalle_insumos_pendientes,
@@ -687,14 +687,14 @@ func seguimientoQuery(f repository.FiltroSeguimiento, count bool) (string, []any
 		WHERE a.activo=TRUE GROUP BY a.id,r.id,l.id
 		UNION ALL
 		SELECT CASE WHEN r.motivo_cancelacion_tipo='INASISTENCIA' THEN 'INASISTENCIA' ELSE 'CANCELACION' END,
-		       NULL::int, r.id, r.fecha, TO_CHAR(r.hora_desde,'HH24:MI'), COALESCE(r.cliente,''), %s,
+		       NULL::int, r.id, r.fecha, TO_CHAR(r.hora_desde,'HH24:MI'), TO_CHAR(r.hora_hasta,'HH24:MI'), COALESCE(r.cliente,''), %s,
 		       r.local_id, COALESCE(l.nombre,r.local_nombre,''), NULL::text,
 		       NULLIF(CONCAT_WS(' · ',r.motivo_cancelacion_tipo,r.motivo_cancelacion_detalle),'') AS motivo,
 		       0, NULL::text, FALSE, FALSE
 		FROM reservas r LEFT JOIN locales l ON l.id=r.local_id
 		WHERE r.activo=TRUE AND r.estado='CANCELADO'
 		UNION ALL
-		SELECT 'PENDIENTE_CIERRE', NULL::int, r.id, r.fecha, TO_CHAR(r.hora_desde,'HH24:MI'), COALESCE(r.cliente,''), %s,
+		SELECT 'PENDIENTE_CIERRE', NULL::int, r.id, r.fecha, TO_CHAR(r.hora_desde,'HH24:MI'), TO_CHAR(r.hora_hasta,'HH24:MI'), COALESCE(r.cliente,''), %s,
 		       r.local_id, COALESCE(l.nombre,r.local_nombre,''), NULL::text, NULL::text,
 		       0, NULL::text, TRUE, FALSE
 		FROM reservas r LEFT JOIN locales l ON l.id=r.local_id
