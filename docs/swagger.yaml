@@ -259,13 +259,19 @@ definitions:
         example: Cliente confirmo por WhatsApp
         type: string
       estado:
-        description: 'Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO'
+        description: 'Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o CANCELADO'
         example: AGENDADO
         type: string
       id:
         description: ID de la reserva
         example: 44
         type: integer
+      motivo_cancelacion_detalle:
+        example: No respondio los intentos de contacto
+        type: string
+      motivo_cancelacion_tipo:
+        example: INASISTENCIA
+        type: string
       precio:
         description: Precio actualizado (opcional)
         example: 350
@@ -859,6 +865,21 @@ definitions:
           $ref: '#/definitions/cuenta.Reparto'
         type: array
     type: object
+  handlers.atencionesResponse:
+    properties:
+      atenciones:
+        description: Atenciones activas que cumplen los filtros
+        items:
+          $ref: '#/definitions/models.Atencion'
+        type: array
+      paginacion:
+        allOf:
+        - $ref: '#/definitions/pagination.Metadata'
+        description: Paginacion por cursor (solo si se envia limit o cursor)
+      total_registros:
+        description: Total de atenciones con los filtros (solo con include_total=true)
+        type: integer
+    type: object
   handlers.authRequest:
     properties:
       password:
@@ -890,6 +911,28 @@ definitions:
     required:
     - monto
     - tipo_bono_id
+    type: object
+  handlers.calendarioConsumoResponse:
+    properties:
+      eventos:
+        items:
+          $ref: '#/definitions/models.CalendarioConsumoEvento'
+        type: array
+      paginacion:
+        $ref: '#/definitions/pagination.Metadata'
+      total_registros:
+        type: integer
+    type: object
+  handlers.calendarioPersonalResponse:
+    properties:
+      eventos:
+        items:
+          $ref: '#/definitions/models.CalendarioPersonalEvento'
+        type: array
+      paginacion:
+        $ref: '#/definitions/pagination.Metadata'
+      total_registros:
+        type: integer
     type: object
   handlers.cambiarEstadoMovimientoRequest:
     properties:
@@ -1257,6 +1300,37 @@ definitions:
           finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria,
           finanzas.moneda, paquetes.sesion_en_estado, cobros.dias_maximo_fecha_pasada'
         type: object
+    type: object
+  handlers.consumosEmpleadosResponse:
+    properties:
+      items:
+        description: Totales operativos por empleado
+        items:
+          $ref: '#/definitions/models.ConsumoEmpleadoResumen'
+        type: array
+    type: object
+  handlers.consumosResponse:
+    properties:
+      consumos:
+        description: Eventos de consumo declarado en atenciones activas
+        items:
+          $ref: '#/definitions/models.ConsumoEvento'
+        type: array
+      paginacion:
+        allOf:
+        - $ref: '#/definitions/pagination.Metadata'
+        description: Paginacion por cursor (solo si se envia limit o cursor)
+      total_registros:
+        description: Total de eventos con los filtros (solo con paginacion e include_total=true)
+        type: integer
+    type: object
+  handlers.consumosResumenResponse:
+    properties:
+      items:
+        description: Totales por insumo y unidad
+        items:
+          $ref: '#/definitions/models.ConsumoResumen'
+        type: array
     type: object
   handlers.crearAbonoRequest:
     properties:
@@ -3252,6 +3326,17 @@ definitions:
         example: 9
         type: integer
     type: object
+  handlers.seguimientoResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.SeguimientoItem'
+        type: array
+      paginacion:
+        $ref: '#/definitions/pagination.Metadata'
+      total_registros:
+        type: integer
+    type: object
   handlers.servicioFiltrosResponse:
     properties:
       categoria:
@@ -3488,6 +3573,88 @@ definitions:
           $ref: '#/definitions/models.AlertaReservaInventario'
         type: array
     type: object
+  models.Atencion:
+    properties:
+      activo:
+        type: boolean
+      cliente_nombre:
+        example: Maria Lopez
+        type: string
+      creado_en:
+        type: string
+      empleado_id:
+        type: integer
+      empleado_nombre:
+        type: string
+      fecha_atencion:
+        type: string
+      hora_fin:
+        type: string
+      hora_inicio:
+        type: string
+      id:
+        type: integer
+      insumos:
+        items:
+          $ref: '#/definitions/models.AtencionInsumo'
+        type: array
+      insumos_pendientes:
+        type: integer
+      insumos_pendientes_detalle:
+        type: string
+      insumos_registrados:
+        example: 3
+        type: integer
+      insumos_resumen:
+        example: Gel, Guantes
+        type: string
+      local_id:
+        type: integer
+      local_nombre:
+        example: SAN MARTIN
+        type: string
+      lugar:
+        type: string
+      motivo_cancelacion_detalle:
+        type: string
+      motivo_cancelacion_tipo:
+        type: string
+      observaciones:
+        type: string
+      registrado_por:
+        type: string
+      registrado_por_id:
+        type: integer
+      reserva_id:
+        type: integer
+      resultado:
+        description: |-
+          Resultado distingue una atención realizada de una reserva cancelada que se
+          proyecta en el historial. Las cancelaciones no tienen atención física.
+        type: string
+      servicio_reserva:
+        example: Depilacion Laser
+        type: string
+    type: object
+  models.AtencionInsumo:
+    properties:
+      atencion_id:
+        type: integer
+      cantidad_descontada:
+        type: number
+      cantidad_usada:
+        type: number
+      estado_descuento:
+        type: string
+      id:
+        type: integer
+      item_id:
+        type: integer
+      item_nombre:
+        type: string
+      unidad_medida:
+        type: string
+    type: object
   models.AtencionesDia:
     properties:
       atenciones:
@@ -3497,6 +3664,91 @@ definitions:
       fecha:
         description: Dia (YYYY-MM-DD)
         example: "2026-11-10"
+        type: string
+    type: object
+  models.CalendarioConsumoEvento:
+    properties:
+      atencion_id:
+        example: 8
+        type: integer
+      cliente:
+        example: Maria Lopez
+        type: string
+      empleado_nombre:
+        example: Daniela Perez
+        type: string
+      fecha:
+        example: "2026-11-10"
+        type: string
+      hora_fin:
+        example: "09:50"
+        type: string
+      hora_inicio:
+        example: "09:00"
+        type: string
+      insumos:
+        items:
+          $ref: '#/definitions/models.ConsumoInsumo'
+        type: array
+      insumos_pendientes:
+        example: 0
+        type: integer
+      insumos_registrados:
+        example: 2
+        type: integer
+      local_id:
+        example: 1
+        type: integer
+      local_nombre:
+        example: SAN MARTIN
+        type: string
+      reserva_id:
+        example: 21
+        type: integer
+      servicio:
+        example: Depilacion Laser
+        type: string
+    type: object
+  models.CalendarioPersonalEvento:
+    properties:
+      atencion_id:
+        example: 8
+        type: integer
+      cliente:
+        example: Maria Lopez
+        type: string
+      empleado_id:
+        example: 4
+        type: integer
+      empleado_nombre:
+        example: Daniela Perez
+        type: string
+      fecha:
+        example: "2026-11-10"
+        type: string
+      hora_fin:
+        example: "09:50"
+        type: string
+      hora_inicio:
+        example: "09:00"
+        type: string
+      insumos_pendientes:
+        example: 0
+        type: integer
+      local_id:
+        example: 1
+        type: integer
+      local_nombre:
+        example: SAN MARTIN
+        type: string
+      lugar:
+        example: Cabina 1
+        type: string
+      reserva_id:
+        example: 21
+        type: integer
+      servicio:
+        example: Depilacion Laser
         type: string
     type: object
   models.CargoCliente:
@@ -3855,6 +4107,133 @@ definitions:
         type: number
       unidad_medida:
         example: ML
+        type: string
+    type: object
+  models.ConsumoEmpleadoResumen:
+    properties:
+      atenciones:
+        example: 12
+        type: integer
+      atenciones_pendientes:
+        example: 2
+        type: integer
+      empleado_id:
+        example: 4
+        type: integer
+      empleado_nombre:
+        example: Daniela Perez
+        type: string
+      insumos_distintos:
+        example: 8
+        type: integer
+      insumos_pendientes:
+        example: 2
+        type: integer
+      insumos_registrados:
+        example: 30
+        type: integer
+      locales:
+        example: SAN MARTIN
+        type: string
+    type: object
+  models.ConsumoEvento:
+    properties:
+      atencion_id:
+        example: 8
+        type: integer
+      cliente:
+        example: Maria Lopez
+        type: string
+      empleado_id:
+        example: 4
+        type: integer
+      empleado_nombre:
+        example: Daniela Perez
+        type: string
+      fecha:
+        example: "2026-11-10"
+        type: string
+      hora_fin:
+        example: "09:50"
+        type: string
+      hora_inicio:
+        example: "09:00"
+        type: string
+      horario_programado:
+        example: false
+        type: boolean
+      insumos:
+        items:
+          $ref: '#/definitions/models.ConsumoInsumo'
+        type: array
+      insumos_pendientes:
+        example: 0
+        type: integer
+      insumos_registrados:
+        example: 2
+        type: integer
+      local_id:
+        example: 1
+        type: integer
+      local_nombre:
+        example: SAN MARTIN
+        type: string
+      lugar:
+        example: Cabina 1
+        type: string
+      reserva_id:
+        example: 21
+        type: integer
+      servicio:
+        example: Depilacion Laser
+        type: string
+    type: object
+  models.ConsumoInsumo:
+    properties:
+      cantidad_descontada:
+        example: 1.5
+        type: number
+      cantidad_pendiente:
+        example: 0
+        type: number
+      cantidad_usada:
+        example: 1.5
+        type: number
+      estado_descuento:
+        example: DESCONTADO
+        type: string
+      item_id:
+        example: 14
+        type: integer
+      item_nombre:
+        example: Alcohol en gel
+        type: string
+      unidad_medida:
+        example: LT
+        type: string
+    type: object
+  models.ConsumoResumen:
+    properties:
+      atenciones:
+        example: 2
+        type: integer
+      cantidad_descontada:
+        example: 4
+        type: number
+      cantidad_pendiente:
+        example: 0
+        type: number
+      cantidad_usada:
+        example: 4
+        type: number
+      item_id:
+        example: 14
+        type: integer
+      item_nombre:
+        example: Alcohol en gel
+        type: string
+      unidad_medida:
+        example: LT
         type: string
     type: object
   models.CuentaCliente:
@@ -4292,6 +4671,116 @@ definitions:
       unidad_medida:
         example: ML
         type: string
+    type: object
+  models.JornadaAtencion:
+    properties:
+      atencion_id:
+        example: 55
+        type: integer
+      cliente:
+        example: Maria Lopez
+        type: string
+      empleado_nombre:
+        example: Ana Perez
+        type: string
+      estado_operativo:
+        example: PROGRAMADA
+        type: string
+      estado_reserva:
+        example: AGENDADO
+        type: string
+      fecha:
+        example: "2026-11-09"
+        type: string
+      hora_desde:
+        example: "09:00"
+        type: string
+      hora_hasta:
+        example: "10:00"
+        type: string
+      insumos_pendientes:
+        example: 0
+        type: integer
+      insumos_registrados:
+        example: 3
+        type: integer
+      insumos_resumen:
+        example: Gel, Guantes
+        type: string
+      local_id:
+        example: 2
+        type: integer
+      local_nombre:
+        example: SAN MARTIN
+        type: string
+      motivo_cancelacion_tipo:
+        type: string
+      puede_atender:
+        description: Acciones calculadas en backend para no duplicar reglas en el
+          frontend.
+        type: boolean
+      puede_editar_atencion:
+        type: boolean
+      puede_ver_atencion:
+        type: boolean
+      reserva_id:
+        example: 100
+        type: integer
+      servicio:
+        example: Depilacion Laser
+        type: string
+    type: object
+  models.JornadaResponse:
+    properties:
+      fecha:
+        description: Fecha consultada; por defecto la fecha actual de la zona horaria
+          configurada.
+        example: "2026-11-09"
+        type: string
+      hoy:
+        description: Fecha actual de la zona horaria configurada, usada por el boton
+          "Hoy".
+        example: "2026-11-10"
+        type: string
+      items:
+        description: Reservas del dia con su estado operativo derivado.
+        items:
+          $ref: '#/definitions/models.JornadaAtencion'
+        type: array
+      paginacion:
+        allOf:
+        - $ref: '#/definitions/pagination.Metadata'
+        description: Metadatos de cursor presentes cuando se consulta limit o cursor.
+      resumen:
+        allOf:
+        - $ref: '#/definitions/models.JornadaResumen'
+        description: |-
+          Se conserva por compatibilidad; la interfaz operativa usa
+          /jornada/resumen para evitar que la lista y sus filtros lo condicionen.
+      total_registros:
+        description: Total de filas de la lista filtrada, solo con include_total=true.
+        type: integer
+    type: object
+  models.JornadaResumen:
+    properties:
+      atendidas:
+        example: 2
+        type: integer
+      canceladas:
+        example: 1
+        type: integer
+      deducciones_pendientes:
+        example: 1
+        type: integer
+      no_asistieron:
+        example: 0
+        type: integer
+      pendientes_cierre:
+        example: 1
+        type: integer
+      programadas:
+        example: 4
+        type: integer
     type: object
   models.LocalConEspacios:
     properties:
@@ -5596,6 +6085,71 @@ definitions:
         example: 12.7
         type: number
     type: object
+  models.SeguimientoItem:
+    properties:
+      atencion_id:
+        example: 8
+        type: integer
+      cliente:
+        example: Maria Lopez
+        type: string
+      detalle_insumos_pendientes:
+        example: 'Gel: 1 ML'
+        type: string
+      empleado_nombre:
+        example: Daniela Perez
+        type: string
+      fecha:
+        example: "2026-11-10"
+        type: string
+      hora_fin:
+        example: "09:50"
+        type: string
+      hora_inicio:
+        example: "09:00"
+        type: string
+      insumos_pendientes:
+        example: 1
+        type: integer
+      local_id:
+        example: 1
+        type: integer
+      local_nombre:
+        example: SAN MARTIN
+        type: string
+      motivo:
+        example: INASISTENCIA
+        type: string
+      puede_atender:
+        type: boolean
+      puede_editar_atencion:
+        type: boolean
+      reserva_id:
+        example: 21
+        type: integer
+      servicio:
+        example: Depilacion Laser
+        type: string
+      tipo:
+        allOf:
+        - $ref: '#/definitions/models.TipoSeguimiento'
+        example: DEDUCCION_PENDIENTE
+    type: object
+  models.SeguimientoResumen:
+    properties:
+      cancelaciones:
+        example: 3
+        type: integer
+      deducciones_pendientes:
+        example: 2
+        type: integer
+      inasistencias:
+        example: 1
+        type: integer
+      pendientes_cierre:
+        example: 4
+        type: integer
+    type: object
   models.Semana:
     properties:
       reservas:
@@ -5703,6 +6257,18 @@ definitions:
         example: M
         type: string
     type: object
+  models.TipoSeguimiento:
+    enum:
+    - DEDUCCION_PENDIENTE
+    - INASISTENCIA
+    - CANCELACION
+    - PENDIENTE_CIERRE
+    type: string
+    x-enum-varnames:
+    - SeguimientoDeduccionPendiente
+    - SeguimientoInasistencia
+    - SeguimientoCancelacion
+    - SeguimientoPendienteCierre
   models.UsuarioResumenPG:
     properties:
       activo:
@@ -6407,42 +6973,114 @@ paths:
       - Auth
   /bd/atenciones:
     get:
-      description: Lista las atenciones activas del local autorizado, de la más reciente
-        a la más antigua, con paginación por desplazamiento. fecha_desde y fecha_hasta
-        acotan por fecha de atención (incluidas); para un solo día se envía el mismo
-        valor en ambas.
+      description: 'Lista atenciones activas y reservas canceladas con filtros de
+        servidor. Filtros: fecha_desde y fecha_hasta (YYYY-MM-DD, inclusivos), local_id,
+        resultado, cliente, servicio, empleado (texto), empleado_id, item_id, pendientes_stock
+        y q (cliente, reserva, servicio, personal, lugar u observaciones). Los usuarios
+        con local asignado quedan limitados a ese local. Paginacion por cursor (fecha_atencion
+        descendente) u orden por columna con ordenar_por/sentido.'
       parameters:
-      - default: 50
-        description: Cantidad de resultados
-        in: query
-        name: limit
-        type: integer
-      - default: 0
-        description: Resultados que se omiten
-        in: query
-        name: offset
-        type: integer
-      - description: Filtra por local (solo usuarios sin local asignado)
-        in: query
-        name: local_id
-        type: integer
-      - description: Primer día a incluir, YYYY-MM-DD
+      - description: Desde (YYYY-MM-DD)
         in: query
         name: fecha_desde
         type: string
-      - description: Último día a incluir, YYYY-MM-DD
+      - description: Hasta (YYYY-MM-DD)
         in: query
         name: fecha_hasta
         type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      - description: Resultado operativo
+        enum:
+        - ATENDIDA
+        - CANCELADA
+        - INASISTENCIA
+        in: query
+        name: resultado
+        type: string
+      - description: Busqueda por cliente
+        in: query
+        name: cliente
+        type: string
+      - description: Busqueda por servicio
+        in: query
+        name: servicio
+        type: string
+      - description: Busqueda por nombre de personal
+        in: query
+        name: empleado
+        type: string
+      - description: Filtrar por personal
+        in: query
+        name: empleado_id
+        type: integer
+      - description: Filtrar por insumo utilizado
+        in: query
+        name: item_id
+        type: integer
+      - description: Solo atenciones con deducciones pendientes (true) o sin ellas
+          (false)
+        in: query
+        name: pendientes_stock
+        type: boolean
+      - description: Busqueda general por cliente, reserva, servicio, personal, lugar
+          u observaciones
+        in: query
+        name: q
+        type: string
+      - description: Campo por el que ordenar; sin el, fecha_atencion descendente
+        enum:
+        - fecha_atencion
+        - hora_inicio
+        - cliente_nombre
+        - servicio_reserva
+        - empleado_nombre
+        - local_nombre
+        - reserva_id
+        - insumos_pendientes
+        - resultado
+        example: cliente_nombre
+        in: query
+        name: ordenar_por
+        type: string
+      - description: Sentido del orden; solo con ordenar_por, por defecto asc
+        enum:
+        - asc
+        - desc
+        example: desc
+        in: query
+        name: sentido
+        type: string
+      - description: Tamano de pagina (1-100); sin limit ni cursor devuelve 50 registros
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco devuelto en paginacion.next_cursor; solo vale con
+          los mismos filtros y orden
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye total_registros y total_paginas
+        in: query
+        name: include_total
+        type: boolean
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.APIResponse'
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.atencionesResponse'
+              type: object
         "400":
-          description: 'Error de validación: local_id o fechas inválidas'
+          description: 'Error de validacion: fecha invalida, parametro invalido, ordenar_por
+            fuera de la lista, sentido distinto de asc o desc o cursor de otros filtros'
           schema:
             $ref: '#/definitions/utils.APIResponse'
         "401":
@@ -6459,7 +7097,7 @@ paths:
             $ref: '#/definitions/utils.APIResponse'
       security:
       - BearerAuth: []
-      summary: Listar atenciones
+      summary: Listar historial de atenciones
       tags:
       - Atenciones
   /bd/atenciones/{id}:
@@ -6489,6 +7127,175 @@ paths:
       security:
       - BearerAuth: []
       summary: Obtener atención
+      tags:
+      - Atenciones
+  /bd/atenciones/calendario-consumo:
+    get:
+      description: Lista atenciones activas y sus insumos declarados para priorizar
+        qué se usó en cada atención. No es Kardex ni reporte agregado. Los usuarios
+        con local asignado quedan limitados a su local.
+      parameters:
+      - description: Desde (YYYY-MM-DD); por defecto hoy
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Hasta (YYYY-MM-DD); por defecto fecha_desde
+        in: query
+        name: fecha_hasta
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      - description: Filtrar por insumo usado
+        in: query
+        name: item_id
+        type: integer
+      - description: Busqueda por cliente
+        in: query
+        name: cliente
+        type: string
+      - description: Busqueda por servicio
+        in: query
+        name: servicio
+        type: string
+      - description: Busqueda por quien atendió
+        in: query
+        name: empleado
+        type: string
+      - description: Estado de deducción
+        enum:
+        - DESCONTADO
+        - PENDIENTE
+        in: query
+        name: estado_descuento
+        type: string
+      - description: Busqueda general
+        in: query
+        name: q
+        type: string
+      - description: Tamano de pagina (1-100)
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco de la pagina siguiente
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye total de registros filtrados
+        in: query
+        name: include_total
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.calendarioConsumoResponse'
+              type: object
+        "400":
+          description: Error de validacion
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error al consultar el calendario
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Calendario semanal de insumos usados
+      tags:
+      - Atenciones
+  /bd/atenciones/calendario-personal:
+    get:
+      description: Lista atenciones activas por fecha y hora para priorizar quién
+        atendió. No es agenda de disponibilidad ni reporte de inventario. Los usuarios
+        con local asignado quedan limitados a su local.
+      parameters:
+      - description: Desde (YYYY-MM-DD); por defecto hoy
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Hasta (YYYY-MM-DD); por defecto fecha_desde
+        in: query
+        name: fecha_hasta
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      - description: Busqueda por cliente
+        in: query
+        name: cliente
+        type: string
+      - description: Busqueda por servicio
+        in: query
+        name: servicio
+        type: string
+      - description: Busqueda por quien atendió
+        in: query
+        name: empleado
+        type: string
+      - description: Busqueda general
+        in: query
+        name: q
+        type: string
+      - description: Tamano de pagina (1-100)
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco de la pagina siguiente
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye total de registros filtrados
+        in: query
+        name: include_total
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.calendarioPersonalResponse'
+              type: object
+        "400":
+          description: Error de validacion
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error al consultar el calendario
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Calendario semanal de personal atendiente
       tags:
       - Atenciones
   /bd/atenciones/insumos-sugeridos:
@@ -6526,6 +7333,224 @@ paths:
       security:
       - BearerAuth: []
       summary: Listar insumos sugeridos de una reserva
+      tags:
+      - Atenciones
+  /bd/atenciones/jornada:
+    get:
+      description: Devuelve una fila por reserva del dia con su estado operativo derivado.
+        Incluye reservas AGENDADAS, CANCELADAS y cualquier reserva con una atencion
+        activa. El estado operativo se calcula con la zona horaria configurada. La
+        lista admite cursor; el resumen independiente se consulta en /jornada/resumen
+        para que no cambie al filtrar estado o texto.
+      parameters:
+      - description: Fecha (YYYY-MM-DD); por defecto hoy en la zona horaria configurada
+        example: "2026-11-09"
+        in: query
+        name: fecha
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      - description: Estado operativo
+        enum:
+        - PROGRAMADA
+        - PENDIENTE_CIERRE
+        - ATENDIDA
+        - CANCELADA
+        example: PROGRAMADA
+        in: query
+        name: estado
+        type: string
+      - description: Busqueda por cliente, reserva, servicio, personal o local
+        in: query
+        name: q
+        type: string
+      - description: Tamano de pagina (1-100)
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco de la pagina siguiente
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye total de registros filtrados
+        in: query
+        name: include_total
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.JornadaResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: fecha invalida, local_id invalido o estado
+            fuera de la lista'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error al consultar la jornada
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Jornada de atenciones
+      tags:
+      - Atenciones
+  /bd/atenciones/jornada/resumen:
+    get:
+      description: Devuelve los contadores completos de una fecha y local. No acepta
+        estado, busqueda ni cursor para que sus cifras sean independientes de la lista
+        visible.
+      parameters:
+      - description: Fecha (YYYY-MM-DD); por defecto hoy
+        in: query
+        name: fecha
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.JornadaResponse'
+              type: object
+        "400":
+          description: Error de validacion
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error al consultar el resumen
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Resumen operativo de Jornada
+      tags:
+      - Atenciones
+  /bd/atenciones/seguimiento:
+    get:
+      description: 'Lista casos accionables: deducciones pendientes, inasistencias,
+        cancelaciones y reservas agendadas cuyo horario ya concluyó. No crea estados
+        nuevos de reserva.'
+      parameters:
+      - description: Desde (YYYY-MM-DD)
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Hasta (YYYY-MM-DD)
+        in: query
+        name: fecha_hasta
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      - description: Tipo operativo
+        enum:
+        - DEDUCCION_PENDIENTE
+        - INASISTENCIA
+        - CANCELACION
+        - PENDIENTE_CIERRE
+        in: query
+        name: tipo
+        type: string
+      - description: Búsqueda por cliente, reserva, servicio, personal o local
+        in: query
+        name: q
+        type: string
+      - description: Tamaño de página (1-100)
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco de la página siguiente
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye total filtrado
+        in: query
+        name: include_total
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.seguimientoResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Bandeja de seguimiento operativo
+      tags:
+      - Atenciones
+  /bd/atenciones/seguimiento/resumen:
+    get:
+      description: Devuelve contadores completos por periodo y local; no acepta tipo,
+        texto ni paginación, para mantenerlos independientes de la lista visible.
+      parameters:
+      - description: Desde (YYYY-MM-DD)
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Hasta (YYYY-MM-DD)
+        in: query
+        name: fecha_hasta
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.SeguimientoResumen'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Resumen de seguimiento operativo
       tags:
       - Atenciones
   /bd/cargos/{id}/anular:
@@ -9775,6 +10800,291 @@ paths:
       security:
       - BearerAuth: []
       summary: Editar categoria de inventario
+      tags:
+      - Inventario
+  /bd/inventario/consumos:
+    get:
+      description: 'Lista los eventos de consumo declarado en atenciones activas.
+        Usa atenciones.fecha_atencion (no la fecha del movimiento de stock) y atencion_insumos.cantidad_usada.
+        Filtros: fecha_desde y fecha_hasta (YYYY-MM-DD, inclusivos; por defecto hoy),
+        local_id, item_id, cliente, servicio, empleado (texto), empleado_id, estado_descuento
+        (DESCONTADO o PENDIENTE) y q (cliente, reserva, servicio, personal, local
+        o insumo). Los usuarios con local asignado quedan limitados a ese local. Si
+        falta hora_inicio se usa la hora de la reserva y se marca horario_programado=true.
+        Las atenciones desactivadas no aparecen.'
+      parameters:
+      - description: Desde (YYYY-MM-DD); por defecto hoy
+        example: "2026-11-09"
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Hasta (YYYY-MM-DD); por defecto fecha_desde
+        example: "2026-11-14"
+        in: query
+        name: fecha_hasta
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      - description: Filtrar atenciones que usaron este insumo
+        in: query
+        name: item_id
+        type: integer
+      - description: Busqueda por cliente
+        in: query
+        name: cliente
+        type: string
+      - description: Busqueda por servicio
+        in: query
+        name: servicio
+        type: string
+      - description: Busqueda por nombre de personal
+        in: query
+        name: empleado
+        type: string
+      - description: Filtrar por personal
+        in: query
+        name: empleado_id
+        type: integer
+      - description: Estado de deduccion
+        enum:
+        - DESCONTADO
+        - PENDIENTE
+        example: PENDIENTE
+        in: query
+        name: estado_descuento
+        type: string
+      - description: Busqueda general por cliente, reserva, servicio, personal, local
+          o insumo
+        in: query
+        name: q
+        type: string
+      - description: Tamano de pagina (1-100); sin limit ni cursor devuelve hasta
+          500 eventos
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco devuelto en paginacion.next_cursor; solo vale con
+          los mismos filtros
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye total_registros y total_paginas (requiere limit o cursor)
+        in: query
+        name: include_total
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.consumosResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: fecha invalida, estado_descuento fuera
+            de la lista, parametro invalido o cursor de otros filtros'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error al consultar consumos
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Calendario de consumos
+      tags:
+      - Inventario
+  /bd/inventario/consumos/empleados:
+    get:
+      description: 'Agrega la actividad de consumo por empleado para el rango y filtros
+        indicados. No suma cantidades entre unidades distintas: cuenta atenciones,
+        lineas de insumo, insumos distintos, lineas pendientes y atenciones con deduccion
+        pendiente. Los filtros son los mismos del calendario; estado_descuento filtra
+        las lineas que componen los conteos. Las atenciones sin insumos se conservan
+        cuando no se filtra por estado. Los empleados eliminados se agrupan por el
+        nombre snapshot.'
+      parameters:
+      - description: Desde (YYYY-MM-DD); por defecto hoy
+        example: "2026-11-01"
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Hasta (YYYY-MM-DD); por defecto fecha_desde
+        example: "2026-11-30"
+        in: query
+        name: fecha_hasta
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      - description: Filtrar por insumo
+        in: query
+        name: item_id
+        type: integer
+      - description: Busqueda por cliente
+        in: query
+        name: cliente
+        type: string
+      - description: Busqueda por servicio
+        in: query
+        name: servicio
+        type: string
+      - description: Busqueda por nombre de personal
+        in: query
+        name: empleado
+        type: string
+      - description: Filtrar por personal
+        in: query
+        name: empleado_id
+        type: integer
+      - description: Estado de deduccion
+        enum:
+        - DESCONTADO
+        - PENDIENTE
+        example: PENDIENTE
+        in: query
+        name: estado_descuento
+        type: string
+      - description: Busqueda general por cliente, reserva, servicio, personal, local
+          o insumo
+        in: query
+        name: q
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.consumosEmpleadosResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: fecha invalida o estado_descuento fuera
+            de la lista'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error al resumir consumos por empleado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Reporte de consumos por empleado
+      tags:
+      - Inventario
+  /bd/inventario/consumos/resumen:
+    get:
+      description: Agrega el consumo declarado por insumo y unidad para el rango y
+        filtros indicados. No suma unidades distintas y cuenta atenciones distintas.
+        Los filtros son los mismos del calendario; estado_descuento filtra las lineas
+        que componen el total. Las reversiones de stock no alteran cantidad_usada.
+      parameters:
+      - description: Desde (YYYY-MM-DD); por defecto hoy
+        example: "2026-11-01"
+        in: query
+        name: fecha_desde
+        type: string
+      - description: Hasta (YYYY-MM-DD); por defecto fecha_desde
+        example: "2026-11-30"
+        in: query
+        name: fecha_hasta
+        type: string
+      - description: Filtrar por local (admin_sys)
+        in: query
+        name: local_id
+        type: integer
+      - description: Filtrar por insumo
+        in: query
+        name: item_id
+        type: integer
+      - description: Busqueda por cliente
+        in: query
+        name: cliente
+        type: string
+      - description: Busqueda por servicio
+        in: query
+        name: servicio
+        type: string
+      - description: Busqueda por nombre de personal
+        in: query
+        name: empleado
+        type: string
+      - description: Filtrar por personal
+        in: query
+        name: empleado_id
+        type: integer
+      - description: Estado de deduccion
+        enum:
+        - DESCONTADO
+        - PENDIENTE
+        example: PENDIENTE
+        in: query
+        name: estado_descuento
+        type: string
+      - description: Busqueda general por cliente, reserva, servicio, personal, local
+          o insumo
+        in: query
+        name: q
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.consumosResumenResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: fecha invalida o estado_descuento fuera
+            de la lista'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Sin acceso al local
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error al resumir consumos
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Reporte agregado de consumos
       tags:
       - Inventario
   /bd/inventario/items:
@@ -13195,7 +14505,7 @@ paths:
       consumes:
       - application/json
       description: |-
-        Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO o RECHAZADO (requerido). COMPLETADO solo se puede establecer al registrar una atención. causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→RECHAZADO, RECHAZADO→PENDIENTE.
+        Cambia el estado de una reserva. COMPLETADO solo se puede establecer al registrar una atención. RECHAZADO se reserva para solicitudes PENDIENTE; CANCELADO exige motivo_cancelacion_tipo y solo aplica a reservas AGENDADO. Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→CANCELADO, RECHAZADO→PENDIENTE.
         Confirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.
         Inventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.
       parameters:

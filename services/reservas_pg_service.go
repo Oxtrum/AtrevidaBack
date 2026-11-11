@@ -1451,12 +1451,14 @@ func normalizarNombreServicio(nombre string) string {
 }
 
 type ActualizarEstadoReservaInput struct {
-	Id                 int
-	Estado             string
-	Causa              string
-	ServicioConfirmado *string
-	Precio             *float64
-	Tipo               string
+	Id                       int
+	Estado                   string
+	Causa                    string
+	MotivoCancelacionTipo    string
+	MotivoCancelacionDetalle string
+	ServicioConfirmado       *string
+	Precio                   *float64
+	Tipo                     string
 	// Actor se registra en el kardex cuando el cambio de estado descuenta insumos.
 	Actor repository.ConsumoActor
 }
@@ -1512,6 +1514,12 @@ func (s *ReservasPGService) actualizarEstadoReservaBase(input ActualizarEstadoRe
 	if err != nil {
 		return err
 	}
+	// Una cancelación es terminal y conserva su motivo/auditoría originales. A diferencia
+	// de otros cambios idempotentes, no se debe volver a aplicar porque puede reejecutar
+	// la reversión de consumos o de una sesión de paquete.
+	if estadoActual == "CANCELADO" {
+		return errors.New("una reserva cancelada no puede cambiar de estado")
+	}
 
 	if !canTransitionReservaEstado(estadoActual, estado) {
 		return fmt.Errorf("transicion de estado invalida: %s -> %s", estadoActual, estado)
@@ -1519,6 +1527,18 @@ func (s *ReservasPGService) actualizarEstadoReservaBase(input ActualizarEstadoRe
 
 	if estado == "RECHAZADO" && strings.TrimSpace(input.Causa) == "" {
 		return errors.New("causa es requerida cuando el estado es RECHAZADO")
+	}
+	var motivoCancelacionTipo, motivoCancelacionDetalle *string
+	if estado == "CANCELADO" {
+		tipo, err := normalizarMotivoCancelacion(input.MotivoCancelacionTipo)
+		if err != nil {
+			return err
+		}
+		detalle := strings.TrimSpace(input.MotivoCancelacionDetalle)
+		if tipo == "OTRO" && detalle == "" {
+			return errors.New("detalle es requerido cuando el motivo de cancelacion es OTRO")
+		}
+		motivoCancelacionTipo, motivoCancelacionDetalle = &tipo, limpiarTexto(&detalle)
 	}
 
 	var tipoEspacio *string
@@ -1559,23 +1579,33 @@ func (s *ReservasPGService) actualizarEstadoReservaBase(input ActualizarEstadoRe
 			return pgsqlrepo.MarcarSesionPorReservaTx(tx, input.Id)
 		})
 	}
-	// Rechazar una reserva agendada devuelve su sesion.
-	if estado == "RECHAZADO" {
+	// Cancelar una reserva agendada devuelve las sesiones e insumos comprometidos.
+	if estado == "CANCELADO" {
 		onApplied = combinarHooksTx(onApplied, func(tx *sqlx.Tx) error {
-			return pgsqlrepo.LiberarSesionPorReservaTx(tx, input.Id)
+			if err := pgsqlrepo.LiberarSesionPorReservaTx(tx, input.Id); err != nil {
+				return err
+			}
+			if s.consumo != nil {
+				return s.consumo.HookEliminar(input.Id, input.Actor)(tx)
+			}
+			return nil
 		})
 	}
 	return s.repo.UpdateReservaEstado(repository.UpdateReservaEstadoInput{
-		OnApplied:            onApplied,
-		ID:                   input.Id,
-		Estado:               estado,
-		EstadoActualEsperado: estadoActual,
-		ServicioConfirmado:   servicioConfirmado,
-		Precio:               input.Precio,
-		PrecioSet:            limpiarPrecio,
-		CostoVariable:        costoVariable,
-		CostoVariableSet:     actualizarCosto,
-		TipoEspacio:          tipoEspacio,
+		OnApplied:                onApplied,
+		ID:                       input.Id,
+		Estado:                   estado,
+		EstadoActualEsperado:     estadoActual,
+		MotivoCancelacionTipo:    motivoCancelacionTipo,
+		MotivoCancelacionDetalle: motivoCancelacionDetalle,
+		CanceladoPorID:           input.Actor.UsuarioID,
+		CanceladoPor:             limpiarTexto(&input.Actor.UsuarioNombre),
+		ServicioConfirmado:       servicioConfirmado,
+		Precio:                   input.Precio,
+		PrecioSet:                limpiarPrecio,
+		CostoVariable:            costoVariable,
+		CostoVariableSet:         actualizarCosto,
+		TipoEspacio:              tipoEspacio,
 	})
 }
 
@@ -2042,10 +2072,10 @@ func NormalizarEstadoReserva(raw string) (string, error) {
 	}
 
 	switch estado {
-	case "PENDIENTE", "RECHAZADO", "AGENDADO", "COMPLETADO":
+	case "PENDIENTE", "RECHAZADO", "AGENDADO", "COMPLETADO", "CANCELADO":
 		return estado, nil
 	default:
-		return "", fmt.Errorf("estado invalido, valores permitidos: PENDIENTE, RECHAZADO, AGENDADO, COMPLETADO")
+		return "", fmt.Errorf("estado invalido, valores permitidos: PENDIENTE, RECHAZADO, AGENDADO, COMPLETADO, CANCELADO")
 	}
 }
 
@@ -2112,12 +2142,20 @@ func canTransitionReservaEstado(actual, siguiente string) bool {
 	case "RECHAZADO":
 		return siguiente == "PENDIENTE"
 	case "AGENDADO":
-		// RECHAZADO cubre la cancelación de una reserva ya confirmada.
-		return siguiente == "COMPLETADO" || siguiente == "RECHAZADO"
-	case "COMPLETADO":
+		return siguiente == "COMPLETADO" || siguiente == "CANCELADO"
+	case "COMPLETADO", "CANCELADO":
 		return false
 	default:
 		return false
+	}
+}
+
+func normalizarMotivoCancelacion(raw string) (string, error) {
+	switch tipo := strings.ToUpper(strings.TrimSpace(raw)); tipo {
+	case "INASISTENCIA", "REPROGRAMACION", "SOLICITUD_CLIENTE", "OPERATIVO_LOCAL", "OTRO":
+		return tipo, nil
+	default:
+		return "", errors.New("motivo_cancelacion_tipo invalido")
 	}
 }
 

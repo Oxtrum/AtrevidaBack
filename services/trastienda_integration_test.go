@@ -34,6 +34,7 @@ type trastiendaEnv struct {
 	gastos     *GastosFijosService
 	reporte    *ReporteFinancieroService
 	reservas   *ReservasPGService
+	atenciones *AtencionesService
 	invRepo    *pgsqlrepo.InventarioRepo
 	finRepo    *pgsqlrepo.FinanzasRepo
 	localID    int
@@ -71,9 +72,10 @@ func setupTrastienda(t *testing.T) *trastiendaEnv {
 		inv:     NewInventarioService(invRepo, cfgSvc),
 		consumo: NewInventarioConsumo(invRepo, cfgSvc),
 		fin:     finSvc, gastos: gastos,
-		reporte:  NewReporteFinancieroService(finRepo, invRepo, gastos, cfgSvc),
-		reservas: NewReservasPGService(pgsqlrepo.NewReservasRepo(conn), pgsqlrepo.NewServiciosRepo(conn)),
-		sufijo:   fmt.Sprintf("%d", time.Now().UnixNano()),
+		reporte:    NewReporteFinancieroService(finRepo, invRepo, gastos, cfgSvc),
+		reservas:   NewReservasPGService(pgsqlrepo.NewReservasRepo(conn), pgsqlrepo.NewServiciosRepo(conn)),
+		atenciones: NewAtencionesService(pgsqlrepo.NewAtencionesRepo(conn), cfgSvc),
+		sufijo:     fmt.Sprintf("%d", time.Now().UnixNano()),
 	}
 	env.reservas.SetInventarioConsumo(env.consumo)
 	env.reservas.SetConfiguracion(cfgSvc)
@@ -188,6 +190,17 @@ func (e *trastiendaEnv) contarMov(reservaID int, tipo string) int {
 	return n
 }
 
+// atender reproduce el único flujo válido para completar una reserva: registrar
+// una atención. Las pruebas de integración no deben completar por PATCH de estado.
+func (e *trastiendaEnv) atender(reservaID int, insumos ...pgsqlrepo.AtencionInsumoInput) error {
+	e.t.Helper()
+	_, err := e.atenciones.Registrar(RegistrarAtencionInput{
+		ReservaID: reservaID, EmpleadoNombre: "QA Atención", FechaAtencion: time.Now().Format("2006-01-02"),
+		Lugar: e.localName, Insumos: insumos,
+	})
+	return err
+}
+
 // ─── Inventario ↔ reservas ────────────────────────────────────────────────────
 
 func TestTrastiendaCompletarDescuentaExactoYEsIdempotente(t *testing.T) {
@@ -196,7 +209,7 @@ func TestTrastiendaCompletarDescuentaExactoYEsIdempotente(t *testing.T) {
 	srv := e.nuevoServicio("Masaje", map[int]float64{item: 30})
 	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
 
-	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: reserva, Estado: "COMPLETADO"}); err != nil {
+	if err := e.atender(reserva, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 30}); err != nil {
 		t.Fatalf("completar: %v", err)
 	}
 	if got := e.stock(item); got != 70 {
@@ -224,7 +237,7 @@ func TestTrastiendaEliminarReservaCompletadaRevierteStock(t *testing.T) {
 	item := e.nuevoItem("Aceite", 100)
 	srv := e.nuevoServicio("Drenaje", map[int]float64{item: 25})
 	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
-	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: reserva, Estado: "COMPLETADO"}); err != nil {
+	if err := e.atender(reserva, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 25}); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.reservas.EliminarReserva(reserva, repository.ConsumoActor{}); err != nil {
@@ -243,11 +256,11 @@ func TestTrastiendaSinStockNegativoNoPermitidoNoCompleta(t *testing.T) {
 	item := e.nuevoItem("Crema", 10)
 	srv := e.nuevoServicio("Facial", map[int]float64{item: 30})
 	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
-	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPermitirStockNegativo: false}); err != nil {
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPoliticaSinStock: "BLOQUEAR"}); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: reserva, Estado: "COMPLETADO"})
+	err := e.atender(reserva, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 30})
 	if err == nil || !strings.Contains(err.Error(), "stock insuficiente") {
 		t.Fatalf("quiero error 'stock insuficiente', obtuve %v", err)
 	}
@@ -261,16 +274,33 @@ func TestTrastiendaSinStockNegativoNoPermitidoNoCompleta(t *testing.T) {
 	}
 }
 
-func TestTrastiendaSinStockPermitidoCompletaYDejaNegativo(t *testing.T) {
+func TestTrastiendaSinStockConfirmadoCompletaConDeduccionPendiente(t *testing.T) {
 	e := setupTrastienda(t)
 	item := e.nuevoItem("Banda", 10)
 	srv := e.nuevoServicio("Presoterapia", map[int]float64{item: 30})
 	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
-	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: reserva, Estado: "COMPLETADO"}); err != nil {
-		t.Fatalf("con permitir_stock_negativo=true debe completar: %v", err)
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPoliticaSinStock: "BLOQUEAR"}); err != nil {
+		t.Fatal(err)
 	}
-	if got := e.stock(item); got != -20 {
-		t.Fatalf("stock = %v, quiero -20", got)
+	// La confirmación registra el uso real, pero nunca descuenta parcialmente ni
+	// lleva el stock a negativo.
+	_, err := e.atenciones.Registrar(RegistrarAtencionInput{
+		ReservaID: reserva, EmpleadoNombre: "QA Atención", FechaAtencion: time.Now().Format("2006-01-02"),
+		Lugar: e.localName, ConfirmarStockInsuficiente: true,
+		Insumos: []pgsqlrepo.AtencionInsumoInput{{ItemID: item, Cantidad: 30}},
+	})
+	if err != nil {
+		t.Fatalf("con confirmación debe completar dejando deducción pendiente: %v", err)
+	}
+	if got := e.stock(item); got != 10 {
+		t.Fatalf("stock = %v, quiero 10 (sin descuento parcial)", got)
+	}
+	var pendiente int
+	if err := e.db.Get(&pendiente, `SELECT COUNT(*) FROM atencion_insumos ai JOIN atenciones a ON a.id=ai.atencion_id WHERE a.reserva_id=$1 AND ai.estado_descuento='PENDIENTE_STOCK'`, reserva); err != nil {
+		t.Fatal(err)
+	}
+	if pendiente != 1 {
+		t.Fatalf("deducciones pendientes = %d, quiero 1", pendiente)
 	}
 }
 
@@ -495,7 +525,7 @@ func TestTrastiendaCompletarReservaDePaqueteMarcaSesion(t *testing.T) {
 		return v
 	}
 
-	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: r, Estado: "COMPLETADO"}); err != nil {
+	if err := e.atender(r, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 30}); err != nil {
 		t.Fatal(err)
 	}
 	if !realizada() {
@@ -867,7 +897,7 @@ func TestTrastiendaSesionDePlanConReservaLigadaNoDescuentaDoble(t *testing.T) {
 	mustExec(t, e.db, `INSERT INTO plan_movimientos (plan_servicio_id, reserva_id, tipo, cantidad) VALUES ($1, $2, 'RESERVA', 1)`, planServicioID, reserva)
 
 	// La reserva se completa (descuenta 20) y luego se marca la sesion: no debe descontar otros 20.
-	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: reserva, Estado: "COMPLETADO"}); err != nil {
+	if err := e.atender(reserva, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 20}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.planesRepoConConsumo().MarcarSesion(planID, 1, true); err != nil {
@@ -942,7 +972,7 @@ func TestTrastiendaSesionDePaqueteSegunElParametro(t *testing.T) {
 	if ses(planID) {
 		t.Fatal("con el parametro por defecto agendar no debe marcar la sesion")
 	}
-	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: r, Estado: "COMPLETADO"}); err != nil {
+	if err := e.atender(r, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 10}); err != nil {
 		t.Fatal(err)
 	}
 	if !ses(planID) {
@@ -958,11 +988,11 @@ func TestTrastiendaSesionDePaqueteSegunElParametro(t *testing.T) {
 	if !ses(planID) {
 		t.Fatal("con AGENDADO, agendar debe marcar la sesion")
 	}
-	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: r, Estado: "RECHAZADO", Causa: "prueba"}); err != nil {
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: r, Estado: "CANCELADO", MotivoCancelacionTipo: "REPROGRAMACION"}); err != nil {
 		t.Fatal(err)
 	}
 	if ses(planID) {
-		t.Fatal("rechazar una reserva agendada debe devolver la sesion")
+		t.Fatal("cancelar una reserva agendada debe devolver la sesion")
 	}
 
 	planID, r = nueva()
@@ -971,5 +1001,64 @@ func TestTrastiendaSesionDePaqueteSegunElParametro(t *testing.T) {
 	}
 	if !ses(planID) {
 		t.Fatal("con AGENDADO, aprobar por PATCH debe marcar la sesion")
+	}
+}
+
+func TestTrastiendaCancelarReservaAgendadaRevierteStockYAudita(t *testing.T) {
+	e := setupTrastienda(t)
+	if _, err := e.cfgSvc.Update(map[string]interface{}{
+		CfgDescontarEnEstado: "AGENDADO", CfgPermitirStockNegativo: false,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	item := e.nuevoItem("Cancelacion", 10)
+	servicio := e.nuevoServicio("Servicio cancelable", map[int]float64{item: 4})
+	reserva := e.nuevaReserva(servicio, "PENDIENTE", 1)
+	actor := repository.ConsumoActor{UsuarioNombre: "QA cancelacion"}
+
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{
+		Id: reserva, Estado: "AGENDADO", Actor: actor,
+	}); err != nil {
+		t.Fatalf("agendar: %v", err)
+	}
+	if got := e.stock(item); got != 6 {
+		t.Fatalf("stock tras agendar = %v; se esperaba 6", got)
+	}
+
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{
+		Id: reserva, Estado: "CANCELADO", MotivoCancelacionTipo: "INASISTENCIA", Actor: actor,
+	}); err != nil {
+		t.Fatalf("cancelar: %v", err)
+	}
+	if got := e.stock(item); got != 10 {
+		t.Fatalf("stock tras cancelar = %v; se esperaba 10", got)
+	}
+
+	var audit struct {
+		Estado string     `db:"estado"`
+		Motivo string     `db:"motivo_cancelacion_tipo"`
+		Fecha  *time.Time `db:"cancelado_en"`
+		Actor  *string    `db:"cancelado_por"`
+	}
+	if err := e.db.Get(&audit, `SELECT estado, motivo_cancelacion_tipo, cancelado_en, cancelado_por FROM reservas WHERE id=$1`, reserva); err != nil {
+		t.Fatal(err)
+	}
+	if audit.Estado != "CANCELADO" || audit.Motivo != "INASISTENCIA" || audit.Fecha == nil || audit.Actor == nil || *audit.Actor != "QA cancelacion" {
+		t.Fatalf("auditoria de cancelacion invalida: %+v", audit)
+	}
+	var atenciones int
+	if err := e.db.Get(&atenciones, `SELECT COUNT(*) FROM atenciones WHERE reserva_id=$1`, reserva); err != nil {
+		t.Fatal(err)
+	}
+	if atenciones != 0 {
+		t.Fatalf("una inasistencia no debe crear atencion, hay %d", atenciones)
+	}
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: reserva, Estado: "CANCELADO", MotivoCancelacionTipo: "INASISTENCIA"}); err == nil {
+		t.Fatal("una reserva cancelada no debe cancelarse por segunda vez")
+	}
+
+	reservaRechazo := e.nuevaReserva(servicio, "AGENDADO", 2)
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: reservaRechazo, Estado: "RECHAZADO", Causa: "no corresponde"}); err == nil {
+		t.Fatal("una reserva agendada no debe pasar a RECHAZADO")
 	}
 }

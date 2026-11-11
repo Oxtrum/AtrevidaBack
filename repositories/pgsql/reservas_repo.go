@@ -73,6 +73,7 @@ func buildReservasQuery(f repository.FiltroReservasPG) (string, []interface{}) {
 			r.cliente, r.cliente_id, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
 			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
+			r.motivo_cancelacion_tipo, r.motivo_cancelacion_detalle, r.cancelado_en, r.cancelado_por_id, r.cancelado_por,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
@@ -732,6 +733,21 @@ func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoI
 	sets := []string{"estado = $1", "actualizado_en = NOW()"}
 	args := []interface{}{input.Estado}
 	idx := 2
+	if input.MotivoCancelacionTipo != nil {
+		sets = append(sets, fmt.Sprintf("motivo_cancelacion_tipo = $%d", idx))
+		args = append(args, *input.MotivoCancelacionTipo)
+		idx++
+		sets = append(sets, fmt.Sprintf("motivo_cancelacion_detalle = $%d", idx))
+		args = append(args, input.MotivoCancelacionDetalle)
+		idx++
+		sets = append(sets, "cancelado_en = NOW()")
+		sets = append(sets, fmt.Sprintf("cancelado_por_id = $%d", idx))
+		args = append(args, input.CanceladoPorID)
+		idx++
+		sets = append(sets, fmt.Sprintf("cancelado_por = $%d", idx))
+		args = append(args, input.CanceladoPor)
+		idx++
+	}
 
 	if input.ServicioConfirmado != nil {
 		sets = append(sets, fmt.Sprintf("servicio_confirmado = $%d", idx))
