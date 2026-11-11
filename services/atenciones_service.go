@@ -132,11 +132,108 @@ func (s *AtencionesService) InsumosSugeridos(reservaID int, localID *int) ([]mod
 	}
 	return s.repo.InsumosSugeridos(reservaID, localID)
 }
-func (s *AtencionesService) Listar(localID *int, limit, offset int) ([]models.Atencion, error) {
-	return s.repo.Listar(localID, limit, offset)
+func (s *AtencionesService) Listar(f repository.FiltroAtenciones) ([]models.Atencion, error) {
+	return s.repo.Listar(f)
 }
-func (s *AtencionesService) Contar(localID *int) (int, error) {
-	return s.repo.Contar(localID)
+func (s *AtencionesService) Contar(f repository.FiltroAtenciones) (int, error) {
+	return s.repo.Contar(f)
+}
+
+// CalendarioPersonalInput son los filtros de la agenda semanal de Personal.
+// No reutiliza ConsumosInput: ambos pueden compartir datos de una atención,
+// pero responden a preguntas operativas distintas.
+type CalendarioPersonalInput struct {
+	LocalID    *int
+	FechaDesde *time.Time
+	FechaHasta *time.Time
+	Cliente    string
+	Servicio   string
+	Empleado   string
+	Q          string
+	PageLimit  int
+	Offset     int
+}
+
+func (s *AtencionesService) PrepararCalendarioPersonal(in CalendarioPersonalInput) (repository.FiltroCalendarioPersonal, error) {
+	cfg, err := s.config.Snapshot()
+	if err != nil {
+		return repository.FiltroCalendarioPersonal{}, err
+	}
+	desde, hasta, err := normalizarRangoConsumos(in.FechaDesde, in.FechaHasta, cfg.Hoy())
+	if err != nil {
+		return repository.FiltroCalendarioPersonal{}, err
+	}
+	if in.Offset < 0 {
+		return repository.FiltroCalendarioPersonal{}, errors.New("offset invalido")
+	}
+	return repository.FiltroCalendarioPersonal{
+		LocalID: in.LocalID, FechaDesde: desde, FechaHasta: hasta,
+		Cliente: strings.TrimSpace(in.Cliente), Servicio: strings.TrimSpace(in.Servicio),
+		Empleado: strings.TrimSpace(in.Empleado), Q: strings.TrimSpace(in.Q),
+		PageLimit: in.PageLimit, Offset: in.Offset,
+	}, nil
+}
+
+func (s *AtencionesService) CalendarioPersonal(f repository.FiltroCalendarioPersonal) ([]models.CalendarioPersonalEvento, error) {
+	return s.repo.CalendarioPersonal(f)
+}
+
+func (s *AtencionesService) ContarCalendarioPersonal(f repository.FiltroCalendarioPersonal) (int, error) {
+	return s.repo.ContarCalendarioPersonal(f)
+}
+
+type SeguimientoInput struct {
+	LocalID                *int
+	FechaDesde, FechaHasta *time.Time
+	Tipo, Q                string
+	PageLimit, Offset      int
+}
+
+func (s *AtencionesService) PrepararSeguimiento(in SeguimientoInput) (repository.FiltroSeguimiento, error) {
+	cfg, err := s.config.Snapshot()
+	if err != nil {
+		return repository.FiltroSeguimiento{}, err
+	}
+	desde, hasta, err := normalizarRangoConsumos(in.FechaDesde, in.FechaHasta, cfg.Hoy())
+	if err != nil {
+		return repository.FiltroSeguimiento{}, err
+	}
+	tipo := strings.ToUpper(strings.TrimSpace(in.Tipo))
+	validos := map[string]bool{"": true, string(models.SeguimientoDeduccionPendiente): true, string(models.SeguimientoInasistencia): true, string(models.SeguimientoCancelacion): true, string(models.SeguimientoPendienteCierre): true}
+	if !validos[tipo] {
+		return repository.FiltroSeguimiento{}, errors.New("tipo de seguimiento invalido")
+	}
+	if in.Offset < 0 {
+		return repository.FiltroSeguimiento{}, errors.New("offset invalido")
+	}
+	return repository.FiltroSeguimiento{LocalID: in.LocalID, FechaDesde: desde, FechaHasta: hasta, Tipo: tipo, Q: strings.TrimSpace(in.Q), Ahora: time.Now().In(cfg.Ubicacion()), PageLimit: in.PageLimit, Offset: in.Offset}, nil
+}
+func (s *AtencionesService) Seguimiento(f repository.FiltroSeguimiento) ([]models.SeguimientoItem, error) {
+	return s.repo.Seguimiento(f)
+}
+func (s *AtencionesService) ContarSeguimiento(f repository.FiltroSeguimiento) (int, error) {
+	return s.repo.ContarSeguimiento(f)
+}
+func (s *AtencionesService) ResumenSeguimiento(f repository.FiltroSeguimiento) (models.SeguimientoResumen, error) {
+	f.Tipo, f.Q, f.PageLimit, f.Offset = "", "", -1, 0
+	items, err := s.repo.Seguimiento(f)
+	if err != nil {
+		return models.SeguimientoResumen{}, err
+	}
+	res := models.SeguimientoResumen{}
+	for _, item := range items {
+		switch item.Tipo {
+		case models.SeguimientoDeduccionPendiente:
+			res.DeduccionesPendientes++
+		case models.SeguimientoInasistencia:
+			res.Inasistencias++
+		case models.SeguimientoCancelacion:
+			res.Cancelaciones++
+		case models.SeguimientoPendienteCierre:
+			res.PendientesCierre++
+		}
+	}
+	return res, nil
 }
 func (s *AtencionesService) Obtener(id int) (*models.Atencion, error) {
 	if id <= 0 {
