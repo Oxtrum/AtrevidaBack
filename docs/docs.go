@@ -534,33 +534,155 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lista las atenciones del local autorizado con paginación por desplazamiento.",
+                "description": "Lista atenciones activas y reservas canceladas con filtros de servidor. Filtros: fecha_desde y fecha_hasta (YYYY-MM-DD, inclusivos), local_id, resultado, cliente, servicio, empleado (texto), empleado_id, item_id, pendientes_stock y q (cliente, reserva, servicio, personal, lugar u observaciones). Los usuarios con local asignado quedan limitados a ese local. Paginacion por cursor (fecha_atencion descendente) u orden por columna con ordenar_por/sentido.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Atenciones"
                 ],
-                "summary": "Listar atenciones",
+                "summary": "Listar historial de atenciones",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "default": 50,
-                        "description": "Cantidad de resultados",
-                        "name": "limit",
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD)",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD)",
+                        "name": "fecha_hasta",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "default": 0,
-                        "description": "Resultados que se omiten",
-                        "name": "offset",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ATENDIDA",
+                            "CANCELADA",
+                            "INASISTENCIA"
+                        ],
+                        "type": "string",
+                        "description": "Resultado operativo",
+                        "name": "resultado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por nombre de personal",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por personal",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por insumo utilizado",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Solo atenciones con deducciones pendientes (true) o sin ellas (false)",
+                        "name": "pendientes_stock",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general por cliente, reserva, servicio, personal, lugar u observaciones",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "fecha_atencion",
+                            "hora_inicio",
+                            "cliente_nombre",
+                            "servicio_reserva",
+                            "empleado_nombre",
+                            "local_nombre",
+                            "reserva_id",
+                            "insumos_pendientes",
+                            "resultado"
+                        ],
+                        "type": "string",
+                        "example": "cliente_nombre",
+                        "description": "Campo por el que ordenar; sin el, fecha_atencion descendente",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100); sin limit ni cursor devuelve 50 registros",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con los mismos filtros y orden",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total_registros y total_paginas",
+                        "name": "include_total",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.atencionesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha invalida, parametro invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc o cursor de otros filtros",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -579,6 +701,268 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Error al listar atenciones",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/calendario-consumo": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista atenciones activas y sus insumos declarados para priorizar qué se usó en cada atención. No es Kardex ni reporte agregado. Los usuarios con local asignado quedan limitados a su local.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Calendario semanal de insumos usados",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD); por defecto fecha_desde",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por insumo usado",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por quien atendió",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DESCONTADO",
+                            "PENDIENTE"
+                        ],
+                        "type": "string",
+                        "description": "Estado de deducción",
+                        "name": "estado_descuento",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco de la pagina siguiente",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total de registros filtrados",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.calendarioConsumoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar el calendario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/calendario-personal": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista atenciones activas por fecha y hora para priorizar quién atendió. No es agenda de disponibilidad ni reporte de inventario. Los usuarios con local asignado quedan limitados a su local.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Calendario semanal de personal atendiente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD); por defecto fecha_desde",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por quien atendió",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco de la pagina siguiente",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total de registros filtrados",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.calendarioPersonalResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar el calendario",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -639,6 +1023,344 @@ const docTemplate = `{
                         "description": "Error al consultar insumos",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/jornada": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve una fila por reserva del dia con su estado operativo derivado. Incluye reservas AGENDADAS, CANCELADAS y cualquier reserva con una atencion activa. El estado operativo se calcula con la zona horaria configurada. La lista admite cursor; el resumen independiente se consulta en /jornada/resumen para que no cambie al filtrar estado o texto.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Jornada de atenciones",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-11-09",
+                        "description": "Fecha (YYYY-MM-DD); por defecto hoy en la zona horaria configurada",
+                        "name": "fecha",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "PROGRAMADA",
+                            "PENDIENTE_CIERRE",
+                            "ATENDIDA",
+                            "CANCELADA"
+                        ],
+                        "type": "string",
+                        "example": "PROGRAMADA",
+                        "description": "Estado operativo",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente, reserva, servicio, personal o local",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco de la pagina siguiente",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total de registros filtrados",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.JornadaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha invalida, local_id invalido o estado fuera de la lista",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar la jornada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/jornada/resumen": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve los contadores completos de una fecha y local. No acepta estado, busqueda ni cursor para que sus cifras sean independientes de la lista visible.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Resumen operativo de Jornada",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Fecha (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.JornadaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar el resumen",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/seguimiento": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista casos accionables: deducciones pendientes, inasistencias, cancelaciones y reservas agendadas cuyo horario ya concluyó. No crea estados nuevos de reserva.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Bandeja de seguimiento operativo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD)",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD)",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DEDUCCION_PENDIENTE",
+                            "INASISTENCIA",
+                            "CANCELACION",
+                            "PENDIENTE_CIERRE"
+                        ],
+                        "type": "string",
+                        "description": "Tipo operativo",
+                        "name": "tipo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Búsqueda por cliente, reserva, servicio, personal o local",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamaño de página (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco de la página siguiente",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total filtrado",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.seguimientoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/seguimiento/resumen": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve contadores completos por periodo y local; no acepta tipo, texto ni paginación, para mantenerlos independientes de la lista visible.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Resumen de seguimiento operativo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD)",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD)",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.SeguimientoResumen"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -5570,6 +6292,414 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/inventario/consumos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista los eventos de consumo declarado en atenciones activas. Usa atenciones.fecha_atencion (no la fecha del movimiento de stock) y atencion_insumos.cantidad_usada. Filtros: fecha_desde y fecha_hasta (YYYY-MM-DD, inclusivos; por defecto hoy), local_id, item_id, cliente, servicio, empleado (texto), empleado_id, estado_descuento (DESCONTADO o PENDIENTE) y q (cliente, reserva, servicio, personal, local o insumo). Los usuarios con local asignado quedan limitados a ese local. Si falta hora_inicio se usa la hora de la reserva y se marca horario_programado=true. Las atenciones desactivadas no aparecen.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Calendario de consumos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-11-09",
+                        "description": "Desde (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-11-14",
+                        "description": "Hasta (YYYY-MM-DD); por defecto fecha_desde",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar atenciones que usaron este insumo",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por nombre de personal",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por personal",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DESCONTADO",
+                            "PENDIENTE"
+                        ],
+                        "type": "string",
+                        "example": "PENDIENTE",
+                        "description": "Estado de deduccion",
+                        "name": "estado_descuento",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general por cliente, reserva, servicio, personal, local o insumo",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100); sin limit ni cursor devuelve hasta 500 eventos",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con los mismos filtros",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total_registros y total_paginas (requiere limit o cursor)",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.consumosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha invalida, estado_descuento fuera de la lista, parametro invalido o cursor de otros filtros",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar consumos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/consumos/empleados": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Agrega la actividad de consumo por empleado para el rango y filtros indicados. No suma cantidades entre unidades distintas: cuenta atenciones, lineas de insumo, insumos distintos, lineas pendientes y atenciones con deduccion pendiente. Los filtros son los mismos del calendario; estado_descuento filtra las lineas que componen los conteos. Las atenciones sin insumos se conservan cuando no se filtra por estado. Los empleados eliminados se agrupan por el nombre snapshot.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Reporte de consumos por empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-11-01",
+                        "description": "Desde (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-11-30",
+                        "description": "Hasta (YYYY-MM-DD); por defecto fecha_desde",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por insumo",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por nombre de personal",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por personal",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DESCONTADO",
+                            "PENDIENTE"
+                        ],
+                        "type": "string",
+                        "example": "PENDIENTE",
+                        "description": "Estado de deduccion",
+                        "name": "estado_descuento",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general por cliente, reserva, servicio, personal, local o insumo",
+                        "name": "q",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.consumosEmpleadosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha invalida o estado_descuento fuera de la lista",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al resumir consumos por empleado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/consumos/resumen": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Agrega el consumo declarado por insumo y unidad para el rango y filtros indicados. No suma unidades distintas y cuenta atenciones distintas. Los filtros son los mismos del calendario; estado_descuento filtra las lineas que componen el total. Las reversiones de stock no alteran cantidad_usada.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Reporte agregado de consumos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-11-01",
+                        "description": "Desde (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-11-30",
+                        "description": "Hasta (YYYY-MM-DD); por defecto fecha_desde",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por insumo",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por nombre de personal",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por personal",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DESCONTADO",
+                            "PENDIENTE"
+                        ],
+                        "type": "string",
+                        "example": "PENDIENTE",
+                        "description": "Estado de deduccion",
+                        "name": "estado_descuento",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general por cliente, reserva, servicio, personal, local o insumo",
+                        "name": "q",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.consumosResumenResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha invalida o estado_descuento fuera de la lista",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al resumir consumos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/inventario/items": {
             "get": {
                 "security": [
@@ -10155,7 +11285,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO o RECHAZADO (requerido). COMPLETADO solo se puede establecer al registrar una atención. causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→RECHAZADO, RECHAZADO→PENDIENTE.\nConfirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.\nInventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.",
+                "description": "Cambia el estado de una reserva. COMPLETADO solo se puede establecer al registrar una atención. RECHAZADO se reserva para solicitudes PENDIENTE; CANCELADO exige motivo_cancelacion_tipo y solo aplica a reservas AGENDADO. Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→CANCELADO, RECHAZADO→PENDIENTE.\nConfirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.\nInventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.",
                 "consumes": [
                     "application/json"
                 ],
@@ -10598,7 +11728,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Registra la atención real y cambia una reserva AGENDADA a COMPLETADO en una sola transacción. Con inventario.politica_sin_stock=ADVERTIR, los insumos sin stock suficiente quedan en PENDIENTE_STOCK sin descuento parcial; con BLOQUEAR se revierte el cierre y responde 409.",
+                "description": "Registra la atención real y cambia una reserva AGENDADA a COMPLETADO en una sola transacción. Los insumos sin stock suficiente quedan en PENDIENTE_STOCK sin descuento parcial. Con inventario.politica_sin_stock=BLOQUEAR responde 409 salvo que el usuario confirme expresamente el faltante mediante confirmar_stock_insuficiente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -14106,7 +15236,7 @@ const docTemplate = `{
                     "example": "Cliente confirmo por WhatsApp"
                 },
                 "estado": {
-                    "description": "Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO",
+                    "description": "Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o CANCELADO",
                     "type": "string",
                     "example": "AGENDADO"
                 },
@@ -14114,6 +15244,14 @@ const docTemplate = `{
                     "description": "ID de la reserva",
                     "type": "integer",
                     "example": 44
+                },
+                "motivo_cancelacion_detalle": {
+                    "type": "string",
+                    "example": "No respondio los intentos de contacto"
+                },
+                "motivo_cancelacion_tipo": {
+                    "type": "string",
+                    "example": "INASISTENCIA"
                 },
                 "precio": {
                     "description": "Precio actualizado (opcional)",
@@ -14877,6 +16015,30 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.atencionesResponse": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "description": "Atenciones activas que cumplen los filtros",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Atencion"
+                    }
+                },
+                "paginacion": {
+                    "description": "Paginacion por cursor (solo si se envia limit o cursor)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total_registros": {
+                    "description": "Total de atenciones con los filtros (solo con include_total=true)",
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.authRequest": {
             "type": "object",
             "required": [
@@ -14917,6 +16079,40 @@ const docTemplate = `{
                     "description": "Tipo de bono del catalogo",
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "handlers.calendarioConsumoResponse": {
+            "type": "object",
+            "properties": {
+                "eventos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CalendarioConsumoEvento"
+                    }
+                },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
+                },
+                "total_registros": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.calendarioPersonalResponse": {
+            "type": "object",
+            "properties": {
+                "eventos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CalendarioPersonalEvento"
+                    }
+                },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
+                },
+                "total_registros": {
+                    "type": "integer"
                 }
             }
         },
@@ -15419,6 +16615,54 @@ const docTemplate = `{
                     "description": "Parametros del sistema (clave -\u003e valor tipado): inventario.politica_sin_stock, inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda, paquetes.sesion_en_estado, cobros.dias_maximo_fecha_pasada",
                     "type": "object",
                     "additionalProperties": true
+                }
+            }
+        },
+        "handlers.consumosEmpleadosResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "description": "Totales operativos por empleado",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConsumoEmpleadoResumen"
+                    }
+                }
+            }
+        },
+        "handlers.consumosResponse": {
+            "type": "object",
+            "properties": {
+                "consumos": {
+                    "description": "Eventos de consumo declarado en atenciones activas",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConsumoEvento"
+                    }
+                },
+                "paginacion": {
+                    "description": "Paginacion por cursor (solo si se envia limit o cursor)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total_registros": {
+                    "description": "Total de eventos con los filtros (solo con paginacion e include_total=true)",
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.consumosResumenResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "description": "Totales por insumo y unidad",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConsumoResumen"
+                    }
                 }
             }
         },
@@ -17672,6 +18916,9 @@ const docTemplate = `{
                 "lugar"
             ],
             "properties": {
+                "confirmar_stock_insuficiente": {
+                    "type": "boolean"
+                },
                 "empleado_id": {
                     "type": "integer"
                 },
@@ -18065,6 +19312,23 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.seguimientoResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.SeguimientoItem"
+                    }
+                },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
+                },
+                "total_registros": {
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.servicioFiltrosResponse": {
             "type": "object",
             "properties": {
@@ -18394,6 +19658,240 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.AlertaReservaInventario"
                     }
+                }
+            }
+        },
+        "models.Atencion": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean"
+                },
+                "cliente_nombre": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "creado_en": {
+                    "type": "string"
+                },
+                "empleado_id": {
+                    "type": "integer"
+                },
+                "empleado_nombre": {
+                    "type": "string"
+                },
+                "fecha_atencion": {
+                    "type": "string"
+                },
+                "hora_fin": {
+                    "type": "string"
+                },
+                "hora_inicio": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "insumos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AtencionInsumo"
+                    }
+                },
+                "insumos_pendientes": {
+                    "type": "integer"
+                },
+                "insumos_pendientes_detalle": {
+                    "type": "string"
+                },
+                "insumos_registrados": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "insumos_resumen": {
+                    "type": "string",
+                    "example": "Gel, Guantes"
+                },
+                "local_id": {
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "lugar": {
+                    "type": "string"
+                },
+                "motivo_cancelacion_detalle": {
+                    "type": "string"
+                },
+                "motivo_cancelacion_tipo": {
+                    "type": "string"
+                },
+                "observaciones": {
+                    "type": "string"
+                },
+                "registrado_por": {
+                    "type": "string"
+                },
+                "registrado_por_id": {
+                    "type": "integer"
+                },
+                "reserva_id": {
+                    "type": "integer"
+                },
+                "resultado": {
+                    "description": "Resultado distingue una atención realizada de una reserva cancelada que se\nproyecta en el historial. Las cancelaciones no tienen atención física.",
+                    "type": "string"
+                },
+                "servicio_reserva": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
+        "models.AtencionInsumo": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer"
+                },
+                "cantidad_descontada": {
+                    "type": "number"
+                },
+                "cantidad_usada": {
+                    "type": "number"
+                },
+                "estado_descuento": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "item_nombre": {
+                    "type": "string"
+                },
+                "unidad_medida": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CalendarioConsumoEvento": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Daniela Perez"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "hora_fin": {
+                    "type": "string",
+                    "example": "09:50"
+                },
+                "hora_inicio": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "insumos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConsumoInsumo"
+                    }
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "insumos_registrados": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
+        "models.CalendarioPersonalEvento": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Daniela Perez"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "hora_fin": {
+                    "type": "string",
+                    "example": "09:50"
+                },
+                "hora_inicio": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "lugar": {
+                    "type": "string",
+                    "example": "Cabina 1"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
                 }
             }
         },
@@ -18867,6 +20365,180 @@ const docTemplate = `{
                 "unidad_medida": {
                     "type": "string",
                     "example": "ML"
+                }
+            }
+        },
+        "models.ConsumoEmpleadoResumen": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "atenciones_pendientes": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Daniela Perez"
+                },
+                "insumos_distintos": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "insumos_registrados": {
+                    "type": "integer",
+                    "example": 30
+                },
+                "locales": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                }
+            }
+        },
+        "models.ConsumoEvento": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Daniela Perez"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "hora_fin": {
+                    "type": "string",
+                    "example": "09:50"
+                },
+                "hora_inicio": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "horario_programado": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "insumos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConsumoInsumo"
+                    }
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "insumos_registrados": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "lugar": {
+                    "type": "string",
+                    "example": "Cabina 1"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
+        "models.ConsumoInsumo": {
+            "type": "object",
+            "properties": {
+                "cantidad_descontada": {
+                    "type": "number",
+                    "example": 1.5
+                },
+                "cantidad_pendiente": {
+                    "type": "number",
+                    "example": 0
+                },
+                "cantidad_usada": {
+                    "type": "number",
+                    "example": 1.5
+                },
+                "estado_descuento": {
+                    "type": "string",
+                    "example": "DESCONTADO"
+                },
+                "item_id": {
+                    "type": "integer",
+                    "example": 14
+                },
+                "item_nombre": {
+                    "type": "string",
+                    "example": "Alcohol en gel"
+                },
+                "unidad_medida": {
+                    "type": "string",
+                    "example": "LT"
+                }
+            }
+        },
+        "models.ConsumoResumen": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "cantidad_descontada": {
+                    "type": "number",
+                    "example": 4
+                },
+                "cantidad_pendiente": {
+                    "type": "number",
+                    "example": 0
+                },
+                "cantidad_usada": {
+                    "type": "number",
+                    "example": 4
+                },
+                "item_id": {
+                    "type": "integer",
+                    "example": 14
+                },
+                "item_nombre": {
+                    "type": "string",
+                    "example": "Alcohol en gel"
+                },
+                "unidad_medida": {
+                    "type": "string",
+                    "example": "LT"
                 }
             }
         },
@@ -19438,6 +21110,155 @@ const docTemplate = `{
                 "unidad_medida": {
                     "type": "string",
                     "example": "ML"
+                }
+            }
+        },
+        "models.JornadaAtencion": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer",
+                    "example": 55
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Ana Perez"
+                },
+                "estado_operativo": {
+                    "type": "string",
+                    "example": "PROGRAMADA"
+                },
+                "estado_reserva": {
+                    "type": "string",
+                    "example": "AGENDADO"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-11-09"
+                },
+                "hora_desde": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "hora_hasta": {
+                    "type": "string",
+                    "example": "10:00"
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "insumos_registrados": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "insumos_resumen": {
+                    "type": "string",
+                    "example": "Gel, Guantes"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "motivo_cancelacion_tipo": {
+                    "type": "string"
+                },
+                "puede_atender": {
+                    "description": "Acciones calculadas en backend para no duplicar reglas en el frontend.",
+                    "type": "boolean"
+                },
+                "puede_editar_atencion": {
+                    "type": "boolean"
+                },
+                "puede_ver_atencion": {
+                    "type": "boolean"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
+        "models.JornadaResponse": {
+            "type": "object",
+            "properties": {
+                "fecha": {
+                    "description": "Fecha consultada; por defecto la fecha actual de la zona horaria configurada.",
+                    "type": "string",
+                    "example": "2026-11-09"
+                },
+                "hoy": {
+                    "description": "Fecha actual de la zona horaria configurada, usada por el boton \"Hoy\".",
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "items": {
+                    "description": "Reservas del dia con su estado operativo derivado.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.JornadaAtencion"
+                    }
+                },
+                "paginacion": {
+                    "description": "Metadatos de cursor presentes cuando se consulta limit o cursor.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "resumen": {
+                    "description": "Se conserva por compatibilidad; la interfaz operativa usa\n/jornada/resumen para evitar que la lista y sus filtros lo condicionen.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.JornadaResumen"
+                        }
+                    ]
+                },
+                "total_registros": {
+                    "description": "Total de filas de la lista filtrada, solo con include_total=true.",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.JornadaResumen": {
+            "type": "object",
+            "properties": {
+                "atendidas": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "canceladas": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "deducciones_pendientes": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "no_asistieron": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "pendientes_cierre": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "programadas": {
+                    "type": "integer",
+                    "example": 4
                 }
             }
         },
@@ -20916,6 +22737,94 @@ const docTemplate = `{
                 }
             }
         },
+        "models.SeguimientoItem": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "detalle_insumos_pendientes": {
+                    "type": "string",
+                    "example": "Gel: 1 ML"
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Daniela Perez"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "hora_inicio": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "motivo": {
+                    "type": "string",
+                    "example": "INASISTENCIA"
+                },
+                "puede_atender": {
+                    "type": "boolean"
+                },
+                "puede_editar_atencion": {
+                    "type": "boolean"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                },
+                "tipo": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TipoSeguimiento"
+                        }
+                    ],
+                    "example": "DEDUCCION_PENDIENTE"
+                }
+            }
+        },
+        "models.SeguimientoResumen": {
+            "type": "object",
+            "properties": {
+                "cancelaciones": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "deducciones_pendientes": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "inasistencias": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "pendientes_cierre": {
+                    "type": "integer",
+                    "example": 4
+                }
+            }
+        },
         "models.Semana": {
             "type": "object",
             "properties": {
@@ -21062,6 +22971,21 @@ const docTemplate = `{
                     "example": "M"
                 }
             }
+        },
+        "models.TipoSeguimiento": {
+            "type": "string",
+            "enum": [
+                "DEDUCCION_PENDIENTE",
+                "INASISTENCIA",
+                "CANCELACION",
+                "PENDIENTE_CIERRE"
+            ],
+            "x-enum-varnames": [
+                "SeguimientoDeduccionPendiente",
+                "SeguimientoInasistencia",
+                "SeguimientoCancelacion",
+                "SeguimientoPendienteCierre"
+            ]
         },
         "models.UsuarioResumenPG": {
             "type": "object",
