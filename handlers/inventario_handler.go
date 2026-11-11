@@ -111,6 +111,39 @@ type movimientosInventarioResponse struct {
 	TotalRegistros *int `json:"total_registros,omitempty"`
 }
 
+type consumosResponse struct {
+	// Eventos de consumo declarado en atenciones activas
+	Consumos []models.ConsumoEvento `json:"consumos"`
+	// Paginacion por cursor (solo si se envia limit o cursor)
+	Paginacion *pagination.Metadata `json:"paginacion,omitempty"`
+	// Total de eventos con los filtros (solo con paginacion e include_total=true)
+	TotalRegistros *int `json:"total_registros,omitempty"`
+}
+
+type consumosResumenResponse struct {
+	// Totales por insumo y unidad
+	Items []models.ConsumoResumen `json:"items"`
+}
+
+type consumosEmpleadosResponse struct {
+	// Totales operativos por empleado
+	Items []models.ConsumoEmpleadoResumen `json:"items"`
+}
+
+// consumosFiltrosCursor ata el cursor a los filtros del calendario.
+type consumosFiltrosCursor struct {
+	LocalID         *int   `json:"local_id,omitempty"`
+	FechaDesde      string `json:"fecha_desde,omitempty"`
+	FechaHasta      string `json:"fecha_hasta,omitempty"`
+	ItemID          *int   `json:"item_id,omitempty"`
+	Cliente         string `json:"cliente,omitempty"`
+	Servicio        string `json:"servicio,omitempty"`
+	Empleado        string `json:"empleado,omitempty"`
+	EmpleadoID      *int   `json:"empleado_id,omitempty"`
+	EstadoDescuento string `json:"estado_descuento,omitempty"`
+	Q               string `json:"q,omitempty"`
+}
+
 // movimientosFiltrosCursor ata el cursor a los filtros: cambiar un filtro invalida el cursor.
 type movimientosFiltrosCursor struct {
 	ItemID     *int   `json:"item_id,omitempty"`
@@ -688,6 +721,255 @@ func (h *Container) GetInventarioMovimientos(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, movimientosInventarioResponse{Movimientos: movs, Paginacion: metadata, TotalRegistros: total})
 }
 
+// GetInventarioConsumos godoc
+// @Summary Calendario de consumos
+// @Description Lista los eventos de consumo declarado en atenciones activas. Usa atenciones.fecha_atencion (no la fecha del movimiento de stock) y atencion_insumos.cantidad_usada. Filtros: fecha_desde y fecha_hasta (YYYY-MM-DD, inclusivos; por defecto hoy), local_id, item_id, cliente, servicio, empleado (texto), empleado_id, estado_descuento (DESCONTADO o PENDIENTE) y q (cliente, reserva, servicio, personal, local o insumo). Los usuarios con local asignado quedan limitados a ese local. Si falta hora_inicio se usa la hora de la reserva y se marca horario_programado=true. Las atenciones desactivadas no aparecen.
+// @Tags Inventario
+// @Produce json
+// @Security BearerAuth
+// @Param fecha_desde query string false "Desde (YYYY-MM-DD); por defecto hoy" example(2026-11-09)
+// @Param fecha_hasta query string false "Hasta (YYYY-MM-DD); por defecto fecha_desde" example(2026-11-14)
+// @Param local_id query int false "Filtrar por local (admin_sys)"
+// @Param item_id query int false "Filtrar atenciones que usaron este insumo"
+// @Param cliente query string false "Busqueda por cliente"
+// @Param servicio query string false "Busqueda por servicio"
+// @Param empleado query string false "Busqueda por nombre de personal"
+// @Param empleado_id query int false "Filtrar por personal"
+// @Param estado_descuento query string false "Estado de deduccion" Enums(DESCONTADO,PENDIENTE) example(PENDIENTE)
+// @Param q query string false "Busqueda general por cliente, reserva, servicio, personal, local o insumo"
+// @Param limit query int false "Tamano de pagina (1-100); sin limit ni cursor devuelve hasta 500 eventos"
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor; solo vale con los mismos filtros"
+// @Param include_total query bool false "Incluye total_registros y total_paginas (requiere limit o cursor)"
+// @Success 200 {object} utils.APIResponse{data=consumosResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: fecha invalida, estado_descuento fuera de la lista, parametro invalido o cursor de otros filtros"
+// @Failure 401 {object} utils.APIResponse "Token requerido"
+// @Failure 403 {object} utils.APIResponse "Sin acceso al local"
+// @Failure 500 {object} utils.APIResponse "Error al consultar consumos"
+// @Router /bd/inventario/consumos [get]
+func (h *Container) GetInventarioConsumos(c *gin.Context) {
+	localPedido, err := queryInt(c, "local_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	localID, ok := resolverLocalID(c, localPedido)
+	if !ok {
+		return
+	}
+	page, ok := parsePagination(c)
+	if !ok {
+		return
+	}
+	includeTotal, ok := parseIncludeTotal(c)
+	if !ok {
+		return
+	}
+	desde, err := services.ParseFechaOpcional(c.Query("fecha_desde"), "fecha_desde")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	hasta, err := services.ParseFechaOpcional(c.Query("fecha_hasta"), "fecha_hasta")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	itemID, err := queryInt(c, "item_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	empleadoID, err := queryInt(c, "empleado_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	f, err := h.Inventario.PrepararConsumos(services.ConsumosInput{
+		LocalID: localID, FechaDesde: desde, FechaHasta: hasta, ItemID: itemID,
+		Cliente: c.Query("cliente"), Servicio: c.Query("servicio"), Empleado: c.Query("empleado"),
+		EmpleadoID: empleadoID, EstadoDescuento: c.Query("estado_descuento"), Q: c.Query("q"),
+		PageLimit: page.QueryLimit(),
+	})
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	filters := consumosFiltrosCursor{
+		LocalID: f.LocalID, FechaDesde: f.FechaDesde.Format("2006-01-02"), FechaHasta: f.FechaHasta.Format("2006-01-02"),
+		ItemID: f.ItemID, Cliente: f.Cliente, Servicio: f.Servicio, Empleado: f.Empleado,
+		EmpleadoID: f.EmpleadoID, EstadoDescuento: f.EstadoDescuento, Q: f.Q,
+	}
+	afterOffset, ok := decodeOffsetCursor(c, page, "inventario_consumos", filters)
+	if !ok {
+		return
+	}
+	f.Offset = afterOffset.Offset
+
+	consumos, err := h.Inventario.ListarConsumos(f)
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	var total *int
+	if includeTotal && page.Enabled {
+		n, err := h.Inventario.ContarConsumos(f)
+		if err != nil {
+			respondTrastiendaError(c, err)
+			return
+		}
+		total = &n
+	}
+	consumos, metadata, err := pagination.Build(consumos, page, "inventario_consumos", filters, func(models.ConsumoEvento) any {
+		return pagination.OffsetPosition{Offset: afterOffset.Offset + page.Limit}
+	})
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if total != nil {
+		pagination.AddTotal(metadata, *total)
+	}
+	utils.Respond(c, http.StatusOK, consumosResponse{Consumos: consumos, Paginacion: metadata, TotalRegistros: total})
+}
+
+// GetInventarioConsumosResumen godoc
+// @Summary Reporte agregado de consumos
+// @Description Agrega el consumo declarado por insumo y unidad para el rango y filtros indicados. No suma unidades distintas y cuenta atenciones distintas. Los filtros son los mismos del calendario; estado_descuento filtra las lineas que componen el total. Las reversiones de stock no alteran cantidad_usada.
+// @Tags Inventario
+// @Produce json
+// @Security BearerAuth
+// @Param fecha_desde query string false "Desde (YYYY-MM-DD); por defecto hoy" example(2026-11-01)
+// @Param fecha_hasta query string false "Hasta (YYYY-MM-DD); por defecto fecha_desde" example(2026-11-30)
+// @Param local_id query int false "Filtrar por local (admin_sys)"
+// @Param item_id query int false "Filtrar por insumo"
+// @Param cliente query string false "Busqueda por cliente"
+// @Param servicio query string false "Busqueda por servicio"
+// @Param empleado query string false "Busqueda por nombre de personal"
+// @Param empleado_id query int false "Filtrar por personal"
+// @Param estado_descuento query string false "Estado de deduccion" Enums(DESCONTADO,PENDIENTE) example(PENDIENTE)
+// @Param q query string false "Busqueda general por cliente, reserva, servicio, personal, local o insumo"
+// @Success 200 {object} utils.APIResponse{data=consumosResumenResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: fecha invalida o estado_descuento fuera de la lista"
+// @Failure 401 {object} utils.APIResponse "Token requerido"
+// @Failure 403 {object} utils.APIResponse "Sin acceso al local"
+// @Failure 500 {object} utils.APIResponse "Error al resumir consumos"
+// @Router /bd/inventario/consumos/resumen [get]
+func (h *Container) GetInventarioConsumosResumen(c *gin.Context) {
+	localPedido, err := queryInt(c, "local_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	localID, ok := resolverLocalID(c, localPedido)
+	if !ok {
+		return
+	}
+	desde, err := services.ParseFechaOpcional(c.Query("fecha_desde"), "fecha_desde")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	hasta, err := services.ParseFechaOpcional(c.Query("fecha_hasta"), "fecha_hasta")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	itemID, err := queryInt(c, "item_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	empleadoID, err := queryInt(c, "empleado_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	f, err := h.Inventario.PrepararConsumos(services.ConsumosInput{
+		LocalID: localID, FechaDesde: desde, FechaHasta: hasta, ItemID: itemID,
+		Cliente: c.Query("cliente"), Servicio: c.Query("servicio"), Empleado: c.Query("empleado"),
+		EmpleadoID: empleadoID, EstadoDescuento: c.Query("estado_descuento"), Q: c.Query("q"),
+	})
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	items, err := h.Inventario.ResumenConsumos(f)
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, consumosResumenResponse{Items: items})
+}
+
+// GetInventarioConsumosEmpleados godoc
+// @Summary Reporte de consumos por empleado
+// @Description Agrega la actividad de consumo por empleado para el rango y filtros indicados. No suma cantidades entre unidades distintas: cuenta atenciones, lineas de insumo, insumos distintos, lineas pendientes y atenciones con deduccion pendiente. Los filtros son los mismos del calendario; estado_descuento filtra las lineas que componen los conteos. Las atenciones sin insumos se conservan cuando no se filtra por estado. Los empleados eliminados se agrupan por el nombre snapshot.
+// @Tags Inventario
+// @Produce json
+// @Security BearerAuth
+// @Param fecha_desde query string false "Desde (YYYY-MM-DD); por defecto hoy" example(2026-11-01)
+// @Param fecha_hasta query string false "Hasta (YYYY-MM-DD); por defecto fecha_desde" example(2026-11-30)
+// @Param local_id query int false "Filtrar por local (admin_sys)"
+// @Param item_id query int false "Filtrar por insumo"
+// @Param cliente query string false "Busqueda por cliente"
+// @Param servicio query string false "Busqueda por servicio"
+// @Param empleado query string false "Busqueda por nombre de personal"
+// @Param empleado_id query int false "Filtrar por personal"
+// @Param estado_descuento query string false "Estado de deduccion" Enums(DESCONTADO,PENDIENTE) example(PENDIENTE)
+// @Param q query string false "Busqueda general por cliente, reserva, servicio, personal, local o insumo"
+// @Success 200 {object} utils.APIResponse{data=consumosEmpleadosResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: fecha invalida o estado_descuento fuera de la lista"
+// @Failure 401 {object} utils.APIResponse "Token requerido"
+// @Failure 403 {object} utils.APIResponse "Sin acceso al local"
+// @Failure 500 {object} utils.APIResponse "Error al resumir consumos por empleado"
+// @Router /bd/inventario/consumos/empleados [get]
+func (h *Container) GetInventarioConsumosEmpleados(c *gin.Context) {
+	localPedido, err := queryInt(c, "local_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	localID, ok := resolverLocalID(c, localPedido)
+	if !ok {
+		return
+	}
+	desde, err := services.ParseFechaOpcional(c.Query("fecha_desde"), "fecha_desde")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	hasta, err := services.ParseFechaOpcional(c.Query("fecha_hasta"), "fecha_hasta")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	itemID, err := queryInt(c, "item_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	empleadoID, err := queryInt(c, "empleado_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	f, err := h.Inventario.PrepararConsumos(services.ConsumosInput{
+		LocalID: localID, FechaDesde: desde, FechaHasta: hasta, ItemID: itemID,
+		Cliente: c.Query("cliente"), Servicio: c.Query("servicio"), Empleado: c.Query("empleado"),
+		EmpleadoID: empleadoID, EstadoDescuento: c.Query("estado_descuento"), Q: c.Query("q"),
+	})
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	items, err := h.Inventario.ResumenConsumosPorEmpleado(f)
+	if err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, consumosEmpleadosResponse{Items: items})
+}
+
 // PostInventarioAjuste godoc
 // @Summary Ajustar stock
 // @Description Registra un ajuste manual de stock (merma, vencimiento o conteo fisico). El motivo es obligatorio. Un ajuste negativo no puede dejar el stock bajo cero. Gerencia solo puede ajustar su local. Requiere token Bearer con rol admin_sys o gerencia.
@@ -826,4 +1108,3 @@ func (h *Container) PutServicioInsumos(c *gin.Context) {
 	}
 	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "insumos del servicio actualizados correctamente"})
 }
-

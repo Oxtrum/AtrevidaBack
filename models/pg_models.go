@@ -297,9 +297,14 @@ type ReservaPG struct {
 	Activo             bool     `db:"activo"`
 	Notificado         bool     `db:"notificado"`
 	// AlertaInventario es true si al crear/agendar faltaba stock de insumos (trastienda).
-	AlertaInventario bool      `db:"alerta_inventario"`
-	CreadoEn         time.Time `db:"creado_en"`
-	ActualizadoEn    time.Time `db:"actualizado_en"`
+	AlertaInventario         bool       `db:"alerta_inventario"`
+	MotivoCancelacionTipo    *string    `db:"motivo_cancelacion_tipo" json:"motivo_cancelacion_tipo,omitempty"`
+	MotivoCancelacionDetalle *string    `db:"motivo_cancelacion_detalle" json:"motivo_cancelacion_detalle,omitempty"`
+	CanceladoEn              *time.Time `db:"cancelado_en" json:"cancelado_en,omitempty"`
+	CanceladoPorID           *int       `db:"cancelado_por_id" json:"cancelado_por_id,omitempty"`
+	CanceladoPor             *string    `db:"cancelado_por" json:"cancelado_por,omitempty"`
+	CreadoEn                 time.Time  `db:"creado_en"`
+	ActualizadoEn            time.Time  `db:"actualizado_en"`
 }
 
 type DetalleReservaPG struct {
