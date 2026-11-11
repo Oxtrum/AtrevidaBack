@@ -135,15 +135,19 @@ func (c *InventarioConsumo) refrescarLocalDe(reservaID int) {
 	c.RefrescarAlertas(&localID)
 }
 
-func refrescarAlertas(repo *pgsqlrepo.InventarioRepo, config *ConfiguracionService, localID *int) {
+// refrescarAlertas devuelve las advertencias de cada reserva evaluada (por id); nil si fallo.
+func refrescarAlertas(repo *pgsqlrepo.InventarioRepo, config *ConfiguracionService, localID *int) map[int][]models.AdvertenciaInventario {
 	cfg, err := config.Snapshot()
 	if err != nil {
 		log.Printf("[inventario] no se pudo leer la configuracion para refrescar alertas: %v", err)
-		return
+		return nil
 	}
-	if err := repo.RecalcularAlertasAbiertas(localID, cfg.ConsiderarComprometido); err != nil {
+	warnings, err := repo.RecalcularAlertasAbiertas(localID, cfg.ConsiderarComprometido)
+	if err != nil {
 		log.Printf("[inventario] no se pudieron refrescar las alertas: %v", err)
+		return nil
 	}
+	return warnings
 }
 
 // DespuesDeCrear recalcula la alerta y, si la politica descuenta al agendar y la

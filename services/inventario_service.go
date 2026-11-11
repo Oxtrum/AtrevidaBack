@@ -310,7 +310,8 @@ func (s *InventarioService) RefrescarAlertas(localID *int) {
 
 func (s *InventarioService) Alertas(localID *int) (*models.AlertasInventario, error) {
 	// El flag guardado puede estar viejo (stock que cambio despues de agendar): se refresca antes de listar.
-	s.RefrescarAlertas(localID)
+	// Ese mismo recalculo ya trae el detalle de cada reserva: se reutiliza abajo en vez de evaluarlas de nuevo.
+	recalculadas := refrescarAlertas(s.repo, s.config, localID)
 	items, err := s.repo.ItemsBajoStockPorLocal(localID)
 	if err != nil {
 		return nil, err
@@ -327,9 +328,11 @@ func (s *InventarioService) Alertas(localID *int) (*models.AlertasInventario, er
 		return nil, err
 	}
 	for i := range reservas {
-		// Se recalcula el detalle en vivo: el flag solo indica que hubo faltante al agendar.
-		warns, err := s.advertenciasReserva(reservas[i].ReservaID, cfg.ConsiderarComprometido)
-		if err == nil {
+		// El detalle sale del recalculo en vivo de arriba (el flag solo indica que hubo faltante al agendar).
+		// Si ese recalculo fallo o la reserva no entro, se evalua individualmente.
+		if warns, ok := recalculadas[reservas[i].ReservaID]; ok {
+			reservas[i].Advertencias = warns
+		} else if warns, err := s.advertenciasReserva(reservas[i].ReservaID, cfg.ConsiderarComprometido); err == nil {
 			reservas[i].Advertencias = warns
 		}
 	}
