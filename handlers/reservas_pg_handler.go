@@ -286,10 +286,12 @@ func respondReservaDuplicada(c *gin.Context, e *services.ReservaDuplicadaError) 
 type actualizarEstadoReservaPGRequest struct {
 	// ID de la reserva
 	Id int `json:"id" binding:"required" example:"44"`
-	// Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO
+	// Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o CANCELADO
 	Estado string `json:"estado" binding:"required" example:"AGENDADO"`
 	// Motivo del cambio de estado
-	Causa string `json:"causa" example:"Cliente confirmo por WhatsApp"`
+	Causa                    string `json:"causa" example:"Cliente confirmo por WhatsApp"`
+	MotivoCancelacionTipo    string `json:"motivo_cancelacion_tipo" example:"INASISTENCIA"`
+	MotivoCancelacionDetalle string `json:"motivo_cancelacion_detalle" example:"No respondio los intentos de contacto"`
 	// Servicio confirmado (opcional, se actualiza si se envia)
 	ServicioConfirmado *string `json:"servicio_confirmado" example:"Depilacion Laser Piernas"`
 	// Precio actualizado (opcional)
@@ -952,7 +954,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 
 // PatchReservaEstadoPG godoc
 // @Summary Actualizar estado de reserva
-// @Description Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO o RECHAZADO (requerido). COMPLETADO solo se puede establecer al registrar una atención. causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→RECHAZADO, RECHAZADO→PENDIENTE.
+// @Description Cambia el estado de una reserva. COMPLETADO solo se puede establecer al registrar una atención. RECHAZADO se reserva para solicitudes PENDIENTE; CANCELADO exige motivo_cancelacion_tipo y solo aplica a reservas AGENDADO. Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→CANCELADO, RECHAZADO→PENDIENTE.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
@@ -985,13 +987,15 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 	}
 
 	avisos, err := h.ReservasPG.ActualizarEstadoReservaConAvisos(services.ActualizarEstadoReservaInput{
-		Actor:              consumoActor(c),
-		Id:                 req.Id,
-		Estado:             req.Estado,
-		Causa:              req.Causa,
-		ServicioConfirmado: req.ServicioConfirmado,
-		Precio:             req.Precio,
-		Tipo:               req.Tipo,
+		Actor:                    consumoActor(c),
+		Id:                       req.Id,
+		Estado:                   req.Estado,
+		Causa:                    req.Causa,
+		MotivoCancelacionTipo:    req.MotivoCancelacionTipo,
+		MotivoCancelacionDetalle: req.MotivoCancelacionDetalle,
+		ServicioConfirmado:       req.ServicioConfirmado,
+		Precio:                   req.Precio,
+		Tipo:                     req.Tipo,
 	})
 	if err != nil {
 		if errors.Is(err, repository.ErrCapacidadNoDisponible) || errors.Is(err, repository.ErrEstadoReservaModificado) ||

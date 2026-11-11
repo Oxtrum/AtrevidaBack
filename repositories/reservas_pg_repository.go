@@ -119,15 +119,19 @@ var (
 )
 
 type UpdateReservaEstadoInput struct {
-	ID                   int
-	Estado               string
-	ServicioConfirmado   *string
-	Precio               *float64
-	PrecioSet            bool
-	CostoVariable        *bool
-	CostoVariableSet     bool
-	TipoEspacio          *string
-	EstadoActualEsperado string
+	ID                       int
+	Estado                   string
+	ServicioConfirmado       *string
+	Precio                   *float64
+	PrecioSet                bool
+	CostoVariable            *bool
+	CostoVariableSet         bool
+	TipoEspacio              *string
+	EstadoActualEsperado     string
+	MotivoCancelacionTipo    *string
+	MotivoCancelacionDetalle *string
+	CanceladoPorID           *int
+	CanceladoPor             *string
 	// OnApplied se ejecuta dentro de la misma transaccion, tras aplicar el cambio de estado y
 	// antes del commit (ej. descontar insumos). Si devuelve error se revierte todo.
 	OnApplied func(tx *sqlx.Tx) error
