@@ -16,6 +16,9 @@ type fakeAuthRepo struct {
 	createCalled      bool
 	updateLocalErr    error
 	updateLocalCalled bool
+	passwordID        int
+	passwordHash      string
+	passwordCalled    bool
 }
 
 func (f *fakeAuthRepo) CreateUsuario(username, passwordHash, rolCodigo string, localID *int) (int, error) {
@@ -38,6 +41,9 @@ func (f *fakeAuthRepo) GetUsuarios() ([]models.UsuarioResumenPG, error) {
 }
 
 func (f *fakeAuthRepo) UpdatePassword(id int, passwordHash string) error {
+	f.passwordCalled = true
+	f.passwordID = id
+	f.passwordHash = passwordHash
 	return nil
 }
 
@@ -210,4 +216,41 @@ func TestAuthServiceActualizarUsuarioLocalMapeaErrores(t *testing.T) {
 
 func intPtr(value int) *int {
 	return &value
+}
+
+func TestAuthServiceRestablecerPasswordGuardaElHashDelUsuarioIndicado(t *testing.T) {
+	repo := &fakeAuthRepo{usuario: &models.UsuarioPG{ID: 9, Username: "recepcion1", RolCodigo: "gerencia"}}
+	service := NewAuthService(repo, "test-secret", time.Hour)
+
+	if err := service.RestablecerPassword(RestablecerPasswordInput{Username: " Recepcion1 ", Password: "Nueva123"}); err != nil {
+		t.Fatalf("RestablecerPassword() error = %v", err)
+	}
+	if repo.passwordID != 9 {
+		t.Fatalf("se cambio la password del usuario %d, quiero el 9", repo.passwordID)
+	}
+	if repo.passwordHash == "Nueva123" || bcrypt.CompareHashAndPassword([]byte(repo.passwordHash), []byte("Nueva123")) != nil {
+		t.Fatal("la password no se guardo encriptada con bcrypt")
+	}
+}
+
+func TestAuthServiceRestablecerPasswordExigeUsuarioYPassword(t *testing.T) {
+	repo := &fakeAuthRepo{usuario: &models.UsuarioPG{ID: 9, Username: "recepcion1"}}
+	service := NewAuthService(repo, "test-secret", time.Hour)
+
+	for _, in := range []RestablecerPasswordInput{{Username: "recepcion1", Password: "  "}, {Username: " ", Password: "Nueva123"}} {
+		if err := service.RestablecerPassword(in); !errors.Is(err, ErrCredencialesObligatorias) {
+			t.Fatalf("RestablecerPassword(%+v) error = %v, want %v", in, err, ErrCredencialesObligatorias)
+		}
+	}
+	if repo.passwordCalled {
+		t.Fatal("se guardo una password con datos incompletos")
+	}
+}
+
+func TestAuthServiceRestablecerPasswordUsuarioInexistente(t *testing.T) {
+	service := NewAuthService(&fakeAuthRepo{}, "test-secret", time.Hour)
+	err := service.RestablecerPassword(RestablecerPasswordInput{Username: "nadie", Password: "Nueva123"})
+	if !errors.Is(err, ErrUsuarioNoEncontrado) {
+		t.Fatalf("RestablecerPassword() error = %v, want %v", err, ErrUsuarioNoEncontrado)
+	}
 }

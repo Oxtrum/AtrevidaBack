@@ -55,6 +55,13 @@ type usuariosListResponse struct {
 	Usuarios []models.UsuarioResumenPG `json:"usuarios"`
 }
 
+type restablecerPasswordRequest struct {
+	// Usuario al que se le cambia la password.
+	Username string `json:"username" binding:"required" example:"recepcion1"`
+	// Nueva password en texto plano; se guarda encriptada con bcrypt.
+	Password string `json:"password" binding:"required" example:"NuevoSecreto123"`
+}
+
 type cambiarPasswordRequest struct {
 	// Nueva password del usuario autenticado.
 	Password string `json:"password" binding:"required" example:"NuevoSecreto123"`
@@ -218,6 +225,44 @@ func (h *Container) CambiarPassword(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "password actualizada correctamente"})
+}
+
+// RestablecerPasswordUsuario godoc
+// @Summary Restablecer password de otro usuario
+// @Description Fija una nueva password a otro usuario activo, por ejemplo cuando olvido la suya. Requiere token Bearer con rol admin_sys. No pide la password anterior; la nueva se guarda encriptada con bcrypt. Body: username y password requeridos.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param payload body restablecerPasswordRequest true "Usuario y nueva password"
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: body invalido, username o password obligatorios"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Usuario no encontrado o inactivo"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Router /auth/usuarios/password [patch]
+func (h *Container) RestablecerPasswordUsuario(c *gin.Context) {
+	var req restablecerPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, "body invalido")
+		return
+	}
+
+	err := h.Auth.RestablecerPassword(services.RestablecerPasswordInput{Username: req.Username, Password: req.Password})
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case errors.Is(err, services.ErrCredencialesObligatorias):
+			status = http.StatusBadRequest
+		case errors.Is(err, services.ErrUsuarioNoEncontrado):
+			status = http.StatusNotFound
+		}
+		utils.RespondError(c, status, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "password restablecida correctamente"})
 }
 
 // ActualizarUsuarioActivo godoc

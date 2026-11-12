@@ -134,6 +134,40 @@ func (s *AuthService) CambiarPassword(input CambiarPasswordInput) error {
 	return nil
 }
 
+type RestablecerPasswordInput struct {
+	Username string
+	Password string
+}
+
+// RestablecerPassword fija una nueva password a otro usuario activo (por si la olvido). Solo lo
+// expone el handler de admin_sys; no pide la password anterior.
+func (s *AuthService) RestablecerPassword(input RestablecerPasswordInput) error {
+	username := strings.TrimSpace(input.Username)
+	if username == "" || strings.TrimSpace(input.Password) == "" {
+		return ErrCredencialesObligatorias
+	}
+
+	usuario, err := s.repo.GetUsuarioByUsername(username)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "usuario no encontrado") {
+			return ErrUsuarioNoEncontrado
+		}
+		return err
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("no se pudo encriptar la password")
+	}
+	if err := s.repo.UpdatePassword(usuario.ID, string(hash)); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "usuario no encontrado") {
+			return ErrUsuarioNoEncontrado
+		}
+		return err
+	}
+	return nil
+}
+
 type ActualizarUsuarioActivoInput struct {
 	Username      string
 	TokenUsername string
