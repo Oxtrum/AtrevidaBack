@@ -524,6 +524,90 @@
                 }
             }
         },
+        "/auth/usuarios/password": {
+            "patch": {
+                "description": "Fija una nueva password a otro usuario activo, por ejemplo cuando olvido la suya. Requiere token Bearer con rol admin_sys. No pide la password anterior; la nueva se guarda encriptada con bcrypt. Body: username y password requeridos.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Restablecer password de otro usuario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Usuario y nueva password",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.restablecerPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: body invalido, username o password obligatorios",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado o inactivo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/atenciones": {
             "get": {
                 "security": [
@@ -11495,7 +11579,7 @@
         },
         "/bd/reservas/resumen": {
             "get": {
-                "description": "Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).",
+                "description": "Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Los campos de ingresos (ingresos_hoy, ingresos_semana, ingresos) solo se devuelven a admin_sys; para cualquier otro rol no vienen. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).",
                 "produces": [
                     "application/json"
                 ],
@@ -19293,7 +19377,7 @@
                     "example": 6
                 },
                 "ingresos": {
-                    "description": "Desglose de ingresos por dia desde el lunes hasta la fecha consultada",
+                    "description": "Desglose de ingresos por dia desde el lunes hasta la fecha consultada. Solo lo recibe admin_sys; para el resto no viene.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/handlers.reservaResumenIngresosSemanaResponse"
@@ -19301,12 +19385,12 @@
                     ]
                 },
                 "ingresos_hoy": {
-                    "description": "Ingresos de pagos activos y PAGADOS en el dia consultado",
+                    "description": "Ingresos de pagos activos y PAGADOS en el dia consultado. Solo lo recibe admin_sys; para el resto no viene.",
                     "type": "number",
                     "example": 1250.5
                 },
                 "ingresos_semana": {
-                    "description": "Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada",
+                    "description": "Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada. Solo lo recibe admin_sys; para el resto no viene.",
                     "type": "number",
                     "example": 8450.75
                 },
@@ -19403,6 +19487,25 @@
                     "description": "Total de reservas vigentes sin cliente.",
                     "type": "integer",
                     "example": 9
+                }
+            }
+        },
+        "handlers.restablecerPasswordRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "description": "Nueva password en texto plano; se guarda encriptada con bcrypt.",
+                    "type": "string",
+                    "example": "NuevoSecreto123"
+                },
+                "username": {
+                    "description": "Usuario al que se le cambia la password.",
+                    "type": "string",
+                    "example": "recepcion1"
                 }
             }
         },

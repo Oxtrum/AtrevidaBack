@@ -3246,14 +3246,16 @@ definitions:
       ingresos:
         allOf:
         - $ref: '#/definitions/handlers.reservaResumenIngresosSemanaResponse'
-        description: Desglose de ingresos por dia desde el lunes hasta la fecha consultada
+        description: Desglose de ingresos por dia desde el lunes hasta la fecha consultada.
+          Solo lo recibe admin_sys; para el resto no viene.
       ingresos_hoy:
-        description: Ingresos de pagos activos y PAGADOS en el dia consultado
+        description: Ingresos de pagos activos y PAGADOS en el dia consultado. Solo
+          lo recibe admin_sys; para el resto no viene.
         example: 1250.5
         type: number
       ingresos_semana:
         description: Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha
-          consultada
+          consultada. Solo lo recibe admin_sys; para el resto no viene.
         example: 8450.75
         type: number
       reservas_agendadas_dia:
@@ -3325,6 +3327,20 @@ definitions:
         description: Total de reservas vigentes sin cliente.
         example: 9
         type: integer
+    type: object
+  handlers.restablecerPasswordRequest:
+    properties:
+      password:
+        description: Nueva password en texto plano; se guarda encriptada con bcrypt.
+        example: NuevoSecreto123
+        type: string
+      username:
+        description: Usuario al que se le cambia la password.
+        example: recepcion1
+        type: string
+    required:
+    - password
+    - username
     type: object
   handlers.seguimientoResponse:
     properties:
@@ -6974,6 +6990,62 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Cambiar local de usuario
+      tags:
+      - Auth
+  /auth/usuarios/password:
+    patch:
+      consumes:
+      - application/json
+      description: 'Fija una nueva password a otro usuario activo, por ejemplo cuando
+        olvido la suya. Requiere token Bearer con rol admin_sys. No pide la password
+        anterior; la nueva se guarda encriptada con bcrypt. Body: username y password
+        requeridos.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Usuario y nueva password
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.restablecerPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.messageResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: body invalido, username o password obligatorios'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Usuario no encontrado o inactivo
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Restablecer password de otro usuario
       tags:
       - Auth
   /bd/atenciones:
@@ -14657,11 +14729,13 @@ paths:
         es domingo, los indicadores diarios se devuelven en cero porque no hay atencion;
         el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran
         registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro
-        de local y rango lunes-fecha. Response: reservas_agendadas_dia (int), servicios_completados_dia
-        (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number),
-        semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado
-        int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse
-        con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).'
+        de local y rango lunes-fecha. Los campos de ingresos (ingresos_hoy, ingresos_semana,
+        ingresos) solo se devuelven a admin_sys; para cualquier otro rol no vienen.
+        Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy
+        (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse
+        con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo),
+        ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number,
+        lunes..sabado number opcionales segun el dia efectivo).'
       parameters:
       - default: Bearer <token>
         description: Token Bearer

@@ -351,16 +351,16 @@ type reservaResumenResponse struct {
 	ReservasAgendadasDia int `json:"reservas_agendadas_dia" example:"15"`
 	// Cantidad de servicios completados en el dia consultado
 	ServiciosCompletadosDia int `json:"servicios_completados_dia" example:"10"`
-	// Ingresos de pagos activos y PAGADOS en el dia consultado
-	IngresosHoy float64 `json:"ingresos_hoy" example:"1250.5"`
+	// Ingresos de pagos activos y PAGADOS en el dia consultado. Solo lo recibe admin_sys; para el resto no viene.
+	IngresosHoy *float64 `json:"ingresos_hoy,omitempty" example:"1250.5"`
 	// Cantidad de pagos activos y PAGADOS en el dia consultado
 	CancelacionesHoy int `json:"cancelaciones_hoy" example:"6"`
-	// Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada
-	IngresosSemana float64 `json:"ingresos_semana" example:"8450.75"`
+	// Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada. Solo lo recibe admin_sys; para el resto no viene.
+	IngresosSemana *float64 `json:"ingresos_semana,omitempty" example:"8450.75"`
 	// Resumen por dia de la semana desde el lunes hasta la fecha consultada
 	Semana reservaResumenSemanaResponse `json:"semana"`
-	// Desglose de ingresos por dia desde el lunes hasta la fecha consultada
-	Ingresos reservaResumenIngresosSemanaResponse `json:"ingresos"`
+	// Desglose de ingresos por dia desde el lunes hasta la fecha consultada. Solo lo recibe admin_sys; para el resto no viene.
+	Ingresos *reservaResumenIngresosSemanaResponse `json:"ingresos,omitempty"`
 }
 
 func normalizarTelefono(raw string) (string, error) {
@@ -391,7 +391,7 @@ func normalizarTelefono(raw string) (string, error) {
 
 // GetReservasResumenPG godoc
 // @Summary Obtener resumen numerico de reservas
-// @Description Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).
+// @Description Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Los campos de ingresos (ingresos_hoy, ingresos_semana, ingresos) solo se devuelven a admin_sys; para cualquier otro rol no vienen. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).
 // @Tags Reservas BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -440,15 +440,24 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, reservaResumenResponse{
+	// El dinero del negocio solo lo ve admin_sys, tambien quien tiene un local asignado.
+	utils.Respond(c, http.StatusOK, buildReservaResumenResponse(fecha, *resumen, tieneRol(c, "admin_sys")))
+}
+
+// buildReservaResumenResponse arma el resumen del dia; los ingresos solo van si verIngresos.
+func buildReservaResumenResponse(fecha time.Time, resumen services.ResumenReservas, verIngresos bool) reservaResumenResponse {
+	resp := reservaResumenResponse{
 		ReservasAgendadasDia:    resumen.ReservasAgendadasDia,
 		ServiciosCompletadosDia: resumen.ServiciosCompletadosDia,
-		IngresosHoy:             resumen.IngresosDia,
 		CancelacionesHoy:        resumen.CancelacionesDia,
-		IngresosSemana:          resumen.IngresosSemana,
 		Semana:                  buildReservaResumenSemanaResponse(fecha, resumen.Semana),
-		Ingresos:                buildReservaResumenIngresosSemanaResponse(fecha, resumen.Ingresos),
-	})
+	}
+	if verIngresos {
+		ingresosHoy, ingresosSemana := resumen.IngresosDia, resumen.IngresosSemana
+		desglose := buildReservaResumenIngresosSemanaResponse(fecha, resumen.Ingresos)
+		resp.IngresosHoy, resp.IngresosSemana, resp.Ingresos = &ingresosHoy, &ingresosSemana, &desglose
+	}
+	return resp
 }
 
 func queryLocalNombre(c *gin.Context) string {
