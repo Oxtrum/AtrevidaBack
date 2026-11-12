@@ -247,6 +247,8 @@ type FlujoMovimiento struct {
 	LocalID     *int    `db:"local_id" json:"local_id,omitempty" example:"2"`
 	LocalNombre *string `db:"local_nombre" json:"local_nombre,omitempty" example:"PASEO ARANJUEZ"`
 	Monto       float64 `db:"monto" json:"monto" example:"150"`
+	// Como se pago: efectivo, qr, transferencia, tarjeta o debito_automatico. Nulo si el movimiento no lo indico.
+	MetodoPago *string `db:"metodo_pago" json:"metodo_pago,omitempty" example:"qr"`
 	// PAGADO, PENDIENTE o ANULADO
 	Estado string `db:"estado" json:"estado" example:"PAGADO"`
 	// Saldo acumulado del rango filtrado hasta este movimiento (solo cuentan los PAGADO)

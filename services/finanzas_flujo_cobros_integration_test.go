@@ -53,3 +53,48 @@ func TestTrastiendaFlujoCobroDeCuentaSeNombraComoCobro(t *testing.T) {
 		t.Fatalf("el cobro de cuenta = %+v, quiero categoria Cobro de cuenta y detalle Cobro a ...", f)
 	}
 }
+
+// Cada fila del libro dice con que metodo se pago: el tipo de pago de la venta o el metodo del movimiento (nulo si no se indico).
+func TestTrastiendaFlujoTraeMetodoDePago(t *testing.T) {
+	e := setupCuenta(t)
+	var venta string
+	if err := e.db.Get(&venta, `INSERT INTO pagos (
+		local_id, local_nombre, cliente_nombre, subtotal, descuento, total_final, estado, tipo_pago, nombre_cajero, activo
+	) VALUES ($1,$2,'Cliente de prueba',100,0,100,'PAGADO','qr','Cajera Prueba',TRUE) RETURNING codigo_pago`, e.localID, e.localName); err != nil {
+		t.Fatal(err)
+	}
+	var categoriaID int
+	if err := e.db.Get(&categoriaID, `SELECT id FROM categorias_financieras ORDER BY id LIMIT 1`); err != nil {
+		t.Fatal(err)
+	}
+	insertarMov := func(metodo interface{}) string {
+		var codigo string
+		if err := e.db.Get(&codigo, `INSERT INTO movimientos_financieros (naturaleza, clase, categoria_id, local_id, local_nombre, fecha, monto, metodo_pago, estado)
+			SELECT 'EGRESO', 'VARIABLE', $1, $2, $3, CURRENT_DATE, 10, $4, 'PAGADO' RETURNING codigo`, categoriaID, e.localID, e.localName, metodo); err != nil {
+			t.Fatal(err)
+		}
+		return codigo
+	}
+	conMetodo := insertarMov("transferencia")
+	sinMetodo := insertarMov(nil)
+
+	filas, _, err := e.finRepo.ListFlujo(pgsqlrepo.FiltroFlujo{
+		Desde: time.Now().AddDate(0, 0, -1), Hasta: time.Now().AddDate(0, 0, 1), LocalID: &e.localID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	metodos := map[string]*string{}
+	for _, f := range filas {
+		metodos[f.Codigo] = f.MetodoPago
+	}
+	if m := metodos[venta]; m == nil || *m != "qr" {
+		t.Fatalf("metodo de la venta = %v, quiero qr", m)
+	}
+	if m := metodos[conMetodo]; m == nil || *m != "transferencia" {
+		t.Fatalf("metodo del movimiento = %v, quiero transferencia", m)
+	}
+	if m, hay := metodos[sinMetodo]; !hay || m != nil {
+		t.Fatalf("movimiento sin metodo = %v, quiero nulo", m)
+	}
+}

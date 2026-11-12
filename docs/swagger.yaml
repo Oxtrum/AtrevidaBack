@@ -4460,6 +4460,11 @@ definitions:
       local_nombre:
         example: PASEO ARANJUEZ
         type: string
+      metodo_pago:
+        description: 'Como se pago: efectivo, qr, transferencia, tarjeta o debito_automatico.
+          Nulo si el movimiento no lo indico.'
+        example: qr
+        type: string
       monto:
         example: 150
         type: number

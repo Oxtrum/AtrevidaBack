@@ -20950,6 +20950,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "PASEO ARANJUEZ"
                 },
+                "metodo_pago": {
+                    "description": "Como se pago: efectivo, qr, transferencia, tarjeta o debito_automatico. Nulo si el movimiento no lo indico.",
+                    "type": "string",
+                    "example": "qr"
+                },
                 "monto": {
                     "type": "number",
                     "example": 150

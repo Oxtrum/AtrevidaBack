@@ -26,7 +26,7 @@ const flujoBaseSQL = `
 	SELECT 'pago-' || p.id AS clave, 'VENTA' AS origen, p.codigo_pago AS codigo, 'INGRESO' AS naturaleza,
 	       CASE WHEN p.es_abono THEN 'Cobro de cuenta' ELSE 'Venta' END AS categoria,
 	       (CASE WHEN p.es_abono THEN 'Cobro a ' ELSE 'Venta a ' END || p.cliente_nombre) AS detalle,
-	       p.local_id, p.local_nombre, p.total_final AS monto, p.estado,
+	       p.local_id, p.local_nombre, p.total_final AS monto, p.tipo_pago AS metodo_pago, p.estado,
 	       p.fecha_creacion AS ts, p.fecha_creacion::date AS fecha
 	FROM pagos p
 	WHERE p.activo = TRUE AND p.estado IN ('PAGADO', 'PENDIENTE')
@@ -35,7 +35,7 @@ const flujoBaseSQL = `
 	                           WHEN m.naturaleza = 'INGRESO' THEN 'OTRO_INGRESO'
 	                           WHEN m.clase = 'FIJO' THEN 'GASTO_FIJO' ELSE 'GASTO_VARIABLE' END,
 	       m.codigo, m.naturaleza, c.nombre, COALESCE(NULLIF(m.descripcion, ''), m.proveedor, ''),
-	       m.local_id, m.local_nombre, m.monto, m.estado, m.fecha::timestamptz, m.fecha
+	       m.local_id, m.local_nombre, m.monto, m.metodo_pago, m.estado, m.fecha::timestamptz, m.fecha
 	FROM movimientos_financieros m
 	JOIN categorias_financieras c ON c.id = m.categoria_id`
 
@@ -79,7 +79,7 @@ func (r *FinanzasRepo) ListFlujo(f FiltroFlujo) ([]models.FlujoMovimiento, bool,
 		WITH b AS (%s)
 		SELECT * FROM (
 			SELECT b.clave, b.fecha::text AS fecha, b.origen, b.codigo, b.naturaleza, b.categoria, b.detalle,
-			       b.local_id, b.local_nombre, b.monto, b.estado, b.ts,
+			       b.local_id, b.local_nombre, b.monto, b.metodo_pago, b.estado, b.ts,
 			       SUM(CASE WHEN b.estado = 'PAGADO' THEN (CASE WHEN b.naturaleza = 'INGRESO' THEN b.monto ELSE -b.monto END) ELSE 0 END)
 			         OVER (ORDER BY b.ts, b.clave) AS saldo
 			FROM b WHERE %s
