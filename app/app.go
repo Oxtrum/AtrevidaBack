@@ -124,6 +124,7 @@ func Build() (*gin.Engine, error) {
 	h.Finanzas = finanzasService
 	h.GastosFijos = gastosFijosService
 	h.ReporteFinanciero = reporteFinancieroService
+	h.ReporteClientes = services.NewReporteClientesService(pgsqlrepo.NewReporteClientesRepo(pgDB), configuracionService)
 	h.RRHH = rrhhService
 	h.Atenciones = atencionesService
 	h.JobSecret = config.App.Jobs.Secret

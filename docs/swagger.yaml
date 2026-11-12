@@ -3084,6 +3084,30 @@ definitions:
         - $ref: '#/definitions/models.ReporteAtencionesRRHH'
         description: Reporte de personal del periodo
     type: object
+  handlers.reporteClientesDetalleResponse:
+    properties:
+      clientes:
+        description: Clientes con movimiento en el periodo, del que mas dinero genero
+          al que menos salvo que se pida otro orden.
+        items:
+          $ref: '#/definitions/models.ClienteReporte'
+        type: array
+      paginacion:
+        allOf:
+        - $ref: '#/definitions/pagination.Metadata'
+        description: Datos de paginacion; siempre viene.
+      total:
+        description: Cantidad de clientes devueltos en esta pagina.
+        example: 50
+        type: integer
+    type: object
+  handlers.reporteClientesResponse:
+    properties:
+      reporte:
+        allOf:
+        - $ref: '#/definitions/models.ReporteClientes'
+        description: Reporte de clientes del periodo
+    type: object
   handlers.reservaAvisosResponse:
     properties:
       advertencias_inventario:
@@ -3895,6 +3919,37 @@ definitions:
         example: Corporal
         type: string
     type: object
+  models.ClienteDeuda:
+    properties:
+      cargos:
+        description: Cargos con algo pendiente
+        example: 2
+        type: integer
+      cliente_id:
+        description: ID del cliente
+        example: 42
+        type: integer
+      deuda_desde:
+        description: Fecha del cargo pendiente mas antiguo (YYYY-MM-DD)
+        example: "2026-09-18"
+        type: string
+      dias_deuda:
+        description: Dias que lleva pendiente el cargo mas antiguo
+        example: 55
+        type: integer
+      nombre:
+        description: Nombre y apellido
+        example: Ana Perez
+        type: string
+      saldo_pendiente:
+        description: Saldo pendiente hoy
+        example: 450
+        type: number
+      telefono:
+        description: Telefono registrado
+        example: "70012345"
+        type: string
+    type: object
   models.ClientePG:
     properties:
       apellido:
@@ -3922,6 +3977,98 @@ definitions:
           la transición.
         example: "+59170011223"
         type: string
+    type: object
+  models.ClienteReporte:
+    properties:
+      canceladas:
+        description: Reservas canceladas en el periodo
+        example: 1
+        type: integer
+      citas:
+        description: Citas completadas en el periodo
+        example: 8
+        type: integer
+      citas_agendadas:
+        description: Reservas pendientes o agendadas dentro del periodo
+        example: 2
+        type: integer
+      citas_anterior:
+        description: Citas completadas en el periodo anterior
+        example: 6
+        type: integer
+      cliente_id:
+        description: ID del cliente
+        example: 42
+        type: integer
+      es_nuevo:
+        description: true si su primera actividad en el negocio cae en este periodo
+        example: false
+        type: boolean
+      inasistencias:
+        description: De las canceladas, cuantas fueron por inasistencia
+        example: 0
+        type: integer
+      ingresos:
+        description: Dinero que pago en el periodo
+        example: 1250
+        type: number
+      ingresos_anterior:
+        description: Dinero que pago en el periodo anterior
+        example: 900
+        type: number
+      locales:
+        description: Locales donde tuvo movimiento en el periodo, separados por coma
+        example: SAN MARTIN, PASEO ARANJUEZ
+        type: string
+      nombre:
+        description: Nombre y apellido
+        example: Ana Perez
+        type: string
+      pagos:
+        description: Pagos registrados en el periodo
+        example: 3
+        type: integer
+      participacion_pct:
+        description: Porcentaje de los ingresos de clientes del bloque
+        example: 6.8
+        type: number
+      posicion:
+        description: Puesto por dinero generado (1 = quien mas genero)
+        example: 1
+        type: integer
+      racha_periodos:
+        description: Periodos seguidos, contando este, en los que pago o completo
+          una cita; se corta en racha_maxima
+        example: 4
+        type: integer
+      saldo_pendiente:
+        description: Saldo pendiente hoy en el bloque
+        example: 150
+        type: number
+      servicio_top:
+        description: Servicio que mas tomo (citas completadas)
+        example: Masaje reductor
+        type: string
+      servicio_top_cantidad:
+        description: Veces que tomo ese servicio
+        example: 5
+        type: integer
+      telefono:
+        description: Telefono registrado
+        example: "70012345"
+        type: string
+      ticket_promedio:
+        description: Dinero por pago
+        example: 416.67
+        type: number
+      ultima_actividad:
+        description: Fecha de su ultimo movimiento del periodo (YYYY-MM-DD)
+        example: "2026-11-10"
+        type: string
+      variacion_pct:
+        description: Cambio contra el periodo anterior en %; null si antes no pago
+        example: 38.9
+        type: number
     type: object
   models.ClienteSugeridoPG:
     properties:
@@ -3958,6 +4105,21 @@ definitions:
           la transición.
         example: "+59170011223"
         type: string
+    type: object
+  models.ClientesDia:
+    properties:
+      clientes:
+        description: Clientes distintos que pagaron o completaron una cita ese dia
+        example: 9
+        type: integer
+      fecha:
+        description: Dia (YYYY-MM-DD)
+        example: "2026-11-10"
+        type: string
+      ingresos:
+        description: Dinero pagado por clientes registrados ese dia
+        example: 870
+        type: number
     type: object
   models.ComboCatalogoPG:
     properties:
@@ -5821,6 +5983,90 @@ definitions:
         example: mensual
         type: string
     type: object
+  models.ReporteClientes:
+    properties:
+      desde:
+        description: Primer dia del periodo (YYYY-MM-DD)
+        example: "2026-11-01"
+        type: string
+      desde_anterior:
+        description: Primer dia del periodo anterior con el que se compara
+        example: "2026-10-01"
+        type: string
+      general:
+        allOf:
+        - $ref: '#/definitions/models.ReporteClientesBloque'
+        description: Todos los locales juntos
+      hasta:
+        description: Ultimo dia del periodo (YYYY-MM-DD)
+        example: "2026-11-30"
+        type: string
+      hasta_anterior:
+        description: Ultimo dia del periodo anterior con el que se compara
+        example: "2026-10-31"
+        type: string
+      locales:
+        description: Un bloque por local con movimiento de clientes en el periodo
+          o con deudas, del que mas ingreso al que menos
+        items:
+          $ref: '#/definitions/models.ReporteClientesBloque'
+        type: array
+      periodo:
+        description: 'Periodo pedido: semanal, quincenal o mensual'
+        example: mensual
+        type: string
+      racha_maxima:
+        description: 'Tope de la racha: cuantos periodos hacia atras se revisan para
+          medir la fidelidad'
+        example: 12
+        type: integer
+    type: object
+  models.ReporteClientesBloque:
+    properties:
+      deudores:
+        description: Los 10 clientes que mas deben hoy (no depende del periodo); el
+          total esta en resumen.deudores
+        items:
+          $ref: '#/definitions/models.ClienteDeuda'
+        type: array
+      local_id:
+        description: Local del bloque; null en el bloque general
+        example: 1
+        type: integer
+      local_nombre:
+        description: Nombre del local; "General" en el bloque general
+        example: SAN MARTIN
+        type: string
+      resumen:
+        allOf:
+        - $ref: '#/definitions/models.ResumenClientes'
+        description: Totales del bloque
+      serie:
+        description: Actividad por dia; solo trae los dias con movimiento
+        items:
+          $ref: '#/definitions/models.ClientesDia'
+        type: array
+      top_canceladas:
+        description: Los 10 clientes con mas reservas canceladas en el periodo
+        items:
+          $ref: '#/definitions/models.ClienteReporte'
+        type: array
+      top_citas:
+        description: Los 10 clientes con mas citas completadas en el periodo
+        items:
+          $ref: '#/definitions/models.ClienteReporte'
+        type: array
+      top_fieles:
+        description: Los 10 clientes con mas periodos seguidos viniendo (minimo 2)
+        items:
+          $ref: '#/definitions/models.ClienteReporte'
+        type: array
+      top_ingresos:
+        description: Los 10 clientes que mas dinero generaron en el periodo
+        items:
+          $ref: '#/definitions/models.ClienteReporte'
+        type: array
+    type: object
   models.ReporteFinanciero:
     properties:
       detalle_por_local:
@@ -6104,6 +6350,108 @@ definitions:
         description: Cambio contra el periodo anterior en %; null si el anterior no
           tuvo atenciones
         example: 12.7
+        type: number
+    type: object
+  models.ResumenClientes:
+    properties:
+      canceladas:
+        description: Reservas canceladas de clientes registrados
+        example: 17
+        type: integer
+      citas:
+        description: Citas completadas de clientes registrados
+        example: 212
+        type: integer
+      citas_anterior:
+        description: Citas completadas de clientes registrados en el periodo anterior
+        example: 190
+        type: integer
+      citas_sin_cliente:
+        description: Citas completadas cuya reserva no esta vinculada a un cliente
+          (no entran en ningun ranking)
+        example: 14
+        type: integer
+      clientes_activos:
+        description: Clientes que pagaron o completaron una cita en el periodo
+        example: 84
+        type: integer
+      clientes_activos_anterior:
+        description: Clientes activos del periodo anterior
+        example: 76
+        type: integer
+      clientes_compartidos:
+        description: Clientes activos en mas de un local en el periodo; solo se calcula
+          en el bloque general
+        example: 5
+        type: integer
+      clientes_nuevos:
+        description: Clientes activos cuya primera actividad en el negocio cae en
+          este periodo
+        example: 19
+        type: integer
+      clientes_que_pagaron:
+        description: Clientes que pagaron algo en el periodo
+        example: 70
+        type: integer
+      clientes_que_volvieron:
+        description: Clientes activos del periodo anterior que volvieron en este
+        example: 48
+        type: integer
+      clientes_recurrentes:
+        description: Clientes activos que ya habian venido antes del periodo
+        example: 65
+        type: integer
+      deudores:
+        description: Clientes con saldo pendiente hoy
+        example: 11
+        type: integer
+      inasistencias:
+        description: De las canceladas, cuantas fueron por inasistencia
+        example: 6
+        type: integer
+      ingresos:
+        description: Dinero pagado por clientes registrados en el periodo
+        example: 18450
+        type: number
+      ingresos_anterior:
+        description: Dinero pagado por clientes registrados en el periodo anterior
+        example: 16200
+        type: number
+      ingresos_sin_cliente:
+        description: Ventas del periodo sin cliente asignado (no entran en ningun
+          ranking)
+        example: 2300
+        type: number
+      ingresos_sin_cliente_pct:
+        description: Porcentaje de las ventas del periodo sin cliente asignado
+        example: 11.1
+        type: number
+      por_cobrar:
+        description: Saldo pendiente hoy de todos los clientes del bloque
+        example: 3120
+        type: number
+      tasa_retorno_pct:
+        description: Porcentaje de los clientes del periodo anterior que volvio; null
+          si el anterior no tuvo clientes
+        example: 63.2
+        type: number
+      ticket_promedio_cliente:
+        description: Ingresos entre clientes que pagaron
+        example: 263.57
+        type: number
+      ticket_promedio_cliente_anterior:
+        description: Ticket promedio por cliente del periodo anterior
+        example: 241.79
+        type: number
+      variacion_clientes_pct:
+        description: Cambio de clientes activos contra el periodo anterior en %; null
+          si el anterior no tuvo
+        example: 10.5
+        type: number
+      variacion_ingresos_pct:
+        description: Cambio de ingresos contra el periodo anterior en %; null si el
+          anterior fue 0
+        example: 13.9
         type: number
     type: object
   models.SeguimientoItem:
@@ -13870,6 +14218,183 @@ paths:
       summary: Marcar una sesión del plan como realizada o pendiente
       tags:
       - Planes BD
+  /bd/reportes/clientes:
+    get:
+      description: 'Ranking de clientes del periodo (semanal de lunes a domingo, quincenal
+        del 1 al 15 y del 16 a fin de mes, o mensual) que contiene a la fecha indicada:
+        quien genero mas dinero, quien tuvo mas citas, quien cancelo mas y quien lleva
+        mas periodos seguidos viniendo. Devuelve un bloque general y uno por local,
+        cada uno con totales (clientes activos, nuevos y recurrentes, ticket promedio
+        por cliente, tasa de retorno), los 10 primeros de cada ranking, los 10 mayores
+        deudores y la actividad por dia; la lista completa de clientes se pide paginada
+        en /bd/reportes/clientes/detalle. Compara contra el periodo anterior equivalente.
+        El dinero sale de los pagos PAGADO activos con cliente asignado (misma regla
+        de fechas que /bd/pagos/resumen) y las citas de las reservas activas COMPLETADO
+        vinculadas a un cliente; las ventas y citas sin cliente no entran en los rankings
+        y se informan aparte. Un cliente es activo si pago o completo una cita en
+        el periodo, y es nuevo si su primera actividad en el negocio cae en el periodo.
+        Las deudas son el saldo pendiente de hoy y no dependen del periodo. Requiere
+        token Bearer con rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - default: mensual
+        description: semanal, quincenal o mensual
+        in: query
+        name: periodo
+        type: string
+      - description: Cualquier dia del periodo, YYYY-MM-DD (por defecto hoy)
+        in: query
+        name: fecha
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reporteClientesResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: periodo o fecha invalidos'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Reporte de clientes
+      tags:
+      - Reportes
+  /bd/reportes/clientes/detalle:
+    get:
+      description: 'Lista paginada de los clientes con movimiento en el periodo (pago,
+        cita completada, reserva agendada o cancelada), con las mismas reglas y columnas
+        que los rankings de /bd/reportes/clientes. Siempre pagina: sin limit usa 50
+        por pagina y el maximo es 100. Por defecto ordena por dinero generado (posicion);
+        con ordenar_por el orden lo resuelve el servidor sobre todo el resultado y
+        los clientes sin dato en esa columna van al final. La paginacion avanza por
+        desplazamiento y el cursor solo vale con el mismo periodo, fecha, local_id,
+        busqueda, ordenar_por y sentido que lo generaron. Requiere token Bearer con
+        rol admin_sys.'
+      parameters:
+      - default: Bearer <token>
+        description: Token Bearer
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - default: mensual
+        description: semanal, quincenal o mensual
+        in: query
+        name: periodo
+        type: string
+      - description: Cualquier dia del periodo, YYYY-MM-DD (por defecto hoy)
+        in: query
+        name: fecha
+        type: string
+      - description: ID del local; sin el, todos los locales
+        example: 1
+        in: query
+        name: local_id
+        type: integer
+      - description: Busqueda parcial por nombre, telefono o servicio favorito
+        example: Maria
+        in: query
+        name: busqueda
+        type: string
+      - description: Campo por el que ordenar; sin el, mas dinero generado primero
+        enum:
+        - posicion
+        - nombre
+        - ingresos
+        - variacion_pct
+        - pagos
+        - citas
+        - canceladas
+        - racha_periodos
+        - servicio_top
+        - ultima_actividad
+        - saldo_pendiente
+        example: citas
+        in: query
+        name: ordenar_por
+        type: string
+      - description: Sentido del orden; solo con ordenar_por, por defecto asc
+        enum:
+        - asc
+        - desc
+        example: desc
+        in: query
+        name: sentido
+        type: string
+      - description: Tamano de pagina (1-100); por defecto 50
+        example: 50
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor opaco devuelto en paginacion.next_cursor
+        in: query
+        name: cursor
+        type: string
+      - description: Incluye el total de registros y de paginas
+        example: false
+        in: query
+        name: include_total
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.reporteClientesDetalleResponse'
+              type: object
+        "400":
+          description: 'Error de validacion: periodo, fecha o local_id invalidos,
+            ordenar_por fuera de la lista, sentido distinto de asc o desc, limit fuera
+            de rango o cursor de otros filtros'
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Token requerido, invalido o expirado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Usuario no autorizado
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Error interno del servidor
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Detalle paginado del reporte de clientes
+      tags:
+      - Reportes
   /bd/reportes/financiero:
     get:
       description: 'Resume el periodo: ingresos (ventas pagadas + otros ingresos)

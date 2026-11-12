@@ -275,6 +275,8 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.PATCH("/rrhh/tipos-bono/:id", h.AuthRequired, h.AdminSysRequired, h.PatchTipoBono)
 		bd.GET("/rrhh/reportes/atenciones", h.AuthRequired, h.AdminSysRequired, h.GetReporteAtencionesRRHH)
 		bd.GET("/reportes/financiero", h.AuthRequired, h.AdminSysRequired, h.GetReporteFinanciero)
+		bd.GET("/reportes/clientes", h.AuthRequired, h.AdminSysRequired, h.GetReporteClientes)
+		bd.GET("/reportes/clientes/detalle", h.AuthRequired, h.AdminSysRequired, h.GetReporteClientesDetalle)
 
 		// Parametros del sistema: lectura para cualquier usuario autenticado, escritura solo admin_sys.
 		bd.GET("/configuracion/publica", h.GetConfiguracionPublica)

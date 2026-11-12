@@ -10745,6 +10745,239 @@
                 }
             }
         },
+        "/bd/reportes/clientes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Ranking de clientes del periodo (semanal de lunes a domingo, quincenal del 1 al 15 y del 16 a fin de mes, o mensual) que contiene a la fecha indicada: quien genero mas dinero, quien tuvo mas citas, quien cancelo mas y quien lleva mas periodos seguidos viniendo. Devuelve un bloque general y uno por local, cada uno con totales (clientes activos, nuevos y recurrentes, ticket promedio por cliente, tasa de retorno), los 10 primeros de cada ranking, los 10 mayores deudores y la actividad por dia; la lista completa de clientes se pide paginada en /bd/reportes/clientes/detalle. Compara contra el periodo anterior equivalente. El dinero sale de los pagos PAGADO activos con cliente asignado (misma regla de fechas que /bd/pagos/resumen) y las citas de las reservas activas COMPLETADO vinculadas a un cliente; las ventas y citas sin cliente no entran en los rankings y se informan aparte. Un cliente es activo si pago o completo una cita en el periodo, y es nuevo si su primera actividad en el negocio cae en el periodo. Las deudas son el saldo pendiente de hoy y no dependen del periodo. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reportes"
+                ],
+                "summary": "Reporte de clientes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "mensual",
+                        "description": "semanal, quincenal o mensual",
+                        "name": "periodo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cualquier dia del periodo, YYYY-MM-DD (por defecto hoy)",
+                        "name": "fecha",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reporteClientesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: periodo o fecha invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/reportes/clientes/detalle": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista paginada de los clientes con movimiento en el periodo (pago, cita completada, reserva agendada o cancelada), con las mismas reglas y columnas que los rankings de /bd/reportes/clientes. Siempre pagina: sin limit usa 50 por pagina y el maximo es 100. Por defecto ordena por dinero generado (posicion); con ordenar_por el orden lo resuelve el servidor sobre todo el resultado y los clientes sin dato en esa columna van al final. La paginacion avanza por desplazamiento y el cursor solo vale con el mismo periodo, fecha, local_id, busqueda, ordenar_por y sentido que lo generaron. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reportes"
+                ],
+                "summary": "Detalle paginado del reporte de clientes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "mensual",
+                        "description": "semanal, quincenal o mensual",
+                        "name": "periodo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cualquier dia del periodo, YYYY-MM-DD (por defecto hoy)",
+                        "name": "fecha",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del local; sin el, todos los locales",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "Maria",
+                        "description": "Busqueda parcial por nombre, telefono o servicio favorito",
+                        "name": "busqueda",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "posicion",
+                            "nombre",
+                            "ingresos",
+                            "variacion_pct",
+                            "pagos",
+                            "citas",
+                            "canceladas",
+                            "racha_periodos",
+                            "servicio_top",
+                            "ultima_actividad",
+                            "saldo_pendiente"
+                        ],
+                        "type": "string",
+                        "example": "citas",
+                        "description": "Campo por el que ordenar; sin el, mas dinero generado primero",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina (1-100); por defecto 50",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye el total de registros y de paginas",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reporteClientesDetalleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: periodo, fecha o local_id invalidos, ordenar_por fuera de la lista, sentido distinto de asc o desc, limit fuera de rango o cursor de otros filtros",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/reportes/financiero": {
             "get": {
                 "security": [
@@ -19164,6 +19397,44 @@
                 }
             }
         },
+        "handlers.reporteClientesDetalleResponse": {
+            "type": "object",
+            "properties": {
+                "clientes": {
+                    "description": "Clientes con movimiento en el periodo, del que mas dinero genero al que menos salvo que se pida otro orden.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteReporte"
+                    }
+                },
+                "paginacion": {
+                    "description": "Datos de paginacion; siempre viene.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total": {
+                    "description": "Cantidad de clientes devueltos en esta pagina.",
+                    "type": "integer",
+                    "example": 50
+                }
+            }
+        },
+        "handlers.reporteClientesResponse": {
+            "type": "object",
+            "properties": {
+                "reporte": {
+                    "description": "Reporte de clientes del periodo",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ReporteClientes"
+                        }
+                    ]
+                }
+            }
+        },
         "handlers.reservaAvisosResponse": {
             "type": "object",
             "properties": {
@@ -20273,6 +20544,46 @@
                 }
             }
         },
+        "models.ClienteDeuda": {
+            "type": "object",
+            "properties": {
+                "cargos": {
+                    "description": "Cargos con algo pendiente",
+                    "type": "integer",
+                    "example": 2
+                },
+                "cliente_id": {
+                    "description": "ID del cliente",
+                    "type": "integer",
+                    "example": 42
+                },
+                "deuda_desde": {
+                    "description": "Fecha del cargo pendiente mas antiguo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-09-18"
+                },
+                "dias_deuda": {
+                    "description": "Dias que lleva pendiente el cargo mas antiguo",
+                    "type": "integer",
+                    "example": 55
+                },
+                "nombre": {
+                    "description": "Nombre y apellido",
+                    "type": "string",
+                    "example": "Ana Perez"
+                },
+                "saldo_pendiente": {
+                    "description": "Saldo pendiente hoy",
+                    "type": "number",
+                    "example": 450
+                },
+                "telefono": {
+                    "description": "Telefono registrado",
+                    "type": "string",
+                    "example": "70012345"
+                }
+            }
+        },
         "models.ClientePG": {
             "type": "object",
             "properties": {
@@ -20306,6 +20617,121 @@
                     "description": "TelefonoE164 es la forma internacional canónica opcional durante la transición.",
                     "type": "string",
                     "example": "+59170011223"
+                }
+            }
+        },
+        "models.ClienteReporte": {
+            "type": "object",
+            "properties": {
+                "canceladas": {
+                    "description": "Reservas canceladas en el periodo",
+                    "type": "integer",
+                    "example": 1
+                },
+                "citas": {
+                    "description": "Citas completadas en el periodo",
+                    "type": "integer",
+                    "example": 8
+                },
+                "citas_agendadas": {
+                    "description": "Reservas pendientes o agendadas dentro del periodo",
+                    "type": "integer",
+                    "example": 2
+                },
+                "citas_anterior": {
+                    "description": "Citas completadas en el periodo anterior",
+                    "type": "integer",
+                    "example": 6
+                },
+                "cliente_id": {
+                    "description": "ID del cliente",
+                    "type": "integer",
+                    "example": 42
+                },
+                "es_nuevo": {
+                    "description": "true si su primera actividad en el negocio cae en este periodo",
+                    "type": "boolean",
+                    "example": false
+                },
+                "inasistencias": {
+                    "description": "De las canceladas, cuantas fueron por inasistencia",
+                    "type": "integer",
+                    "example": 0
+                },
+                "ingresos": {
+                    "description": "Dinero que pago en el periodo",
+                    "type": "number",
+                    "example": 1250
+                },
+                "ingresos_anterior": {
+                    "description": "Dinero que pago en el periodo anterior",
+                    "type": "number",
+                    "example": 900
+                },
+                "locales": {
+                    "description": "Locales donde tuvo movimiento en el periodo, separados por coma",
+                    "type": "string",
+                    "example": "SAN MARTIN, PASEO ARANJUEZ"
+                },
+                "nombre": {
+                    "description": "Nombre y apellido",
+                    "type": "string",
+                    "example": "Ana Perez"
+                },
+                "pagos": {
+                    "description": "Pagos registrados en el periodo",
+                    "type": "integer",
+                    "example": 3
+                },
+                "participacion_pct": {
+                    "description": "Porcentaje de los ingresos de clientes del bloque",
+                    "type": "number",
+                    "example": 6.8
+                },
+                "posicion": {
+                    "description": "Puesto por dinero generado (1 = quien mas genero)",
+                    "type": "integer",
+                    "example": 1
+                },
+                "racha_periodos": {
+                    "description": "Periodos seguidos, contando este, en los que pago o completo una cita; se corta en racha_maxima",
+                    "type": "integer",
+                    "example": 4
+                },
+                "saldo_pendiente": {
+                    "description": "Saldo pendiente hoy en el bloque",
+                    "type": "number",
+                    "example": 150
+                },
+                "servicio_top": {
+                    "description": "Servicio que mas tomo (citas completadas)",
+                    "type": "string",
+                    "example": "Masaje reductor"
+                },
+                "servicio_top_cantidad": {
+                    "description": "Veces que tomo ese servicio",
+                    "type": "integer",
+                    "example": 5
+                },
+                "telefono": {
+                    "description": "Telefono registrado",
+                    "type": "string",
+                    "example": "70012345"
+                },
+                "ticket_promedio": {
+                    "description": "Dinero por pago",
+                    "type": "number",
+                    "example": 416.67
+                },
+                "ultima_actividad": {
+                    "description": "Fecha de su ultimo movimiento del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "variacion_pct": {
+                    "description": "Cambio contra el periodo anterior en %; null si antes no pago",
+                    "type": "number",
+                    "example": 38.9
                 }
             }
         },
@@ -20350,6 +20776,26 @@
                     "description": "TelefonoE164 es la forma internacional canónica opcional durante la transición.",
                     "type": "string",
                     "example": "+59170011223"
+                }
+            }
+        },
+        "models.ClientesDia": {
+            "type": "object",
+            "properties": {
+                "clientes": {
+                    "description": "Clientes distintos que pagaron o completaron una cita ese dia",
+                    "type": "integer",
+                    "example": 9
+                },
+                "fecha": {
+                    "description": "Dia (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "ingresos": {
+                    "description": "Dinero pagado por clientes registrados ese dia",
+                    "type": "number",
+                    "example": 870
                 }
             }
         },
@@ -22835,6 +23281,121 @@
                 }
             }
         },
+        "models.ReporteClientes": {
+            "type": "object",
+            "properties": {
+                "desde": {
+                    "description": "Primer dia del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-01"
+                },
+                "desde_anterior": {
+                    "description": "Primer dia del periodo anterior con el que se compara",
+                    "type": "string",
+                    "example": "2026-10-01"
+                },
+                "general": {
+                    "description": "Todos los locales juntos",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ReporteClientesBloque"
+                        }
+                    ]
+                },
+                "hasta": {
+                    "description": "Ultimo dia del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-30"
+                },
+                "hasta_anterior": {
+                    "description": "Ultimo dia del periodo anterior con el que se compara",
+                    "type": "string",
+                    "example": "2026-10-31"
+                },
+                "locales": {
+                    "description": "Un bloque por local con movimiento de clientes en el periodo o con deudas, del que mas ingreso al que menos",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReporteClientesBloque"
+                    }
+                },
+                "periodo": {
+                    "description": "Periodo pedido: semanal, quincenal o mensual",
+                    "type": "string",
+                    "example": "mensual"
+                },
+                "racha_maxima": {
+                    "description": "Tope de la racha: cuantos periodos hacia atras se revisan para medir la fidelidad",
+                    "type": "integer",
+                    "example": 12
+                }
+            }
+        },
+        "models.ReporteClientesBloque": {
+            "type": "object",
+            "properties": {
+                "deudores": {
+                    "description": "Los 10 clientes que mas deben hoy (no depende del periodo); el total esta en resumen.deudores",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteDeuda"
+                    }
+                },
+                "local_id": {
+                    "description": "Local del bloque; null en el bloque general",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local; \"General\" en el bloque general",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "resumen": {
+                    "description": "Totales del bloque",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ResumenClientes"
+                        }
+                    ]
+                },
+                "serie": {
+                    "description": "Actividad por dia; solo trae los dias con movimiento",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClientesDia"
+                    }
+                },
+                "top_canceladas": {
+                    "description": "Los 10 clientes con mas reservas canceladas en el periodo",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteReporte"
+                    }
+                },
+                "top_citas": {
+                    "description": "Los 10 clientes con mas citas completadas en el periodo",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteReporte"
+                    }
+                },
+                "top_fieles": {
+                    "description": "Los 10 clientes con mas periodos seguidos viniendo (minimo 2)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteReporte"
+                    }
+                },
+                "top_ingresos": {
+                    "description": "Los 10 clientes que mas dinero generaron en el periodo",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteReporte"
+                    }
+                }
+            }
+        },
         "models.ReporteFinanciero": {
             "type": "object",
             "properties": {
@@ -23210,6 +23771,126 @@
                     "description": "Cambio contra el periodo anterior en %; null si el anterior no tuvo atenciones",
                     "type": "number",
                     "example": 12.7
+                }
+            }
+        },
+        "models.ResumenClientes": {
+            "type": "object",
+            "properties": {
+                "canceladas": {
+                    "description": "Reservas canceladas de clientes registrados",
+                    "type": "integer",
+                    "example": 17
+                },
+                "citas": {
+                    "description": "Citas completadas de clientes registrados",
+                    "type": "integer",
+                    "example": 212
+                },
+                "citas_anterior": {
+                    "description": "Citas completadas de clientes registrados en el periodo anterior",
+                    "type": "integer",
+                    "example": 190
+                },
+                "citas_sin_cliente": {
+                    "description": "Citas completadas cuya reserva no esta vinculada a un cliente (no entran en ningun ranking)",
+                    "type": "integer",
+                    "example": 14
+                },
+                "clientes_activos": {
+                    "description": "Clientes que pagaron o completaron una cita en el periodo",
+                    "type": "integer",
+                    "example": 84
+                },
+                "clientes_activos_anterior": {
+                    "description": "Clientes activos del periodo anterior",
+                    "type": "integer",
+                    "example": 76
+                },
+                "clientes_compartidos": {
+                    "description": "Clientes activos en mas de un local en el periodo; solo se calcula en el bloque general",
+                    "type": "integer",
+                    "example": 5
+                },
+                "clientes_nuevos": {
+                    "description": "Clientes activos cuya primera actividad en el negocio cae en este periodo",
+                    "type": "integer",
+                    "example": 19
+                },
+                "clientes_que_pagaron": {
+                    "description": "Clientes que pagaron algo en el periodo",
+                    "type": "integer",
+                    "example": 70
+                },
+                "clientes_que_volvieron": {
+                    "description": "Clientes activos del periodo anterior que volvieron en este",
+                    "type": "integer",
+                    "example": 48
+                },
+                "clientes_recurrentes": {
+                    "description": "Clientes activos que ya habian venido antes del periodo",
+                    "type": "integer",
+                    "example": 65
+                },
+                "deudores": {
+                    "description": "Clientes con saldo pendiente hoy",
+                    "type": "integer",
+                    "example": 11
+                },
+                "inasistencias": {
+                    "description": "De las canceladas, cuantas fueron por inasistencia",
+                    "type": "integer",
+                    "example": 6
+                },
+                "ingresos": {
+                    "description": "Dinero pagado por clientes registrados en el periodo",
+                    "type": "number",
+                    "example": 18450
+                },
+                "ingresos_anterior": {
+                    "description": "Dinero pagado por clientes registrados en el periodo anterior",
+                    "type": "number",
+                    "example": 16200
+                },
+                "ingresos_sin_cliente": {
+                    "description": "Ventas del periodo sin cliente asignado (no entran en ningun ranking)",
+                    "type": "number",
+                    "example": 2300
+                },
+                "ingresos_sin_cliente_pct": {
+                    "description": "Porcentaje de las ventas del periodo sin cliente asignado",
+                    "type": "number",
+                    "example": 11.1
+                },
+                "por_cobrar": {
+                    "description": "Saldo pendiente hoy de todos los clientes del bloque",
+                    "type": "number",
+                    "example": 3120
+                },
+                "tasa_retorno_pct": {
+                    "description": "Porcentaje de los clientes del periodo anterior que volvio; null si el anterior no tuvo clientes",
+                    "type": "number",
+                    "example": 63.2
+                },
+                "ticket_promedio_cliente": {
+                    "description": "Ingresos entre clientes que pagaron",
+                    "type": "number",
+                    "example": 263.57
+                },
+                "ticket_promedio_cliente_anterior": {
+                    "description": "Ticket promedio por cliente del periodo anterior",
+                    "type": "number",
+                    "example": 241.79
+                },
+                "variacion_clientes_pct": {
+                    "description": "Cambio de clientes activos contra el periodo anterior en %; null si el anterior no tuvo",
+                    "type": "number",
+                    "example": 10.5
+                },
+                "variacion_ingresos_pct": {
+                    "description": "Cambio de ingresos contra el periodo anterior en %; null si el anterior fue 0",
+                    "type": "number",
+                    "example": 13.9
                 }
             }
         },

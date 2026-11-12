@@ -27,6 +27,7 @@ type Container struct {
 	Finanzas          *services.FinanzasService
 	GastosFijos       *services.GastosFijosService
 	ReporteFinanciero *services.ReporteFinancieroService
+	ReporteClientes   *services.ReporteClientesService
 	RRHH              *services.RRHHService
 	Atenciones        *services.AtencionesService
 	// JobSecret permite al job diario generar gastos fijos sin token de usuario.
