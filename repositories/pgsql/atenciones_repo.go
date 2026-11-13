@@ -246,7 +246,7 @@ func (r *AtencionesRepo) Registrar(in RegistrarAtencionInput) (*models.Atencion,
 }
 
 func (r *AtencionesRepo) Obtener(id int) (*models.Atencion, error) {
-	var a models.Atencion
+	a := models.Atencion{Insumos: make([]models.AtencionInsumo, 0)}
 	err := r.db.Get(&a, `SELECT id,reserva_id,empleado_id,empleado_nombre,fecha_atencion,hora_inicio::text hora_inicio,hora_fin::text hora_fin,local_id,lugar,observaciones,registrado_por_id,registrado_por,creado_en,activo,'ATENDIDA' AS resultado FROM atenciones WHERE id=$1 AND activo=TRUE`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("atencion no encontrada")
