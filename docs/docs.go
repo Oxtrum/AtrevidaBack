@@ -13902,7 +13902,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Ranking del personal segun las atenciones registradas en el periodo (semanal de lunes a domingo, quincenal del 1 al 15 y del 16 a fin de mes, o mensual) que contiene a la fecha indicada. Devuelve un bloque general y uno por local, cada uno con totales, ranking, atenciones por dia y los usuarios que registraron. Compara contra el periodo anterior equivalente. Solo cuenta atenciones activas; quien atendio se agrupa por empleado de RRHH o, si no esta vinculado, por el nombre escrito. Requiere token Bearer con rol admin_sys.",
+                "description": "Ranking del personal segun las atenciones registradas en el periodo (semanal de lunes a domingo, quincenal del 1 al 15 y del 16 a fin de mes, o mensual) que contiene a la fecha indicada. Devuelve un bloque general y uno por local, cada uno con totales, ranking, atenciones por dia y los usuarios que registraron. Compara contra el periodo anterior equivalente. Solo cuenta atenciones activas; quien atendio se agrupa por empleado de RRHH o, si no esta vinculado, por el nombre escrito. No incluye sueldos ni importes. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "produces": [
                     "application/json"
                 ],

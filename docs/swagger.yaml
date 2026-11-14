@@ -16406,7 +16406,8 @@ paths:
         uno por local, cada uno con totales, ranking, atenciones por dia y los usuarios
         que registraron. Compara contra el periodo anterior equivalente. Solo cuenta
         atenciones activas; quien atendio se agrupa por empleado de RRHH o, si no
-        esta vinculado, por el nombre escrito. Requiere token Bearer con rol admin_sys.
+        esta vinculado, por el nombre escrito. No incluye sueldos ni importes. Requiere
+        token Bearer con rol admin_sys o coordinacion.
       parameters:
       - default: Bearer <token>
         description: Token Bearer
