@@ -48,6 +48,20 @@ type CargoCliente struct {
 	Anulado bool `db:"anulado" json:"anulado" example:"false"`
 	// Motivo de la anulacion.
 	MotivoAnulacion *string `db:"motivo_anulacion" json:"motivo_anulacion,omitempty"`
+	// Pagos que cubren este cargo (con su metodo), del mas antiguo al mas nuevo; vacio si nada lo cubre.
+	Pagos []CargoPago `db:"-" json:"pagos"`
+}
+
+// CargoPago es lo que un pago cubre de un cargo: el metodo de pago y cuanto puso.
+type CargoPago struct {
+	// Codigo publico del pago.
+	CodigoPago string `db:"codigo_pago" json:"codigo_pago" example:"PAGO-000123"`
+	// Metodo de pago: efectivo, tarjeta, qr o transferencia.
+	TipoPago string `db:"tipo_pago" json:"tipo_pago" example:"qr"`
+	// Monto de este pago aplicado al cargo.
+	Monto float64 `db:"monto" json:"monto" example:"250"`
+	// ID del cargo; solo para armar la lista.
+	CargoID int `db:"cargo_id" json:"-"`
 }
 
 // Completar calcula lo derivado: pendiente y estado.

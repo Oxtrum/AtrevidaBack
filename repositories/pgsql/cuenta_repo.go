@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"atrevida-agenda-api/cuenta"
 	"atrevida-agenda-api/models"
@@ -29,6 +30,15 @@ const (
 		LEFT JOIN planes pl ON pl.id = c.plan_id
 		WHERE c.cliente_id = $1 AND ($2 OR c.anulado = FALSE)
 		ORDER BY c.fecha_hecho, c.id`
+
+	// Pagos que cubren cada cargo, agrupados por pago (un pago puede aplicarse en varias filas).
+	sqlPagosDeCargos = `
+		SELECT a.cargo_id, p.codigo_pago, p.tipo_pago, SUM(a.monto) AS monto
+		FROM pago_aplicaciones a
+		JOIN pagos p ON p.id = a.pago_id
+		WHERE a.cargo_id = ANY($1) AND a.anulado = FALSE
+		GROUP BY a.cargo_id, p.id, p.codigo_pago, p.tipo_pago
+		ORDER BY a.cargo_id, MIN(a.id)`
 
 	sqlListarAbonos = `
 		SELECT p.codigo_pago, p.total_final AS monto, p.tipo_pago, p.fecha_creacion AS fecha_hecho, p.registrado_en,
@@ -255,7 +265,36 @@ func (r *CuentaRepo) ListarCargos(clienteID int, incluirAnulados bool) ([]models
 	if err != nil {
 		return nil, fmt.Errorf("no se pudieron listar los cargos: %w", err)
 	}
+	if err := r.adjuntarPagos(cargos); err != nil {
+		return nil, err
+	}
 	return cargos, nil
+}
+
+// adjuntarPagos agrega a cada cargo los pagos que lo cubren, en una sola consulta para todos.
+func (r *CuentaRepo) adjuntarPagos(cargos []models.CargoCliente) error {
+	ids := make([]int64, len(cargos))
+	for i := range cargos {
+		ids[i] = int64(cargos[i].ID)
+		cargos[i].Pagos = []models.CargoPago{}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	var filas []models.CargoPago
+	if err := r.db.Select(&filas, sqlPagosDeCargos, pq.Array(ids)); err != nil {
+		return fmt.Errorf("no se pudieron listar los pagos de los cargos: %w", err)
+	}
+	porCargo := make(map[int][]models.CargoPago, len(cargos))
+	for _, f := range filas {
+		porCargo[f.CargoID] = append(porCargo[f.CargoID], f)
+	}
+	for i := range cargos {
+		if pagos := porCargo[cargos[i].ID]; pagos != nil {
+			cargos[i].Pagos = pagos
+		}
+	}
+	return nil
 }
 
 // ListarAbonos devuelve los abonos activos de un cliente, del mas reciente al mas antiguo.

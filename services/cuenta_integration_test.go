@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"atrevida-agenda-api/cuenta"
+	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 )
@@ -475,5 +476,42 @@ func TestTrastiendaCuentaCambiarClienteDeUnaReservaSinCargos(t *testing.T) {
 	}
 	if c := clienteDe(); c != otro {
 		t.Fatalf("el cliente no debia cambiar: %d", c)
+	}
+}
+
+// Cada cargo trae los pagos que lo cubrieron, con su metodo: un cargo cubierto con saldo de una recarga en efectivo
+// y con dinero nuevo por QR muestra los dos, y uno anulado o sin cobrar no muestra ninguno.
+func TestTrastiendaCuentaCargoTraeLosPagosQueLoCubrieron(t *testing.T) {
+	e := setupCuenta(t)
+	sinPagar := e.cargo("SERVICIO", "Limpieza", 80)
+	pagado := e.cargo("PAQUETE", "Paquete", 400)
+	if _, err := e.abono(150); err != nil {
+		t.Fatal(err)
+	}
+	codigoNuevo, err := e.cobrar([]int{pagado}, true, 0, "qr")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := e.svc.Obtener(e.clienteID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pagos := map[int][]models.CargoPago{}
+	for _, cg := range c.Cargos {
+		pagos[cg.ID] = cg.Pagos
+	}
+	if len(pagos[sinPagar]) != 0 {
+		t.Fatalf("un cargo sin cobrar no tiene pagos: %+v", pagos[sinPagar])
+	}
+	cubierto := pagos[pagado]
+	if len(cubierto) != 2 {
+		t.Fatalf("el cargo lo cubren el saldo y el pago nuevo, pagos = %+v", cubierto)
+	}
+	if cubierto[0].TipoPago != "efectivo" || cubierto[0].Monto != 150 {
+		t.Fatalf("primero el saldo en efectivo: %+v", cubierto[0])
+	}
+	if cubierto[1].TipoPago != "qr" || cubierto[1].Monto != 250 || cubierto[1].CodigoPago != codigoNuevo {
+		t.Fatalf("despues el pago nuevo por qr: %+v", cubierto[1])
 	}
 }
