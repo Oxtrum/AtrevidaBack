@@ -10,7 +10,7 @@ import (
 
 // PostPaqueteImagenUploadURL godoc
 // @Summary Emitir URL firmada para subir portada de paquete
-// @Description Devuelve una URL firmada de Supabase Storage para que el cliente suba la imagen de portada directamente, sin pasar los bytes por el backend. Requiere token Bearer con rol admin_sys. Tras subir el archivo, confirmar con PUT /bd/paquetes/{id}/imagen.
+// @Description Devuelve una URL firmada de Supabase Storage para que el cliente suba la imagen de portada directamente, sin pasar los bytes por el backend. Requiere token Bearer con rol admin_sys o coordinacion. Tras subir el archivo, confirmar con PUT /bd/paquetes/{id}/imagen.
 // @Tags Paquetes BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -40,7 +40,7 @@ func (h *Container) PostPaqueteImagenUploadURL(c *gin.Context) {
 
 // PutPaqueteImagen godoc
 // @Summary Confirmar portada de paquete subida
-// @Description Persiste la portada del paquete tras una subida exitosa y devuelve su URL publica. Requiere token Bearer con rol admin_sys.
+// @Description Persiste la portada del paquete tras una subida exitosa y devuelve su URL publica. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Paquetes BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -68,7 +68,7 @@ func (h *Container) PutPaqueteImagen(c *gin.Context) {
 
 // DeletePaqueteImagen godoc
 // @Summary Eliminar portada de paquete
-// @Description Borra el objeto de portada en Supabase Storage y limpia el path del paquete. Requiere token Bearer con rol admin_sys.
+// @Description Borra el objeto de portada en Supabase Storage y limpia el path del paquete. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Paquetes BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)

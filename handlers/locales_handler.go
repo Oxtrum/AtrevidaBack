@@ -193,7 +193,7 @@ type actualizarEspaciosRequest struct {
 
 // PutLocalEspacios godoc
 // @Summary Actualizar mesas y bicicletas de un local
-// @Description Fija la cantidad de espacios de un local. Param: id (path). Body: espacios (array con tipo_espacio M/B y cantidad_espacios entero >= 0; 0 deja el tipo sin espacios, por ejemplo por mantenimiento). Los tipos no enviados no se tocan. No cancela reservas existentes: si se reduce por debajo de lo ya reservado, solo se bloquean las reservas nuevas. Requiere rol admin_sys o gerencia. Response: mensaje string.
+// @Description Fija la cantidad de espacios de un local. Param: id (path). Body: espacios (array con tipo_espacio M/B y cantidad_espacios entero >= 0; 0 deja el tipo sin espacios, por ejemplo por mantenimiento). Los tipos no enviados no se tocan. No cancela reservas existentes: si se reduce por debajo de lo ya reservado, solo se bloquean las reservas nuevas. Requiere rol admin_sys, coordinacion o gerencia. Response: mensaje string.
 // @Tags Locales
 // @Accept json
 // @Produce json

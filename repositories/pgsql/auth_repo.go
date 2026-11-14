@@ -48,7 +48,7 @@ func (r *AuthRepo) CreateUsuario(username, passwordHash, rolCodigo string, local
 
 	var localIDFinal *int
 	var nombreLocal *string
-	if !esRolAdminSys(rol.Codigo) {
+	if !models.EsRolGlobal(rol.Codigo) {
 		if localID == nil || *localID <= 0 {
 			return 0, fmt.Errorf("local_id es obligatorio para usuarios no admin")
 		}
@@ -257,7 +257,7 @@ func (r *AuthRepo) UpdateLocal(username, tokenUsername string, localID int) erro
 		return fmt.Errorf("no se pudo actualizar el local del usuario")
 	}
 
-	if esRolAdminSys(usuario.RolCodigo) && !strings.EqualFold(username, tokenUsername) {
+	if models.EsRolGlobal(usuario.RolCodigo) && !strings.EqualFold(username, tokenUsername) {
 		return fmt.Errorf("solo un administrador puede asignarse un local")
 	}
 
@@ -303,8 +303,4 @@ func (r *AuthRepo) UpdateLocal(username, tokenUsername string, localID int) erro
 func esUniqueUsuariosError(err error) bool {
 	var pqErr *pgconn.PgError
 	return errors.As(err, &pqErr) && pqErr.Code == "23505"
-}
-
-func esRolAdminSys(rolCodigo string) bool {
-	return strings.EqualFold(strings.TrimSpace(rolCodigo), "admin_sys")
 }

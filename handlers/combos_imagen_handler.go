@@ -10,7 +10,7 @@ import (
 
 // PostComboImagenUploadURL godoc
 // @Summary Emitir URL firmada para subir portada de combo
-// @Description Devuelve una URL firmada de Supabase Storage para que el cliente suba la imagen de portada directamente, sin pasar los bytes por el backend. Requiere token Bearer con rol admin_sys. Tras subir el archivo, confirmar con PUT /bd/combos/{id}/imagen.
+// @Description Devuelve una URL firmada de Supabase Storage para que el cliente suba la imagen de portada directamente, sin pasar los bytes por el backend. Requiere token Bearer con rol admin_sys o coordinacion. Tras subir el archivo, confirmar con PUT /bd/combos/{id}/imagen.
 // @Tags Combos BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -40,7 +40,7 @@ func (h *Container) PostComboImagenUploadURL(c *gin.Context) {
 
 // PutComboImagen godoc
 // @Summary Confirmar portada de combo subida
-// @Description Persiste la portada del combo tras una subida exitosa y devuelve su URL publica. Requiere token Bearer con rol admin_sys.
+// @Description Persiste la portada del combo tras una subida exitosa y devuelve su URL publica. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Combos BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -68,7 +68,7 @@ func (h *Container) PutComboImagen(c *gin.Context) {
 
 // DeleteComboImagen godoc
 // @Summary Eliminar portada de combo
-// @Description Borra el objeto de portada en Supabase Storage y limpia el path del combo. Requiere token Bearer con rol admin_sys.
+// @Description Borra el objeto de portada en Supabase Storage y limpia el path del combo. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Combos BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)

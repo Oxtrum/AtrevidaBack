@@ -489,8 +489,9 @@ func (h *Container) AuthRequired(c *gin.Context) {
 	c.Next()
 }
 
+// AdminSysRequired deja pasar solo a admin_sys: datos financieros, RRHH, usuarios y parametros.
 func (h *Container) AdminSysRequired(c *gin.Context) {
-	if !tieneRol(c, "admin_sys") {
+	if !tieneRol(c, models.RolAdminSys) {
 		utils.RespondError(c, http.StatusForbidden, services.ErrNoAutorizado.Error())
 		c.Abort()
 		return
@@ -498,8 +499,20 @@ func (h *Container) AdminSysRequired(c *gin.Context) {
 	c.Next()
 }
 
+// CoordinacionRequired deja pasar a admin_sys y coordinacion: administrar catalogo e inventario
+// (categorias, combos, paquetes, items) y anular compras. Nada financiero pasa por aqui.
+func (h *Container) CoordinacionRequired(c *gin.Context) {
+	if !tieneRol(c, models.RolAdminSys, models.RolCoordinacion) {
+		utils.RespondError(c, http.StatusForbidden, services.ErrNoAutorizado.Error())
+		c.Abort()
+		return
+	}
+	c.Next()
+}
+
+// GerenciaRequired deja pasar a cualquier rol operativo: admin_sys, coordinacion y gerencia.
 func (h *Container) GerenciaRequired(c *gin.Context) {
-	if !tieneRol(c, "admin_sys", "gerencia") {
+	if !tieneRol(c, models.RolAdminSys, models.RolCoordinacion, models.RolGerencia) {
 		utils.RespondError(c, http.StatusForbidden, services.ErrNoAutorizado.Error())
 		c.Abort()
 		return
@@ -572,7 +585,8 @@ func authenticatedLocalScopeFromToken(c *gin.Context) (authenticatedLocalScope, 
 	if !ok {
 		return authenticatedLocalScope{}, false
 	}
-	if strings.EqualFold(rolCodigo, "admin_sys") {
+	// admin_sys y coordinacion trabajan sobre todos los locales: sin alcance por local.
+	if models.EsRolGlobal(rolCodigo) {
 		return authenticatedLocalScope{}, true
 	}
 

@@ -51,7 +51,7 @@ type anularCompraRequest struct {
 
 // GetCompras godoc
 // @Summary Listar compras de inventario
-// @Description Lista las compras. Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer con rol admin_sys o gerencia.
+// @Description Lista las compras. Los usuarios de gerencia quedan limitados a su local. Requiere token Bearer con rol admin_sys, coordinacion o gerencia.
 // @Tags Compras
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -83,7 +83,7 @@ func (h *Container) GetCompras(c *gin.Context) {
 
 // GetCompraByID godoc
 // @Summary Detalle de compra
-// @Description Devuelve la compra con sus lineas y el codigo del egreso asociado. Requiere token Bearer con rol admin_sys o gerencia.
+// @Description Devuelve la compra con sus lineas y el codigo del egreso asociado. Requiere token Bearer con rol admin_sys, coordinacion o gerencia.
 // @Tags Compras
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -116,7 +116,7 @@ func (h *Container) GetCompraByID(c *gin.Context) {
 
 // PostCompra godoc
 // @Summary Registrar compra de inventario
-// @Description Registra una compra en una sola transaccion: crea la compra y su detalle, suma el stock de cada item en el local, actualiza el costo de referencia y genera UN egreso VARIABLE (categoria Compras de inventario) por el total. Si falla cualquier linea no queda nada a medias. Gerencia solo puede comprar para su local. Requiere token Bearer con rol admin_sys o gerencia.
+// @Description Registra una compra en una sola transaccion: crea la compra y su detalle, suma el stock de cada item en el local, actualiza el costo de referencia y genera UN egreso VARIABLE (categoria Compras de inventario) por el total. Si falla cualquier linea no queda nada a medias. Gerencia solo puede comprar para su local. Requiere token Bearer con rol admin_sys, coordinacion o gerencia.
 // @Tags Compras
 // @Accept json
 // @Produce json
@@ -158,7 +158,7 @@ func (h *Container) PostCompra(c *gin.Context) {
 
 // PatchCompraAnular godoc
 // @Summary Anular compra de inventario
-// @Description Anula la compra y su egreso, y revierte las entradas de stock. Si parte de ese stock ya se consumio y no alcanza para revertir, no cambia nada y responde 409 con el detalle. Requiere token Bearer con rol admin_sys.
+// @Description Anula la compra y su egreso, y revierte las entradas de stock. Si parte de ese stock ya se consumio y no alcanza para revertir, no cambia nada y responde 409 con el detalle. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Compras
 // @Accept json
 // @Produce json
