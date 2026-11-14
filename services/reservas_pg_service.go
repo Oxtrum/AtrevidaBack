@@ -1103,6 +1103,9 @@ type CrearReservaPGInput struct {
 	Cliente   string
 	// ClienteID lo elige el panel interno. El formulario publico no lo manda: se vincula solo por telefono exacto y unico.
 	ClienteID          *int
+	// SinRegistrar lo marca el panel interno para un cliente de una sola visita: la reserva queda por vincular en
+	// vez de exigir un cliente registrado. No va junto con ClienteID y el formulario publico lo ignora.
+	SinRegistrar bool
 	Telefono           string
 	TelefonoE164       *string
 	Estado             string
