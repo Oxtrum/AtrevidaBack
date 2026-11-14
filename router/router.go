@@ -251,7 +251,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.POST("/finanzas/gastos-fijos/generar", h.AdminSysOrJobSecret, h.PostGenerarGastosFijos)
 		bd.PATCH("/finanzas/gastos-fijos/:id", h.AuthRequired, h.AdminSysRequired, h.PatchGastoFijo)
 		bd.DELETE("/finanzas/gastos-fijos/:id", h.AuthRequired, h.AdminSysRequired, h.DeleteGastoFijo)
-		// Recursos Humanos (solo admin_sys)
+		// Recursos Humanos (solo admin_sys, salvo el reporte de atenciones)
 		bd.GET("/rrhh/empleados", h.AuthRequired, h.AdminSysRequired, h.GetEmpleados)
 		bd.POST("/rrhh/empleados", h.AuthRequired, h.AdminSysRequired, h.PostEmpleado)
 		bd.GET("/rrhh/empleados/:id", h.AuthRequired, h.AdminSysRequired, h.GetEmpleadoByID)
@@ -273,7 +273,8 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.GET("/rrhh/tipos-bono", h.AuthRequired, h.AdminSysRequired, h.GetTiposBono)
 		bd.POST("/rrhh/tipos-bono", h.AuthRequired, h.AdminSysRequired, h.PostTipoBono)
 		bd.PATCH("/rrhh/tipos-bono/:id", h.AuthRequired, h.AdminSysRequired, h.PatchTipoBono)
-		bd.GET("/rrhh/reportes/atenciones", h.AuthRequired, h.AdminSysRequired, h.GetReporteAtencionesRRHH)
+		// Productividad del personal (sin sueldos ni dinero): tambien lo ve coordinacion.
+		bd.GET("/rrhh/reportes/atenciones", h.AuthRequired, h.CoordinacionRequired, h.GetReporteAtencionesRRHH)
 		bd.GET("/reportes/financiero", h.AuthRequired, h.AdminSysRequired, h.GetReporteFinanciero)
 		bd.GET("/reportes/clientes", h.AuthRequired, h.AdminSysRequired, h.GetReporteClientes)
 		bd.GET("/reportes/clientes/detalle", h.AuthRequired, h.AdminSysRequired, h.GetReporteClientesDetalle)

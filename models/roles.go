@@ -7,7 +7,8 @@ const (
 	// RolAdminSys puede hacer todo, incluido lo financiero.
 	RolAdminSys = "admin_sys"
 	// RolCoordinacion opera todos los locales y administra catalogo e inventario, sin acceso a datos
-	// financieros (finanzas, reportes con dinero, RRHH), ni a usuarios o parametros del sistema.
+	// financieros (finanzas, reportes con dinero, sueldos y planillas), ni a usuarios o parametros del
+	// sistema. De RRHH solo ve el reporte de atenciones del personal.
 	RolCoordinacion = "coordinacion"
 	// RolGerencia opera el dia a dia de su local (en pantalla: Recepcion).
 	RolGerencia = "gerencia"
