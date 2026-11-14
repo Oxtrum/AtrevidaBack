@@ -1,0 +1,407 @@
+package services
+
+import (
+	"errors"
+	"fmt"
+	"log"
+	"strings"
+	"time"
+
+	"atrevida-agenda-api/models"
+	repository "atrevida-agenda-api/repositories"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
+)
+
+var unidadesMedida = map[string]bool{
+	"UNIDAD": true, "ML": true, "GR": true, "LT": true, "KG": true,
+	"FRASCO": true, "PAQUETE": true, "SOBRE": true, "CAJA": true,
+}
+
+type InventarioService struct {
+	repo   *pgsqlrepo.InventarioRepo
+	config *ConfiguracionService
+	// Storage es opcional: si es nil, la gestion de imagenes queda deshabilitada.
+	Storage ObjectStorage
+}
+
+func NewInventarioService(repo *pgsqlrepo.InventarioRepo, config *ConfiguracionService) *InventarioService {
+	return &InventarioService{repo: repo, config: config}
+}
+
+// prefijoImagenItem es la carpeta de las imagenes de un item en el storage.
+func prefijoImagenItem(id int) string { return fmt.Sprintf("inventario/%d/", id) }
+
+func nuevaClaveImagenItem(id int) (string, error) { return nuevaClaveImagen(prefijoImagenItem(id)) }
+
+// validarClaveImagenItem exige que la clave confirmada sea de este item y tenga la forma que emite el backend.
+func validarClaveImagenItem(id int, key string) error {
+	return validarClaveImagen(prefijoImagenItem(id), "imagen_key", key)
+}
+
+func (s *InventarioService) completar(item *models.InventarioItem) {
+	item.BajoStock = item.StockActual <= item.StockMinimo
+	if s.Storage != nil && item.ImagenKey != nil && *item.ImagenKey != "" {
+		url := s.Storage.URLPublica(*item.ImagenKey)
+		item.ImagenURL = &url
+	}
+}
+
+// ─── Items ────────────────────────────────────────────────────────────────────
+
+func (s *InventarioService) ListarItems(f repository.FiltroItemsInventario) ([]models.InventarioItem, error) {
+	items, err := s.repo.ListItems(f)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		s.completar(&items[i])
+	}
+	return items, nil
+}
+
+// ContarItems cuenta los items del listado con esos filtros, sin importar la pagina.
+func (s *InventarioService) ContarItems(f repository.FiltroItemsInventario) (int, error) {
+	return s.repo.CountItems(f)
+}
+
+func (s *InventarioService) ObtenerItem(id int) (*models.InventarioItem, error) {
+	item, err := s.repo.GetItem(id)
+	if err != nil {
+		return nil, err
+	}
+	s.completar(item)
+	return item, nil
+}
+
+// ServiciosQueUsan devuelve los servicios que consumen el item (para el detalle).
+func (s *InventarioService) ServiciosQueUsan(itemID int) ([]string, error) {
+	return s.repo.ServiciosQueUsanItem(itemID)
+}
+
+func validarItem(nombre string, unidad string, costo, precioVenta *float64, minimo float64) error {
+	if strings.TrimSpace(nombre) == "" {
+		return errors.New("nombre es requerido")
+	}
+	if len(nombre) > 200 {
+		return errors.New("nombre no puede superar 200 caracteres")
+	}
+	if !unidadesMedida[unidad] {
+		return errors.New("unidad_medida invalida, valores permitidos: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE, CAJA")
+	}
+	if costo != nil && *costo < 0 {
+		return errors.New("costo_referencia no puede ser negativo")
+	}
+	if precioVenta != nil && *precioVenta < 0 {
+		return errors.New("precio_venta no puede ser negativo")
+	}
+	if minimo < 0 {
+		return errors.New("stock_minimo no puede ser negativo")
+	}
+	return nil
+}
+
+func (s *InventarioService) CrearItem(in pgsqlrepo.ItemInput) (*models.InventarioItem, error) {
+	in.Nombre = strings.TrimSpace(in.Nombre)
+	in.UnidadMedida = strings.ToUpper(strings.TrimSpace(in.UnidadMedida))
+	if in.UnidadMedida == "" {
+		in.UnidadMedida = "UNIDAD"
+	}
+	if err := validarItem(in.Nombre, in.UnidadMedida, in.CostoReferencia, in.PrecioVenta, in.StockMinimo); err != nil {
+		return nil, err
+	}
+	id, err := s.repo.CreateItem(in)
+	if err != nil {
+		return nil, err
+	}
+	return s.ObtenerItem(id)
+}
+
+func (s *InventarioService) ActualizarItem(id int, p pgsqlrepo.ItemPatch) error {
+	if p.Nombre != nil {
+		n := strings.TrimSpace(*p.Nombre)
+		if n == "" || len(n) > 200 {
+			return errors.New("nombre es requerido y no puede superar 200 caracteres")
+		}
+		p.Nombre = &n
+	}
+	if p.UnidadMedida != nil {
+		u := strings.ToUpper(strings.TrimSpace(*p.UnidadMedida))
+		if !unidadesMedida[u] {
+			return errors.New("unidad_medida invalida, valores permitidos: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE, CAJA")
+		}
+		p.UnidadMedida = &u
+	}
+	if p.CostoReferenciaSet && p.CostoReferencia != nil && *p.CostoReferencia < 0 {
+		return errors.New("costo_referencia no puede ser negativo")
+	}
+	if p.PrecioVentaSet && p.PrecioVenta != nil && *p.PrecioVenta < 0 {
+		return errors.New("precio_venta no puede ser negativo")
+	}
+	if p.StockMinimo != nil && *p.StockMinimo < 0 {
+		return errors.New("stock_minimo no puede ser negativo")
+	}
+	if p.Nombre == nil && p.UnidadMedida == nil && p.StockMinimo == nil && p.Activo == nil &&
+		!p.DescripcionSet && !p.CategoriaSet && !p.CostoReferenciaSet && !p.PrecioVentaSet {
+		return errors.New("no se enviaron campos para actualizar")
+	}
+	return s.repo.UpdateItem(id, p)
+}
+
+// DesactivarItem lo oculta del catalogo sin borrar historial (RN-07).
+func (s *InventarioService) DesactivarItem(id int) error {
+	inactivo := false
+	return s.repo.UpdateItem(id, pgsqlrepo.ItemPatch{Activo: &inactivo})
+}
+
+// ─── Imagen ───────────────────────────────────────────────────────────────────
+
+func (s *InventarioService) GenerarURLSubidaImagen(id int) (SubidaFirmada, error) {
+	if ok, err := s.repo.ItemExiste(id); err != nil {
+		return SubidaFirmada{}, err
+	} else if !ok {
+		return SubidaFirmada{}, repository.ErrItemNoEncontrado
+	}
+	if s.Storage == nil {
+		return SubidaFirmada{}, ErrAlmacenamientoNoConfigurado
+	}
+	key, err := nuevaClaveImagenItem(id)
+	if err != nil {
+		return SubidaFirmada{}, err
+	}
+	return s.Storage.CrearURLSubida(key)
+}
+
+// ConfirmarImagen guarda la clave tras una subida exitosa, borra la imagen anterior y devuelve la URL.
+func (s *InventarioService) ConfirmarImagen(id int, key string) (string, error) {
+	if s.Storage == nil {
+		return "", ErrAlmacenamientoNoConfigurado
+	}
+	key = strings.TrimSpace(key)
+	if err := validarClaveImagenItem(id, key); err != nil {
+		return "", err
+	}
+	item, err := s.repo.GetItem(id)
+	if err != nil {
+		return "", err
+	}
+	if err := s.repo.SetImagenKey(id, &key); err != nil {
+		return "", err
+	}
+	// Borrar la anterior es limpieza: si falla, la imagen nueva ya quedo guardada.
+	if anterior := item.ImagenKey; anterior != nil && *anterior != "" && *anterior != key {
+		if err := s.Storage.Eliminar(*anterior); err != nil {
+			log.Printf("[inventario] no se pudo borrar la imagen anterior %q del item %d: %v", *anterior, id, err)
+		}
+	}
+	return s.Storage.URLPublica(key), nil
+}
+
+func (s *InventarioService) EliminarImagen(id int) error {
+	if s.Storage == nil {
+		return ErrAlmacenamientoNoConfigurado
+	}
+	item, err := s.repo.GetItem(id)
+	if err != nil {
+		return err
+	}
+	if item.ImagenKey == nil || *item.ImagenKey == "" {
+		return nil
+	}
+	if err := s.Storage.Eliminar(*item.ImagenKey); err != nil {
+		return err
+	}
+	return s.repo.SetImagenKey(id, nil)
+}
+
+// ─── Categorias ───────────────────────────────────────────────────────────────
+
+func (s *InventarioService) ListarCategorias() ([]models.CategoriaInventario, error) {
+	return s.repo.ListCategorias()
+}
+
+func (s *InventarioService) CrearCategoria(nombre string) (int, error) {
+	nombre = strings.TrimSpace(nombre)
+	if nombre == "" || len(nombre) > 100 {
+		return 0, errors.New("nombre es requerido y no puede superar 100 caracteres")
+	}
+	return s.repo.CreateCategoria(nombre)
+}
+
+func (s *InventarioService) ActualizarCategoria(id int, nombre *string, activo *bool) error {
+	if nombre == nil && activo == nil {
+		return errors.New("no se enviaron campos para actualizar")
+	}
+	if nombre != nil {
+		n := strings.TrimSpace(*nombre)
+		if n == "" || len(n) > 100 {
+			return errors.New("nombre es requerido y no puede superar 100 caracteres")
+		}
+		nombre = &n
+	}
+	return s.repo.UpdateCategoria(id, nombre, activo)
+}
+
+// ─── Kardex y ajustes ─────────────────────────────────────────────────────────
+
+func (s *InventarioService) ListarMovimientos(f repository.FiltroMovimientosInventario) ([]models.MovimientoInventario, error) {
+	if f.Tipo != "" {
+		switch f.Tipo {
+		case repository.MovEntradaCompra, repository.MovSalidaServicio, repository.MovReversionServicio,
+			repository.MovAjustePositivo, repository.MovAjusteNegativo,
+			repository.MovSalidaVenta, repository.MovReversionVenta:
+		default:
+			return nil, errors.New("tipo de movimiento invalido")
+		}
+	}
+	if f.OrdenarPor != "" {
+		if _, ok := pgsqlrepo.MovimientosOrdenables[f.OrdenarPor]; !ok {
+			return nil, errors.New("ordenar_por invalido")
+		}
+	}
+	if f.Offset < 0 {
+		return nil, errors.New("offset invalido")
+	}
+	return s.repo.ListMovimientos(f)
+}
+
+func (s *InventarioService) ContarMovimientos(f repository.FiltroMovimientosInventario) (int, error) {
+	return s.repo.CountMovimientos(f)
+}
+
+type AjusteInput struct {
+	ItemID        int
+	LocalID       int
+	Tipo          string
+	Cantidad      float64
+	Motivo        string
+	UsuarioID     *int
+	UsuarioNombre string
+}
+
+// Ajustar registra una merma, vencimiento o conteo fisico. El motivo es obligatorio (RN-03).
+func (s *InventarioService) Ajustar(in AjusteInput) (float64, error) {
+	if in.Tipo != repository.MovAjustePositivo && in.Tipo != repository.MovAjusteNegativo {
+		return 0, errors.New("tipo invalido, valores permitidos: AJUSTE_POSITIVO, AJUSTE_NEGATIVO")
+	}
+	if in.Cantidad <= 0 {
+		return 0, errors.New("cantidad debe ser mayor a 0")
+	}
+	if strings.TrimSpace(in.Motivo) == "" {
+		return 0, errors.New("motivo es requerido para ajustes de stock")
+	}
+	if in.ItemID < 1 || in.LocalID < 1 {
+		return 0, errors.New("item_id y local_id son requeridos")
+	}
+	nuevo, err := s.repo.Ajustar(repository.MovimientoStockInput{
+		ItemID: in.ItemID, LocalID: in.LocalID, Tipo: in.Tipo, Cantidad: in.Cantidad,
+		Motivo: strings.TrimSpace(in.Motivo), UsuarioID: in.UsuarioID, UsuarioNombre: in.UsuarioNombre,
+		// Un ajuste manual nunca deja el stock negativo: para eso esta el descuento por servicio.
+		PermitirNegativo: false,
+	})
+	if err != nil {
+		return 0, err
+	}
+	// Merma, vencimiento o reposicion cambian la disponibilidad de las reservas ya agendadas.
+	s.RefrescarAlertas(&in.LocalID)
+	return nuevo, nil
+}
+
+// RefrescarAlertas reevalua alerta_inventario de las reservas abiertas del local (nil = todos).
+func (s *InventarioService) RefrescarAlertas(localID *int) {
+	refrescarAlertas(s.repo, s.config, localID)
+}
+
+// ─── Alertas ──────────────────────────────────────────────────────────────────
+
+func (s *InventarioService) Alertas(localID *int) (*models.AlertasInventario, error) {
+	// El flag guardado puede estar viejo (stock que cambio despues de agendar): se refresca antes de listar.
+	// Ese mismo recalculo ya trae el detalle de cada reserva: se reutiliza abajo en vez de evaluarlas de nuevo.
+	recalculadas := refrescarAlertas(s.repo, s.config, localID)
+	items, err := s.repo.ItemsBajoStockPorLocal(localID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		s.completar(&items[i])
+	}
+	reservas, err := s.repo.ReservasConAlerta(localID)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := s.config.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	for i := range reservas {
+		// El detalle sale del recalculo en vivo de arriba (el flag solo indica que hubo faltante al agendar).
+		// Si ese recalculo fallo o la reserva no entro, se evalua individualmente.
+		if warns, ok := recalculadas[reservas[i].ReservaID]; ok {
+			reservas[i].Advertencias = warns
+		} else if warns, err := s.advertenciasReserva(reservas[i].ReservaID, cfg.ConsiderarComprometido); err == nil {
+			reservas[i].Advertencias = warns
+		}
+	}
+	reposicion, err := s.repo.ReposicionPorLocal(localID)
+	if err != nil {
+		return nil, err
+	}
+	return &models.AlertasInventario{ItemsBajoStock: items, ReservasConAlerta: reservas, Reposicion: reposicion}, nil
+}
+
+func (s *InventarioService) advertenciasReserva(reservaID int, comprometido bool) ([]models.AdvertenciaInventario, error) {
+	return s.repo.RecalcularAlerta(reservaID, comprometido)
+}
+
+// ─── Insumos por servicio ─────────────────────────────────────────────────────
+
+func (s *InventarioService) ListarInsumos(servicioID int) ([]models.ServicioInsumo, error) {
+	return s.repo.ListInsumos(servicioID)
+}
+
+// ReemplazarInsumos guarda la lista completa de insumos del servicio (PUT).
+func (s *InventarioService) ReemplazarInsumos(servicioID int, insumos []models.ServicioInsumo) error {
+	if ok, err := s.repo.ServicioExiste(servicioID); err != nil {
+		return err
+	} else if !ok {
+		return errors.New("servicio no encontrado")
+	}
+	vistos := map[int]bool{}
+	for _, in := range insumos {
+		if in.ItemID < 1 {
+			return errors.New("item_id invalido en insumos")
+		}
+		if in.CantidadPorSesion <= 0 {
+			return errors.New("cantidad_por_sesion debe ser mayor a 0")
+		}
+		if vistos[in.ItemID] {
+			return fmt.Errorf("el item %d esta repetido en los insumos", in.ItemID)
+		}
+		vistos[in.ItemID] = true
+		if ok, err := s.repo.ItemExiste(in.ItemID); err != nil {
+			return err
+		} else if !ok {
+			return fmt.Errorf("%w: id %d", repository.ErrItemNoEncontrado, in.ItemID)
+		}
+	}
+	if err := s.repo.ReplaceInsumos(servicioID, insumos); err != nil {
+		return err
+	}
+	// Cambiar lo que consume un servicio cambia que reservas quedan en falta.
+	s.RefrescarAlertas(nil)
+	return nil
+}
+
+func boolPtr(b bool) *bool { return &b }
+
+// ParseFechaOpcional parsea YYYY-MM-DD; vacio devuelve nil.
+func ParseFechaOpcional(valor, campo string) (*time.Time, error) {
+	valor = strings.TrimSpace(valor)
+	if valor == "" {
+		return nil, nil
+	}
+	t, err := time.Parse("2006-01-02", valor)
+	if err != nil {
+		return nil, fmt.Errorf("%s invalida, use formato YYYY-MM-DD", campo)
+	}
+	return &t, nil
+}

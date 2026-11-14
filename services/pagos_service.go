@@ -10,14 +10,29 @@ import (
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 )
+
+// ConfigSource entrega los parametros del sistema; lo cumple *ConfiguracionService.
+type ConfigSource interface {
+	Snapshot() (ConfigTrastienda, error)
+}
 
 type PagosService struct {
 	repo repository.PagosRepository
+	// Config es opcional: sin el, la fecha del hecho usa los defaults (UTC-4 y sin limite de dias).
+	Config ConfigSource
+	// Ahora es el reloj; solo se cambia en pruebas.
+	Ahora func() time.Time
 }
 
 func NewPagosService(repo repository.PagosRepository) *PagosService {
-	return &PagosService{repo: repo}
+	return &PagosService{repo: repo, Ahora: time.Now}
+}
+
+// resolverFechaHecho valida la fecha del hecho pedida. Devuelve nil si no se pidio una: la base pone el momento actual.
+func (s *PagosService) resolverFechaHecho(raw string) (*time.Time, error) {
+	return resolverFechaHechoConfigurada(s.Config, s.Ahora, raw)
 }
 
 type FiltroPagos struct {
@@ -44,6 +59,9 @@ type FiltroPagos struct {
 	CursorSet                  bool
 	CursorFecha                time.Time
 	CursorID                   int
+	OrdenarPor                 string
+	OrdenDesc                  bool
+	Offset                     int
 }
 
 func (s *PagosService) GetPagos(filtro FiltroPagos) ([]models.PagoPG, error) {
@@ -77,6 +95,14 @@ func toRepositoryFiltroPagos(filtro FiltroPagos) (repository.FiltroPagos, error)
 	if filtro.IDCajeroModificacion != nil && *filtro.IDCajeroModificacion <= 0 {
 		return repository.FiltroPagos{}, errors.New("id_cajero_modificacion invalido")
 	}
+	if filtro.OrdenarPor != "" {
+		if _, ok := pgsqlrepo.PagosOrdenables[filtro.OrdenarPor]; !ok {
+			return repository.FiltroPagos{}, errors.New("ordenar_por invalido")
+		}
+	}
+	if filtro.Offset < 0 {
+		return repository.FiltroPagos{}, errors.New("offset invalido")
+	}
 
 	return repository.FiltroPagos{
 		Context:                    filtro.Context,
@@ -99,6 +125,7 @@ func toRepositoryFiltroPagos(filtro FiltroPagos) (repository.FiltroPagos, error)
 		UsernameCajeroModificacion: strings.TrimSpace(filtro.UsernameCajeroModificacion),
 		PageLimit:                  filtro.PageLimit, CursorSet: filtro.CursorSet,
 		CursorFecha: filtro.CursorFecha, CursorID: filtro.CursorID,
+		OrdenarPor: filtro.OrdenarPor, OrdenDesc: filtro.OrdenDesc, Offset: filtro.Offset,
 	}, nil
 }
 
@@ -131,8 +158,11 @@ type CrearPagoInput struct {
 	TipoPago      string
 	Estado        string
 	Activo        bool
-	Cajero        CajeroAuditoriaInput
-	Detalle       []CrearDetallePagoInput
+	ReservaID     *int
+	// FechaHecho es cuando ocurrio el cobro (YYYY-MM-DD, opcional; sin ella es ahora). No puede ser futura.
+	FechaHecho string
+	Cajero     CajeroAuditoriaInput
+	Detalle    []CrearDetallePagoInput
 }
 
 type CajeroAuditoriaInput struct {
@@ -194,8 +224,13 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	fechaHecho, err := s.resolverFechaHecho(input.FechaHecho)
+	if err != nil {
+		return "", err
+	}
 
 	return s.repo.CreatePago(repository.CrearPagoInput{
+		FechaHecho:    fechaHecho,
 		LocalID:       input.LocalID,
 		LocalNombre:   strings.TrimSpace(input.LocalNombre),
 		ClienteID:     input.ClienteID,
@@ -207,6 +242,7 @@ func (s *PagosService) CreatePago(input CrearPagoInput) (string, error) {
 		TipoPago:      tipoPago,
 		Estado:        estado,
 		Activo:        input.Activo,
+		ReservaID:     input.ReservaID,
 		Cajero:        cajero,
 		Detalle:       detalle,
 	})
@@ -349,13 +385,14 @@ func (s *PagosService) UpdatePago(input ActualizarPagoInput) error {
 	})
 }
 
-func (s *PagosService) DeletePago(codigoPago string) error {
+// DeletePago anula el pago. quien anula queda en el kardex si el pago habia vendido insumos y se devuelve su stock.
+func (s *PagosService) DeletePago(codigoPago string, quien CajeroAuditoriaInput) error {
 	codigoPago = strings.TrimSpace(codigoPago)
 	if codigoPago == "" {
 		return errors.New("codigo_pago es requerido")
 	}
 
-	return s.repo.DeletePago(codigoPago)
+	return s.repo.DeletePago(codigoPago, repository.ConsumoActor{UsuarioID: quien.ID, UsuarioNombre: strings.TrimSpace(quien.Nombre)})
 }
 
 func NormalizarEstadoPago(raw string) (string, error) {
@@ -368,14 +405,18 @@ func NormalizarEstadoPago(raw string) (string, error) {
 	}
 }
 
+// TiposPago es la lista cerrada de metodos con los que se cobra. Debe coincidir con chk_pagos_tipo_pago en la
+// base (migracion 000074); agregar uno exige una migracion nueva.
+var TiposPago = []string{"efectivo", "tarjeta", "qr", "transferencia"}
+
 func NormalizarTipoPago(raw string) (string, error) {
 	tipoPago := strings.ToLower(strings.TrimSpace(raw))
-	switch tipoPago {
-	case "efectivo", "qr":
-		return tipoPago, nil
-	default:
-		return "", fmt.Errorf("Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR")
+	for _, valido := range TiposPago {
+		if tipoPago == valido {
+			return tipoPago, nil
+		}
 	}
+	return "", fmt.Errorf("Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia")
 }
 
 func normalizarEstadoPagoOpcional(raw string) (string, error) {

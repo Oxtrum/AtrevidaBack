@@ -22,6 +22,8 @@ type FiltroPaquetes struct {
 	Local        string
 	LocalID      *int
 	Activo       *bool
+	// SoloVisiblesPublico limita a los paquetes que se muestran en la pagina principal.
+	SoloVisiblesPublico bool
 	PageLimit    int
 	CursorSet    bool
 	CursorNombre string
@@ -71,4 +73,6 @@ type PaquetesRepository interface {
 	EliminarPaquete(id int) error
 	// SetPaqueteImagen actualiza el path de portada (nil lo limpia).
 	SetPaqueteImagen(id int, path *string) error
+	// SetPaqueteVisibilidad muestra u oculta el paquete en la pagina principal sin darlo de baja.
+	SetPaqueteVisibilidad(id int, visible bool) error
 }

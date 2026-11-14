@@ -6,16 +6,20 @@ import (
 	"time"
 
 	"atrevida-agenda-api/models"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type FiltroReservasPG struct {
-	Context            context.Context
-	LocalID            *int
-	LocalNombre        string
-	Fecha              *time.Time
-	FechaDesde         *time.Time
-	FechaHasta         *time.Time
-	Cliente            string
+	Context     context.Context
+	LocalID     *int
+	LocalNombre string
+	Fecha       *time.Time
+	FechaDesde  *time.Time
+	FechaHasta  *time.Time
+	Cliente     string
+	// ClienteID filtra las reservas de un cliente registrado.
+	ClienteID          *int
 	NumeroTelefono     string
 	TelefonoE164       *string
 	ServicioSolicitado string
@@ -36,15 +40,22 @@ type FiltroReservasPG struct {
 	CursorFecha        time.Time
 	CursorHora         string
 	CursorID           int
+	// OrdenarPor es una clave de pgsql.ReservasOrdenables; manda sobre OrdenCronologico. Con orden pedido
+	// la paginacion avanza por Offset y no por el cursor por valor.
+	OrdenarPor string
+	OrdenDesc  bool
+	Offset     int
 }
 
 type CreateReservaInput struct {
-	LocalNombre        string
-	TipoEspacio        string
-	Fecha              time.Time
-	HoraDesde          string
-	HoraHasta          string
-	Cliente            string
+	LocalNombre string
+	TipoEspacio string
+	Fecha       time.Time
+	HoraDesde   string
+	HoraHasta   string
+	Cliente     string
+	// ClienteID enlaza la reserva con un cliente registrado; nil la deja por vincular.
+	ClienteID          *int
 	Estado             string
 	NumeroTelefono     string
 	TelefonoE164       *string
@@ -92,6 +103,8 @@ type UpdateReservaInput struct {
 	LimpiarPlanID bool
 	// ResetNotificado marca la reserva como no notificada para reavisar al cliente.
 	ResetNotificado bool
+	// OnApplied se ejecuta dentro de la misma transaccion, tras aplicar los cambios y antes de confirmar.
+	OnApplied func(tx *sqlx.Tx) error
 	// EstadoActualEsperado protege la escritura contra cambios de estado
 	// concurrentes entre la lectura del servicio y esta transacción.
 	EstadoActualEsperado string
@@ -106,15 +119,22 @@ var (
 )
 
 type UpdateReservaEstadoInput struct {
-	ID                   int
-	Estado               string
-	ServicioConfirmado   *string
-	Precio               *float64
-	PrecioSet            bool
-	CostoVariable        *bool
-	CostoVariableSet     bool
-	TipoEspacio          *string
-	EstadoActualEsperado string
+	ID                       int
+	Estado                   string
+	ServicioConfirmado       *string
+	Precio                   *float64
+	PrecioSet                bool
+	CostoVariable            *bool
+	CostoVariableSet         bool
+	TipoEspacio              *string
+	EstadoActualEsperado     string
+	MotivoCancelacionTipo    *string
+	MotivoCancelacionDetalle *string
+	CanceladoPorID           *int
+	CanceladoPor             *string
+	// OnApplied se ejecuta dentro de la misma transaccion, tras aplicar el cambio de estado y
+	// antes del commit (ej. descontar insumos). Si devuelve error se revierte todo.
+	OnApplied func(tx *sqlx.Tx) error
 }
 
 type CapacidadLocal struct {
@@ -158,4 +178,7 @@ type ReservasPGRepository interface {
 	UpdateReservaNotificado(id int, notificado bool) error
 	UpdateReservasNotificado(ids []int, notificado bool) (int, error)
 	AnularReserva(id int) error
+	// AnularReservaConHook anula la reserva y ejecuta hook en la misma transaccion
+	// (ej. revertir stock). Un error del hook revierte la anulacion.
+	AnularReservaConHook(id int, hook func(tx *sqlx.Tx) error) error
 }

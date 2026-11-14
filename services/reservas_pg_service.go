@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -11,11 +12,76 @@ import (
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
 	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type ReservasPGService struct {
 	repo          repository.ReservasPGRepository
 	serviciosRepo repository.ServiciosRepository
+	// consumo conecta con el inventario (insumos por servicio). Opcional: si es nil
+	// las reservas funcionan igual que antes, sin avisos ni descuentos de stock.
+	consumo *InventarioConsumo
+	// clientes enlaza las reservas con clientes registrados. Opcional: si es nil no se valida ni se vincula.
+	clientes ReservaClientes
+	// config da el momento en que avanza la sesion de un paquete. Opcional: sin ella es al completar la reserva.
+	config *ConfiguracionService
+	// planes da la cobranza de un paquete. Opcional: sin el no se exige que este pagado.
+	planes PlanesCobranza
+}
+
+// PlanesCobranza es lo que la reserva necesita saber del pago de un paquete.
+type PlanesCobranza interface {
+	EstadoCobranza(planID int) (string, error)
+}
+
+// ReservaClientes es lo que la reserva necesita saber de los clientes registrados.
+type ReservaClientes interface {
+	// IDsPorTelefono devuelve los clientes cuyo telefono E.164 es exactamente ese.
+	IDsPorTelefono(e164 string) ([]int, error)
+	// Existe indica si el cliente existe.
+	Existe(id int) (bool, error)
+}
+
+// SetClientes habilita el enlace de reservas con clientes registrados (ver reservas_cliente.go).
+func (s *ReservasPGService) SetClientes(c ReservaClientes) { s.clientes = c }
+
+// SetInventarioConsumo habilita la integracion con inventario (ver inventario_consumo.go).
+func (s *ReservasPGService) SetInventarioConsumo(c *InventarioConsumo) { s.consumo = c }
+
+// SetConfiguracion habilita los parametros editables (hoy: cuando avanza la sesion de un paquete).
+func (s *ReservasPGService) SetConfiguracion(c *ConfiguracionService) { s.config = c }
+
+// SetPlanes habilita la regla de uso del paquete segun su pago (parametro paquetes.usar_desde).
+func (s *ReservasPGService) SetPlanes(p PlanesCobranza) { s.planes = p }
+
+// validarPaqueteUsable rechaza imputar una reserva a un paquete sin pagar cuando el parametro pide PAGADO. Con CUENTA
+// (por defecto) el paquete se usa apenas se vende, aunque quede debiendo.
+func (s *ReservasPGService) validarPaqueteUsable(planID int) error {
+	if s.config == nil || s.planes == nil {
+		return nil
+	}
+	cfg, err := s.config.Snapshot()
+	if err != nil || cfg.UsarPaqueteDesde != "PAGADO" {
+		return nil
+	}
+	cobranza, err := s.planes.EstadoCobranza(planID)
+	if err != nil {
+		return err
+	}
+	if cobranza != "PAGADO" {
+		return errors.New("el paquete todavía no está pagado: se puede usar cuando esté pagado")
+	}
+	return nil
+}
+
+// sesionPaqueteAlAgendar dice si el parametro pide consumir la sesion del paquete al agendar y no al completar.
+func (s *ReservasPGService) sesionPaqueteAlAgendar() bool {
+	if s.config == nil {
+		return false
+	}
+	cfg, err := s.config.Snapshot()
+	return err == nil && cfg.SesionPaqueteEnEstado == "AGENDADO"
 }
 
 func NewReservasPGService(repo repository.ReservasPGRepository, serviciosRepo *pgsqlrepo.ServiciosRepo) *ReservasPGService {
@@ -490,13 +556,15 @@ func getRangoTiempoDisp(desdeStr, hastaStr string) (time.Time, time.Time) {
 
 // ReservaSimple es la representación plana de una reserva para GET /bd/reservas.
 type ReservaSimple struct {
-	ID                 int      `json:"id" example:"44"`
-	Local              string   `json:"local" example:"SAN MARTIN"`
-	Tipo               string   `json:"tipo" example:"M"`
-	Fecha              string   `json:"fecha" example:"2026-05-23"`
-	HoraDesde          string   `json:"hora_desde" example:"09:00"`
-	HoraHasta          string   `json:"hora_hasta" example:"10:00"`
-	Cliente            string   `json:"cliente" example:"Maria Lopez"`
+	ID        int    `json:"id" example:"44"`
+	Local     string `json:"local" example:"SAN MARTIN"`
+	Tipo      string `json:"tipo" example:"M"`
+	Fecha     string `json:"fecha" example:"2026-05-23"`
+	HoraDesde string `json:"hora_desde" example:"09:00"`
+	HoraHasta string `json:"hora_hasta" example:"10:00"`
+	Cliente   string `json:"cliente" example:"Maria Lopez"`
+	// ClienteID es el cliente registrado dueño de la reserva; ausente si esta por vincular.
+	ClienteID          *int     `json:"cliente_id,omitempty" example:"12"`
 	Estado             *string  `json:"estado,omitempty" example:"AGENDADO"`
 	NumeroTelefono     *string  `json:"numero_telefono,omitempty" example:"+59170011223"`
 	TelefonoE164       *string  `json:"telefono_e164,omitempty" example:"+59170011223"`
@@ -509,8 +577,10 @@ type ReservaSimple struct {
 	CostoVariable *bool   `json:"costo_variable,omitempty" example:"true"`
 	Notas         *string `json:"notas,omitempty" example:"Primera sesion del plan"`
 	Notificado    bool    `json:"notificado" example:"false"`
-	CreadoEn      string  `json:"creado_en" example:"2026-05-23T15:04:05Z"`
-	ActualizadoEn string  `json:"actualizado_en" example:"2026-05-23T16:04:05Z"`
+	// AlertaInventario avisa que faltaba stock de insumos al agendar (solo informativo).
+	AlertaInventario bool   `json:"alerta_inventario" example:"false"`
+	CreadoEn         string `json:"creado_en" example:"2026-05-23T15:04:05Z"`
+	ActualizadoEn    string `json:"actualizado_en" example:"2026-05-23T16:04:05Z"`
 }
 
 type ResumenReservasSemana struct {
@@ -544,12 +614,14 @@ type ResumenReservas struct {
 }
 
 type FiltroReservasSimple struct {
-	Context            context.Context
-	Local              string
-	Fecha              string
-	FechaDesde         string
-	FechaHasta         string
-	Cliente            string
+	Context    context.Context
+	Local      string
+	Fecha      string
+	FechaDesde string
+	FechaHasta string
+	Cliente    string
+	// ClienteID filtra las reservas de un cliente registrado.
+	ClienteID          *int
 	NumeroTelefono     string
 	ServicioSolicitado string
 	ServicioConfirmado string
@@ -567,6 +639,9 @@ type FiltroReservasSimple struct {
 	CursorFecha        time.Time
 	CursorHora         string
 	CursorID           int
+	OrdenarPor         string
+	OrdenDesc          bool
+	Offset             int
 }
 
 func (s *ReservasPGService) GetReservasAgendadasNoNotificadas(limit int, localNombre string) ([]ReservaNotificacion, error) {
@@ -625,10 +700,19 @@ func reservaNotificacionDesdePG(rv models.ReservaNotificacionPG) ReservaNotifica
 }
 
 func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]ReservaSimple, error) {
+	if f.OrdenarPor != "" {
+		if _, ok := pgsqlrepo.ReservasOrdenables[f.OrdenarPor]; !ok {
+			return nil, errors.New("ordenar_por invalido")
+		}
+	}
+	if f.Offset < 0 {
+		return nil, errors.New("offset invalido")
+	}
 	filtro := repository.FiltroReservasPG{
 		Context:            f.Context,
 		LocalNombre:        f.Local,
 		Cliente:            f.Cliente,
+		ClienteID:          f.ClienteID,
 		NumeroTelefono:     f.NumeroTelefono,
 		ServicioSolicitado: f.ServicioSolicitado,
 		ServicioConfirmado: f.ServicioConfirmado,
@@ -639,6 +723,7 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 		PageLimit:          f.PageLimit, CursorSet: f.CursorSet, CursorLocal: f.CursorLocal,
 		CursorFecha: f.CursorFecha, CursorHora: f.CursorHora, CursorID: f.CursorID,
 		VigenciaPendientes: f.VigenciaPendientes, OrdenCronologico: f.Orden == "cronologico",
+		OrdenarPor: f.OrdenarPor, OrdenDesc: f.OrdenDesc, Offset: f.Offset,
 	}
 	if f.Tipo != "" {
 		filtro.TipoEspacio = tipoNombreALetra(f.Tipo)
@@ -690,7 +775,7 @@ func (s *ReservasPGService) GetReservasSimple(f FiltroReservasSimple) ([]Reserva
 
 func (s *ReservasPGService) CountReservasSimple(f FiltroReservasSimple) (int, error) {
 	filtro := repository.FiltroReservasPG{
-		Context: f.Context, LocalNombre: f.Local, Cliente: f.Cliente,
+		Context: f.Context, LocalNombre: f.Local, Cliente: f.Cliente, ClienteID: f.ClienteID,
 		NumeroTelefono: f.NumeroTelefono, ServicioSolicitado: f.ServicioSolicitado,
 		ServicioConfirmado: f.ServicioConfirmado, Busqueda: f.Busqueda,
 		Estado: f.Estado, ExcluirEstado: f.ExcluirEstado, SoloActivas: true,
@@ -740,6 +825,7 @@ func reservaSimpleDesdePG(rv models.ReservaPGCompleta) ReservaSimple {
 		HoraDesde:          formatHoraService(rv.HoraDesde),
 		HoraHasta:          formatHoraService(rv.HoraHasta),
 		Cliente:            rv.Cliente,
+		ClienteID:          rv.ClienteID,
 		Estado:             rv.Estado,
 		NumeroTelefono:     rv.NumeroTelefono,
 		TelefonoE164:       rv.TelefonoE164,
@@ -751,6 +837,7 @@ func reservaSimpleDesdePG(rv models.ReservaPGCompleta) ReservaSimple {
 		CostoVariable:      rv.CostoVariable,
 		Notas:              rv.Notas,
 		Notificado:         rv.Notificado,
+		AlertaInventario:   rv.AlertaInventario,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
 		ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
 	}
@@ -771,6 +858,7 @@ func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple
 
 	return &ReservaSimple{
 		ID:                 rv.ID,
+		ClienteID:          rv.ClienteID,
 		Local:              rv.LocalNombre,
 		Tipo:               tipoLetraANombreService(rv.TipoEspacio),
 		Fecha:              rv.Fecha.Format("2006-01-02"),
@@ -788,13 +876,47 @@ func (s *ReservasPGService) GetReservaByID(id int, localID *int) (*ReservaSimple
 		CostoVariable:      rv.CostoVariable,
 		Notas:              rv.Notas,
 		Notificado:         rv.Notificado,
+		AlertaInventario:   rv.AlertaInventario,
 		CreadoEn:           rv.CreadoEn.Format(time.RFC3339),
 		ActualizadoEn:      rv.ActualizadoEn.Format(time.RFC3339),
 	}, nil
 }
 
 func (s *ReservasPGService) DeleteReserva(id int) error {
-	return s.repo.AnularReserva(id)
+	return s.EliminarReserva(id, repository.ConsumoActor{})
+}
+
+// EliminarReserva anula la reserva y, si ya habia descontado insumos, devuelve el stock
+// en la misma transaccion (RN-16).
+func (s *ReservasPGService) EliminarReserva(id int, actor repository.ConsumoActor) error {
+	// Eliminar una reserva completada devuelve su sesion al paquete (y, si hay inventario, el stock).
+	hook := func(tx *sqlx.Tx) error { return pgsqlrepo.LiberarSesionPorReservaTx(tx, id) }
+	if s.consumo != nil {
+		hook = combinarHooksTx(s.consumo.HookEliminar(id, actor), hook)
+	}
+	if err := s.repo.AnularReservaConHook(id, hook); err != nil {
+		return err
+	}
+	if s.consumo != nil {
+		// Si devolvio stock, otras reservas del local pueden dejar de estar en falta.
+		s.consumo.refrescarLocalDe(id)
+	}
+	return nil
+}
+
+// combinarHooksTx encadena acciones transaccionales en orden; ignora las nil.
+func combinarHooksTx(hooks ...func(*sqlx.Tx) error) func(*sqlx.Tx) error {
+	return func(tx *sqlx.Tx) error {
+		for _, h := range hooks {
+			if h == nil {
+				continue
+			}
+			if err := h(tx); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 }
 
 func (s *ReservasPGService) ActualizarNotificacionReserva(id int, notificado bool) error {
@@ -973,12 +1095,14 @@ func formatHoraService(h string) string {
 
 // POST
 type CrearReservaPGInput struct {
-	Local              string
-	Fecha              string
-	HoraDesde          string
-	HoraHasta          string
-	Tipo               string
-	Cliente            string
+	Local     string
+	Fecha     string
+	HoraDesde string
+	HoraHasta string
+	Tipo      string
+	Cliente   string
+	// ClienteID lo elige el panel interno. El formulario publico no lo manda: se vincula solo por telefono exacto y unico.
+	ClienteID          *int
 	Telefono           string
 	TelefonoE164       *string
 	Estado             string
@@ -990,11 +1114,13 @@ type CrearReservaPGInput struct {
 	Notas              string
 	PlanID             *int
 	// Autenticado indica que la peticion trae un token valido (panel interno). Solo esos
-	// usuarios reciben el aviso de reserva repetida.
+	// usuarios ven advertencias de inventario y quedan sujetos a la politica BLOQUEAR.
 	Autenticado bool
 	// ConfirmarDuplicado indica que el usuario ya vio el aviso de que el cliente tiene otra
 	// reserva ese dia y quiere crearla igual.
 	ConfirmarDuplicado bool
+	// Actor se usa para el kardex si el alta descuenta insumos.
+	Actor repository.ConsumoActor
 }
 
 // ReservaDuplicadaItem resume una reserva que el cliente ya tiene en el dia.
@@ -1017,14 +1143,54 @@ func (e *ReservaDuplicadaError) Error() string {
 	return "el cliente ya tiene una reserva ese dia"
 }
 
+// CrearReservaResultado es el resultado de crear una reserva.
+type CrearReservaResultado struct {
+	ID                     int
+	AlertaInventario       bool
+	AdvertenciasInventario []models.AdvertenciaInventario
+}
+
 func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error) {
+	res, err := s.CrearReservaConAvisos(input)
+	return res.ID, err
+}
+
+// CrearReservaConAvisos crea la reserva y devuelve ademas las advertencias de inventario.
+func (s *ReservasPGService) CrearReservaConAvisos(input CrearReservaPGInput) (CrearReservaResultado, error) {
+	id, estadoFinal, err := s.crearReservaBase(input)
+	if err != nil {
+		return CrearReservaResultado{ID: id}, err
+	}
+	res := CrearReservaResultado{ID: id}
+	if s.consumo != nil {
+		warns, err := s.consumo.DespuesDeCrear(id, estadoFinal, input.Actor)
+		if err != nil {
+			// La reserva ya esta guardada: un fallo del inventario no debe perderla.
+			log.Printf("[inventario] no se pudo evaluar/descontar la reserva %d: %v", id, err)
+			return res, nil
+		}
+		res.AlertaInventario = len(warns) > 0
+		if input.Autenticado {
+			res.AdvertenciasInventario = warns
+		}
+	}
+	return res, nil
+}
+
+func (s *ReservasPGService) crearReservaBase(input CrearReservaPGInput) (int, string, error) {
 	telefonoE164, err := telefono.ResolveE164(input.Telefono, input.TelefonoE164)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	fecha, err := time.Parse("2006-01-02", input.Fecha)
 	if err != nil {
-		return 0, fmt.Errorf("formato de fecha inválido, use YYYY-MM-DD")
+		return 0, "", fmt.Errorf("formato de fecha inválido, use YYYY-MM-DD")
+	}
+
+	if input.PlanID != nil {
+		if err := s.validarPaqueteUsable(*input.PlanID); err != nil {
+			return 0, "", err
+		}
 	}
 
 	horaHasta := input.HoraHasta
@@ -1032,7 +1198,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		horaHasta = sumar60Min(input.HoraDesde)
 	}
 	if err := validarHorarioAtencion(input.Local, fecha, input.HoraDesde, horaHasta); err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
 	/* COMENTADO HASTA QUE FRONTEND RECUPERE SERVICIOS DE LA BD
@@ -1042,7 +1208,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 
 		servicio, err := s.serviciosRepo.GetServicioByNombre(input.Servicio)
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 
 		if strings.TrimSpace(servicio.TipoEspacio) != "" {
@@ -1058,7 +1224,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 
 			_, err := fmt.Sscanf(servicio.Costo, "%f", &precio)
 			if err != nil {
-				return 0, fmt.Errorf(
+				return 0, "", fmt.Errorf(
 					"Error al convertir precio del servicio '%s'",
 					servicio.Nombre,
 				)
@@ -1112,10 +1278,10 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 	if strings.TrimSpace(input.Estado) != "" {
 		estadoRecibido, err := NormalizarEstadoReserva(input.Estado)
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 		if estadoRecibido == "RECHAZADO" || estadoRecibido == "COMPLETADO" {
-			return 0, errors.New("estado inicial inválido para una reserva nueva")
+			return 0, "", errors.New("estado inicial inválido para una reserva nueva")
 		}
 		estadoFinal = estadoRecibido
 	}
@@ -1130,18 +1296,32 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 	}
 
 	/*if err := s.validarDisponibilidad(input.Local, &fecha, input.HoraDesde, horaHasta, input.Tipo, nil); err != nil {
-		return 0, err
+		return 0, "", err
 	}*/
 
 	// Aviso de reserva repetida (solo panel interno): el formulario publico no consulta
 	// reservas ajenas, para no exponer datos de otros clientes.
 	if input.Autenticado && !input.ConfirmarDuplicado {
 		if err := s.avisarReservaDuplicada(input.Telefono, fecha, 0); err != nil {
-			return 0, err
+			return 0, "", err
 		}
 	}
 
-	// When no sabes
+	// Politica BLOQUEAR (solo panel interno): se evalua antes de guardar. Con ADVERTIR (default)
+	// la reserva se guarda igual y el aviso se calcula despues de crearla (RN-12/RN-13).
+	if s.consumo != nil && input.Autenticado {
+		if localID, errLocal := s.repo.GetLocalIDByNombre(input.Local); errLocal == nil {
+			nombres := []string{stringValue(input.ServicioConfirmado), input.Servicio, input.ServicioSolicitado}
+			if err := s.consumo.ValidarPoliticaAlCrear(true, localID, nombres); err != nil {
+				return 0, "", err
+			}
+		}
+	}
+
+	clienteID, err := s.clienteDeLaReserva(input, telefonoE164)
+	if err != nil {
+		return 0, "", err
+	}
 
 	id, err := s.repo.CreateReserva(repository.CreateReservaInput{
 		LocalNombre:        input.Local,
@@ -1150,6 +1330,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		HoraDesde:          input.HoraDesde,
 		HoraHasta:          horaHasta,
 		Cliente:            input.Cliente,
+		ClienteID:          clienteID,
 		Estado:             estadoFinal,
 		NumeroTelefono:     input.Telefono,
 		TelefonoE164:       telefonoE164,
@@ -1161,7 +1342,7 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 		Notas:              input.Notas,
 		PlanID:             input.PlanID,
 	})
-	return id, err
+	return id, estadoFinal, err
 }
 
 // avisarReservaDuplicada devuelve ReservaDuplicadaError si el telefono ya tiene reservas
@@ -1270,15 +1451,52 @@ func normalizarNombreServicio(nombre string) string {
 }
 
 type ActualizarEstadoReservaInput struct {
-	Id                 int
-	Estado             string
-	Causa              string
-	ServicioConfirmado *string
-	Precio             *float64
-	Tipo               string
+	Id                       int
+	Estado                   string
+	Causa                    string
+	MotivoCancelacionTipo    string
+	MotivoCancelacionDetalle string
+	ServicioConfirmado       *string
+	Precio                   *float64
+	Tipo                     string
+	// Actor se registra en el kardex cuando el cambio de estado descuenta insumos.
+	Actor repository.ConsumoActor
+}
+
+// ActualizarEstadoReservaResultado informa el estado de inventario tras el cambio.
+type ActualizarEstadoReservaResultado struct {
+	AlertaInventario       bool
+	AdvertenciasInventario []models.AdvertenciaInventario
 }
 
 func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReservaInput) error {
+	_, err := s.ActualizarEstadoReservaConAvisos(input)
+	return err
+}
+
+// ActualizarEstadoReservaConAvisos cambia el estado. Al llegar al estado configurado para
+// descontar (por defecto COMPLETADO) descuenta los insumos en la misma transaccion (RN-14); si no
+// alcanza y la configuracion no permite stock negativo, el cambio no se aplica (409).
+func (s *ReservasPGService) ActualizarEstadoReservaConAvisos(input ActualizarEstadoReservaInput) (ActualizarEstadoReservaResultado, error) {
+	if strings.EqualFold(strings.TrimSpace(input.Estado), "COMPLETADO") {
+		return ActualizarEstadoReservaResultado{}, errors.New("una reserva solo se completa al registrar una atencion")
+	}
+	err := s.actualizarEstadoReservaBase(input)
+	var res ActualizarEstadoReservaResultado
+	if err != nil || s.consumo == nil {
+		return res, err
+	}
+	warns, errCalc := s.consumo.Recalcular(input.Id)
+	if errCalc != nil {
+		log.Printf("[inventario] no se pudo recalcular la alerta de la reserva %d: %v", input.Id, errCalc)
+		return res, nil
+	}
+	res.AlertaInventario = len(warns) > 0
+	res.AdvertenciasInventario = warns
+	return res, nil
+}
+
+func (s *ReservasPGService) actualizarEstadoReservaBase(input ActualizarEstadoReservaInput) error {
 	current, err := s.repo.GetReservaByID(input.Id)
 	if err != nil {
 		if esReservaNoEncontrada(err) {
@@ -1296,6 +1514,12 @@ func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReserv
 	if err != nil {
 		return err
 	}
+	// Una cancelación es terminal y conserva su motivo/auditoría originales. A diferencia
+	// de otros cambios idempotentes, no se debe volver a aplicar porque puede reejecutar
+	// la reversión de consumos o de una sesión de paquete.
+	if estadoActual == "CANCELADO" {
+		return errors.New("una reserva cancelada no puede cambiar de estado")
+	}
 
 	if !canTransitionReservaEstado(estadoActual, estado) {
 		return fmt.Errorf("transicion de estado invalida: %s -> %s", estadoActual, estado)
@@ -1303,6 +1527,18 @@ func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReserv
 
 	if estado == "RECHAZADO" && strings.TrimSpace(input.Causa) == "" {
 		return errors.New("causa es requerida cuando el estado es RECHAZADO")
+	}
+	var motivoCancelacionTipo, motivoCancelacionDetalle *string
+	if estado == "CANCELADO" {
+		tipo, err := normalizarMotivoCancelacion(input.MotivoCancelacionTipo)
+		if err != nil {
+			return err
+		}
+		detalle := strings.TrimSpace(input.MotivoCancelacionDetalle)
+		if tipo == "OTRO" && detalle == "" {
+			return errors.New("detalle es requerido cuando el motivo de cancelacion es OTRO")
+		}
+		motivoCancelacionTipo, motivoCancelacionDetalle = &tipo, limpiarTexto(&detalle)
 	}
 
 	var tipoEspacio *string
@@ -1322,16 +1558,54 @@ func (s *ReservasPGService) ActualizarEstadoReserva(input ActualizarEstadoReserv
 
 	costoVariable, actualizarCosto := s.modalidadCostoParaCambio(current, servicioConfirmado, true)
 	limpiarPrecio := actualizarCosto && costoVariable != nil && *costoVariable && input.Precio == nil
+
+	var onApplied func(*sqlx.Tx) error
+	if s.consumo != nil {
+		if estado == "AGENDADO" && estadoActual != "AGENDADO" {
+			if err := s.consumo.ValidarPoliticaAlAgendar(input.Id); err != nil {
+				return err
+			}
+		}
+		hook, err := s.consumo.HookCambioEstado(estado, input.Id, input.Actor)
+		if err != nil {
+			return err
+		}
+		onApplied = hook
+	}
+	// Una reserva imputada a un paquete consume su siguiente sesion al completarse (por defecto) o al agendarse,
+	// segun el parametro. Completar siempre lo intenta: es idempotente y cubre lo agendado antes del cambio.
+	if estado == "COMPLETADO" || (estado == "AGENDADO" && s.sesionPaqueteAlAgendar()) {
+		onApplied = combinarHooksTx(onApplied, func(tx *sqlx.Tx) error {
+			return pgsqlrepo.MarcarSesionPorReservaTx(tx, input.Id)
+		})
+	}
+	// Cancelar una reserva agendada devuelve las sesiones e insumos comprometidos.
+	if estado == "CANCELADO" {
+		onApplied = combinarHooksTx(onApplied, func(tx *sqlx.Tx) error {
+			if err := pgsqlrepo.LiberarSesionPorReservaTx(tx, input.Id); err != nil {
+				return err
+			}
+			if s.consumo != nil {
+				return s.consumo.HookEliminar(input.Id, input.Actor)(tx)
+			}
+			return nil
+		})
+	}
 	return s.repo.UpdateReservaEstado(repository.UpdateReservaEstadoInput{
-		ID:                   input.Id,
-		Estado:               estado,
-		EstadoActualEsperado: estadoActual,
-		ServicioConfirmado:   servicioConfirmado,
-		Precio:               input.Precio,
-		PrecioSet:            limpiarPrecio,
-		CostoVariable:        costoVariable,
-		CostoVariableSet:     actualizarCosto,
-		TipoEspacio:          tipoEspacio,
+		OnApplied:                onApplied,
+		ID:                       input.Id,
+		Estado:                   estado,
+		EstadoActualEsperado:     estadoActual,
+		MotivoCancelacionTipo:    motivoCancelacionTipo,
+		MotivoCancelacionDetalle: motivoCancelacionDetalle,
+		CanceladoPorID:           input.Actor.UsuarioID,
+		CanceladoPor:             limpiarTexto(&input.Actor.UsuarioNombre),
+		ServicioConfirmado:       servicioConfirmado,
+		Precio:                   input.Precio,
+		PrecioSet:                limpiarPrecio,
+		CostoVariable:            costoVariable,
+		CostoVariableSet:         actualizarCosto,
+		TipoEspacio:              tipoEspacio,
 	})
 }
 
@@ -1358,12 +1632,51 @@ type ActualizarReservaPGInput struct {
 	// LimpiarPlanID desvincula la reserva de su plan (plan_id = NULL).
 	LimpiarPlanID bool
 	NuevoEstado   string
+	// Actor se registra en el kardex si confirmar la reserva descuenta insumos.
+	Actor repository.ConsumoActor
 	// ConfirmarDuplicado indica que el usuario ya vio que el cliente tiene otra reserva en la
 	// nueva fecha y quiere mover la reserva igual.
 	ConfirmarDuplicado bool
 }
 
 func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) error {
+	_, err := s.ActualizarReservaConAvisos(input)
+	return err
+}
+
+// ActualizarReservaConAvisos edita la reserva y recalcula la alerta de inventario (RN-17): cambiar
+// servicio, local o fecha puede cambiar la disponibilidad de insumos.
+func (s *ReservasPGService) ActualizarReservaConAvisos(input ActualizarReservaPGInput) (ActualizarEstadoReservaResultado, error) {
+	var res ActualizarEstadoReservaResultado
+	if s.consumo != nil && strings.EqualFold(strings.TrimSpace(input.NuevoEstado), "AGENDADO") {
+		if err := s.consumo.ValidarDescuentoAlAgendar(input.Id); err != nil {
+			return res, err
+		}
+	}
+	if err := s.actualizarReservaBase(input); err != nil {
+		return res, err
+	}
+	if s.consumo == nil {
+		return res, nil
+	}
+	var warns []models.AdvertenciaInventario
+	var err error
+	if strings.EqualFold(strings.TrimSpace(input.NuevoEstado), "AGENDADO") {
+		// Confirmar por esta via equivale a pasar a AGENDADO: puede descontar si asi se configuro.
+		warns, err = s.consumo.DespuesDeCrear(input.Id, "AGENDADO", input.Actor)
+	} else {
+		warns, err = s.consumo.Recalcular(input.Id)
+	}
+	if err != nil {
+		log.Printf("[inventario] no se pudo recalcular la alerta de la reserva %d: %v", input.Id, err)
+		return res, nil
+	}
+	res.AlertaInventario = len(warns) > 0
+	res.AdvertenciasInventario = warns
+	return res, nil
+}
+
+func (s *ReservasPGService) actualizarReservaBase(input ActualizarReservaPGInput) error {
 	upd := repository.UpdateReservaInput{Id: input.Id}
 	if input.LimpiarPrecio && input.NuevoPrecio != nil {
 		return errors.New("limpiar_precio no puede combinarse con nuevo_precio")
@@ -1504,6 +1817,12 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 		}
 		return errors.New("No se pudo recuperar la reserva")
 	}
+	// Solo al cambiar de paquete: guardar otros datos de una reserva ya imputada no vuelve a pedir el pago.
+	if !input.LimpiarPlanID && input.NuevoPlanID != nil && (current.PlanID == nil || *current.PlanID != *input.NuevoPlanID) {
+		if err := s.validarPaqueteUsable(*input.NuevoPlanID); err != nil {
+			return err
+		}
+	}
 	estadoActual, err := estadoReservaActual(current)
 	if err != nil {
 		return err
@@ -1542,6 +1861,9 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 			return fmt.Errorf("transicion de estado invalida: %s -> %s", estadoActual, estadoFinal)
 		}
 		upd.NuevoEstado = &estadoFinal
+		if s.sesionPaqueteAlAgendar() {
+			upd.OnApplied = func(tx *sqlx.Tx) error { return pgsqlrepo.MarcarSesionPorReservaTx(tx, input.Id) }
+		}
 	}
 
 	// Una reserva AGENDADO ya tiene servicio confirmado: si cambia el servicio
@@ -1750,10 +2072,10 @@ func NormalizarEstadoReserva(raw string) (string, error) {
 	}
 
 	switch estado {
-	case "PENDIENTE", "RECHAZADO", "AGENDADO", "COMPLETADO":
+	case "PENDIENTE", "RECHAZADO", "AGENDADO", "COMPLETADO", "CANCELADO":
 		return estado, nil
 	default:
-		return "", fmt.Errorf("estado invalido, valores permitidos: PENDIENTE, RECHAZADO, AGENDADO, COMPLETADO")
+		return "", fmt.Errorf("estado invalido, valores permitidos: PENDIENTE, RECHAZADO, AGENDADO, COMPLETADO, CANCELADO")
 	}
 }
 
@@ -1820,12 +2142,20 @@ func canTransitionReservaEstado(actual, siguiente string) bool {
 	case "RECHAZADO":
 		return siguiente == "PENDIENTE"
 	case "AGENDADO":
-		// RECHAZADO cubre la cancelación de una reserva ya confirmada.
-		return siguiente == "COMPLETADO" || siguiente == "RECHAZADO"
-	case "COMPLETADO":
+		return siguiente == "COMPLETADO" || siguiente == "CANCELADO"
+	case "COMPLETADO", "CANCELADO":
 		return false
 	default:
 		return false
+	}
+}
+
+func normalizarMotivoCancelacion(raw string) (string, error) {
+	switch tipo := strings.ToUpper(strings.TrimSpace(raw)); tipo {
+	case "INASISTENCIA", "REPROGRAMACION", "SOLICITUD_CLIENTE", "OPERATIVO_LOCAL", "OTRO":
+		return tipo, nil
+	default:
+		return "", errors.New("motivo_cancelacion_tipo invalido")
 	}
 }
 

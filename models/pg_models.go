@@ -273,29 +273,38 @@ type PlanCompletoPG struct {
 // Reservas
 
 type ReservaPG struct {
-	ID                 int       `db:"id"`
-	LocalID            *int      `db:"local_id"`
-	LocalNombre        string    `db:"local_nombre"`
-	TipoEspacio        string    `db:"tipo_espacio"`
-	Fecha              time.Time `db:"fecha"`
-	HoraDesde          string    `db:"hora_desde"` // TIME → string "09:00:00"
-	HoraHasta          string    `db:"hora_hasta"`
-	Cliente            string    `db:"cliente"`
-	Estado             *string   `db:"estado"`
-	NumeroTelefono     *string   `db:"numero_telefono"`
-	TelefonoE164       *string   `db:"telefono_e164"`
-	PlanID             *int      `db:"plan_id"`
-	ServicioNombre     *string   `db:"servicio_nombre"`
-	ServicioSolicitado *string   `db:"servicio_solicitado"`
-	ServicioConfirmado *string   `db:"servicio_confirmado"`
-	ServicioTiempo     *string   `db:"servicio_tiempo"`
-	Precio             *float64  `db:"precio"`
-	CostoVariable      *bool     `db:"costo_variable"`
-	Notas              *string   `db:"notas"`
-	Activo             bool      `db:"activo"`
-	Notificado         bool      `db:"notificado"`
-	CreadoEn           time.Time `db:"creado_en"`
-	ActualizadoEn      time.Time `db:"actualizado_en"`
+	ID          int       `db:"id"`
+	LocalID     *int      `db:"local_id"`
+	LocalNombre string    `db:"local_nombre"`
+	TipoEspacio string    `db:"tipo_espacio"`
+	Fecha       time.Time `db:"fecha"`
+	HoraDesde   string    `db:"hora_desde"` // TIME → string "09:00:00"
+	HoraHasta   string    `db:"hora_hasta"`
+	Cliente     string    `db:"cliente"`
+	// ClienteID es el cliente registrado al que pertenece la reserva; nil si esta por vincular.
+	ClienteID          *int     `db:"cliente_id"`
+	Estado             *string  `db:"estado"`
+	NumeroTelefono     *string  `db:"numero_telefono"`
+	TelefonoE164       *string  `db:"telefono_e164"`
+	PlanID             *int     `db:"plan_id"`
+	ServicioNombre     *string  `db:"servicio_nombre"`
+	ServicioSolicitado *string  `db:"servicio_solicitado"`
+	ServicioConfirmado *string  `db:"servicio_confirmado"`
+	ServicioTiempo     *string  `db:"servicio_tiempo"`
+	Precio             *float64 `db:"precio"`
+	CostoVariable      *bool    `db:"costo_variable"`
+	Notas              *string  `db:"notas"`
+	Activo             bool     `db:"activo"`
+	Notificado         bool     `db:"notificado"`
+	// AlertaInventario es true si al crear/agendar faltaba stock de insumos (trastienda).
+	AlertaInventario         bool       `db:"alerta_inventario"`
+	MotivoCancelacionTipo    *string    `db:"motivo_cancelacion_tipo" json:"motivo_cancelacion_tipo,omitempty"`
+	MotivoCancelacionDetalle *string    `db:"motivo_cancelacion_detalle" json:"motivo_cancelacion_detalle,omitempty"`
+	CanceladoEn              *time.Time `db:"cancelado_en" json:"cancelado_en,omitempty"`
+	CanceladoPorID           *int       `db:"cancelado_por_id" json:"cancelado_por_id,omitempty"`
+	CanceladoPor             *string    `db:"cancelado_por" json:"cancelado_por,omitempty"`
+	CreadoEn                 time.Time  `db:"creado_en"`
+	ActualizadoEn            time.Time  `db:"actualizado_en"`
 }
 
 type DetalleReservaPG struct {
@@ -367,6 +376,8 @@ type PagoPG struct {
 	Estado string `db:"estado" json:"estado" example:"PENDIENTE"`
 	// Estado activo para borrado logico.
 	Activo bool `db:"activo" json:"activo" example:"true"`
+	// Referencia opcional conservada por compatibilidad; no determina el estado del pago ni de la reserva.
+	ReservaID *int `db:"reserva_id" json:"reserva_id,omitempty" example:"44"`
 	// ID opcional del cajero que registro el pago.
 	IDCajero *int `db:"id_cajero" json:"id_cajero,omitempty" example:"1"`
 	// Nombre completo del cajero que registro el pago.
@@ -379,8 +390,12 @@ type PagoPG struct {
 	NombreCajeroModificacion *string `db:"nombre_cajero_modificacion" json:"nombre_cajero_modificacion,omitempty" example:"Ana Perez"`
 	// Username opcional del cajero que modifico el pago por ultima vez.
 	UsernameCajeroModificacion *string `db:"username_cajero_modificacion" json:"username_cajero_modificacion,omitempty" example:"ana"`
-	// Fecha de creacion del pago.
+	// Si es un abono a cuenta de un cliente (sin detalle de servicios) y no una venta de mostrador.
+	EsAbono bool `db:"es_abono" json:"es_abono" example:"false"`
+	// Fecha del hecho: cuando ocurrio el cobro. Puede ser anterior a registrado_en si se registro despues.
 	FechaCreacion time.Time `db:"fecha_creacion" json:"fecha_creacion" example:"2026-06-03T10:00:00Z"`
+	// Momento real en que se registro el pago en el sistema; lo pone el servidor y no se edita.
+	RegistradoEn time.Time `db:"registrado_en" json:"registrado_en" example:"2026-06-04T21:30:00Z"`
 	// Fecha de ultima modificacion del pago.
 	FechaModificacion time.Time `db:"fecha_modificacion" json:"fecha_modificacion" example:"2026-06-03T10:30:00Z"`
 }
@@ -392,6 +407,8 @@ type DetallePagoPG struct {
 	PagoID int `db:"pago_id" json:"-"`
 	// ID opcional del servicio cobrado.
 	ServicioID *int `db:"servicio_id" json:"servicio_id,omitempty" example:"8"`
+	// ID opcional del insumo vendido; su salida de stock queda en el kardex.
+	ItemID *int `db:"item_id" json:"item_id,omitempty" example:"15"`
 	// Texto del servicio cobrado.
 	Servicio string `db:"servicio" json:"servicio" example:"Limpieza facial"`
 	// Precio unitario del servicio.
@@ -422,6 +439,8 @@ type PaquetePG struct {
 	ImagenURL   *string `db:"-" json:"imagen_url,omitempty"`
 	Moneda      string  `db:"moneda" json:"moneda"`
 	Activo      bool    `db:"activo" json:"activo"`
+	// VisiblePublico controla si aparece en la pagina principal; el paquete sigue activo en administracion.
+	VisiblePublico bool `db:"visible_publico" json:"visible_publico"`
 }
 
 type PaqueteServicioPG struct {

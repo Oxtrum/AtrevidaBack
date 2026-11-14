@@ -82,6 +82,10 @@ type clienteFiltrosResponse struct {
 	Apellido string `json:"apellido" example:"Lopez"`
 	// Filtro aplicado: número de teléfono del cliente
 	NumeroTelefono string `json:"numero_telefono" example:"+59170011223"`
+	// Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto (apellido, nombre)
+	OrdenarPor string `json:"ordenar_por,omitempty" example:"nombre"`
+	// Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto
+	Sentido string `json:"sentido,omitempty" example:"asc"`
 }
 
 type horarioFiltrosResponse struct {
@@ -126,6 +130,10 @@ type pagoFiltrosResponse struct {
 	NombreCajeroModificacion string `json:"nombre_cajero_modificacion" example:"Ana"`
 	// Filtro aplicado: username del cajero que modifico el pago por ultima vez
 	UsernameCajeroModificacion string `json:"username_cajero_modificacion" example:"ana"`
+	// Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto (fecha descendente)
+	OrdenarPor string `json:"ordenar_por,omitempty" example:"total_final"`
+	// Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto
+	Sentido string `json:"sentido,omitempty" example:"desc"`
 }
 
 // ─── List Responses ───
@@ -202,6 +210,8 @@ type paqueteFiltrosResponse struct {
 	Local string `json:"local" example:"SAN MARTIN"`
 	// Filtro aplicado: estado activo del paquete.
 	Activo *bool `json:"activo,omitempty" example:"true"`
+	// Filtro aplicado: solo paquetes visibles en la pagina principal.
+	Publico bool `json:"publico,omitempty" example:"true"`
 }
 
 type paqueteListResponse struct {
@@ -280,6 +290,15 @@ type pagoListResponse struct {
 	// Lista de pagos con resumen de productos, sin el detalle completo
 	Pagos      []models.PagoPG      `json:"pagos"`
 	Paginacion *pagination.Metadata `json:"paginacion,omitempty"`
+}
+
+type ventasDetalleResponse struct {
+	// Filtros aplicados al detalle.
+	Filtros services.PagoResumenFiltros `json:"filtros"`
+	// true si el periodo tiene mas lineas que el limite y solo se devolvieron las mas antiguas.
+	Truncado bool `json:"truncado" example:"false"`
+	// Lineas de venta, de la mas antigua a la mas reciente.
+	Lineas []services.VentaDetalleLinea `json:"lineas"`
 }
 
 type pagoResumenResponse struct {
@@ -380,6 +399,19 @@ type reservaCreatedResponse struct {
 	ID int `json:"id" example:"44"`
 	// Mensaje de confirmación
 	Mensaje string `json:"mensaje" example:"Reserva creada correctamente"`
+	// Solo para usuarios autenticados del panel: true si falta stock de insumos para el servicio.
+	AlertaInventario bool `json:"alerta_inventario,omitempty" example:"false"`
+	// Solo para usuarios autenticados del panel: insumos sin stock suficiente. La reserva se guardo igual.
+	AdvertenciasInventario []models.AdvertenciaInventario `json:"advertencias_inventario,omitempty"`
+}
+
+type reservaAvisosResponse struct {
+	// Mensaje descriptivo del resultado
+	Mensaje string `json:"mensaje" example:"Estado de reserva actualizado correctamente"`
+	// true si falta stock de insumos para el servicio de la reserva
+	AlertaInventario bool `json:"alerta_inventario" example:"false"`
+	// Insumos sin stock suficiente (informativo: la operacion se aplico)
+	AdvertenciasInventario []models.AdvertenciaInventario `json:"advertencias_inventario,omitempty"`
 }
 
 type pagoCreatedResponse struct {

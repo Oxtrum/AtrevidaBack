@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 )
 
@@ -23,18 +24,50 @@ func NewPagosRepo(db *sqlx.DB) *PagosRepo {
 	return &PagosRepo{db: db}
 }
 
-func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, error) {
+// PagosOrdenables lista las columnas por las que se puede pedir ordenar los pagos (ordenar_por).
+// La clave es el nombre del campo en la respuesta; el texto ignora mayusculas y acentos.
+var PagosOrdenables = pagination.Columns{
+	"codigo_pago":        "p.codigo_pago",
+	"fecha_creacion":     "p.fecha_creacion",
+	"cliente_nit":        "p.cliente_nit",
+	"cliente_nombre":     textoOrden("p.cliente_nombre"),
+	"local_nombre":       textoOrden("p.local_nombre"),
+	"primer_producto":    textoOrden("productos.primer_producto"),
+	"cantidad_productos": "productos.cantidad_productos",
+	"subtotal":           "p.subtotal",
+	"descuento":          "p.descuento",
+	"total_final":        "p.total_final",
+	"tipo_pago":          "p.tipo_pago",
+	"estado":             "p.estado",
+	"nombre_cajero":      textoOrden("p.nombre_cajero"),
+}
+
+const pagoOrdenPorDefecto = "p.fecha_creacion DESC, p.id DESC"
+
+func pagoOrderClause(f repository.FiltroPagos) string {
+	return pagination.Sort{Key: f.OrdenarPor, Desc: f.OrdenDesc}.OrderBy(PagosOrdenables, pagoOrdenPorDefecto, "p.id")
+}
+
+// buildPagosQuery arma el listado. Sin orden pedido pagina por valor (fecha, id); con orden pedido
+// pagina por desplazamiento, porque una columna arbitraria no admite cursor por valor.
+func buildPagosQuery(filtro repository.FiltroPagos) (string, []interface{}) {
 	conditions, args := pagoConditions(filtro)
 	idx := len(args) + 1
-	if filtro.CursorSet {
+	ordenado := filtro.OrdenarPor != ""
+	if filtro.CursorSet && !ordenado {
 		conditions = append(conditions, fmt.Sprintf("(p.fecha_creacion, p.id) < ($%d, $%d)", idx, idx+1))
 		args = append(args, filtro.CursorFecha, filtro.CursorID)
 		idx += 2
 	}
-	limitClause := ""
+	pageClause := ""
 	if filtro.PageLimit > 0 {
-		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		pageClause = fmt.Sprintf(" LIMIT $%d", idx)
 		args = append(args, filtro.PageLimit)
+		idx++
+		if ordenado && filtro.Offset > 0 {
+			pageClause += fmt.Sprintf(" OFFSET $%d", idx)
+			args = append(args, filtro.Offset)
+		}
 	}
 
 	query := fmt.Sprintf(`
@@ -42,8 +75,13 @@ func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, er
 		FROM pagos p
 		%s
 		WHERE %s
-		ORDER BY p.fecha_creacion DESC, p.id DESC%s
-	`, pagoSelectColumns(), pagoProductosJoin(), strings.Join(conditions, " AND "), limitClause)
+		ORDER BY %s%s
+	`, pagoSelectColumns(), pagoProductosJoin(), strings.Join(conditions, " AND "), pagoOrderClause(filtro), pageClause)
+	return query, args
+}
+
+func (r *PagosRepo) GetPagos(filtro repository.FiltroPagos) ([]models.PagoPG, error) {
+	query, args := buildPagosQuery(filtro)
 
 	var pagos []models.PagoPG
 	if err := r.db.SelectContext(queryContext(filtro.Context), &pagos, query, args...); err != nil {
@@ -174,9 +212,9 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 		INSERT INTO pagos (
 			local_id, local_nombre, cliente_id, cliente_nit, cliente_nombre,
 			subtotal, descuento, total_final, tipo_pago, estado, activo,
-			id_cajero, nombre_cajero, username_cajero
+			id_cajero, nombre_cajero, username_cajero, reserva_id, fecha_creacion
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, COALESCE($16::timestamptz, NOW()))
 		RETURNING id, codigo_pago
 	`,
 		input.LocalID,
@@ -193,6 +231,8 @@ func (r *PagosRepo) CreatePago(input repository.CrearPagoInput) (string, error) 
 		input.Cajero.ID,
 		input.Cajero.Nombre,
 		input.Cajero.Username,
+		input.ReservaID,
+		input.FechaHecho,
 	).Scan(&pagoID, &codigoPago)
 	if err != nil {
 		return "", pagoInsertError(err)
@@ -247,6 +287,13 @@ func (r *PagosRepo) UpdatePago(input repository.ActualizarPagoInput) error {
 	}
 
 	if input.Detalle != nil {
+		var insumos int
+		if err := tx.Get(&insumos, `SELECT COUNT(*) FROM detalle_pagos WHERE pago_id = $1 AND item_id IS NOT NULL`, actual.ID); err != nil {
+			return fmt.Errorf("no se pudo validar el detalle del pago")
+		}
+		if insumos > 0 {
+			return errors.New("no se puede editar el detalle de un pago con insumos: anula el pago y registra otro")
+		}
 		if err := r.syncDetallePago(tx, actual.ID, *input.Detalle); err != nil {
 			return err
 		}
@@ -376,24 +423,38 @@ func (r *PagosRepo) UpdatePago(input repository.ActualizarPagoInput) error {
 	return tx.Commit()
 }
 
-func (r *PagosRepo) DeletePago(codigoPago string) error {
-	res, err := r.db.Exec(`
+func (r *PagosRepo) DeletePago(codigoPago string, actor repository.ConsumoActor) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("no se pudo eliminar el pago")
+	}
+	defer tx.Rollback()
+
+	var pagoID int
+	err = tx.Get(&pagoID, `
 		UPDATE pagos
 		SET activo = FALSE,
 		    fecha_modificacion = NOW()
 		WHERE codigo_pago = $1
 		  AND activo = TRUE
+		RETURNING id
 	`, codigoPago)
-	if err != nil {
-		return fmt.Errorf("no se pudo eliminar el pago")
-	}
-
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("no se pudo eliminar el pago")
-	}
-	if rowsAffected == 0 {
+	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("pago no encontrado")
+	}
+	if err != nil {
+		return fmt.Errorf("no se pudo eliminar el pago")
+	}
+	// Anular un abono libera lo que habia cubierto: esos cargos vuelven a quedar pendientes y las filas se
+	// conservan como anuladas para no perder el historial.
+	if _, err := tx.Exec(sqlAnularCobrosDelPago, pagoID, "Pago anulado"); err != nil {
+		return fmt.Errorf("no se pudo eliminar el pago")
+	}
+	if err := revertirInsumosVendidos(tx, pagoID, codigoPago, actor); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("no se pudo eliminar el pago")
 	}
 
 	return nil
@@ -431,7 +492,8 @@ func (r *PagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) (repos
 		FROM pagos p WHERE %s
 	), detalle AS (
 		SELECT dp.pago_id, COALESCE(SUM(dp.cantidad),0)::int cantidad
-		FROM detalle_pagos dp JOIN base b ON b.id=dp.pago_id GROUP BY dp.pago_id
+		FROM detalle_pagos dp JOIN base b ON b.id=dp.pago_id
+		WHERE dp.servicio_id IS NOT NULL GROUP BY dp.pago_id
 	)
 	SELECT COALESCE(base.local_nombre,'') local_nombre,
 		GROUPING(base.local_nombre)::int::boolean es_general,
@@ -466,7 +528,7 @@ func (r *PagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) (repos
 		GROUPING(base.local_nombre)::int::boolean es_general, BTRIM(dp.servicio) servicio,
 		COALESCE(SUM(dp.cantidad),0)::int cantidad, COALESCE(SUM(dp.subtotal),0) monto_total
 	FROM base JOIN detalle_pagos dp ON dp.pago_id=base.id
-	WHERE NULLIF(BTRIM(dp.servicio),'') IS NOT NULL
+	WHERE NULLIF(BTRIM(dp.servicio),'') IS NOT NULL AND dp.servicio_id IS NOT NULL
 	GROUP BY GROUPING SETS ((dp.servicio),(base.local_nombre,dp.servicio))
 	ORDER BY es_general, local_nombre, servicio`, where)
 	if err := tx.SelectContext(ctx, &result.Servicios, serviciosQuery, args...); err != nil {
@@ -481,7 +543,7 @@ func (r *PagosRepo) GetResumenPagos(filtro repository.FiltroResumenPagos) (repos
 func (r *PagosRepo) getDetallePago(pagoID int) ([]models.DetallePagoPG, error) {
 	var detalle []models.DetallePagoPG
 	err := r.db.Select(&detalle, `
-		SELECT id, pago_id, servicio_id, servicio, precio_unitario, cantidad, subtotal
+		SELECT id, pago_id, servicio_id, item_id, servicio, precio_unitario, cantidad, subtotal
 		FROM detalle_pagos
 		WHERE pago_id = $1
 		ORDER BY id
@@ -579,13 +641,16 @@ func pagoSelectColumns() string {
 		p.tipo_pago,
 		p.estado,
 		p.activo,
+		p.reserva_id,
 		p.id_cajero,
 		COALESCE(p.nombre_cajero, '') AS nombre_cajero,
 		p.username_cajero,
 		p.id_cajero_modificacion,
 		p.nombre_cajero_modificacion,
 		p.username_cajero_modificacion,
+		p.es_abono,
 		p.fecha_creacion,
+		p.registrado_en,
 		p.fecha_modificacion
 	`
 }
@@ -605,12 +670,62 @@ func pagoInsertError(err error) error {
 	if errors.As(err, &pqErr) {
 		switch pqErr.Code {
 		case "23503":
-			return fmt.Errorf("referencia no encontrada: local, cliente o servicio invalido")
+			return fmt.Errorf("referencia no encontrada: local, cliente, reserva o servicio invalido")
 		case "23514":
 			return fmt.Errorf("datos de pago invalidos")
 		case "23505":
+			if pqErr.ConstraintName == "uq_pagos_reserva_activo" {
+				return fmt.Errorf("la reserva ya tiene un cobro activo")
+			}
 			return fmt.Errorf("ya existe un pago con ese codigo")
 		}
 	}
 	return fmt.Errorf("no se pudo guardar el pago")
+}
+
+// tipoLineaSQL clasifica una linea de detalle: insumo (item_id), servicio del catalogo (servicio_id), paquete (la
+// caja los nombra "Paquete: ...") u otra linea libre. Va dentro de un Sprintf: el % del LIKE se escribe %%.
+const tipoLineaSQL = `CASE WHEN dp.item_id IS NOT NULL THEN 'INSUMO'
+			WHEN dp.servicio_id IS NOT NULL THEN 'SERVICIO'
+			WHEN dp.servicio LIKE 'Paquete: %%' THEN 'PAQUETE'
+			ELSE 'OTRO' END`
+
+// ListVentasDetalle usa las mismas reglas que GetResumenPagos (pagos activos y PAGADOS del rango, local opcional),
+// pero devuelve cada linea de detalle en vez de agregados.
+func (r *PagosRepo) ListVentasDetalle(filtro repository.FiltroResumenPagos, limite int) ([]repository.VentaDetalleRow, error) {
+	conditions := []string{
+		"p.activo = TRUE",
+		"p.estado = 'PAGADO'",
+		"p.fecha_creacion >= $1",
+		"p.fecha_creacion < $2",
+	}
+	args := []interface{}{filtro.FechaDesde, filtro.FechaHasta.AddDate(0, 0, 1)}
+	if filtro.Local != "" {
+		conditions = append(conditions, `p.local_id = (
+			SELECT l.id FROM locales l WHERE UPPER(l.nombre) = UPPER($3) LIMIT 1
+		)`)
+		args = append(args, filtro.Local)
+	}
+	args = append(args, limite)
+
+	query := fmt.Sprintf(`
+		SELECT p.codigo_pago, p.fecha_creacion AS fecha, BTRIM(p.local_nombre) AS local,
+		       COALESCE(p.cliente_nombre, '') AS cliente_nombre, COALESCE(p.cliente_nit, '') AS cliente_nit,
+		       COALESCE(NULLIF(BTRIM(p.nombre_cajero), ''), '') AS cajero,
+		       COALESCE(NULLIF(BTRIM(p.tipo_pago), ''), 'sin_tipo') AS tipo_pago,
+		       BTRIM(dp.servicio) AS servicio, `+tipoLineaSQL+` AS tipo_linea, dp.cantidad, dp.precio_unitario, dp.subtotal,
+		       ROUND(CASE WHEN p.subtotal > 0 THEN p.descuento * dp.subtotal / p.subtotal ELSE 0 END, 2) AS descuento_prorrateado,
+		       p.total_final AS total_pago
+		FROM pagos p
+		JOIN detalle_pagos dp ON dp.pago_id = p.id
+		WHERE %s
+		ORDER BY p.fecha_creacion, p.id, dp.id
+		LIMIT $%d`, strings.Join(conditions, " AND "), len(args))
+
+	ctx := queryContext(filtro.Context)
+	out := []repository.VentaDetalleRow{}
+	if err := r.db.SelectContext(ctx, &out, query, args...); err != nil {
+		return nil, fmt.Errorf("no se pudo obtener el detalle de ventas: %w", err)
+	}
+	return out, nil
 }

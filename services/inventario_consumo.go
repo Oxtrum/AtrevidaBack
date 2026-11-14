@@ -1,0 +1,217 @@
+package services
+
+import (
+	"fmt"
+	"log"
+	"strings"
+
+	"atrevida-agenda-api/models"
+	repository "atrevida-agenda-api/repositories"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
+
+	"github.com/jmoiron/sqlx"
+)
+
+// InventarioConsumo conecta reservas y sesiones de plan con el inventario: evalua
+// disponibilidad de insumos, descuenta al completar y revierte al eliminar.
+// Todas las operaciones sobre stock corren dentro de la transaccion de la reserva.
+type InventarioConsumo struct {
+	repo   *pgsqlrepo.InventarioRepo
+	config *ConfiguracionService
+}
+
+func NewInventarioConsumo(repo *pgsqlrepo.InventarioRepo, config *ConfiguracionService) *InventarioConsumo {
+	return &InventarioConsumo{repo: repo, config: config}
+}
+
+// DescripcionAdvertencias arma el texto "stock insuficiente: ..." que el handler mapea a 409.
+func DescripcionAdvertencias(adv []models.AdvertenciaInventario) string {
+	partes := make([]string, 0, len(adv))
+	for _, a := range adv {
+		partes = append(partes, fmt.Sprintf("%s requiere %v %s y hay %v", a.ItemNombre, a.Requerido, strings.ToLower(a.Unidad), a.Disponible))
+	}
+	return "stock insuficiente: " + strings.Join(partes, "; ")
+}
+
+// EvaluarAntesDeCrear estima la disponibilidad para una reserva aun no guardada.
+func (c *InventarioConsumo) EvaluarAntesDeCrear(localID int, nombresServicio []string) ([]models.AdvertenciaInventario, error) {
+	cfg, err := c.config.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	return c.repo.EvaluarDisponibilidad(nombresServicio, localID, 0, cfg.ConsiderarComprometido)
+}
+
+// ValidarPoliticaAlCrear aplica la politica BLOQUEAR solo a usuarios autenticados: el
+// formulario publico siempre registra (RN-13).
+func (c *InventarioConsumo) ValidarPoliticaAlCrear(autenticado bool, localID int, nombresServicio []string) error {
+	cfg, err := c.config.Snapshot()
+	if err != nil {
+		return err
+	}
+	if !autenticado || cfg.PoliticaSinStock != "BLOQUEAR" {
+		return nil
+	}
+	warns, err := c.repo.EvaluarDisponibilidad(nombresServicio, localID, 0, cfg.ConsiderarComprometido)
+	if err != nil {
+		return err
+	}
+	if len(warns) > 0 {
+		return fmt.Errorf("%s", DescripcionAdvertencias(warns))
+	}
+	return nil
+}
+
+// ValidarPoliticaAlAgendar bloquea el cambio a AGENDADO si la politica es BLOQUEAR y no hay stock.
+func (c *InventarioConsumo) ValidarPoliticaAlAgendar(reservaID int) error {
+	cfg, err := c.config.Snapshot()
+	if err != nil {
+		return err
+	}
+	if cfg.PoliticaSinStock != "BLOQUEAR" {
+		return nil
+	}
+	warns, err := c.repo.AdvertenciasDeReserva(reservaID, cfg.ConsiderarComprometido)
+	if err != nil {
+		return err
+	}
+	if len(warns) > 0 {
+		return fmt.Errorf("%s", DescripcionAdvertencias(warns))
+	}
+	return nil
+}
+
+// ValidarDescuentoAlAgendar bloquea el paso a AGENDADO cuando el descuento se hace al agendar, no se
+// permite stock negativo y no alcanza el stock real del local. Sin este chequeo el descuento fallaba
+// despues de guardar la reserva y quedaba sin descontar y sin aviso. Si la reserva ya esta AGENDADA
+// (ya descontada) no hace nada.
+func (c *InventarioConsumo) ValidarDescuentoAlAgendar(reservaID int) error {
+	cfg, err := c.config.Snapshot()
+	if err != nil {
+		return err
+	}
+	if cfg.DescontarEnEstado != "AGENDADO" || cfg.PermitirStockNegativo {
+		return nil
+	}
+	if estado, err := c.repo.EstadoDeReserva(reservaID); err != nil || estado == "AGENDADO" {
+		return err
+	}
+	warns, err := c.repo.AdvertenciasDeReserva(reservaID, false)
+	if err != nil {
+		return err
+	}
+	if len(warns) > 0 {
+		return fmt.Errorf("%s", DescripcionAdvertencias(warns))
+	}
+	return nil
+}
+
+// Recalcular actualiza alerta_inventario de la reserva y devuelve las advertencias. Como cambiar
+// el estado puede consumir o devolver stock, tambien refresca las demas reservas abiertas del local.
+func (c *InventarioConsumo) Recalcular(reservaID int) ([]models.AdvertenciaInventario, error) {
+	cfg, err := c.config.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	warns, err := c.repo.RecalcularAlerta(reservaID, cfg.ConsiderarComprometido)
+	if err != nil {
+		return nil, err
+	}
+	c.refrescarLocalDe(reservaID)
+	return warns, nil
+}
+
+// RefrescarAlertas reevalua las reservas abiertas del local (nil = todos). Es best-effort:
+// un fallo se registra y no interrumpe la operacion que cambio el stock.
+func (c *InventarioConsumo) RefrescarAlertas(localID *int) {
+	refrescarAlertas(c.repo, c.config, localID)
+}
+
+func (c *InventarioConsumo) refrescarLocalDe(reservaID int) {
+	localID, err := c.repo.LocalDeReserva(reservaID)
+	if err != nil || localID == 0 {
+		return
+	}
+	c.RefrescarAlertas(&localID)
+}
+
+// refrescarAlertas devuelve las advertencias de cada reserva evaluada (por id); nil si fallo.
+func refrescarAlertas(repo *pgsqlrepo.InventarioRepo, config *ConfiguracionService, localID *int) map[int][]models.AdvertenciaInventario {
+	cfg, err := config.Snapshot()
+	if err != nil {
+		log.Printf("[inventario] no se pudo leer la configuracion para refrescar alertas: %v", err)
+		return nil
+	}
+	warnings, err := repo.RecalcularAlertasAbiertas(localID, cfg.ConsiderarComprometido)
+	if err != nil {
+		log.Printf("[inventario] no se pudieron refrescar las alertas: %v", err)
+		return nil
+	}
+	return warnings
+}
+
+// DespuesDeCrear recalcula la alerta y, si la politica descuenta al agendar y la
+// reserva nace AGENDADA, descuenta de inmediato.
+func (c *InventarioConsumo) DespuesDeCrear(reservaID int, estado string, actor repository.ConsumoActor) ([]models.AdvertenciaInventario, error) {
+	cfg, err := c.config.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	if estado == "AGENDADO" && cfg.DescontarEnEstado == "AGENDADO" {
+		if err := c.consumirEnTx(reservaID, actor, cfg); err != nil {
+			// La reserva ya esta guardada: se registra el fallo y se sigue para marcar la alerta de inventario.
+			log.Printf("[inventario] no se pudo descontar al agendar la reserva %d: %v", reservaID, err)
+		}
+	}
+	warns, err := c.repo.RecalcularAlerta(reservaID, cfg.ConsiderarComprometido)
+	if err != nil {
+		return nil, err
+	}
+	c.refrescarLocalDe(reservaID)
+	return warns, nil
+}
+
+func (c *InventarioConsumo) consumirEnTx(reservaID int, actor repository.ConsumoActor, cfg ConfigTrastienda) error {
+	tx, err := c.repo.DB().Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := pgsqlrepo.ConsumirPorReservaTx(tx, reservaID, actor, cfg.PermitirStockNegativo); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// HookCambioEstado devuelve la accion que se ejecuta dentro de la transaccion del cambio de estado
+// cuando el nuevo estado es el configurado para descontar (por defecto COMPLETADO). nil = nada que hacer.
+func (c *InventarioConsumo) HookCambioEstado(nuevoEstado string, reservaID int, actor repository.ConsumoActor) (func(*sqlx.Tx) error, error) {
+	cfg, err := c.config.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	if nuevoEstado != cfg.DescontarEnEstado {
+		return nil, nil
+	}
+	return func(tx *sqlx.Tx) error {
+		return pgsqlrepo.ConsumirPorReservaTx(tx, reservaID, actor, cfg.PermitirStockNegativo)
+	}, nil
+}
+
+// HookEliminar devuelve la accion que revierte el stock al eliminar una reserva con salidas (RN-16).
+func (c *InventarioConsumo) HookEliminar(reservaID int, actor repository.ConsumoActor) func(*sqlx.Tx) error {
+	return func(tx *sqlx.Tx) error {
+		return pgsqlrepo.RevertirPorReservaTx(tx, reservaID, actor)
+	}
+}
+
+// ConsumirSesionPlan descuenta insumos de una sesion de plan consumida sin reserva ligada (RN-18).
+func (c *InventarioConsumo) ConsumirSesionPlan(
+	tx *sqlx.Tx, servicioID, localID, planMovimientoID int, actor repository.ConsumoActor,
+) error {
+	cfg, err := c.config.Snapshot()
+	if err != nil {
+		return err
+	}
+	return pgsqlrepo.ConsumirPorPlanMovimientoTx(tx, servicioID, localID, planMovimientoID, actor, cfg.PermitirStockNegativo)
+}

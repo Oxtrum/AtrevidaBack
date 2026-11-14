@@ -16,6 +16,8 @@ type Config struct {
 	Storage StorageConfig
 	// Turnstile valida el captcha del formulario publico de reservas.
 	Turnstile TurnstileConfig
+	S3      S3Config
+	Jobs    JobsConfig
 }
 
 // TurnstileConfig son los datos para validar tokens de Cloudflare Turnstile (siteverify).
@@ -27,6 +29,21 @@ type TurnstileConfig struct {
 	AllowedHostnames []string
 	// Disabled omite la verificacion; solo para desarrollo local (TURNSTILE_DISABLED=true).
 	Disabled bool
+}
+
+// S3Config apunta al bucket de AWS S3 usado para imagenes de inventario.
+// Sin Bucket la gestion de imagenes de inventario queda deshabilitada (503).
+type S3Config struct {
+	Bucket string
+	Region string
+	// PublicBaseURL es el dominio de lectura (p. ej. CloudFront). Vacio = URL directa del bucket.
+	PublicBaseURL string
+}
+
+// JobsConfig guarda el secreto con el que un disparador externo (EventBridge) puede ejecutar
+// la generacion de gastos fijos sin token de usuario. Vacio = solo admin_sys.
+type JobsConfig struct {
+	Secret string
 }
 
 // StorageConfig apunta al bucket de Supabase Storage usado para imagenes de combos.
@@ -81,6 +98,14 @@ func Load() {
 			SecretKey:        strings.TrimSpace(os.Getenv("TURNSTILE_SECRET_KEY")),
 			AllowedHostnames: splitCSV(os.Getenv("TURNSTILE_ALLOWED_HOSTNAMES")),
 			Disabled:         strings.EqualFold(strings.TrimSpace(os.Getenv("TURNSTILE_DISABLED")), "true"),
+		},
+		S3: S3Config{
+			Bucket:        os.Getenv("S3_BUCKET"),
+			Region:        getEnvDefault("S3_REGION", "sa-east-1"),
+			PublicBaseURL: os.Getenv("S3_PUBLIC_BASE_URL"),
+		},
+		Jobs: JobsConfig{
+			Secret: os.Getenv("JOB_SECRET"),
 		},
 	}
 }

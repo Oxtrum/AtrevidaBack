@@ -13,9 +13,25 @@ type Container struct {
 	CombosPG          *services.CombosService
 	PaquetesPG        *services.PaquetesService
 	ReservasPG        *services.ReservasPGService
-	LocalesPG         *services.LocalesService
-	PagosPG           *services.PagosService
-	PlanesPG          *services.PlanesService
+	// ReservasVinculo enlaza reservas con clientes registrados (reservas por vincular).
+	ReservasVinculo *services.ReservasVinculoService
+	LocalesPG       *services.LocalesService
+	PagosPG         *services.PagosService
+	PlanesPG        *services.PlanesService
+	// Cuenta maneja cargos, abonos y aplicaciones de la cuenta del cliente.
+	Cuenta *services.CuentaService
+
+	// Trastienda: inventario y finanzas
+	Configuracion     *services.ConfiguracionService
+	Inventario        *services.InventarioService
+	Finanzas          *services.FinanzasService
+	GastosFijos       *services.GastosFijosService
+	ReporteFinanciero *services.ReporteFinancieroService
+	ReporteClientes   *services.ReporteClientesService
+	RRHH              *services.RRHHService
+	Atenciones        *services.AtencionesService
+	// JobSecret permite al job diario generar gastos fijos sin token de usuario.
+	JobSecret string
 	// Turnstile valida el captcha del formulario publico de reservas (peticiones sin token de usuario).
 	Turnstile *services.TurnstileVerifier
 }

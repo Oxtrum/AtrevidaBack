@@ -527,6 +527,1060 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/usuarios/password": {
+            "patch": {
+                "description": "Fija una nueva password a otro usuario activo, por ejemplo cuando olvido la suya. Requiere token Bearer con rol admin_sys. No pide la password anterior; la nueva se guarda encriptada con bcrypt. Body: username y password requeridos.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Restablecer password de otro usuario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Usuario y nueva password",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.restablecerPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: body invalido, username o password obligatorios",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado o inactivo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista atenciones activas y reservas canceladas con filtros de servidor. Filtros: fecha_desde y fecha_hasta (YYYY-MM-DD, inclusivos), local_id, resultado, cliente, servicio, empleado (texto), empleado_id, item_id, pendientes_stock y q (cliente, reserva, servicio, personal, lugar u observaciones). Los usuarios con local asignado quedan limitados a ese local. Paginacion por cursor (fecha_atencion descendente) u orden por columna con ordenar_por/sentido.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Listar historial de atenciones",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD)",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD)",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ATENDIDA",
+                            "CANCELADA",
+                            "INASISTENCIA"
+                        ],
+                        "type": "string",
+                        "description": "Resultado operativo",
+                        "name": "resultado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por nombre de personal",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por personal",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por insumo utilizado",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Solo atenciones con deducciones pendientes (true) o sin ellas (false)",
+                        "name": "pendientes_stock",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general por cliente, reserva, servicio, personal, lugar u observaciones",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "fecha_atencion",
+                            "hora_inicio",
+                            "cliente_nombre",
+                            "servicio_reserva",
+                            "empleado_nombre",
+                            "local_nombre",
+                            "reserva_id",
+                            "insumos_pendientes",
+                            "resultado"
+                        ],
+                        "type": "string",
+                        "example": "cliente_nombre",
+                        "description": "Campo por el que ordenar; sin el, fecha_atencion descendente",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100); sin limit ni cursor devuelve 50 registros",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con los mismos filtros y orden",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total_registros y total_paginas",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.atencionesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha invalida, parametro invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc o cursor de otros filtros",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al listar atenciones",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/calendario-consumo": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista atenciones activas y sus insumos declarados para priorizar qué se usó en cada atención. No es Kardex ni reporte agregado. Los usuarios con local asignado quedan limitados a su local.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Calendario semanal de insumos usados",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD); por defecto fecha_desde",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por insumo usado",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por quien atendió",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DESCONTADO",
+                            "PENDIENTE"
+                        ],
+                        "type": "string",
+                        "description": "Estado de deducción",
+                        "name": "estado_descuento",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco de la pagina siguiente",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total de registros filtrados",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.calendarioConsumoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar el calendario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/calendario-personal": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista atenciones activas por fecha y hora para priorizar quién atendió. No es agenda de disponibilidad ni reporte de inventario. Los usuarios con local asignado quedan limitados a su local.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Calendario semanal de personal atendiente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD); por defecto fecha_desde",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por quien atendió",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco de la pagina siguiente",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total de registros filtrados",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.calendarioPersonalResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar el calendario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/insumos-sugeridos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve los insumos configurados para el servicio de la reserva.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Listar insumos sugeridos de una reserva",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID de reserva",
+                        "name": "reserva_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "reserva_id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar insumos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/jornada": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve una fila por reserva del dia con su estado operativo derivado. Incluye reservas AGENDADAS, CANCELADAS y cualquier reserva con una atencion activa. El estado operativo se calcula con la zona horaria configurada. La lista admite cursor; el resumen independiente se consulta en /jornada/resumen para que no cambie al filtrar estado o texto.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Jornada de atenciones",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-11-09",
+                        "description": "Fecha (YYYY-MM-DD); por defecto hoy en la zona horaria configurada",
+                        "name": "fecha",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "PROGRAMADA",
+                            "PENDIENTE_CIERRE",
+                            "ATENDIDA",
+                            "CANCELADA"
+                        ],
+                        "type": "string",
+                        "example": "PROGRAMADA",
+                        "description": "Estado operativo",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente, reserva, servicio, personal o local",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco de la pagina siguiente",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total de registros filtrados",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.JornadaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha invalida, local_id invalido o estado fuera de la lista",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar la jornada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/jornada/resumen": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve los contadores completos de una fecha y local. No acepta estado, busqueda ni cursor para que sus cifras sean independientes de la lista visible.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Resumen operativo de Jornada",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Fecha (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.JornadaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar el resumen",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/seguimiento": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista casos accionables: deducciones pendientes, inasistencias, cancelaciones y reservas agendadas cuyo horario ya concluyó. No crea estados nuevos de reserva.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Bandeja de seguimiento operativo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD)",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD)",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DEDUCCION_PENDIENTE",
+                            "INASISTENCIA",
+                            "CANCELACION",
+                            "PENDIENTE_CIERRE"
+                        ],
+                        "type": "string",
+                        "description": "Tipo operativo",
+                        "name": "tipo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Búsqueda por cliente, reserva, servicio, personal o local",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamaño de página (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco de la página siguiente",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total filtrado",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.seguimientoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/seguimiento/resumen": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve contadores completos por periodo y local; no acepta tipo, texto ni paginación, para mantenerlos independientes de la lista visible.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Resumen de seguimiento operativo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD)",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD)",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.SeguimientoResumen"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/atenciones/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve una atención con sus insumos registrados.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Obtener atención",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID de atención",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Atención no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/cargos/{id}/anular": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Anula un cargo con motivo; nunca se borra. Lo que los abonos le habian aplicado se libera y vuelve a ser saldo disponible. Requiere token Bearer con rol admin_sys o gerencia.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Anular cargo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "ID del cargo",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Motivo de la anulacion",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.anularCargoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Cargo anulado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, motivo requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Rol no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cargo no encontrado o ya anulado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/categorias": {
             "get": {
                 "description": "Devuelve categorias registradas en BD. Sin filtros devuelve todas. Si se envia local o local_id, devuelve solo categorias asociadas a ese local mediante categorias_locales. Response: total (int), categorias ([]CategoriaPG con: id, nombre).",
@@ -1102,6 +2156,32 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "id",
+                            "nombre",
+                            "apellido",
+                            "numero_telefono",
+                            "ci",
+                            "nit"
+                        ],
+                        "type": "string",
+                        "example": "nombre",
+                        "description": "Campo por el que ordenar; sin el, apellido y nombre ascendente",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "asc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "example": 50,
                         "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
@@ -1110,7 +2190,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron",
                         "name": "cursor",
                         "in": "query"
                     },
@@ -1142,7 +2222,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Paginacion o cursor invalido",
+                        "description": "Paginacion o cursor invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1399,6 +2479,573 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflicto: telefono ya existe",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/abonos": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra un pago a cuenta de un cliente y lo reparte entre sus cargos pendientes en una sola transaccion. Lo que no se aplica queda como saldo disponible. Un abono no aplica mas que su monto ni un cargo recibe mas que lo que tiene pendiente. No tiene detalle de servicios: las ventas de mostrador se siguen cobrando con POST /bd/pagos y no mueven el saldo. fecha_hecho permite registrar de noche lo anotado en papel. Requiere token Bearer; un usuario limitado a un local solo puede cobrar en el suyo.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Registrar abono",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del abono y su reparto",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearAbonoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.abonoCreadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: monto no positivo, tipo de pago invalido, aplicacion que excede el pago o lo pendiente del cargo, cargo repetido, fecha_hecho futura",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente o cargo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/abonos/{codigo_pago}/aplicaciones": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Reparte entre cargos pendientes lo que un abono ya existente tiene sin aplicar (saldo disponible que llego antes que el cargo). Valida que no se aplique mas de lo disponible del abono ni mas de lo pendiente de cada cargo. Requiere token Bearer.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Aplicar saldo de un abono",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "PAGO-000123",
+                        "description": "Codigo del abono",
+                        "name": "codigo_pago",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reparto entre cargos",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.aplicarAbonoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Aplicaciones registradas",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: aplicaciones requerido, monto no positivo, excede lo disponible del abono o lo pendiente del cargo, cargo repetido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Abono o cargo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/cargos": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra lo que un cliente debe: paquete, servicio, insumo u otro concepto. Un monto 0 registra un consumo que no se cobra. fecha_hecho permite registrar de noche lo anotado en papel (no puede ser futura ni anterior a cobros.dias_maximo_fecha_pasada dias; 0 = sin limite). Requiere token Bearer.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Crear cargo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del cargo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearCargoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.cargoCreadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: tipo invalido, concepto requerido, monto negativo, fecha_hecho futura o con formato invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/cargos/lote": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra varios cargos de un cliente en una sola transaccion, p. ej. lo que se deja a cuenta desde la caja. Cada cargo sigue las reglas de POST /bd/clientes/{id}/cargos; los de insumo bajan su stock en la misma transaccion. Si uno falla (cliente inexistente, insumo sin stock con inventario.permitir_stock_negativo=false, datos invalidos) no se crea ninguno y no se descuenta stock. Requiere token Bearer.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Crear varios cargos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cargos a crear",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearCargosLoteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.cargosCreadosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: cargos vacio, tipo invalido, concepto requerido, monto negativo, item_id sin local o cantidad",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente o insumo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Stock insuficiente para un insumo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/cobros": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cobro de caja en una sola transaccion. El cajero marca los cargos que el cliente paga y se pagan completos, sin pagos parciales. Con usar_saldo se descuenta primero el saldo disponible del cliente; lo que falta se paga con un metodo de pago (efectivo, tarjeta, qr o transferencia) y una recarga opcional queda como saldo disponible. Sin cargos solo se recarga saldo. Si el saldo cubre todo y no hay recarga no entra dinero nuevo y no se pide metodo. Si algo falla no queda nada a medias. Requiere token Bearer; un usuario limitado a un local solo puede cobrar en el suyo.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Cobrar cargos de un cliente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cargos a pagar, uso del saldo, metodo y recarga",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.cobrarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/pgsql.CobroResultado"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: sin cargos ni recarga, cargo repetido, recarga negativa, tipo de pago invalido o faltante, fecha_hecho futura, el dinero no alcanza",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente o cargo pendiente no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/clientes/{id}/cuenta": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve la cuenta de un cliente: saldo (disponible, por pagar y deuda), cargos con su estado (PENDIENTE, PARCIAL o PAGADO) y abonos con lo que tienen sin usar. Saldo disponible es el dinero recargado y no usado; por pagar es lo que falta de los cargos vigentes; deuda es por pagar menos disponible y nunca es negativa. Las ventas de mostrador no lo mueven. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Cuenta del cliente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 7,
+                        "description": "ID del cliente",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye los cargos anulados en la lista (no cuentan en el saldo)",
+                        "name": "incluir_anulados",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.cuentaClienteResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, incluir_anulados invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -2231,6 +3878,3775 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Combo o servicio no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/compras": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista las compras. Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer con rol admin_sys o gerencia.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Compras"
+                ],
+                "summary": "Listar compras de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.comprasResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: local_id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario o local no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra una compra en una sola transaccion: crea la compra y su detalle, suma el stock de cada item en el local, actualiza el costo de referencia y genera UN egreso VARIABLE (categoria Compras de inventario) por el total. Si falla cualquier linea no queda nada a medias. Gerencia solo puede comprar para su local. Requiere token Bearer con rol admin_sys o gerencia.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Compras"
+                ],
+                "summary": "Registrar compra de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos de la compra",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearCompraRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.compraResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: local, fecha o detalle invalidos; cantidad no positiva; item repetido o inactivo; metodo_pago invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario o local no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Item o local no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/compras/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve la compra con sus lineas y el codigo del egreso asociado. Requiere token Bearer con rol admin_sys o gerencia.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Compras"
+                ],
+                "summary": "Detalle de compra",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la compra",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.compraResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario o local no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Compra no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/compras/{id}/anular": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Anula la compra y su egreso, y revierte las entradas de stock. Si parte de ese stock ya se consumio y no alcanza para revertir, no cambia nada y responde 409 con el detalle. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Compras"
+                ],
+                "summary": "Anular compra de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la compra",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Motivo de la anulacion",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.anularCompraRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, motivo requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Compra no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "La compra ya esta anulada o el stock ya se consumio y no puede revertirse",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/configuracion": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve los parametros de inventario y finanzas (politica ante falta de stock, momento del descuento, stock negativo, aviso de gastos fijos, zona horaria, moneda). Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configuracion"
+                ],
+                "summary": "Leer parametros del sistema",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.configuracionResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); paquetes.usar_desde CUENTA|PAGADO (desde cuando se puede usar un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configuracion"
+                ],
+                "summary": "Actualizar parametros del sistema",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Parametros a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.configuracionResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: parametro desconocido o valor invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/configuracion/publica": {
+            "get": {
+                "description": "Devuelve solo lo que la pagina principal necesita para decidir que secciones mostrar (hoy: mostrar_paquetes). No requiere token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configuracion"
+                ],
+                "summary": "Parametros publicos de la pagina principal",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.configuracionPublicaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/cuentas/deudores": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista los clientes cuyo saldo es deuda (cargos no anulados mayores que abonos activos y pagados), con la mayor deuda primero salvo que se pida otro orden. El orden lo resuelve el servidor sobre todo el resultado; la paginacion avanza por desplazamiento y el cursor solo vale con la misma busqueda, ordenar_por y sentido que lo generaron. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cuenta del cliente"
+                ],
+                "summary": "Clientes con deuda",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "Maria",
+                        "description": "Busqueda parcial por nombre, apellido o telefono",
+                        "name": "busqueda",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "deuda",
+                            "total_cargos",
+                            "total_abonos",
+                            "nombre",
+                            "apellido",
+                            "numero_telefono"
+                        ],
+                        "type": "string",
+                        "example": "deuda",
+                        "description": "Campo por el que ordenar; sin el, mayor deuda primero",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina opcional (1-100); sin limit ni cursor devuelve todos",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye el total de registros y de paginas",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.deudoresResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden o busqueda",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/categorias": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista las categorias de ingresos y egresos. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Listar categorias financieras",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.categoriasFinancierasResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crea una categoria de INGRESO, EGRESO o AMBOS (usable en ingresos y egresos). El nombre es unico por naturaleza. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Crear categoria financiera",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos de la categoria",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearCategoriaFinancieraRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.idResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: nombre o naturaleza invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe una categoria con ese nombre",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/categorias/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cambia el nombre, activa/desactiva la categoria o cambia su naturaleza (INGRESO, EGRESO o AMBOS; solo se puede acotar a INGRESO/EGRESO si no tiene movimientos del otro tipo). Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Editar categoria financiera",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la categoria",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarCategoriaFinancieraRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, sin campos, nombre o naturaleza invalidos, categoria con movimientos de otro tipo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Categoria no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe una categoria con ese nombre",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/flujo": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Libro unico de ventas (pagos), compras de inventario, gastos fijos y variables y otros ingresos, ordenado del mas reciente al mas antiguo. Cada fila trae el saldo acumulado del rango filtrado (solo cuentan los movimientos PAGADO; los PENDIENTE y ANULADO no suman). Incluye los totales del filtro y una comparativa por sucursal con los mismos filtros. Sin fechas usa el mes actual. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Flujo de caja unificado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-10-01",
+                        "description": "Fecha inicial YYYY-MM-DD",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-10-31",
+                        "description": "Fecha final YYYY-MM-DD",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtra por local",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "VENTA, COMPRA, GASTO_FIJO, GASTO_VARIABLE u OTRO_INGRESO",
+                        "name": "origen",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "PAGADO, PENDIENTE o ANULADO",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busca en codigo, categoria, detalle o local",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximo de filas (1-1000, por defecto 300)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.flujoFinancieroResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fechas, origen o estado invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/gastos-fijos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista las plantillas de gasto fijo (activas e inactivas) con su proximo cobro. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Listar gastos fijos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.gastosFijosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crea una plantilla de gasto recurrente: el dia de fecha_inicio (o dia_cobro si se envia) de cada periodo segun la frecuencia se genera un egreso FIJO. Si el mes no tiene ese dia se usa el ultimo del mes. Los meses atrasados desde fecha_inicio se generan en la siguiente ejecucion (catch-up). Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Crear gasto fijo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del gasto fijo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.gastoFijoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.gastoFijoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: nombre, monto, dia_cobro, fechas, metodo_pago o categoria invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Categoria no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/gastos-fijos/generar": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Genera, de forma idempotente, los egresos FIJO que ya vencieron hasta hoy (incluye meses atrasados). Lo usan el job diario y el boton manual: ejecutarlo dos veces no duplica nada. Acepta token Bearer con rol admin_sys o el header X-Job-Secret configurado en el servidor.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Generar gastos fijos pendientes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer (admin_sys) si no se usa X-Job-Secret",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Secreto interno del job diario",
+                        "name": "X-Job-Secret",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.generarGastosFijosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token o secreto requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/gastos-fijos/pagar": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crea (si no existe) y paga en un solo paso el egreso de cada cobro indicado, ya vencido o por adelantado. No se puede adelantar un gasto que tiene pagos atrasados sin pagarlos: los vencidos deben estar pagados o ir en la misma solicitud. Cada fecha debe ser un cobro real de la plantilla segun su frecuencia y vigencia; pagar dos veces el mismo cobro no duplica, y un cobro anulado no se revive. Los cobros no indicados no se generan. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Pagar cobros de gastos fijos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Cobros a pagar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.pagarGastosFijosRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.pagarGastosFijosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha que no es un cobro valido, gasto inactivo, cobro anulado o fecha demasiado lejana",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Gasto fijo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/gastos-fijos/pendientes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista, sin crear nada, los egresos FIJO que ya vencieron y que POST /bd/finanzas/gastos-fijos/generar crearia ahora (uno por plantilla y mes atrasado). Sirve para mostrar al usuario que se va a registrar antes de confirmar. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Vista previa de gastos fijos por generar",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Cantidad de proximos pagos por gasto, aun no vencidos, que se incluyen para pagar por adelantado (campo adelantado=true). 0 por defecto, maximo 2000",
+                        "name": "adelantar",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Incluye tambien todos los pagos futuros hasta esta fecha YYYY-MM-DD",
+                        "name": "hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limita el resultado a un solo gasto fijo",
+                        "name": "gasto_fijo_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.gastosFijosPendientesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/gastos-fijos/proximos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista los cobros que vencen dentro de finanzas.dias_aviso_gasto_fijo (para el dashboard). Antes de calcular genera los gastos fijos atrasados, asi el aviso es correcto aunque el job diario haya fallado. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Gastos fijos por vencer",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.gastosFijosProximosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/gastos-fijos/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Desactiva la plantilla (activo=false). Deja de generarse; los egresos ya pagados se conservan y los que seguian PENDIENTES se anulan (motivo \"Gasto fijo desactivado\"). Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Desactivar gasto fijo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del gasto fijo",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Gasto fijo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Edita la plantilla. Afecta solo periodos futuros aun no generados: los egresos ya generados no cambian (se editan uno a uno). fecha_fin permite dar de baja sin perder historia. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Editar gasto fijo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del gasto fijo",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarGastoFijoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id, monto, dia_cobro, fechas o categoria invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Gasto fijo no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/movimientos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista egresos (fijos y variables, incluidas las compras de inventario) y otros ingresos. Las ventas no aparecen aqui: siguen en /bd/pagos. Filtros: naturaleza, clase, categoria_id, estado, local_id, fecha_desde, fecha_hasta. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Listar movimientos financieros",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "INGRESO o EGRESO",
+                        "name": "naturaleza",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "FIJO o VARIABLE",
+                        "name": "clase",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por categoria",
+                        "name": "categoria_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "PENDIENTE, PAGADO o ANULADO",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD)",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD)",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.movimientosFinancierosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: parametro invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra un egreso VARIABLE o un otro ingreso. Los egresos FIJO nacen solo de una plantilla de gasto fijo y las compras de inventario de POST /bd/compras. La categoria debe ser de la misma naturaleza o de tipo AMBOS. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Registrar egreso variable u otro ingreso",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del movimiento",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearMovimientoFinancieroRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.movimientoFinancieroResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: naturaleza, clase, monto, fecha, estado, metodo_pago o categoria invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Categoria no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/movimientos/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Edita un movimiento no anulado. Editar un egreso FIJO ya generado afecta solo ese mes; para cambiar los meses siguientes se edita la plantilla. Los egresos de compras de inventario no se editan (se anula la compra). descripcion, proveedor, metodo_pago y local_id aceptan null para limpiar. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Editar movimiento financiero",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del movimiento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarMovimientoFinancieroRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id, monto, fecha, estado o categoria invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Movimiento no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "El movimiento esta anulado o pertenece a una compra",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/finanzas/movimientos/{id}/estado": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cambia el estado a PAGADO o ANULADO. Anular exige motivo; los movimientos no se borran. Un egreso de compra de inventario se anula desde la compra. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Marcar pagado o anular movimiento",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del movimiento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Nuevo estado",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.cambiarEstadoMovimientoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: estado invalido, motivo requerido al anular",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Movimiento no encontrado o ya anulado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "El egreso pertenece a una compra de inventario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/ajustes": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra un ajuste manual de stock (merma, vencimiento o conteo fisico). El motivo es obligatorio. Un ajuste negativo no puede dejar el stock bajo cero. Gerencia solo puede ajustar su local. Requiere token Bearer con rol admin_sys o gerencia.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Ajustar stock",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del ajuste",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ajusteInventarioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.ajusteInventarioResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: tipo invalido, cantidad no positiva, motivo requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario o local no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Item no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Stock insuficiente para el ajuste negativo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/alertas": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve los items bajo su stock minimo y las reservas futuras con falta de insumos para su servicio. Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Alertas de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.AlertasInventario"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: local_id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/categorias": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista las categorias de inventario. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Listar categorias de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.categoriasInventarioResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crea una categoria de inventario. El nombre es unico sin distinguir mayusculas. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Crear categoria de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos de la categoria",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearCategoriaInventarioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.idResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: nombre requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe una categoria con ese nombre",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/categorias/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cambia el nombre o activa/desactiva la categoria. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Editar categoria de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la categoria",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarCategoriaInventarioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, sin campos, nombre invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Categoria no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe una categoria con ese nombre",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/consumos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista los eventos de consumo declarado en atenciones activas. Usa atenciones.fecha_atencion (no la fecha del movimiento de stock) y atencion_insumos.cantidad_usada. Filtros: fecha_desde y fecha_hasta (YYYY-MM-DD, inclusivos; por defecto hoy), local_id, item_id, cliente, servicio, empleado (texto), empleado_id, estado_descuento (DESCONTADO o PENDIENTE) y q (cliente, reserva, servicio, personal, local o insumo). Los usuarios con local asignado quedan limitados a ese local. Si falta hora_inicio se usa la hora de la reserva y se marca horario_programado=true. Las atenciones desactivadas no aparecen.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Calendario de consumos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-11-09",
+                        "description": "Desde (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-11-14",
+                        "description": "Hasta (YYYY-MM-DD); por defecto fecha_desde",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar atenciones que usaron este insumo",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por nombre de personal",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por personal",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DESCONTADO",
+                            "PENDIENTE"
+                        ],
+                        "type": "string",
+                        "example": "PENDIENTE",
+                        "description": "Estado de deduccion",
+                        "name": "estado_descuento",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general por cliente, reserva, servicio, personal, local o insumo",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100); sin limit ni cursor devuelve hasta 500 eventos",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con los mismos filtros",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total_registros y total_paginas (requiere limit o cursor)",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.consumosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha invalida, estado_descuento fuera de la lista, parametro invalido o cursor de otros filtros",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al consultar consumos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/consumos/empleados": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Agrega la actividad de consumo por empleado para el rango y filtros indicados. No suma cantidades entre unidades distintas: cuenta atenciones, lineas de insumo, insumos distintos, lineas pendientes y atenciones con deduccion pendiente. Los filtros son los mismos del calendario; estado_descuento filtra las lineas que componen los conteos. Las atenciones sin insumos se conservan cuando no se filtra por estado. Los empleados eliminados se agrupan por el nombre snapshot.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Reporte de consumos por empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-11-01",
+                        "description": "Desde (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-11-30",
+                        "description": "Hasta (YYYY-MM-DD); por defecto fecha_desde",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por insumo",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por nombre de personal",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por personal",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DESCONTADO",
+                            "PENDIENTE"
+                        ],
+                        "type": "string",
+                        "example": "PENDIENTE",
+                        "description": "Estado de deduccion",
+                        "name": "estado_descuento",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general por cliente, reserva, servicio, personal, local o insumo",
+                        "name": "q",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.consumosEmpleadosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha invalida o estado_descuento fuera de la lista",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al resumir consumos por empleado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/consumos/resumen": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Agrega el consumo declarado por insumo y unidad para el rango y filtros indicados. No suma unidades distintas y cuenta atenciones distintas. Los filtros son los mismos del calendario; estado_descuento filtra las lineas que componen el total. Las reversiones de stock no alteran cantidad_usada.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Reporte agregado de consumos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-11-01",
+                        "description": "Desde (YYYY-MM-DD); por defecto hoy",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-11-30",
+                        "description": "Hasta (YYYY-MM-DD); por defecto fecha_desde",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por insumo",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por cliente",
+                        "name": "cliente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por servicio",
+                        "name": "servicio",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por nombre de personal",
+                        "name": "empleado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por personal",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DESCONTADO",
+                            "PENDIENTE"
+                        ],
+                        "type": "string",
+                        "example": "PENDIENTE",
+                        "description": "Estado de deduccion",
+                        "name": "estado_descuento",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda general por cliente, reserva, servicio, personal, local o insumo",
+                        "name": "q",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.consumosResumenResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fecha invalida o estado_descuento fuera de la lista",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al resumir consumos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/items": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista items con el stock del local indicado (o la suma de todos). Filtros: q (nombre o codigo), categoria_id, local_id, bajo_stock=true (stock \u003c= stock_minimo), activo. Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Listar items de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busqueda por nombre o codigo",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por categoria",
+                        "name": "categoria_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Stock de este local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Solo items bajo su stock minimo",
+                        "name": "bajo_stock",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filtrar por activos/inactivos",
+                        "name": "activo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Sin cursor: 1 a 100 pagina; mayor a 100 o ausente devuelve todo hasta el tope (default 200, tope 500)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con los mismos filtros",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Con paginacion, incluye total_registros y total_paginas",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.inventarioItemsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: parametro de consulta invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crea un item del catalogo (stock inicial 0: se carga con una compra o un ajuste). El codigo INV-xxxxxx se genera solo. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Crear item de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del item",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearInventarioItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.inventarioItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: nombre requerido, unidad_medida invalida, costo o stock minimo negativos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/items/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve el item con su stock por local. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Detalle de item de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del item",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.inventarioItemResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Item no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Desactiva el item (activo=false). Nunca se borra fisicamente: conserva su historial de movimientos. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Desactivar item de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del item",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Item no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Edita datos del item. No edita stock: el stock solo cambia con movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id, costo_referencia y precio_venta aceptan null para limpiar. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Editar item de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del item",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarInventarioItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, sin campos, unidad invalida, valores negativos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Item no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/items/{id}/imagen": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Persiste la clave de la imagen del item tras una subida exitosa, borra la imagen anterior del storage y devuelve la URL. La clave debe ser la emitida por upload-url para este mismo item. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Confirmar imagen de item subida",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del item",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Clave de la imagen subida",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.inventarioImagenConfirmRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.inventarioImagenResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, imagen_key faltante o que no corresponde al item",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Item no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Borra el objeto del storage y limpia la clave del item. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Quitar imagen de item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del item",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Item no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/items/{id}/imagen/upload-url": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve una URL firmada para que el cliente suba la imagen (webp) directo al storage, sin pasar los bytes por el backend. La clave es nueva en cada llamada (inventario/{id}/{uuid}.webp). El PUT a upload_url debe enviar exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/inventario/items/{id}/imagen enviando imagen_key. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Emitir URL firmada para subir imagen de un item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del item",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.inventarioImagenUploadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Item no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/inventario/movimientos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista movimientos de stock (entradas, salidas por servicio, reversiones y ajustes) con el stock resultante. Filtros: item_id, local_id, tipo, fecha_desde, fecha_hasta (YYYY-MM-DD). Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Kardex de inventario",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por item",
+                        "name": "item_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtrar por local (admin_sys)",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ENTRADA_COMPRA, SALIDA_SERVICIO, REVERSION_SERVICIO, SALIDA_VENTA, REVERSION_VENTA, AJUSTE_POSITIVO o AJUSTE_NEGATIVO",
+                        "name": "tipo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD)",
+                        "name": "fecha_desde",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD)",
+                        "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Busca por item, local o motivo",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "creado_en",
+                            "item_nombre",
+                            "local_nombre",
+                            "tipo",
+                            "cantidad",
+                            "stock_resultante",
+                            "costo_unitario",
+                            "motivo",
+                            "usuario_nombre"
+                        ],
+                        "type": "string",
+                        "example": "stock_resultante",
+                        "description": "Campo por el que ordenar; sin el, creado_en descendente",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tamano de pagina (1-100); sin limit ni cursor devuelve los 200 mas recientes",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Incluye total_registros y total_paginas",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.movimientosInventarioResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: parametro invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Local no permitido para el usuario",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3131,7 +8547,7 @@ const docTemplate = `{
         },
         "/bd/pagos": {
             "get": {
-                "description": "Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Retorna la cabecera y un resumen de productos, sin el detalle completo. Incluye auditoria de creacion y modificacion. Filtros: codigo_pago, local, cliente, NIT, producto cobrado, tipo_pago, estado, activo y cajeros. Si activo no se envia, lista solo pagos activos.\nCada pago incluye primer_producto y cantidad_productos como resumen del detalle, sin cargar todas sus lineas. El detalle completo se consulta por codigo.",
+                "description": "Devuelve pagos activos de BD con filtros opcionales. Requiere token Bearer. Retorna la cabecera y un resumen de productos, sin el detalle completo. Incluye auditoria de creacion y modificacion. Filtros: codigo_pago, local, cliente, NIT, producto cobrado, tipo_pago, estado, activo y cajeros. Si activo no se envia, lista solo pagos activos.\nCada pago incluye primer_producto y cantidad_productos como resumen del detalle, sin cargar todas sus lineas. El detalle completo se consulta por codigo.\nCon ordenar_por el orden lo resuelve el servidor sobre todo el resultado, no solo la pagina visible: los vacios quedan al final y los empates se desempatan por id. Cambiar ordenar_por o sentido invalida el cursor, asi que el cliente debe volver a la primera pagina.",
                 "produces": [
                     "application/json"
                 ],
@@ -3277,6 +8693,39 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "codigo_pago",
+                            "fecha_creacion",
+                            "cliente_nit",
+                            "cliente_nombre",
+                            "local_nombre",
+                            "primer_producto",
+                            "cantidad_productos",
+                            "subtotal",
+                            "descuento",
+                            "total_final",
+                            "tipo_pago",
+                            "estado",
+                            "nombre_cajero"
+                        ],
+                        "type": "string",
+                        "example": "total_final",
+                        "description": "Campo por el que ordenar; sin el, fecha_creacion descendente",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "example": 50,
                         "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
@@ -3285,7 +8734,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron",
                         "name": "cursor",
                         "in": "query"
                     },
@@ -3317,7 +8766,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: local_id invalido, cliente_id invalido, id_cajero invalido, id_cajero_modificacion invalido, activo invalido, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3337,7 +8786,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un pago independiente junto con su detalle en una sola transaccion. Requiere token Bearer. Deben venir los campos de cabecera requeridos excepto codigo_pago, fecha_creacion, fecha_modificacion y auditoria, que se generan desde BD/token. Puede enviarse nombre para guardar el nombre completo del cajero; si se omite o viene vacio se usa el username del token. id_cajero y username_cajero se toman del token y los campos de auditoria no son editables. cliente_id y cliente_nit son opcionales y pueden omitirse o enviarse como null. tipo_pago es requerido y solo acepta efectivo o qr. El precio_unitario de cada detalle puede diferir del precio referencial del servicio; el backend calcula su subtotal como precio_unitario por cantidad. subtotal y total_final de cabecera son opcionales y, si se envian, deben coincidir con el detalle y descuento calculados. Cada item de detalle debe incluir servicio_id (puede ser null), servicio, precio_unitario, cantidad y subtotal. Response: codigo_pago generado incrementalmente.",
+                "description": "Crea un pago por servicios explicitamente cobrados y registra su detalle en una transaccion. Puede conservar una referencia opcional a reserva_id, pero no consulta ni cambia el estado de la reserva; Caja no envia esa referencia. No descuenta insumos individuales. Requiere token Bearer. Los campos de auditoria y el codigo se generan desde BD/token. cliente_id y cliente_nit son opcionales. El precio_unitario de cada detalle puede diferir del precio referencial; subtotal y total_final opcionales deben coincidir con detalle y descuento. Response: codigo_pago generado incrementalmente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3387,7 +8836,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: body invalido, campos requeridos, importes invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3399,7 +8848,13 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Referencia no encontrada: local, cliente o servicio invalido",
+                        "description": "Referencia no encontrada: local, cliente, reserva o servicio invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "La reserva ya tiene un cobro activo",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3496,6 +8951,100 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/pagos/ventas-detalle": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve cada servicio vendido en pagos activos y PAGADOS del periodo, con local, cliente, cajero, tipo de pago, cantidad, precio, subtotal y el descuento del pago repartido en proporcion a cada linea (la suma de subtotal menos descuento_prorrateado cuadra con total_final). Es la base del Excel del libro financiero. Devuelve hasta 20000 lineas; si hay mas, truncado=true. Requiere token Bearer con rol admin_sys. Query: fecha_desde y fecha_hasta requeridos (YYYY-MM-DD); local opcional (nombre exacto, sin distinguir mayusculas).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Detalle de ventas del periodo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-10-01",
+                        "description": "Fecha inicial en formato YYYY-MM-DD",
+                        "name": "fecha_desde",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-10-31",
+                        "description": "Fecha final en formato YYYY-MM-DD",
+                        "name": "fecha_hasta",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "SAN MARTIN",
+                        "description": "Nombre exacto del local",
+                        "name": "local",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.ventasDetalleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fechas requeridas, con formato invalido o rango invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/pagos/{codigo_pago}": {
             "get": {
                 "description": "Devuelve un pago activo por codigo_pago junto con su detalle. Requiere token Bearer. Los usuarios con local asignado solo pueden consultar pagos de su local; admin_sys puede consultar cualquiera. Param: codigo_pago (requerido, path). Response: pago (PagoCompletoPG con cabecera, auditoria de creacion/modificacion y detalle_pagos).",
@@ -3576,7 +9125,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Realiza borrado logico de un pago activo por codigo_pago (activo=false). Requiere token Bearer. No elimina fisicamente la cabecera ni el detalle.",
+                "description": "Realiza borrado logico de un pago activo por codigo_pago (activo=false). Requiere token Bearer. No elimina fisicamente la cabecera ni el detalle. Si el pago vendio insumos, devuelve su stock al local con REVERSION_VENTA en el kardex, a nombre de quien anula y una sola vez por insumo.",
                 "produces": [
                     "application/json"
                 ],
@@ -3706,7 +9255,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Solo se aceptan pagos en efectivo y QR, estado invalido",
+                        "description": "Error de validacion: codigo_pago requerido, body invalido, sin cambios, campos invalidos, nombre del cajero es requerido, campos de auditoria no editables, Tipo de pago invalido. Se aceptan efectivo, tarjeta, QR y transferencia, estado invalido",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -3775,6 +9324,13 @@ const docTemplate = `{
                         "example": true,
                         "description": "Filtrar por activo; default true",
                         "name": "activo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": true,
+                        "description": "true devuelve solo los paquetes visibles en la pagina principal (el catalogo publico lo usa); default false",
+                        "name": "publico",
                         "in": "query"
                     },
                     {
@@ -4380,6 +9936,150 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/paquetes/{id}/visibilidad": {
+            "patch": {
+                "description": "Cambia solo la visibilidad publica del paquete. El paquete sigue activo y disponible en administracion, planes y caja. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Paquetes BD"
+                ],
+                "summary": "Mostrar u ocultar paquete en la pagina principal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 4,
+                        "description": "ID del paquete",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Visibilidad deseada",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.paqueteVisibilidadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id o body invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Paquete no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/personal/sugerencias": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Busca nombres coincidentes entre los empleados activos accesibles en el local.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Sugerir personal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Texto de búsqueda (mínimo 2 caracteres)",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error al buscar personal",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/planes": {
             "get": {
                 "description": "Devuelve todos los planes que cumplan los filtros aplicados. Un plan es un contrato adquirido por un cliente; no es un combo de catalogo. Requiere token Bearer. Los usuarios no admin_sys solo ven planes de su local asignado.",
@@ -4428,6 +10128,13 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "ID exacto del cliente (la ficha del cliente lo usa; el nombre no distingue homonimos)",
+                        "name": "cliente_id",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "example": "ACTIVO",
                         "description": "Filtrar por estado contractual: RESERVADO, ACTIVO, COMPLETADO, VENCIDO, CANCELADO",
@@ -4465,6 +10172,34 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "codigo",
+                            "cliente",
+                            "combo_nombre_texto",
+                            "local_nombre_texto",
+                            "precio_total",
+                            "estado",
+                            "estado_cobranza",
+                            "creado_en"
+                        ],
+                        "type": "string",
+                        "example": "precio_total",
+                        "description": "Campo por el que ordenar; manda sobre orden=prioridad_estado",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "example": 50,
                         "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
@@ -4473,7 +10208,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron",
                         "name": "cursor",
                         "in": "query"
                     },
@@ -4505,7 +10240,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: parametros invalidos",
+                        "description": "Error de validacion: parametros invalidos, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5025,6 +10760,342 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/reportes/clientes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Ranking de clientes del periodo (semanal de lunes a domingo, quincenal del 1 al 15 y del 16 a fin de mes, o mensual) que contiene a la fecha indicada: quien genero mas dinero, quien tuvo mas citas, quien cancelo mas y quien lleva mas periodos seguidos viniendo. Devuelve un bloque general y uno por local, cada uno con totales (clientes activos, nuevos y recurrentes, ticket promedio por cliente, tasa de retorno), los 10 primeros de cada ranking, los 10 mayores deudores y la actividad por dia; la lista completa de clientes se pide paginada en /bd/reportes/clientes/detalle. Compara contra el periodo anterior equivalente. El dinero sale de los pagos PAGADO activos con cliente asignado (misma regla de fechas que /bd/pagos/resumen) y las citas de las reservas activas COMPLETADO vinculadas a un cliente; las ventas y citas sin cliente no entran en los rankings y se informan aparte. Un cliente es activo si pago o completo una cita en el periodo, y es nuevo si su primera actividad en el negocio cae en el periodo. Las deudas son el saldo pendiente de hoy y no dependen del periodo. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reportes"
+                ],
+                "summary": "Reporte de clientes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "mensual",
+                        "description": "semanal, quincenal o mensual",
+                        "name": "periodo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cualquier dia del periodo, YYYY-MM-DD (por defecto hoy)",
+                        "name": "fecha",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reporteClientesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: periodo o fecha invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/reportes/clientes/detalle": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista paginada de los clientes con movimiento en el periodo (pago, cita completada, reserva agendada o cancelada), con las mismas reglas y columnas que los rankings de /bd/reportes/clientes. Siempre pagina: sin limit usa 50 por pagina y el maximo es 100. Por defecto ordena por dinero generado (posicion); con ordenar_por el orden lo resuelve el servidor sobre todo el resultado y los clientes sin dato en esa columna van al final. La paginacion avanza por desplazamiento y el cursor solo vale con el mismo periodo, fecha, local_id, busqueda, ordenar_por y sentido que lo generaron. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reportes"
+                ],
+                "summary": "Detalle paginado del reporte de clientes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "mensual",
+                        "description": "semanal, quincenal o mensual",
+                        "name": "periodo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cualquier dia del periodo, YYYY-MM-DD (por defecto hoy)",
+                        "name": "fecha",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del local; sin el, todos los locales",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "Maria",
+                        "description": "Busqueda parcial por nombre, telefono o servicio favorito",
+                        "name": "busqueda",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "posicion",
+                            "nombre",
+                            "ingresos",
+                            "variacion_pct",
+                            "pagos",
+                            "citas",
+                            "canceladas",
+                            "racha_periodos",
+                            "servicio_top",
+                            "ultima_actividad",
+                            "saldo_pendiente"
+                        ],
+                        "type": "string",
+                        "example": "citas",
+                        "description": "Campo por el que ordenar; sin el, mas dinero generado primero",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "desc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina (1-100); por defecto 50",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Incluye el total de registros y de paginas",
+                        "name": "include_total",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reporteClientesDetalleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: periodo, fecha o local_id invalidos, ordenar_por fuera de la lista, sentido distinto de asc o desc, limit fuera de rango o cursor de otros filtros",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/reportes/financiero": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resume el periodo: ingresos (ventas pagadas + otros ingresos) vs egresos (fijos y variables, incluidas compras de inventario) y utilidad neta. Solo cuentan movimientos PAGADO; los pendientes se informan aparte y los anulados nunca suman. Las ventas usan la misma regla que /bd/pagos/resumen. Con local se filtra por local y los gastos generales (sin local) se informan aparte sin prorratear. Antes de calcular genera los gastos fijos atrasados. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reportes"
+                ],
+                "summary": "Reporte financiero (ingresos vs egresos)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Desde (YYYY-MM-DD)",
+                        "name": "fecha_desde",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hasta (YYYY-MM-DD)",
+                        "name": "fecha_hasta",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Nombre del local",
+                        "name": "local",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "dia o mes (default mes)",
+                        "name": "agrupar",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.ReporteFinanciero"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: fechas invalidas o rango invertido, agrupar invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Local no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/reservas": {
             "get": {
                 "description": "Devuelve reservas en formato plano (sin agrupar por local). La paginacion es opcional. Los filtros de busqueda y vigencia se aplican antes de LIMIT y del conteo. ` + "`" + `orden=cronologico` + "`" + ` ordena por fecha, hora, local e ID; sin ese parametro conserva el orden legacy por local.",
@@ -5062,6 +11133,13 @@ const docTemplate = `{
                         "example": "2026-05-24",
                         "description": "Fecha fin rango YYYY-MM-DD",
                         "name": "fecha_hasta",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 12,
+                        "description": "Solo las reservas de este cliente registrado (ficha del cliente)",
+                        "name": "cliente_id",
                         "in": "query"
                     },
                     {
@@ -5168,6 +11246,33 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "fecha",
+                            "hora_desde",
+                            "cliente",
+                            "tipo",
+                            "servicio",
+                            "estado",
+                            "local"
+                        ],
+                        "type": "string",
+                        "example": "cliente",
+                        "description": "Campo por el que ordenar; manda sobre orden=cronologico",
+                        "name": "ordenar_por",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "example": "asc",
+                        "description": "Sentido del orden; solo con ordenar_por, por defecto asc",
+                        "name": "sentido",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "example": 50,
                         "description": "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy",
@@ -5176,7 +11281,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cursor opaco devuelto en paginacion.next_cursor",
+                        "description": "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron",
                         "name": "cursor",
                         "in": "query"
                     },
@@ -5208,7 +11313,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: tipo invalido, estado invalido",
+                        "description": "Error de validacion: tipo invalido, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5222,7 +11327,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).\ncosto_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.\nReserva repetida: si la peticion trae token Bearer valido y el telefono ya tiene una reserva vigente (no rechazada) en la misma fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas (las ya existentes) sin crear nada. El panel debe pedir confirmacion y reenviar con confirmar_duplicado=true. El formulario publico (sin token) no recibe este aviso.\nTurnstile: sin token Bearer valido (formulario publico) el body debe traer cf-turnstile-response, que el backend valida con Cloudflare (siteverify, accion reservation_create y hostname permitido). Con token Bearer valido no se exige.",
+                "description": "Crea una reserva en PostgreSQL. local: nombre del local (requerido). fecha: YYYY-MM-DD (requerido, no acepta domingos). hora_desde: HH:MM (requerido). hora_hasta: HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. tipo: M=mesa o B=bicicleta (opcional). cliente: nombre del cliente (requerido). numero_telefono: telefono del cliente (requerido). estado: PENDIENTE por defecto, AGENDADO (opcional). servicio_id: ID del servicio en BD, recomendado para aplicar requiere_evaluacion sin depender del nombre (opcional). servicio: nombre del servicio principal (opcional). servicio_solicitado: detalle solicitado, se copia de servicio si se omite (opcional). servicio_confirmado: servicio final tras evaluacion, se autocompleta si no requiere evaluacion (opcional). precio: precio de la reserva (opcional). notas: observaciones (opcional). plan_id: ID del plan asociado (opcional).\ncosto_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.\nInventario: si la peticion trae token Bearer valido (panel interno) y el servicio tiene insumos sin stock suficiente en el local, la reserva se guarda igual y la respuesta incluye alerta_inventario y advertencias_inventario; con la politica inventario.politica_sin_stock=BLOQUEAR responde 409 con el texto stock insuficiente. El formulario publico (sin token) nunca recibe advertencias ni se bloquea.\nReserva repetida: si la peticion trae token Bearer valido y el telefono ya tiene una reserva vigente (no rechazada) en la misma fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas (las ya existentes) sin crear nada. El panel debe pedir confirmacion y reenviar con confirmar_duplicado=true. El formulario publico (sin token) no recibe este aviso.\nTurnstile: sin token Bearer valido (formulario publico) el body debe traer cf-turnstile-response, que el backend valida con Cloudflare (siteverify, accion reservation_create y hostname permitido). Con token Bearer valido no se exige.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5264,7 +11369,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: campo requerido faltante, estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion",
+                        "description": "Error de validacion: campo requerido faltante (en el panel interno tambien cliente_id), estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5275,8 +11380,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.APIResponse"
                         }
                     },
+                    "404": {
+                        "description": "El cliente_id enviado por el panel no existe",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
                     "409": {
-                        "description": "Conflicto: no hay espacios disponibles, el horario no esta libre, o el cliente ya tiene reserva ese dia (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)",
+                        "description": "Conflicto: no hay espacios disponibles, el horario no esta libre, stock insuficiente de insumos con politica BLOQUEAR, o el cliente ya tiene reserva ese dia (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5307,7 +11418,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).\nlimpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.\nReserva repetida: si nueva_fecha cambia el dia y el telefono ya tiene otra reserva vigente (no rechazada, de cualquier local) en esa fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas sin modificar nada. Reenviar con confirmar_duplicado=true para mover igual.",
+                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).\nlimpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.\nRecalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias. Si nuevo_estado es AGENDADO, inventario.descontar_en_estado=AGENDADO e inventario.permitir_stock_negativo=false, responde 409 con el texto stock insuficiente cuando el stock real del local no alcanza.\nReserva repetida: si nueva_fecha cambia el dia y el telefono ya tiene otra reserva vigente (no rechazada, de cualquier local) en esa fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas sin modificar nada. Reenviar con confirmar_duplicado=true para mover igual.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5341,7 +11452,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handlers.messageResponse"
+                                            "$ref": "#/definitions/handlers.reservaAvisosResponse"
                                         }
                                     }
                                 }
@@ -5367,7 +11478,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Reserva completada, sin espacios disponibles en el horario destino o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)",
+                        "description": "Reserva completada, sin espacios disponibles en el horario destino, stock insuficiente de insumos al pasar a AGENDADO con descuento al agendar, o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5521,7 +11632,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO, RECHAZADO→PENDIENTE. COMPLETADO no admite cambios.\nConfirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.",
+                "description": "Cambia el estado de una reserva. COMPLETADO solo se puede establecer al registrar una atención. RECHAZADO se reserva para solicitudes PENDIENTE; CANCELADO exige motivo_cancelacion_tipo y solo aplica a reservas AGENDADO. Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→CANCELADO, RECHAZADO→PENDIENTE.\nConfirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.\nInventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5555,7 +11666,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handlers.messageResponse"
+                                            "$ref": "#/definitions/handlers.reservaAvisosResponse"
                                         }
                                     }
                                 }
@@ -5581,7 +11692,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Conflicto: no hay espacios disponibles para confirmar la reserva",
+                        "description": "Conflicto: una reserva solo se completa mediante el registro de una atención, no hay espacios disponibles o el stock es insuficiente",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -5659,9 +11770,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/bd/reservas/por-vincular": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista las reservas vigentes (no anuladas ni rechazadas) que todavia no tienen un cliente registrado, las mas recientes primero. Vienen del formulario publico cuando el telefono no coincidio exacto con un unico cliente, o del historico. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservas BD"
+                ],
+                "summary": "Reservas por vincular",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 50,
+                        "description": "Tamano de pagina (1-100, por defecto 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 0,
+                        "description": "Reservas a saltar",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reservasPorVincularResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/reservas/resumen": {
             "get": {
-                "description": "Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).",
+                "description": "Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Los campos de ingresos (ingresos_hoy, ingresos_semana, ingresos) solo se devuelven a admin_sys; para cualquier otro rol no vienen. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).",
                 "produces": [
                     "application/json"
                 ],
@@ -5826,7 +12010,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Eliminacion logica de una reserva (activo=false). id: ID de la reserva (requerido, path).",
+                "description": "Eliminacion logica de una reserva (activo=false). id: ID de la reserva (requerido, path). Si la reserva ya habia descontado insumos, se devuelve el stock con movimientos REVERSION_SERVICIO en la misma transaccion.",
                 "produces": [
                     "application/json"
                 ],
@@ -5871,6 +12055,2196 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Reserva no encontrada o ya inactiva",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/reservas/{id}/atencion": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra la atención real y cambia una reserva AGENDADA a COMPLETADO en una sola transacción. Los insumos sin stock suficiente quedan en PENDIENTE_STOCK sin descuento parcial. Con inventario.politica_sin_stock=BLOQUEAR responde 409 salvo que el usuario confirme expresamente el faltante mediante confirmar_stock_insuficiente.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Registrar atención y cerrar reserva",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID de reserva",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos de atención",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.registrarAtencionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validación",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Reserva no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Reserva no atendible o stock insuficiente",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/reservas/{id}/cliente": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Enlaza una reserva con un cliente registrado elegido por el cajero. Solo vincula esa reserva: nada se enlaza por telefono. Si la reserva ya tenia otro cliente (el cajero se equivoco) lo cambia, siempre que no tenga cargos vigentes ni paquete del cliente anterior; si los tiene responde 409 y hay que anularlos primero. Con actualizar_telefono, si el telefono de la reserva es distinto al del cliente, el del cliente se reemplaza por el de la reserva (no se agrega otro). Devuelve cuantas reservas quedaron enlazadas y si se actualizo el telefono. Requiere token Bearer.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservas BD"
+                ],
+                "summary": "Vincular una reserva con un cliente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 41,
+                        "description": "ID de la reserva",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cliente elegido",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.vincularReservaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.ResultadoVinculo"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "cliente_id requerido o id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Reserva o cliente no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "La reserva tiene cargos o paquete del cliente anterior, o el telefono nuevo choca con otro cliente",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/reservas/{id}/sugerencias-cliente": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Propone clientes que podrian ser el dueño de una reserva por vincular: los que comparten telefono (ultimos 8 digitos) o nombre completo, con los de telefono primero. Es solo una pista (por_telefono, por_nombre): nunca vincula; el cajero elige. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservas BD"
+                ],
+                "summary": "Clientes sugeridos para una reserva",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 41,
+                        "description": "ID de la reserva",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.ClienteSugeridoPG"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/adelantos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista los adelantos de sueldo. Un adelanto se descuenta solo en la siguiente planilla que se genere del empleado. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Listar adelantos",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtra por empleado",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true devuelve solo los aun no descontados",
+                        "name": "pendientes",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.adelantosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: filtros invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registra un anticipo de sueldo; se descuenta automaticamente en la siguiente planilla del empleado (siempre que quepa en lo que queda tras aportes y descuentos). Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Registrar adelanto",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del adelanto",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.adelantoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: monto, fecha o empleado invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/adelantos/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Anula un adelanto que aun no se descontó en ninguna planilla. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Anular adelanto",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del adelanto",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Adelanto no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "El adelanto ya fue descontado o anulado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/empleados": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista los empleados con su dia de pago efectivo (el propio o rrhh.dia_pago_defecto) y los adelantos pendientes de descontar. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Listar empleados",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true devuelve solo empleados activos",
+                        "name": "activos",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: activos invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Da de alta un empleado. Desde su dia de pago de cada mes se genera su planilla de sueldo y el egreso en finanzas. Si no se envia dia_pago se usa rrhh.dia_pago_defecto. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Crear empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del empleado",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.empleadoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: nombre, sueldo_base, dia_pago, fechas o metodo_pago invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/empleados/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve la ficha de un empleado. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Ver empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del empleado",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Edita la ficha. Afecta solo planillas futuras aun no generadas. Para dar de baja envia fecha_baja o activo=false; con null en dia_pago vuelve al dia por defecto. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Editar empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del empleado",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarEmpleadoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id, sueldo_base, dia_pago o fechas invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/empleados/{id}/foto": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Persiste la clave de la foto del empleado tras una subida exitosa, borra la foto anterior del storage y devuelve una URL firmada de lectura. La clave debe ser la emitida por upload-url para este mismo empleado. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Confirmar foto de empleado subida",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del empleado",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Clave de la foto subida",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.empleadoFotoConfirmRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadoFotoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, foto_key faltante o que no corresponde al empleado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Borra el objeto del storage y limpia la clave de la foto del empleado. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Quitar foto de empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del empleado",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/empleados/{id}/foto/upload-url": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve una URL firmada para que el cliente suba la foto (webp) directo al storage, sin pasar los bytes por el backend. La clave es nueva en cada llamada (personal/{id}/{uuid}.webp) y queda en una carpeta privada. El PUT a upload_url debe enviar exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/rrhh/empleados/{id}/foto enviando foto_key. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Emitir URL firmada para subir la foto de un empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del empleado",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.empleadoFotoUploadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Almacenamiento de imagenes no configurado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista las planillas de sueldo con su desglose y los totales del filtro. Antes de listar genera las planillas vencidas (catch-up), asi la lista es correcta aunque el job diario no haya corrido. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Listar planillas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mes YYYY-MM",
+                        "name": "periodo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtra por empleado",
+                        "name": "empleado_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filtra por local del empleado",
+                        "name": "local_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "PENDIENTE, PAGADO o ANULADO",
+                        "name": "estado",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "SUELDO",
+                        "name": "tipo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillasResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: periodo, estado o tipo invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crea ya la planilla de sueldo de un empleado para un mes (por ejemplo para cargar bonos o faltas antes del dia de pago, o regenerar una anulada). Crea tambien el egreso PENDIENTE en finanzas y descuenta los adelantos pendientes. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Generar planilla de un empleado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Empleado y periodo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.crearPlanillaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: periodo invalido, futuro o anterior al ingreso",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Empleado no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe una planilla vigente para ese periodo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas/generar": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Genera, de forma idempotente, las planillas de sueldo cuyo dia de pago ya llego (incluye meses atrasados) y su egreso PENDIENTE en finanzas. Lo usan el job diario y el boton manual: ejecutarlo dos veces no duplica nada. Acepta token Bearer con rol admin_sys o el header X-Job-Secret configurado en el servidor.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Generar planillas vencidas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer (admin_sys) si no se usa X-Job-Secret",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Secreto interno del job diario",
+                        "name": "X-Job-Secret",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.generarPlanillasResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token o secreto requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas/pendientes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Vista previa, sin crear nada, de las planillas que POST /bd/rrhh/planillas/generar generaria ahora (incluye meses atrasados). Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Planillas pendientes de generar",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillasPendientesResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devuelve una planilla con su desglose y el codigo del egreso asociado. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Ver planilla",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la planilla",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Planilla no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cambia las lineas de bono (bonos_detalle: tipo del catalogo, monto y nota; reemplaza todas), dias de falta, otros descuentos o notas de una planilla PENDIENTE. Recalcula aportes y neto, y actualiza el monto del egreso. La falta se valora como sueldo_base / rrhh.dias_mes_faltas por dia. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Editar planilla",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la planilla",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarPlanillaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: montos negativos, bono sin tipo o con tipo inactivo, descuentos mayores a lo ganado o planilla no editable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Planilla no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas/{id}/anular": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Anula la planilla y su egreso (exige motivo) y libera los adelantos que descontaba para que vuelvan a pendientes. Se puede regenerar con POST /bd/rrhh/planillas. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Anular planilla",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la planilla",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Motivo",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.anularPlanillaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: motivo requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Planilla no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "La planilla ya esta anulada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/planillas/{id}/pagar": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Pasa la planilla PENDIENTE y su egreso a PAGADO; desde ese momento cuenta en el reporte financiero. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Marcar planilla como pagada",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID de la planilla",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Metodo de pago",
+                        "name": "payload",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.pagarPlanillaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.planillaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: planilla no pendiente o metodo_pago invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Planilla no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/reportes/atenciones": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Ranking del personal segun las atenciones registradas en el periodo (semanal de lunes a domingo, quincenal del 1 al 15 y del 16 a fin de mes, o mensual) que contiene a la fecha indicada. Devuelve un bloque general y uno por local, cada uno con totales, ranking, atenciones por dia y los usuarios que registraron. Compara contra el periodo anterior equivalente. Solo cuenta atenciones activas; quien atendio se agrupa por empleado de RRHH o, si no esta vinculado, por el nombre escrito. Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Reporte de personal que mas atiende",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "mensual",
+                        "description": "semanal, quincenal o mensual",
+                        "name": "periodo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cualquier dia del periodo, YYYY-MM-DD (por defecto hoy)",
+                        "name": "fecha",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.reporteAtencionesRRHHResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: periodo o fecha invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/tipos-bono": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Catalogo de bonos que se pueden asignar a una planilla (ej. Produccion, Puntualidad). Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Listar tipos de bono",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true devuelve solo los tipos activos",
+                        "name": "activos",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.tiposBonoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: activos invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Agrega un concepto al catalogo de bonos. El nombre no puede repetirse (sin distinguir mayusculas). Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Crear tipo de bono",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Datos del tipo de bono",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.tipoBonoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.tipoBonoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: nombre requerido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe un tipo de bono con ese nombre",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/rrhh/tipos-bono/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cambia nombre, descripcion o estado de un tipo de bono. No se elimina: se desactiva, y deja de ofrecerse en planillas nuevas pero las ya cargadas lo conservan. Requiere token Bearer con rol admin_sys.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RRHH"
+                ],
+                "summary": "Editar tipo de bono",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del tipo de bono",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a actualizar",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.actualizarTipoBonoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.tipoBonoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id o nombre invalidos",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Tipo de bono no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe un tipo de bono con ese nombre",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -6281,6 +14655,174 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Servicio no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bd/servicios/{id}/insumos": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista los items de inventario que consume el servicio por sesion. Requiere token Bearer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Insumos de un servicio",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 8,
+                        "description": "ID del servicio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.insumosServicioResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Reemplaza la lista completa de insumos del servicio (patron de PUT /bd/combos/{id}/servicios). Una lista vacia quita todos. No se permiten items repetidos ni cantidades no positivas. Requiere token Bearer (mismo acceso que editar el servicio).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Reemplazar insumos de un servicio",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 8,
+                        "description": "ID del servicio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Insumos del servicio",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.reemplazarInsumosRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido, item repetido, cantidad no positiva",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Servicio o item no encontrado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -6777,6 +15319,74 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "cuenta.PlanCobro": {
+            "type": "object",
+            "properties": {
+                "falta": {
+                    "description": "Falta es lo que el cliente paga ahora con un metodo de pago.",
+                    "type": "number",
+                    "example": 100
+                },
+                "nuevo_pago": {
+                    "description": "NuevoPago es el dinero nuevo que entra: lo que falta mas la recarga. Si es 0 no se pide metodo de pago.",
+                    "type": "number",
+                    "example": 100
+                },
+                "total": {
+                    "description": "Total de los cargos marcados.",
+                    "type": "number",
+                    "example": 250
+                },
+                "usa_saldo": {
+                    "description": "UsaSaldo es lo que se descuenta del saldo disponible del cliente.",
+                    "type": "number",
+                    "example": 150
+                }
+            }
+        },
+        "cuenta.Reparto": {
+            "type": "object",
+            "properties": {
+                "cargo_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 400
+                }
+            }
+        },
+        "cuenta.Saldo": {
+            "type": "object",
+            "properties": {
+                "deuda": {
+                    "description": "Deuda es lo que falta despues de usar el saldo disponible; nunca es negativa.",
+                    "type": "number",
+                    "example": 100
+                },
+                "disponible": {
+                    "description": "Disponible es el dinero que el cliente recargo y todavia no uso.",
+                    "type": "number",
+                    "example": 150
+                },
+                "por_pagar": {
+                    "description": "PorPagar es la suma de lo que le falta pagar de sus cargos vigentes.",
+                    "type": "number",
+                    "example": 250
+                }
+            }
+        },
+        "handlers.abonoCreadoResponse": {
+            "type": "object",
+            "properties": {
+                "codigo_pago": {
+                    "description": "Codigo del pago creado.",
+                    "type": "string",
+                    "example": "PAGO-000123"
+                }
+            }
+        },
         "handlers.activarServicioRequest": {
             "type": "object",
             "required": [
@@ -6797,6 +15407,46 @@ const docTemplate = `{
                     "description": "Cantidad de registros actualizados",
                     "type": "integer",
                     "example": 3
+                }
+            }
+        },
+        "handlers.actualizarCategoriaFinancieraRequest": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "description": "Activa o inactiva",
+                    "type": "boolean",
+                    "example": true
+                },
+                "naturaleza": {
+                    "description": "INGRESO, EGRESO o AMBOS. Solo se puede acotar a INGRESO/EGRESO si no tiene movimientos del otro tipo",
+                    "type": "string",
+                    "enum": [
+                        "INGRESO",
+                        "EGRESO",
+                        "AMBOS"
+                    ],
+                    "example": "AMBOS"
+                },
+                "nombre": {
+                    "description": "Nuevo nombre",
+                    "type": "string",
+                    "example": "Alquiler de local"
+                }
+            }
+        },
+        "handlers.actualizarCategoriaInventarioRequest": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "description": "Activa o inactiva",
+                    "type": "boolean",
+                    "example": true
+                },
+                "nombre": {
+                    "description": "Nuevo nombre",
+                    "type": "string",
+                    "example": "Cremas"
                 }
             }
         },
@@ -6923,6 +15573,71 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarEmpleadoRequest": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "apellido": {
+                    "type": "string",
+                    "example": "Rojas"
+                },
+                "aplica_aportes": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "cargo": {
+                    "type": "string",
+                    "example": "Masajista"
+                },
+                "ci": {
+                    "type": "string",
+                    "example": "7654321"
+                },
+                "dia_pago": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "fecha_baja": {
+                    "type": "string",
+                    "example": "2026-12-31"
+                },
+                "fecha_ingreso": {
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "metodo_pago": {
+                    "type": "string",
+                    "example": "qr"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "notas": {
+                    "type": "string",
+                    "example": "Turno tarde"
+                },
+                "sueldo_base": {
+                    "type": "number",
+                    "example": 3200
+                },
+                "telefono": {
+                    "type": "string",
+                    "example": "71234567"
+                },
+                "usuario_id": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
         "handlers.actualizarEspaciosRequest": {
             "type": "object",
             "required": [
@@ -6952,7 +15667,7 @@ const docTemplate = `{
                     "example": "Cliente confirmo por WhatsApp"
                 },
                 "estado": {
-                    "description": "Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO",
+                    "description": "Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o CANCELADO",
                     "type": "string",
                     "example": "AGENDADO"
                 },
@@ -6960,6 +15675,14 @@ const docTemplate = `{
                     "description": "ID de la reserva",
                     "type": "integer",
                     "example": 44
+                },
+                "motivo_cancelacion_detalle": {
+                    "type": "string",
+                    "example": "No respondio los intentos de contacto"
+                },
+                "motivo_cancelacion_tipo": {
+                    "type": "string",
+                    "example": "INASISTENCIA"
                 },
                 "precio": {
                     "description": "Precio actualizado (opcional)",
@@ -6975,6 +15698,116 @@ const docTemplate = `{
                     "description": "Tipo de espacio: M (mesa) o B (bicicleta)",
                     "type": "string",
                     "example": "M"
+                }
+            }
+        },
+        "handlers.actualizarGastoFijoRequest": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "description": "Activo",
+                    "type": "boolean",
+                    "example": true
+                },
+                "categoria_id": {
+                    "description": "Categoria",
+                    "type": "integer",
+                    "example": 1
+                },
+                "dia_cobro": {
+                    "description": "Dia de cobro",
+                    "type": "integer",
+                    "example": 10
+                },
+                "fecha_fin": {
+                    "description": "Vigente hasta (null quita el fin)",
+                    "type": "string",
+                    "example": "2026-12-31"
+                },
+                "fecha_inicio": {
+                    "description": "Vigente desde",
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "frecuencia": {
+                    "description": "Frecuencia de cobro",
+                    "type": "string",
+                    "example": "MENSUAL"
+                },
+                "local_id": {
+                    "description": "Local (null = general)",
+                    "type": "integer",
+                    "example": 1
+                },
+                "metodo_pago": {
+                    "description": "Metodo de pago (null limpia)",
+                    "type": "string",
+                    "example": "qr"
+                },
+                "monto": {
+                    "description": "Monto mensual",
+                    "type": "number",
+                    "example": 7000
+                },
+                "nombre": {
+                    "description": "Nombre",
+                    "type": "string",
+                    "example": "Alquiler"
+                },
+                "notas": {
+                    "description": "Notas (null limpia)",
+                    "type": "string",
+                    "example": "Contrato anual"
+                },
+                "proveedor": {
+                    "description": "Proveedor (null limpia)",
+                    "type": "string",
+                    "example": "Inmobiliaria Sur"
+                }
+            }
+        },
+        "handlers.actualizarInventarioItemRequest": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "description": "Activo o desactivado (RN-07)",
+                    "type": "boolean",
+                    "example": true
+                },
+                "categoria_id": {
+                    "description": "Categoria (null limpia)",
+                    "type": "integer",
+                    "example": 1
+                },
+                "costo_referencia": {
+                    "description": "Costo de referencia (null limpia)",
+                    "type": "number",
+                    "example": 0.04
+                },
+                "descripcion": {
+                    "description": "Descripcion (null limpia)",
+                    "type": "string",
+                    "example": "Gel para radiofrecuencia"
+                },
+                "nombre": {
+                    "description": "Nombre del item",
+                    "type": "string",
+                    "example": "Gel conductor"
+                },
+                "precio_venta": {
+                    "description": "Precio de venta del insumo (null limpia)",
+                    "type": "number",
+                    "example": 25
+                },
+                "stock_minimo": {
+                    "description": "Stock minimo",
+                    "type": "number",
+                    "example": 500
+                },
+                "unidad_medida": {
+                    "description": "Unidad de medida: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE o CAJA",
+                    "type": "string",
+                    "example": "ML"
                 }
             }
         },
@@ -7010,6 +15843,51 @@ const docTemplate = `{
                     "description": "Nuevo nombre del local (opcional)",
                     "type": "string",
                     "example": "PASEO ARANJUEZ"
+                }
+            }
+        },
+        "handlers.actualizarMovimientoFinancieroRequest": {
+            "type": "object",
+            "properties": {
+                "categoria_id": {
+                    "description": "Nueva categoria",
+                    "type": "integer",
+                    "example": 6
+                },
+                "descripcion": {
+                    "description": "Descripcion (null limpia)",
+                    "type": "string",
+                    "example": "Reparacion de camilla"
+                },
+                "estado": {
+                    "description": "PAGADO o PENDIENTE",
+                    "type": "string",
+                    "example": "PAGADO"
+                },
+                "fecha": {
+                    "description": "Nueva fecha YYYY-MM-DD",
+                    "type": "string",
+                    "example": "2026-10-18"
+                },
+                "local_id": {
+                    "description": "Nuevo local (null = general)",
+                    "type": "integer",
+                    "example": 1
+                },
+                "metodo_pago": {
+                    "description": "Metodo de pago (null limpia)",
+                    "type": "string",
+                    "example": "qr"
+                },
+                "monto": {
+                    "description": "Nuevo monto",
+                    "type": "number",
+                    "example": 520
+                },
+                "proveedor": {
+                    "description": "Proveedor (null limpia)",
+                    "type": "string",
+                    "example": "Taller Medina"
                 }
             }
         },
@@ -7118,6 +15996,33 @@ const docTemplate = `{
                 "notas": {
                     "type": "string",
                     "example": "Actualizar notas del plan"
+                }
+            }
+        },
+        "handlers.actualizarPlanillaRequest": {
+            "type": "object",
+            "properties": {
+                "bonos_detalle": {
+                    "description": "Lineas de bono; reemplaza todas las de la planilla (lista vacia las quita, ausente las deja)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.bonoRequest"
+                    }
+                },
+                "dias_falta": {
+                    "description": "Dias de falta (admite fracciones, ej. 0.5)",
+                    "type": "number",
+                    "example": 1
+                },
+                "notas": {
+                    "description": "Notas (null limpia)",
+                    "type": "string",
+                    "example": "Bono por meta"
+                },
+                "otros_descuentos": {
+                    "description": "Otros descuentos",
+                    "type": "number",
+                    "example": 50
                 }
             }
         },
@@ -7348,6 +16253,23 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.actualizarTipoBonoRequest": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "descripcion": {
+                    "type": "string",
+                    "example": "Bono por metas del mes"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Producción"
+                }
+            }
+        },
         "handlers.actualizarUsuarioActivoRequest": {
             "type": "object",
             "required": [
@@ -7386,6 +16308,168 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.adelantoRequest": {
+            "type": "object",
+            "required": [
+                "empleado_id",
+                "fecha",
+                "monto"
+            ],
+            "properties": {
+                "empleado_id": {
+                    "description": "Empleado",
+                    "type": "integer",
+                    "example": 1
+                },
+                "fecha": {
+                    "description": "Fecha YYYY-MM-DD",
+                    "type": "string",
+                    "example": "2026-10-10"
+                },
+                "monto": {
+                    "description": "Monto del adelanto",
+                    "type": "number",
+                    "example": 200
+                },
+                "motivo": {
+                    "description": "Motivo (opcional)",
+                    "type": "string",
+                    "example": "Emergencia familiar"
+                }
+            }
+        },
+        "handlers.adelantosResponse": {
+            "type": "object",
+            "properties": {
+                "adelantos": {
+                    "description": "Adelantos, mas recientes primero",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Adelanto"
+                    }
+                }
+            }
+        },
+        "handlers.ajusteInventarioRequest": {
+            "type": "object",
+            "required": [
+                "cantidad",
+                "item_id",
+                "local_id",
+                "tipo"
+            ],
+            "properties": {
+                "cantidad": {
+                    "description": "Cantidad a ajustar (siempre positiva)",
+                    "type": "number",
+                    "example": 10
+                },
+                "item_id": {
+                    "description": "ID del item",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_id": {
+                    "description": "ID del local donde se ajusta",
+                    "type": "integer",
+                    "example": 1
+                },
+                "motivo": {
+                    "description": "Motivo obligatorio (merma, vencimiento, conteo fisico)",
+                    "type": "string",
+                    "example": "Producto vencido"
+                },
+                "tipo": {
+                    "description": "AJUSTE_POSITIVO o AJUSTE_NEGATIVO",
+                    "type": "string",
+                    "example": "AJUSTE_NEGATIVO"
+                }
+            }
+        },
+        "handlers.ajusteInventarioResponse": {
+            "type": "object",
+            "properties": {
+                "mensaje": {
+                    "description": "Mensaje de confirmacion",
+                    "type": "string",
+                    "example": "ajuste registrado correctamente"
+                },
+                "stock_resultante": {
+                    "description": "Stock resultante tras el ajuste",
+                    "type": "number",
+                    "example": 340
+                }
+            }
+        },
+        "handlers.anularCargoRequest": {
+            "type": "object",
+            "properties": {
+                "motivo": {
+                    "description": "Motivo de la anulacion (requerido).",
+                    "type": "string",
+                    "example": "Cargado dos veces"
+                }
+            }
+        },
+        "handlers.anularCompraRequest": {
+            "type": "object",
+            "properties": {
+                "motivo": {
+                    "description": "Motivo de la anulacion (obligatorio)",
+                    "type": "string",
+                    "example": "Compra duplicada"
+                }
+            }
+        },
+        "handlers.anularPlanillaRequest": {
+            "type": "object",
+            "required": [
+                "motivo"
+            ],
+            "properties": {
+                "motivo": {
+                    "description": "Motivo de la anulacion",
+                    "type": "string",
+                    "example": "Sueldo mal calculado"
+                }
+            }
+        },
+        "handlers.aplicarAbonoRequest": {
+            "type": "object",
+            "properties": {
+                "aplicaciones": {
+                    "description": "Reparto de lo que el abono tiene sin aplicar entre cargos pendientes.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/cuenta.Reparto"
+                    }
+                }
+            }
+        },
+        "handlers.atencionesResponse": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "description": "Atenciones activas que cumplen los filtros",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Atencion"
+                    }
+                },
+                "paginacion": {
+                    "description": "Paginacion por cursor (solo si se envia limit o cursor)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total_registros": {
+                    "description": "Total de atenciones con los filtros (solo con include_total=true)",
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.authRequest": {
             "type": "object",
             "required": [
@@ -7402,6 +16486,82 @@ const docTemplate = `{
                     "description": "Nombre de usuario para iniciar sesion.",
                     "type": "string",
                     "example": "admin"
+                }
+            }
+        },
+        "handlers.bonoRequest": {
+            "type": "object",
+            "required": [
+                "monto",
+                "tipo_bono_id"
+            ],
+            "properties": {
+                "monto": {
+                    "description": "Monto del bono (mayor a 0)",
+                    "type": "number",
+                    "example": 150
+                },
+                "nota": {
+                    "description": "Detalle del motivo (opcional)",
+                    "type": "string",
+                    "example": "Meta de octubre"
+                },
+                "tipo_bono_id": {
+                    "description": "Tipo de bono del catalogo",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "handlers.calendarioConsumoResponse": {
+            "type": "object",
+            "properties": {
+                "eventos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CalendarioConsumoEvento"
+                    }
+                },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
+                },
+                "total_registros": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.calendarioPersonalResponse": {
+            "type": "object",
+            "properties": {
+                "eventos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CalendarioPersonalEvento"
+                    }
+                },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
+                },
+                "total_registros": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.cambiarEstadoMovimientoRequest": {
+            "type": "object",
+            "required": [
+                "estado"
+            ],
+            "properties": {
+                "estado": {
+                    "description": "PAGADO o ANULADO",
+                    "type": "string",
+                    "example": "ANULADO"
+                },
+                "motivo": {
+                    "description": "Motivo, obligatorio al anular",
+                    "type": "string",
+                    "example": "Registrado por error"
                 }
             }
         },
@@ -7424,6 +16584,32 @@ const docTemplate = `{
                     "description": "Nueva password del usuario autenticado.",
                     "type": "string",
                     "example": "NuevoSecreto123"
+                }
+            }
+        },
+        "handlers.cargoCreadoResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID del cargo creado.",
+                    "type": "integer",
+                    "example": 12
+                }
+            }
+        },
+        "handlers.cargosCreadosResponse": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "description": "IDs de los cargos creados, en el orden enviado.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        12,
+                        13
+                    ]
                 }
             }
         },
@@ -7475,6 +16661,30 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.categoriasFinancierasResponse": {
+            "type": "object",
+            "properties": {
+                "categorias": {
+                    "description": "Categorias financieras",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CategoriaFinanciera"
+                    }
+                }
+            }
+        },
+        "handlers.categoriasInventarioResponse": {
+            "type": "object",
+            "properties": {
+                "categorias": {
+                    "description": "Categorias de inventario",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CategoriaInventario"
+                    }
+                }
+            }
+        },
         "handlers.clienteFiltrosResponse": {
             "type": "object",
             "properties": {
@@ -7496,6 +16706,16 @@ const docTemplate = `{
                     "description": "Filtro aplicado: número de teléfono del cliente",
                     "type": "string",
                     "example": "+59170011223"
+                },
+                "ordenar_por": {
+                    "description": "Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto (apellido, nombre)",
+                    "type": "string",
+                    "example": "nombre"
+                },
+                "sentido": {
+                    "description": "Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto",
+                    "type": "string",
+                    "example": "asc"
                 }
             }
         },
@@ -7551,6 +16771,76 @@ const docTemplate = `{
                 "pago_codigo": {
                     "type": "string",
                     "example": "PAGO-000123"
+                }
+            }
+        },
+        "handlers.cobrarRequest": {
+            "type": "object",
+            "properties": {
+                "cargo_ids": {
+                    "description": "Cargos que se pagan completos. Puede ir vacio si solo se recarga saldo.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        10,
+                        11
+                    ]
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho (YYYY-MM-DD): cuando ocurrio el cobro. Opcional; sin ella es ahora. No puede ser futura.",
+                    "type": "string",
+                    "example": "2026-10-25"
+                },
+                "local_id": {
+                    "description": "Local donde se recibe el cobro.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local donde se recibe el cobro.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "nombre": {
+                    "description": "Nombre del cajero; si se omite se usa el username del token.",
+                    "type": "string",
+                    "example": "Juan Perez"
+                },
+                "recarga": {
+                    "description": "Dinero extra que queda como saldo disponible. Opcional.",
+                    "type": "number",
+                    "example": 20
+                },
+                "tipo_pago": {
+                    "description": "Metodo del dinero nuevo: efectivo, tarjeta, qr o transferencia. Solo se exige si entra dinero nuevo.",
+                    "type": "string",
+                    "example": "qr"
+                },
+                "usar_saldo": {
+                    "description": "Si es true se descuenta primero el saldo disponible del cliente; false si prefiere guardarlo.",
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "handlers.cobroGastoFijoRequest": {
+            "type": "object",
+            "required": [
+                "fecha_cobro",
+                "gasto_fijo_id"
+            ],
+            "properties": {
+                "fecha_cobro": {
+                    "description": "Fecha de cobro YYYY-MM-DD (vencida o por adelantado)",
+                    "type": "string",
+                    "example": "2026-11-05"
+                },
+                "gasto_fijo_id": {
+                    "description": "Gasto fijo",
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -7690,6 +16980,264 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.compraLineaRequest": {
+            "type": "object",
+            "required": [
+                "cantidad",
+                "item_id"
+            ],
+            "properties": {
+                "cantidad": {
+                    "description": "Cantidad comprada (en la unidad del item)",
+                    "type": "number",
+                    "example": 1000
+                },
+                "costo_unitario": {
+                    "description": "Costo unitario",
+                    "type": "number",
+                    "example": 0.04
+                },
+                "item_id": {
+                    "description": "ID del item comprado",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "handlers.compraResponse": {
+            "type": "object",
+            "properties": {
+                "compra": {
+                    "description": "Compra con su detalle",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Compra"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.comprasResponse": {
+            "type": "object",
+            "properties": {
+                "compras": {
+                    "description": "Compras de inventario, mas reciente primero",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Compra"
+                    }
+                }
+            }
+        },
+        "handlers.configuracionPublicaResponse": {
+            "type": "object",
+            "properties": {
+                "mostrar_paquetes": {
+                    "description": "true si la pagina principal muestra la seccion de paquetes.",
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "handlers.configuracionResponse": {
+            "type": "object",
+            "properties": {
+                "configuracion": {
+                    "description": "Parametros del sistema (clave -\u003e valor tipado): inventario.politica_sin_stock, inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda, paquetes.sesion_en_estado, cobros.dias_maximo_fecha_pasada",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "handlers.consumosEmpleadosResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "description": "Totales operativos por empleado",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConsumoEmpleadoResumen"
+                    }
+                }
+            }
+        },
+        "handlers.consumosResponse": {
+            "type": "object",
+            "properties": {
+                "consumos": {
+                    "description": "Eventos de consumo declarado en atenciones activas",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConsumoEvento"
+                    }
+                },
+                "paginacion": {
+                    "description": "Paginacion por cursor (solo si se envia limit o cursor)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total_registros": {
+                    "description": "Total de eventos con los filtros (solo con paginacion e include_total=true)",
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.consumosResumenResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "description": "Totales por insumo y unidad",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConsumoResumen"
+                    }
+                }
+            }
+        },
+        "handlers.crearAbonoRequest": {
+            "type": "object",
+            "properties": {
+                "aplicaciones": {
+                    "description": "Reparto del abono entre cargos pendientes. Lo que no se aplica queda como saldo disponible.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/cuenta.Reparto"
+                    }
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho (YYYY-MM-DD): cuando se entrego el dinero. Opcional; sin ella es ahora. No puede ser futura.",
+                    "type": "string",
+                    "example": "2026-10-25"
+                },
+                "local_id": {
+                    "description": "Local donde se recibe el pago.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local donde se recibe el pago.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "monto": {
+                    "description": "Monto entregado; debe ser mayor a 0.",
+                    "type": "number",
+                    "example": 500
+                },
+                "nombre": {
+                    "description": "Nombre del cajero; si se omite se usa el username del token.",
+                    "type": "string",
+                    "example": "Juan Perez"
+                },
+                "tipo_pago": {
+                    "description": "Metodo de pago: efectivo, tarjeta, qr o transferencia.",
+                    "type": "string",
+                    "example": "efectivo"
+                }
+            }
+        },
+        "handlers.crearCargoRequest": {
+            "type": "object",
+            "properties": {
+                "cantidad": {
+                    "description": "Cantidad del insumo (requerida con item_id).",
+                    "type": "number",
+                    "example": 2
+                },
+                "concepto": {
+                    "description": "Concepto legible del cargo (hasta 300 caracteres).",
+                    "type": "string",
+                    "example": "Paquete Relax 4 sesiones"
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho (YYYY-MM-DD): cuando ocurrio lo que se cobra. Opcional; sin ella es ahora. No puede ser futura.",
+                    "type": "string",
+                    "example": "2026-10-25"
+                },
+                "item_id": {
+                    "description": "Insumo del inventario que se cobra (solo tipo INSUMO). Exige local_id: al crear el cargo baja el stock de ese local.",
+                    "type": "integer",
+                    "example": 15
+                },
+                "local_id": {
+                    "description": "Local donde ocurrio el hecho (opcional); un usuario limitado a un local solo puede usar el suyo.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "monto": {
+                    "description": "Monto del cargo; 0 registra un consumo que no se cobra.",
+                    "type": "number",
+                    "example": 1000
+                },
+                "plan_id": {
+                    "description": "Plan del que nace el cargo (opcional).",
+                    "type": "integer",
+                    "example": 21
+                },
+                "reserva_id": {
+                    "description": "Reserva de la que nace el cargo (opcional).",
+                    "type": "integer",
+                    "example": 44
+                },
+                "tipo": {
+                    "description": "Tipo del cargo: PAQUETE, SERVICIO, INSUMO u OTRO.",
+                    "type": "string",
+                    "example": "PAQUETE"
+                }
+            }
+        },
+        "handlers.crearCargosLoteRequest": {
+            "type": "object",
+            "properties": {
+                "cargos": {
+                    "description": "Cargos a crear juntos; si uno falla no se crea ninguno.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.crearCargoRequest"
+                    }
+                }
+            }
+        },
+        "handlers.crearCategoriaFinancieraRequest": {
+            "type": "object",
+            "required": [
+                "naturaleza",
+                "nombre"
+            ],
+            "properties": {
+                "naturaleza": {
+                    "description": "INGRESO, EGRESO o AMBOS (sirve tanto para ingresos como para egresos)",
+                    "type": "string",
+                    "enum": [
+                        "INGRESO",
+                        "EGRESO",
+                        "AMBOS"
+                    ],
+                    "example": "EGRESO"
+                },
+                "nombre": {
+                    "description": "Nombre de la categoria",
+                    "type": "string",
+                    "example": "Alquiler"
+                }
+            }
+        },
+        "handlers.crearCategoriaInventarioRequest": {
+            "type": "object",
+            "required": [
+                "nombre"
+            ],
+            "properties": {
+                "nombre": {
+                    "description": "Nombre de la categoria",
+                    "type": "string",
+                    "example": "Cremas y geles"
+                }
+            }
+        },
         "handlers.crearCategoriaRequest": {
             "type": "object",
             "required": [
@@ -7801,6 +17349,48 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.crearCompraRequest": {
+            "type": "object",
+            "required": [
+                "detalle",
+                "fecha",
+                "local_id"
+            ],
+            "properties": {
+                "detalle": {
+                    "description": "Lineas de la compra (al menos una)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.compraLineaRequest"
+                    }
+                },
+                "fecha": {
+                    "description": "Fecha de la compra YYYY-MM-DD",
+                    "type": "string",
+                    "example": "2026-10-18"
+                },
+                "local_id": {
+                    "description": "Local que recibe la compra",
+                    "type": "integer",
+                    "example": 1
+                },
+                "metodo_pago": {
+                    "description": "Metodo de pago del egreso: efectivo, qr, transferencia o debito_automatico (opcional)",
+                    "type": "string",
+                    "example": "efectivo"
+                },
+                "notas": {
+                    "description": "Notas (opcional)",
+                    "type": "string",
+                    "example": "Factura 1234"
+                },
+                "proveedor": {
+                    "description": "Proveedor (opcional)",
+                    "type": "string",
+                    "example": "Distribuidora Sur"
+                }
+            }
+        },
         "handlers.crearDetallePagoRequest": {
             "type": "object",
             "properties": {
@@ -7828,6 +17418,49 @@ const docTemplate = `{
                     "description": "Subtotal de la linea; se recalcula desde precio_unitario y cantidad.",
                     "type": "number",
                     "example": 500
+                }
+            }
+        },
+        "handlers.crearInventarioItemRequest": {
+            "type": "object",
+            "required": [
+                "nombre"
+            ],
+            "properties": {
+                "categoria_id": {
+                    "description": "ID de la categoria de inventario",
+                    "type": "integer",
+                    "example": 1
+                },
+                "costo_referencia": {
+                    "description": "Ultimo costo de compra (se actualiza solo con cada compra)",
+                    "type": "number",
+                    "example": 0.04
+                },
+                "descripcion": {
+                    "description": "Descripcion opcional",
+                    "type": "string",
+                    "example": "Gel para radiofrecuencia"
+                },
+                "nombre": {
+                    "description": "Nombre del item",
+                    "type": "string",
+                    "example": "Gel conductor"
+                },
+                "precio_venta": {
+                    "description": "Precio de venta del insumo (opcional); es el que se sugiere al cobrarlo",
+                    "type": "number",
+                    "example": 25
+                },
+                "stock_minimo": {
+                    "description": "Stock minimo: por debajo se marca como bajo stock",
+                    "type": "number",
+                    "example": 500
+                },
+                "unidad_medida": {
+                    "description": "Unidad de medida: UNIDAD, ML, GR, LT, KG, FRASCO, PAQUETE, SOBRE o CAJA (default UNIDAD)",
+                    "type": "string",
+                    "example": "ML"
                 }
             }
         },
@@ -7876,6 +17509,67 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.crearMovimientoFinancieroRequest": {
+            "type": "object",
+            "required": [
+                "categoria_id",
+                "fecha",
+                "monto",
+                "naturaleza"
+            ],
+            "properties": {
+                "categoria_id": {
+                    "description": "Categoria financiera (debe ser de la misma naturaleza o de tipo AMBOS)",
+                    "type": "integer",
+                    "example": 6
+                },
+                "clase": {
+                    "description": "Para egresos: solo VARIABLE (los FIJO se generan desde un gasto fijo)",
+                    "type": "string",
+                    "example": "VARIABLE"
+                },
+                "descripcion": {
+                    "description": "Descripcion (opcional)",
+                    "type": "string",
+                    "example": "Reparacion de camilla"
+                },
+                "estado": {
+                    "description": "PAGADO (default) o PENDIENTE",
+                    "type": "string",
+                    "example": "PAGADO"
+                },
+                "fecha": {
+                    "description": "Fecha YYYY-MM-DD",
+                    "type": "string",
+                    "example": "2026-10-18"
+                },
+                "local_id": {
+                    "description": "Local; null = gasto general de la empresa",
+                    "type": "integer",
+                    "example": 1
+                },
+                "metodo_pago": {
+                    "description": "efectivo, qr, transferencia o debito_automatico (opcional)",
+                    "type": "string",
+                    "example": "efectivo"
+                },
+                "monto": {
+                    "description": "Monto mayor a 0",
+                    "type": "number",
+                    "example": 480
+                },
+                "naturaleza": {
+                    "description": "INGRESO (otro ingreso) o EGRESO",
+                    "type": "string",
+                    "example": "EGRESO"
+                },
+                "proveedor": {
+                    "description": "Proveedor o beneficiario (opcional)",
+                    "type": "string",
+                    "example": "Taller Medina"
+                }
+            }
+        },
         "handlers.crearPagoRequest": {
             "type": "object",
             "properties": {
@@ -7916,6 +17610,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "PENDIENTE"
                 },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho (YYYY-MM-DD): cuando ocurrio el cobro. Opcional; sin ella es ahora. No puede ser futura ni\nanterior a cobros.dias_maximo_fecha_pasada dias (0 = sin limite). El momento real del registro queda en registrado_en.",
+                    "type": "string",
+                    "example": "2026-10-25"
+                },
                 "local_id": {
                     "description": "ID del local donde se registra el pago.",
                     "type": "integer",
@@ -7930,6 +17629,11 @@ const docTemplate = `{
                     "description": "Nombre completo del cajero actual; si se omite o viene vacio se usa el username del token.",
                     "type": "string",
                     "example": "Juan Perez"
+                },
+                "reserva_id": {
+                    "description": "Referencia opcional a una reserva. Caja no envia este campo y el pago no altera el estado de la reserva.",
+                    "type": "integer",
+                    "example": 44
                 },
                 "subtotal": {
                     "description": "Subtotal opcional; si se envia debe coincidir con el detalle calculado.",
@@ -8000,6 +17704,25 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.crearPlanillaRequest": {
+            "type": "object",
+            "required": [
+                "empleado_id",
+                "periodo"
+            ],
+            "properties": {
+                "empleado_id": {
+                    "description": "Empleado",
+                    "type": "integer",
+                    "example": 1
+                },
+                "periodo": {
+                    "description": "Periodo YYYY-MM",
+                    "type": "string",
+                    "example": "2026-10"
+                }
+            }
+        },
         "handlers.crearReservaPGRequest": {
             "type": "object",
             "required": [
@@ -8019,6 +17742,11 @@ const docTemplate = `{
                     "description": "Nombre del cliente",
                     "type": "string",
                     "example": "Maria Lopez"
+                },
+                "cliente_id": {
+                    "description": "Cliente registrado dueño de la reserva. Requerido en el panel interno (con token); el formulario publico lo ignora y la reserva se enlaza sola solo si el telefono coincide exacto con un unico cliente, si no queda por vincular.",
+                    "type": "integer",
+                    "example": 12
                 },
                 "confirmar_duplicado": {
                     "description": "Solo panel interno: true confirma crear la reserva aunque el cliente ya tenga otra ese dia.",
@@ -8209,6 +17937,200 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.cuentaClienteResponse": {
+            "type": "object",
+            "properties": {
+                "cuenta": {
+                    "description": "Cuenta del cliente: saldo, cargos y abonos.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.CuentaCliente"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.deudoresResponse": {
+            "type": "object",
+            "properties": {
+                "deudores": {
+                    "description": "Clientes con deuda, con la mayor deuda primero salvo que se pida otro orden.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeudorCliente"
+                    }
+                },
+                "paginacion": {
+                    "description": "Datos de paginacion.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total": {
+                    "description": "Cantidad de clientes devueltos en esta pagina.",
+                    "type": "integer",
+                    "example": 20
+                }
+            }
+        },
+        "handlers.empleadoFotoConfirmRequest": {
+            "type": "object",
+            "required": [
+                "foto_key"
+            ],
+            "properties": {
+                "foto_key": {
+                    "description": "Clave devuelta por upload-url tras subir el archivo",
+                    "type": "string",
+                    "example": "personal/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
+                }
+            }
+        },
+        "handlers.empleadoFotoResponse": {
+            "type": "object",
+            "properties": {
+                "foto_url": {
+                    "description": "URL firmada y temporal de lectura de la foto",
+                    "type": "string",
+                    "example": "https://bucket.s3.sa-east-1.amazonaws.com/personal/1/3f2a9c.webp?X-Amz-Signature=abc"
+                }
+            }
+        },
+        "handlers.empleadoFotoUploadResponse": {
+            "type": "object",
+            "properties": {
+                "foto_key": {
+                    "description": "Clave del objeto en el bucket; es lo que el cliente debe confirmar",
+                    "type": "string",
+                    "example": "personal/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
+                },
+                "headers": {
+                    "description": "Headers que el cliente debe enviar tal cual en el PUT (van firmados en la URL)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "upload_url": {
+                    "description": "URL firmada a la que el cliente hace PUT con el archivo",
+                    "type": "string",
+                    "example": "https://bucket.s3.sa-east-1.amazonaws.com/personal/1/3f2a9c.webp?X-Amz-Signature=abc"
+                }
+            }
+        },
+        "handlers.empleadoRequest": {
+            "type": "object",
+            "required": [
+                "apellido",
+                "fecha_ingreso",
+                "nombre",
+                "sueldo_base"
+            ],
+            "properties": {
+                "activo": {
+                    "description": "Activo (default true)",
+                    "type": "boolean",
+                    "example": true
+                },
+                "apellido": {
+                    "description": "Apellido",
+                    "type": "string",
+                    "example": "Rojas"
+                },
+                "aplica_aportes": {
+                    "description": "Si se calculan aportes de ley (default true)",
+                    "type": "boolean",
+                    "example": true
+                },
+                "cargo": {
+                    "description": "Cargo (opcional)",
+                    "type": "string",
+                    "example": "Masajista"
+                },
+                "ci": {
+                    "description": "Cedula de identidad (opcional)",
+                    "type": "string",
+                    "example": "7654321"
+                },
+                "dia_pago": {
+                    "description": "Dia de pago 1-31; null usa rrhh.dia_pago_defecto",
+                    "type": "integer",
+                    "example": 5
+                },
+                "fecha_baja": {
+                    "description": "Fecha de baja YYYY-MM-DD (opcional)",
+                    "type": "string",
+                    "example": "2026-12-31"
+                },
+                "fecha_ingreso": {
+                    "description": "Fecha de ingreso YYYY-MM-DD",
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "local_id": {
+                    "description": "Local donde trabaja; null = personal general",
+                    "type": "integer",
+                    "example": 1
+                },
+                "metodo_pago": {
+                    "description": "Metodo de pago habitual (opcional)",
+                    "type": "string",
+                    "example": "transferencia"
+                },
+                "nombre": {
+                    "description": "Nombre",
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "notas": {
+                    "description": "Notas (opcional)",
+                    "type": "string",
+                    "example": "Turno tarde"
+                },
+                "sueldo_base": {
+                    "description": "Sueldo base mensual",
+                    "type": "number",
+                    "example": 3000
+                },
+                "telefono": {
+                    "description": "Telefono (opcional)",
+                    "type": "string",
+                    "example": "71234567"
+                },
+                "usuario_id": {
+                    "description": "Usuario del sistema asociado (opcional)",
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "handlers.empleadoResponse": {
+            "type": "object",
+            "properties": {
+                "empleado": {
+                    "description": "Empleado",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Empleado"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.empleadosResponse": {
+            "type": "object",
+            "properties": {
+                "empleados": {
+                    "description": "Empleados con su dia de pago efectivo y adelantos pendientes",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Empleado"
+                    }
+                }
+            }
+        },
         "handlers.espacioEdicionRequest": {
             "type": "object",
             "required": [
@@ -8246,6 +18168,197 @@ const docTemplate = `{
                     "description": "Tipo de espacio: M (mesa) o B (bicicleta)",
                     "type": "string",
                     "example": "M"
+                }
+            }
+        },
+        "handlers.flujoFinancieroResponse": {
+            "type": "object",
+            "properties": {
+                "fecha_desde": {
+                    "description": "Rango consultado (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-10-01"
+                },
+                "fecha_hasta": {
+                    "type": "string",
+                    "example": "2026-10-31"
+                },
+                "movimientos": {
+                    "description": "Movimientos, mas recientes primero, con saldo acumulado",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.FlujoMovimiento"
+                    }
+                },
+                "por_local": {
+                    "description": "Comparativa por sucursal con los mismos filtros (sin acotar por local)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.FlujoLocal"
+                    }
+                },
+                "totales": {
+                    "description": "Totales del rango filtrado",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.FlujoTotales"
+                        }
+                    ]
+                },
+                "truncado": {
+                    "description": "true si hay mas movimientos que el limite pedido",
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "handlers.gastoFijoRequest": {
+            "type": "object",
+            "required": [
+                "categoria_id",
+                "fecha_inicio",
+                "monto",
+                "nombre"
+            ],
+            "properties": {
+                "activo": {
+                    "description": "Activo (default true)",
+                    "type": "boolean",
+                    "example": true
+                },
+                "categoria_id": {
+                    "description": "Categoria financiera de egreso",
+                    "type": "integer",
+                    "example": 1
+                },
+                "dia_cobro": {
+                    "description": "Dia de cobro 1-31 (opcional: si se omite se usa el dia de fecha_inicio; si el mes no tiene ese dia se usa el ultimo)",
+                    "type": "integer",
+                    "example": 5
+                },
+                "fecha_fin": {
+                    "description": "Vigente hasta YYYY-MM-DD (opcional)",
+                    "type": "string",
+                    "example": "2026-12-31"
+                },
+                "fecha_inicio": {
+                    "description": "Vigente desde YYYY-MM-DD",
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "frecuencia": {
+                    "description": "Cada cuanto se cobra: DIARIA, SEMANAL, QUINCENAL, MENSUAL, BIMESTRAL, TRIMESTRAL, SEMESTRAL o ANUAL (default MENSUAL). Las de dias cuentan desde fecha_inicio y ignoran dia_cobro",
+                    "type": "string",
+                    "example": "TRIMESTRAL"
+                },
+                "local_id": {
+                    "description": "Local; null = gasto general",
+                    "type": "integer",
+                    "example": 1
+                },
+                "metodo_pago": {
+                    "description": "Metodo de pago (opcional)",
+                    "type": "string",
+                    "example": "transferencia"
+                },
+                "monto": {
+                    "description": "Monto mensual",
+                    "type": "number",
+                    "example": 6500
+                },
+                "nombre": {
+                    "description": "Nombre de la plantilla",
+                    "type": "string",
+                    "example": "Alquiler Paseo Aranjuez"
+                },
+                "notas": {
+                    "description": "Notas (opcional)",
+                    "type": "string",
+                    "example": "Contrato anual"
+                },
+                "proveedor": {
+                    "description": "Proveedor o beneficiario (opcional)",
+                    "type": "string",
+                    "example": "Inmobiliaria Sur"
+                }
+            }
+        },
+        "handlers.gastoFijoResponse": {
+            "type": "object",
+            "properties": {
+                "gasto_fijo": {
+                    "description": "Plantilla de gasto fijo",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.GastoFijo"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.gastosFijosPendientesResponse": {
+            "type": "object",
+            "properties": {
+                "pendientes": {
+                    "description": "Egresos fijos vencidos que aun no se generaron",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GastoFijoPendiente"
+                    }
+                }
+            }
+        },
+        "handlers.gastosFijosProximosResponse": {
+            "type": "object",
+            "properties": {
+                "proximos": {
+                    "description": "Cobros que vencen dentro de los dias de aviso configurados",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GastoFijoProximo"
+                    }
+                }
+            }
+        },
+        "handlers.gastosFijosResponse": {
+            "type": "object",
+            "properties": {
+                "gastos_fijos": {
+                    "description": "Plantillas de gasto fijo",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GastoFijo"
+                    }
+                }
+            }
+        },
+        "handlers.generarGastosFijosResponse": {
+            "type": "object",
+            "properties": {
+                "generados": {
+                    "description": "Cantidad de egresos generados en esta ejecucion",
+                    "type": "integer",
+                    "example": 2
+                },
+                "mensaje": {
+                    "description": "Mensaje descriptivo",
+                    "type": "string",
+                    "example": "gastos fijos al dia"
+                }
+            }
+        },
+        "handlers.generarPlanillasResponse": {
+            "type": "object",
+            "properties": {
+                "generados": {
+                    "description": "Cantidad de planillas generadas en esta ejecucion",
+                    "type": "integer",
+                    "example": 2
+                },
+                "mensaje": {
+                    "description": "Mensaje descriptivo",
+                    "type": "string",
+                    "example": "planillas al dia"
                 }
             }
         },
@@ -8309,6 +18422,129 @@ const docTemplate = `{
                     "description": "ID del recurso creado",
                     "type": "integer",
                     "example": 42
+                }
+            }
+        },
+        "handlers.insumoRequest": {
+            "type": "object",
+            "required": [
+                "cantidad_por_sesion",
+                "item_id"
+            ],
+            "properties": {
+                "cantidad_por_sesion": {
+                    "description": "Cantidad que consume cada sesion",
+                    "type": "number",
+                    "example": 30
+                },
+                "item_id": {
+                    "description": "ID del item de inventario",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "handlers.insumosServicioResponse": {
+            "type": "object",
+            "properties": {
+                "insumos": {
+                    "description": "Insumos que consume el servicio por sesion",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServicioInsumo"
+                    }
+                }
+            }
+        },
+        "handlers.inventarioImagenConfirmRequest": {
+            "type": "object",
+            "required": [
+                "imagen_key"
+            ],
+            "properties": {
+                "imagen_key": {
+                    "description": "Clave devuelta por upload-url tras subir el archivo",
+                    "type": "string",
+                    "example": "inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
+                }
+            }
+        },
+        "handlers.inventarioImagenResponse": {
+            "type": "object",
+            "properties": {
+                "imagen_url": {
+                    "description": "URL publica de la imagen",
+                    "type": "string",
+                    "example": "https://bucket.s3.sa-east-1.amazonaws.com/inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
+                }
+            }
+        },
+        "handlers.inventarioImagenUploadResponse": {
+            "type": "object",
+            "properties": {
+                "headers": {
+                    "description": "Headers que el cliente debe enviar tal cual en el PUT (van firmados en la URL)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "imagen_key": {
+                    "description": "Clave del objeto (igual a path); es lo que el cliente debe confirmar",
+                    "type": "string",
+                    "example": "inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
+                },
+                "path": {
+                    "description": "Path del objeto en el bucket",
+                    "type": "string",
+                    "example": "inventario/1/3f2a9c1e5b7d4a80b6c2d9e1f0a47b53.webp"
+                },
+                "token": {
+                    "description": "Token de la subida firmada (si el storage lo usa)",
+                    "type": "string",
+                    "example": "abc"
+                },
+                "upload_url": {
+                    "description": "URL firmada a la que el cliente hace PUT con el archivo",
+                    "type": "string",
+                    "example": "https://bucket.s3.sa-east-1.amazonaws.com/inventario/1/3f2a9c.webp?X-Amz-Signature=abc"
+                }
+            }
+        },
+        "handlers.inventarioItemResponse": {
+            "type": "object",
+            "properties": {
+                "item": {
+                    "description": "Item de inventario",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.InventarioItem"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.inventarioItemsResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "description": "Items de inventario con el stock del local consultado (o la suma de todos)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.InventarioItem"
+                    }
+                },
+                "paginacion": {
+                    "description": "Paginacion por cursor (solo si se envia cursor o un limit de 1 a 100)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total_registros": {
+                    "description": "Total de items con los filtros (solo con paginacion e include_total=true)",
+                    "type": "integer"
                 }
             }
         },
@@ -8427,6 +18663,96 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.movimientoFinancieroResponse": {
+            "type": "object",
+            "properties": {
+                "movimiento": {
+                    "description": "Movimiento financiero",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.MovimientoFinanciero"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.movimientosFinancierosResponse": {
+            "type": "object",
+            "properties": {
+                "movimientos": {
+                    "description": "Egresos y otros ingresos, mas reciente primero",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.MovimientoFinanciero"
+                    }
+                }
+            }
+        },
+        "handlers.movimientosInventarioResponse": {
+            "type": "object",
+            "properties": {
+                "movimientos": {
+                    "description": "Kardex filtrado, mas reciente primero",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.MovimientoInventario"
+                    }
+                },
+                "paginacion": {
+                    "description": "Paginacion por cursor (solo si se envia limit o cursor)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total_registros": {
+                    "description": "Total de movimientos con los filtros (solo con include_total=true)",
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.pagarGastosFijosRequest": {
+            "type": "object",
+            "required": [
+                "cobros"
+            ],
+            "properties": {
+                "cobros": {
+                    "description": "Cobros a pagar",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/handlers.cobroGastoFijoRequest"
+                    }
+                }
+            }
+        },
+        "handlers.pagarGastosFijosResponse": {
+            "type": "object",
+            "properties": {
+                "mensaje": {
+                    "description": "Mensaje descriptivo",
+                    "type": "string",
+                    "example": "gastos fijos pagados correctamente"
+                },
+                "pagados": {
+                    "description": "Cantidad de cobros pagados",
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "handlers.pagarPlanillaRequest": {
+            "type": "object",
+            "properties": {
+                "metodo_pago": {
+                    "description": "Metodo de pago (opcional; si no se envia queda el del empleado)",
+                    "type": "string",
+                    "example": "transferencia"
+                }
+            }
+        },
         "handlers.pagoCreatedResponse": {
             "type": "object",
             "properties": {
@@ -8510,10 +18836,20 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Ana"
                 },
+                "ordenar_por": {
+                    "description": "Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto (fecha descendente)",
+                    "type": "string",
+                    "example": "total_final"
+                },
                 "producto": {
                     "description": "Filtro aplicado: texto del producto cobrado",
                     "type": "string",
                     "example": "Limpieza facial"
+                },
+                "sentido": {
+                    "description": "Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto",
+                    "type": "string",
+                    "example": "desc"
                 },
                 "tipo_pago": {
                     "description": "Filtro aplicado: tipo de pago",
@@ -8623,6 +18959,11 @@ const docTemplate = `{
                     "description": "Filtro aplicado: nombre parcial del paquete.",
                     "type": "string",
                     "example": "relax"
+                },
+                "publico": {
+                    "description": "Filtro aplicado: solo paquetes visibles en la pagina principal.",
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },
@@ -8802,6 +19143,16 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.paqueteVisibilidadRequest": {
+            "type": "object",
+            "properties": {
+                "visible_publico": {
+                    "description": "true muestra el paquete en la pagina principal; false lo oculta sin darlo de baja.",
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
         "handlers.planFiltrosResponse": {
             "type": "object",
             "properties": {
@@ -8812,6 +19163,10 @@ const docTemplate = `{
                 "cliente": {
                     "type": "string",
                     "example": "Maria"
+                },
+                "cliente_id": {
+                    "type": "integer",
+                    "example": 12
                 },
                 "estado": {
                     "type": "string",
@@ -8840,6 +19195,16 @@ const docTemplate = `{
                 "orden": {
                     "type": "string",
                     "example": "prioridad_estado"
+                },
+                "ordenar_por": {
+                    "description": "Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto. Manda sobre orden",
+                    "type": "string",
+                    "example": "precio_total"
+                },
+                "sentido": {
+                    "description": "Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto",
+                    "type": "string",
+                    "example": "desc"
                 }
             }
         },
@@ -8906,6 +19271,63 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.planillaResponse": {
+            "type": "object",
+            "properties": {
+                "planilla": {
+                    "description": "Planilla",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Planilla"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.planillasPendientesResponse": {
+            "type": "object",
+            "properties": {
+                "pendientes": {
+                    "description": "Planillas vencidas que aun no se generaron",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlanillaPendiente"
+                    }
+                }
+            }
+        },
+        "handlers.planillasResponse": {
+            "type": "object",
+            "properties": {
+                "planillas": {
+                    "description": "Planillas del filtro",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Planilla"
+                    }
+                },
+                "resumen": {
+                    "description": "Totales de las planillas no anuladas del filtro",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.PlanillaResumen"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.reemplazarInsumosRequest": {
+            "type": "object",
+            "properties": {
+                "insumos": {
+                    "description": "Lista completa de insumos del servicio (reemplaza la anterior; vacia los quita todos)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.insumoRequest"
+                    }
+                }
+            }
+        },
         "handlers.reemplazarLocalesComboRequest": {
             "type": "object",
             "properties": {
@@ -8931,6 +19353,54 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/handlers.comboServicioCatalogoRequest"
                     }
+                }
+            }
+        },
+        "handlers.registrarAtencionRequest": {
+            "type": "object",
+            "required": [
+                "empleado_nombre",
+                "fecha_atencion",
+                "lugar"
+            ],
+            "properties": {
+                "confirmar_stock_insuficiente": {
+                    "type": "boolean"
+                },
+                "empleado_id": {
+                    "type": "integer"
+                },
+                "empleado_nombre": {
+                    "type": "string"
+                },
+                "fecha_atencion": {
+                    "type": "string"
+                },
+                "hora_fin": {
+                    "type": "string"
+                },
+                "hora_inicio": {
+                    "type": "string"
+                },
+                "insumos": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "cantidad": {
+                                "type": "number"
+                            },
+                            "item_id": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                },
+                "lugar": {
+                    "type": "string"
+                },
+                "observaciones": {
+                    "type": "string"
                 }
             }
         },
@@ -8964,6 +19434,79 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.reporteAtencionesRRHHResponse": {
+            "type": "object",
+            "properties": {
+                "reporte": {
+                    "description": "Reporte de personal del periodo",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ReporteAtencionesRRHH"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.reporteClientesDetalleResponse": {
+            "type": "object",
+            "properties": {
+                "clientes": {
+                    "description": "Clientes con movimiento en el periodo, del que mas dinero genero al que menos salvo que se pida otro orden.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteReporte"
+                    }
+                },
+                "paginacion": {
+                    "description": "Datos de paginacion; siempre viene.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "total": {
+                    "description": "Cantidad de clientes devueltos en esta pagina.",
+                    "type": "integer",
+                    "example": 50
+                }
+            }
+        },
+        "handlers.reporteClientesResponse": {
+            "type": "object",
+            "properties": {
+                "reporte": {
+                    "description": "Reporte de clientes del periodo",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ReporteClientes"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.reservaAvisosResponse": {
+            "type": "object",
+            "properties": {
+                "advertencias_inventario": {
+                    "description": "Insumos sin stock suficiente (informativo: la operacion se aplico)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AdvertenciaInventario"
+                    }
+                },
+                "alerta_inventario": {
+                    "description": "true si falta stock de insumos para el servicio de la reserva",
+                    "type": "boolean",
+                    "example": false
+                },
+                "mensaje": {
+                    "description": "Mensaje descriptivo del resultado",
+                    "type": "string",
+                    "example": "Estado de reserva actualizado correctamente"
+                }
+            }
+        },
         "handlers.reservaCalendarioResponse": {
             "type": "object",
             "properties": {
@@ -8992,6 +19535,18 @@ const docTemplate = `{
         "handlers.reservaCreatedResponse": {
             "type": "object",
             "properties": {
+                "advertencias_inventario": {
+                    "description": "Solo para usuarios autenticados del panel: insumos sin stock suficiente. La reserva se guardo igual.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AdvertenciaInventario"
+                    }
+                },
+                "alerta_inventario": {
+                    "description": "Solo para usuarios autenticados del panel: true si falta stock de insumos para el servicio.",
+                    "type": "boolean",
+                    "example": false
+                },
                 "id": {
                     "description": "ID de la reserva creada",
                     "type": "integer",
@@ -9143,7 +19698,7 @@ const docTemplate = `{
                     "example": 6
                 },
                 "ingresos": {
-                    "description": "Desglose de ingresos por dia desde el lunes hasta la fecha consultada",
+                    "description": "Desglose de ingresos por dia desde el lunes hasta la fecha consultada. Solo lo recibe admin_sys; para el resto no viene.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/handlers.reservaResumenIngresosSemanaResponse"
@@ -9151,12 +19706,12 @@ const docTemplate = `{
                     ]
                 },
                 "ingresos_hoy": {
-                    "description": "Ingresos de pagos activos y PAGADOS en el dia consultado",
+                    "description": "Ingresos de pagos activos y PAGADOS en el dia consultado. Solo lo recibe admin_sys; para el resto no viene.",
                     "type": "number",
                     "example": 1250.5
                 },
                 "ingresos_semana": {
-                    "description": "Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada",
+                    "description": "Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada. Solo lo recibe admin_sys; para el resto no viene.",
                     "type": "number",
                     "example": 8450.75
                 },
@@ -9240,6 +19795,58 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.reservasPorVincularResponse": {
+            "type": "object",
+            "properties": {
+                "reservas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReservaPorVincularPG"
+                    }
+                },
+                "total": {
+                    "description": "Total de reservas vigentes sin cliente.",
+                    "type": "integer",
+                    "example": 9
+                }
+            }
+        },
+        "handlers.restablecerPasswordRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "description": "Nueva password en texto plano; se guarda encriptada con bcrypt.",
+                    "type": "string",
+                    "example": "NuevoSecreto123"
+                },
+                "username": {
+                    "description": "Usuario al que se le cambia la password.",
+                    "type": "string",
+                    "example": "recepcion1"
+                }
+            }
+        },
+        "handlers.seguimientoResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.SeguimientoItem"
+                    }
+                },
+                "paginacion": {
+                    "$ref": "#/definitions/pagination.Metadata"
+                },
+                "total_registros": {
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.servicioFiltrosResponse": {
             "type": "object",
             "properties": {
@@ -9313,6 +19920,49 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.tipoBonoRequest": {
+            "type": "object",
+            "required": [
+                "nombre"
+            ],
+            "properties": {
+                "descripcion": {
+                    "description": "Descripcion (opcional)",
+                    "type": "string",
+                    "example": "Bono por metas del mes"
+                },
+                "nombre": {
+                    "description": "Nombre del bono, unico sin distinguir mayusculas",
+                    "type": "string",
+                    "example": "Producción"
+                }
+            }
+        },
+        "handlers.tipoBonoResponse": {
+            "type": "object",
+            "properties": {
+                "tipo": {
+                    "description": "Tipo de bono",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TipoBono"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.tiposBonoResponse": {
+            "type": "object",
+            "properties": {
+                "tipos": {
+                    "description": "Tipos de bono, activos primero",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.TipoBono"
+                    }
+                }
+            }
+        },
         "handlers.usuariosListResponse": {
             "type": "object",
             "properties": {
@@ -9330,6 +19980,634 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.ventasDetalleResponse": {
+            "type": "object",
+            "properties": {
+                "filtros": {
+                    "description": "Filtros aplicados al detalle.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.PagoResumenFiltros"
+                        }
+                    ]
+                },
+                "lineas": {
+                    "description": "Lineas de venta, de la mas antigua a la mas reciente.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.VentaDetalleLinea"
+                    }
+                },
+                "truncado": {
+                    "description": "true si el periodo tiene mas lineas que el limite y solo se devolvieron las mas antiguas.",
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "handlers.vincularReservaRequest": {
+            "type": "object",
+            "properties": {
+                "actualizar_telefono": {
+                    "description": "Si es true, el telefono del cliente se reemplaza por el de la reserva (solo si son distintos).",
+                    "type": "boolean",
+                    "example": false
+                },
+                "cliente_id": {
+                    "description": "Cliente registrado al que se enlaza la reserva (requerido).",
+                    "type": "integer",
+                    "example": 12
+                }
+            }
+        },
+        "models.AbonoCliente": {
+            "type": "object",
+            "properties": {
+                "aplicado": {
+                    "description": "Cuanto del abono ya cubrio de cargos.",
+                    "type": "number",
+                    "example": 400
+                },
+                "codigo_pago": {
+                    "description": "Codigo publico del pago.",
+                    "type": "string",
+                    "example": "PAGO-000123"
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho: cuando se entrego el dinero.",
+                    "type": "string",
+                    "example": "2026-10-25T12:00:00Z"
+                },
+                "monto": {
+                    "description": "Monto entregado.",
+                    "type": "number",
+                    "example": 500
+                },
+                "registrado_en": {
+                    "description": "Momento real en que se registro; lo pone el servidor.",
+                    "type": "string",
+                    "example": "2026-10-28T21:30:00Z"
+                },
+                "sin_aplicar": {
+                    "description": "Lo que queda sin usar de este abono (parte del saldo disponible); se calcula.",
+                    "type": "number",
+                    "example": 100
+                },
+                "tipo_pago": {
+                    "description": "Metodo de pago: efectivo, tarjeta, qr o transferencia.",
+                    "type": "string",
+                    "example": "efectivo"
+                }
+            }
+        },
+        "models.Adelanto": {
+            "type": "object",
+            "properties": {
+                "anulado": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Maria Rojas"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-10-10"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 200
+                },
+                "motivo": {
+                    "type": "string"
+                },
+                "planilla_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.AdvertenciaInventario": {
+            "type": "object",
+            "properties": {
+                "disponible": {
+                    "type": "number",
+                    "example": 10
+                },
+                "item_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "item_nombre": {
+                    "type": "string",
+                    "example": "Gel conductor"
+                },
+                "requerido": {
+                    "type": "number",
+                    "example": 30
+                },
+                "unidad": {
+                    "type": "string",
+                    "example": "ML"
+                }
+            }
+        },
+        "models.AlertaReservaInventario": {
+            "type": "object",
+            "properties": {
+                "advertencias": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AdvertenciaInventario"
+                    }
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-10-20"
+                },
+                "hora_desde": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "local": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 55
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Masaje reductor"
+                }
+            }
+        },
+        "models.AlertasInventario": {
+            "type": "object",
+            "properties": {
+                "items_bajo_stock": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.InventarioItem"
+                    }
+                },
+                "reposicion": {
+                    "description": "Reposicion suma lo que necesitan todas las reservas agendadas futuras y lo compara con el stock.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReposicionInsumo"
+                    }
+                },
+                "reservas_con_alerta": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AlertaReservaInventario"
+                    }
+                }
+            }
+        },
+        "models.Atencion": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean"
+                },
+                "cliente_nombre": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "creado_en": {
+                    "type": "string"
+                },
+                "empleado_id": {
+                    "type": "integer"
+                },
+                "empleado_nombre": {
+                    "type": "string"
+                },
+                "fecha_atencion": {
+                    "type": "string"
+                },
+                "hora_fin": {
+                    "type": "string"
+                },
+                "hora_inicio": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "insumos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AtencionInsumo"
+                    }
+                },
+                "insumos_pendientes": {
+                    "type": "integer"
+                },
+                "insumos_pendientes_detalle": {
+                    "type": "string"
+                },
+                "insumos_registrados": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "insumos_resumen": {
+                    "type": "string",
+                    "example": "Gel, Guantes"
+                },
+                "local_id": {
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "lugar": {
+                    "type": "string"
+                },
+                "motivo_cancelacion_detalle": {
+                    "type": "string"
+                },
+                "motivo_cancelacion_tipo": {
+                    "type": "string"
+                },
+                "observaciones": {
+                    "type": "string"
+                },
+                "registrado_por": {
+                    "type": "string"
+                },
+                "registrado_por_id": {
+                    "type": "integer"
+                },
+                "reserva_id": {
+                    "type": "integer"
+                },
+                "resultado": {
+                    "description": "Resultado distingue una atención realizada de una reserva cancelada que se\nproyecta en el historial. Las cancelaciones no tienen atención física.",
+                    "type": "string"
+                },
+                "servicio_reserva": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
+        "models.AtencionInsumo": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer"
+                },
+                "cantidad_descontada": {
+                    "type": "number"
+                },
+                "cantidad_usada": {
+                    "type": "number"
+                },
+                "estado_descuento": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "item_nombre": {
+                    "type": "string"
+                },
+                "unidad_medida": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AtencionesDia": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "description": "Atenciones de ese dia",
+                    "type": "integer",
+                    "example": 7
+                },
+                "fecha": {
+                    "description": "Dia (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-10"
+                }
+            }
+        },
+        "models.CalendarioConsumoEvento": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Daniela Perez"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "hora_fin": {
+                    "type": "string",
+                    "example": "09:50"
+                },
+                "hora_inicio": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "insumos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConsumoInsumo"
+                    }
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "insumos_registrados": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
+        "models.CalendarioPersonalEvento": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Daniela Perez"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "hora_fin": {
+                    "type": "string",
+                    "example": "09:50"
+                },
+                "hora_inicio": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "lugar": {
+                    "type": "string",
+                    "example": "Cabina 1"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
+        "models.CargoCliente": {
+            "type": "object",
+            "properties": {
+                "anulado": {
+                    "description": "Si el cargo fue anulado; un cargo anulado no cuenta en el saldo.",
+                    "type": "boolean",
+                    "example": false
+                },
+                "cantidad": {
+                    "description": "Cantidad del insumo cobrada (solo en cargos de tipo INSUMO).",
+                    "type": "number",
+                    "example": 2
+                },
+                "cliente_id": {
+                    "description": "ID del cliente que debe el cargo.",
+                    "type": "integer",
+                    "example": 7
+                },
+                "concepto": {
+                    "description": "Concepto legible del cargo.",
+                    "type": "string",
+                    "example": "Paquete Relax 4 sesiones"
+                },
+                "estado": {
+                    "description": "Estado derivado: PENDIENTE, PARCIAL o PAGADO; se calcula.",
+                    "type": "string",
+                    "enum": [
+                        "PENDIENTE",
+                        "PARCIAL",
+                        "PAGADO"
+                    ],
+                    "example": "PARCIAL"
+                },
+                "fecha_hecho": {
+                    "description": "Fecha del hecho: cuando ocurrio lo que se cobra.",
+                    "type": "string",
+                    "example": "2026-10-25T12:00:00Z"
+                },
+                "id": {
+                    "description": "ID del cargo.",
+                    "type": "integer",
+                    "example": 12
+                },
+                "item_id": {
+                    "description": "Insumo del inventario que se cobra (solo en cargos de tipo INSUMO).",
+                    "type": "integer",
+                    "example": 15
+                },
+                "local_id": {
+                    "description": "Local donde ocurrio el hecho (opcional).",
+                    "type": "integer",
+                    "example": 1
+                },
+                "monto": {
+                    "description": "Monto del cargo; puede ser 0 para un consumo que no se cobra.",
+                    "type": "number",
+                    "example": 1000
+                },
+                "motivo_anulacion": {
+                    "description": "Motivo de la anulacion.",
+                    "type": "string"
+                },
+                "pagado": {
+                    "description": "Cuanto de este cargo ya cubren los abonos aplicados.",
+                    "type": "number",
+                    "example": 400
+                },
+                "pagos": {
+                    "description": "Pagos que cubren este cargo (con su metodo), del mas antiguo al mas nuevo; vacio si nada lo cubre.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CargoPago"
+                    }
+                },
+                "pendiente": {
+                    "description": "Lo que falta por cubrir (monto menos pagado); se calcula.",
+                    "type": "number",
+                    "example": 600
+                },
+                "plan_id": {
+                    "description": "Plan del que nace el cargo (opcional).",
+                    "type": "integer",
+                    "example": 21
+                },
+                "plan_nombre": {
+                    "description": "Nombre del paquete del que nace el cargo (opcional).",
+                    "type": "string",
+                    "example": "Paquete Relax"
+                },
+                "registrado_en": {
+                    "description": "Momento real en que se registro el cargo; lo pone el servidor.",
+                    "type": "string",
+                    "example": "2026-10-28T21:30:00Z"
+                },
+                "reserva_fecha": {
+                    "description": "Fecha de la reserva de la que nace el cargo, para saber cuando se uso (opcional).",
+                    "type": "string",
+                    "example": "2026-10-25T00:00:00Z"
+                },
+                "reserva_id": {
+                    "description": "Reserva de la que nace el cargo (opcional).",
+                    "type": "integer",
+                    "example": 44
+                },
+                "reserva_servicio": {
+                    "description": "Servicio de la reserva de la que nace el cargo (opcional).",
+                    "type": "string",
+                    "example": "Masaje relajante"
+                },
+                "tipo": {
+                    "description": "Tipo del cargo: PAQUETE, SERVICIO, INSUMO u OTRO.",
+                    "type": "string",
+                    "enum": [
+                        "PAQUETE",
+                        "SERVICIO",
+                        "INSUMO",
+                        "OTRO"
+                    ],
+                    "example": "PAQUETE"
+                }
+            }
+        },
+        "models.CargoPago": {
+            "type": "object",
+            "properties": {
+                "codigo_pago": {
+                    "description": "Codigo publico del pago.",
+                    "type": "string",
+                    "example": "PAGO-000123"
+                },
+                "monto": {
+                    "description": "Monto de este pago aplicado al cargo.",
+                    "type": "number",
+                    "example": 250
+                },
+                "tipo_pago": {
+                    "description": "Metodo de pago: efectivo, tarjeta, qr o transferencia.",
+                    "type": "string",
+                    "example": "qr"
+                }
+            }
+        },
+        "models.CategoriaFinanciera": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "naturaleza": {
+                    "type": "string",
+                    "example": "EGRESO"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Alquiler"
+                }
+            }
+        },
+        "models.CategoriaInventario": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Cremas y geles"
+                }
+            }
+        },
         "models.CategoriaPG": {
             "type": "object",
             "properties": {
@@ -9340,6 +20618,46 @@ const docTemplate = `{
                 "nombre": {
                     "type": "string",
                     "example": "Corporal"
+                }
+            }
+        },
+        "models.ClienteDeuda": {
+            "type": "object",
+            "properties": {
+                "cargos": {
+                    "description": "Cargos con algo pendiente",
+                    "type": "integer",
+                    "example": 2
+                },
+                "cliente_id": {
+                    "description": "ID del cliente",
+                    "type": "integer",
+                    "example": 42
+                },
+                "deuda_desde": {
+                    "description": "Fecha del cargo pendiente mas antiguo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-09-18"
+                },
+                "dias_deuda": {
+                    "description": "Dias que lleva pendiente el cargo mas antiguo",
+                    "type": "integer",
+                    "example": 55
+                },
+                "nombre": {
+                    "description": "Nombre y apellido",
+                    "type": "string",
+                    "example": "Ana Perez"
+                },
+                "saldo_pendiente": {
+                    "description": "Saldo pendiente hoy",
+                    "type": "number",
+                    "example": 450
+                },
+                "telefono": {
+                    "description": "Telefono registrado",
+                    "type": "string",
+                    "example": "70012345"
                 }
             }
         },
@@ -9376,6 +20694,185 @@ const docTemplate = `{
                     "description": "TelefonoE164 es la forma internacional canónica opcional durante la transición.",
                     "type": "string",
                     "example": "+59170011223"
+                }
+            }
+        },
+        "models.ClienteReporte": {
+            "type": "object",
+            "properties": {
+                "canceladas": {
+                    "description": "Reservas canceladas en el periodo",
+                    "type": "integer",
+                    "example": 1
+                },
+                "citas": {
+                    "description": "Citas completadas en el periodo",
+                    "type": "integer",
+                    "example": 8
+                },
+                "citas_agendadas": {
+                    "description": "Reservas pendientes o agendadas dentro del periodo",
+                    "type": "integer",
+                    "example": 2
+                },
+                "citas_anterior": {
+                    "description": "Citas completadas en el periodo anterior",
+                    "type": "integer",
+                    "example": 6
+                },
+                "cliente_id": {
+                    "description": "ID del cliente",
+                    "type": "integer",
+                    "example": 42
+                },
+                "es_nuevo": {
+                    "description": "true si su primera actividad en el negocio cae en este periodo",
+                    "type": "boolean",
+                    "example": false
+                },
+                "inasistencias": {
+                    "description": "De las canceladas, cuantas fueron por inasistencia",
+                    "type": "integer",
+                    "example": 0
+                },
+                "ingresos": {
+                    "description": "Dinero que pago en el periodo",
+                    "type": "number",
+                    "example": 1250
+                },
+                "ingresos_anterior": {
+                    "description": "Dinero que pago en el periodo anterior",
+                    "type": "number",
+                    "example": 900
+                },
+                "locales": {
+                    "description": "Locales donde tuvo movimiento en el periodo, separados por coma",
+                    "type": "string",
+                    "example": "SAN MARTIN, PASEO ARANJUEZ"
+                },
+                "nombre": {
+                    "description": "Nombre y apellido",
+                    "type": "string",
+                    "example": "Ana Perez"
+                },
+                "pagos": {
+                    "description": "Pagos registrados en el periodo",
+                    "type": "integer",
+                    "example": 3
+                },
+                "participacion_pct": {
+                    "description": "Porcentaje de los ingresos de clientes del bloque",
+                    "type": "number",
+                    "example": 6.8
+                },
+                "posicion": {
+                    "description": "Puesto por dinero generado (1 = quien mas genero)",
+                    "type": "integer",
+                    "example": 1
+                },
+                "racha_periodos": {
+                    "description": "Periodos seguidos, contando este, en los que pago o completo una cita; se corta en racha_maxima",
+                    "type": "integer",
+                    "example": 4
+                },
+                "saldo_pendiente": {
+                    "description": "Saldo pendiente hoy en el bloque",
+                    "type": "number",
+                    "example": 150
+                },
+                "servicio_top": {
+                    "description": "Servicio que mas tomo (citas completadas)",
+                    "type": "string",
+                    "example": "Masaje reductor"
+                },
+                "servicio_top_cantidad": {
+                    "description": "Veces que tomo ese servicio",
+                    "type": "integer",
+                    "example": 5
+                },
+                "telefono": {
+                    "description": "Telefono registrado",
+                    "type": "string",
+                    "example": "70012345"
+                },
+                "ticket_promedio": {
+                    "description": "Dinero por pago",
+                    "type": "number",
+                    "example": 416.67
+                },
+                "ultima_actividad": {
+                    "description": "Fecha de su ultimo movimiento del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "variacion_pct": {
+                    "description": "Cambio contra el periodo anterior en %; null si antes no pago",
+                    "type": "number",
+                    "example": 38.9
+                }
+            }
+        },
+        "models.ClienteSugeridoPG": {
+            "type": "object",
+            "properties": {
+                "apellido": {
+                    "type": "string",
+                    "example": "Lopez"
+                },
+                "ci": {
+                    "description": "Cedula de identidad del cliente; vacia si no se registro.",
+                    "type": "string",
+                    "example": "8765432"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "nit": {
+                    "description": "NIT de facturacion por defecto del cliente; vacio si no se registro.",
+                    "type": "string",
+                    "example": "1234567"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "numero_telefono": {
+                    "type": "string",
+                    "example": "+59170011223"
+                },
+                "por_nombre": {
+                    "description": "PorNombre: el nombre completo coincide, sin distinguir mayusculas ni acentos.",
+                    "type": "boolean"
+                },
+                "por_telefono": {
+                    "description": "PorTelefono: el telefono coincide (comparando los ultimos 8 digitos).",
+                    "type": "boolean"
+                },
+                "telefono_e164": {
+                    "description": "TelefonoE164 es la forma internacional canónica opcional durante la transición.",
+                    "type": "string",
+                    "example": "+59170011223"
+                }
+            }
+        },
+        "models.ClientesDia": {
+            "type": "object",
+            "properties": {
+                "clientes": {
+                    "description": "Clientes distintos que pagaron o completaron una cita ese dia",
+                    "type": "integer",
+                    "example": 9
+                },
+                "fecha": {
+                    "description": "Dia (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "ingresos": {
+                    "description": "Dinero pagado por clientes registrados ese dia",
+                    "type": "number",
+                    "example": 870
                 }
             }
         },
@@ -9526,6 +21023,314 @@ const docTemplate = `{
                 }
             }
         },
+        "models.Compra": {
+            "type": "object",
+            "properties": {
+                "codigo": {
+                    "type": "string",
+                    "example": "COMP-000001"
+                },
+                "detalle": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CompraDetalle"
+                    }
+                },
+                "estado": {
+                    "type": "string",
+                    "example": "REGISTRADA"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-10-18"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "movimiento_financiero_codigo": {
+                    "type": "string"
+                },
+                "nombre_usuario": {
+                    "type": "string"
+                },
+                "notas": {
+                    "type": "string"
+                },
+                "proveedor": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "number",
+                    "example": 40
+                }
+            }
+        },
+        "models.CompraDetalle": {
+            "type": "object",
+            "properties": {
+                "cantidad": {
+                    "type": "number",
+                    "example": 1000
+                },
+                "costo_unitario": {
+                    "type": "number",
+                    "example": 0.04
+                },
+                "item_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "item_nombre": {
+                    "type": "string",
+                    "example": "Gel conductor"
+                },
+                "subtotal": {
+                    "type": "number",
+                    "example": 40
+                },
+                "unidad_medida": {
+                    "type": "string",
+                    "example": "ML"
+                }
+            }
+        },
+        "models.ConsumoEmpleadoResumen": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "atenciones_pendientes": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Daniela Perez"
+                },
+                "insumos_distintos": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "insumos_registrados": {
+                    "type": "integer",
+                    "example": 30
+                },
+                "locales": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                }
+            }
+        },
+        "models.ConsumoEvento": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Daniela Perez"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "hora_fin": {
+                    "type": "string",
+                    "example": "09:50"
+                },
+                "hora_inicio": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "horario_programado": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "insumos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConsumoInsumo"
+                    }
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "insumos_registrados": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "lugar": {
+                    "type": "string",
+                    "example": "Cabina 1"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
+        "models.ConsumoInsumo": {
+            "type": "object",
+            "properties": {
+                "cantidad_descontada": {
+                    "type": "number",
+                    "example": 1.5
+                },
+                "cantidad_pendiente": {
+                    "type": "number",
+                    "example": 0
+                },
+                "cantidad_usada": {
+                    "type": "number",
+                    "example": 1.5
+                },
+                "estado_descuento": {
+                    "type": "string",
+                    "example": "DESCONTADO"
+                },
+                "item_id": {
+                    "type": "integer",
+                    "example": 14
+                },
+                "item_nombre": {
+                    "type": "string",
+                    "example": "Alcohol en gel"
+                },
+                "unidad_medida": {
+                    "type": "string",
+                    "example": "LT"
+                }
+            }
+        },
+        "models.ConsumoResumen": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "cantidad_descontada": {
+                    "type": "number",
+                    "example": 4
+                },
+                "cantidad_pendiente": {
+                    "type": "number",
+                    "example": 0
+                },
+                "cantidad_usada": {
+                    "type": "number",
+                    "example": 4
+                },
+                "item_id": {
+                    "type": "integer",
+                    "example": 14
+                },
+                "item_nombre": {
+                    "type": "string",
+                    "example": "Alcohol en gel"
+                },
+                "unidad_medida": {
+                    "type": "string",
+                    "example": "LT"
+                }
+            }
+        },
+        "models.CuentaCliente": {
+            "type": "object",
+            "properties": {
+                "abonos": {
+                    "description": "Abonos del cliente, del mas reciente al mas antiguo.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AbonoCliente"
+                    }
+                },
+                "cargos": {
+                    "description": "Cargos del cliente con su estado, del mas antiguo al mas nuevo.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CargoCliente"
+                    }
+                },
+                "cliente_id": {
+                    "description": "ID del cliente.",
+                    "type": "integer",
+                    "example": 7
+                },
+                "saldo": {
+                    "description": "Saldo: dinero disponible, lo que hay por pagar y la deuda real (por pagar menos disponible).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/cuenta.Saldo"
+                        }
+                    ]
+                },
+                "total_abonos": {
+                    "description": "Total de abonos activos y pagados.",
+                    "type": "number",
+                    "example": 500
+                },
+                "total_cargos": {
+                    "description": "Total de cargos no anulados.",
+                    "type": "number",
+                    "example": 1030
+                }
+            }
+        },
+        "models.DetalleLocalFinanciero": {
+            "type": "object",
+            "properties": {
+                "local": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "resumen": {
+                    "$ref": "#/definitions/models.ReporteFinancieroResumen"
+                }
+            }
+        },
         "models.DetallePagoPG": {
             "type": "object",
             "properties": {
@@ -9538,6 +21343,11 @@ const docTemplate = `{
                     "description": "ID del detalle de pago.",
                     "type": "integer",
                     "example": 25
+                },
+                "item_id": {
+                    "description": "ID opcional del insumo vendido; su salida de stock queda en el kardex.",
+                    "type": "integer",
+                    "example": 15
                 },
                 "precio_unitario": {
                     "description": "Precio unitario del servicio.",
@@ -9558,6 +21368,637 @@ const docTemplate = `{
                     "description": "Subtotal de la linea.",
                     "type": "number",
                     "example": 500
+                }
+            }
+        },
+        "models.DeudorCliente": {
+            "type": "object",
+            "properties": {
+                "apellido": {
+                    "description": "Apellido del cliente.",
+                    "type": "string",
+                    "example": "Lopez"
+                },
+                "cliente_id": {
+                    "description": "ID del cliente.",
+                    "type": "integer",
+                    "example": 7
+                },
+                "deuda": {
+                    "description": "Lo que debe: cargos menos abonos; siempre mayor a 0 en este listado.",
+                    "type": "number",
+                    "example": 530
+                },
+                "nombre": {
+                    "description": "Nombre del cliente.",
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "numero_telefono": {
+                    "description": "Telefono del cliente.",
+                    "type": "string",
+                    "example": "70011223"
+                },
+                "total_abonos": {
+                    "description": "Total de abonos activos y pagados.",
+                    "type": "number",
+                    "example": 500
+                },
+                "total_cargos": {
+                    "description": "Total de cargos no anulados.",
+                    "type": "number",
+                    "example": 1030
+                }
+            }
+        },
+        "models.EgresoPorCategoria": {
+            "type": "object",
+            "properties": {
+                "categoria": {
+                    "type": "string",
+                    "example": "Sueldos y personal"
+                },
+                "clase": {
+                    "type": "string",
+                    "example": "FIJO"
+                },
+                "total": {
+                    "type": "number",
+                    "example": 18000
+                }
+            }
+        },
+        "models.Empleado": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "adelantos_pendientes": {
+                    "description": "AdelantosPendientes suma los adelantos aun no descontados en una planilla.",
+                    "type": "number",
+                    "example": 200
+                },
+                "apellido": {
+                    "type": "string",
+                    "example": "Rojas"
+                },
+                "aplica_aportes": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "cargo": {
+                    "type": "string",
+                    "example": "Masajista"
+                },
+                "ci": {
+                    "type": "string",
+                    "example": "7654321"
+                },
+                "dia_pago": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "dia_pago_efectivo": {
+                    "description": "DiaPagoEfectivo es el dia propio o el por defecto de configuracion; se calcula en el servicio.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "fecha_baja": {
+                    "type": "string"
+                },
+                "fecha_ingreso": {
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "foto_url": {
+                    "description": "FotoURL es una URL firmada y temporal de lectura; se calcula en el servicio a partir de FotoKey.",
+                    "type": "string",
+                    "example": "https://bucket.s3.sa-east-1.amazonaws.com/personal/1/ab12.webp?X-Amz-Signature=abc"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_id": {
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "metodo_pago": {
+                    "type": "string",
+                    "example": "transferencia"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Maria"
+                },
+                "notas": {
+                    "type": "string"
+                },
+                "sueldo_base": {
+                    "type": "number",
+                    "example": 3000
+                },
+                "telefono": {
+                    "type": "string"
+                },
+                "usuario_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.FlujoLocal": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "number",
+                    "example": 1500
+                },
+                "egresos": {
+                    "type": "number",
+                    "example": 1500
+                },
+                "ingresos": {
+                    "type": "number",
+                    "example": 3000
+                },
+                "local": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "models.FlujoMovimiento": {
+            "type": "object",
+            "properties": {
+                "categoria": {
+                    "type": "string",
+                    "example": "Venta"
+                },
+                "clave": {
+                    "description": "Clave unica de la fila (pago-\u003cid\u003e o mov-\u003cid\u003e)",
+                    "type": "string",
+                    "example": "mov-12"
+                },
+                "codigo": {
+                    "type": "string",
+                    "example": "PAGO-000012"
+                },
+                "detalle": {
+                    "type": "string",
+                    "example": "Venta a Maria Perez"
+                },
+                "estado": {
+                    "description": "PAGADO, PENDIENTE o ANULADO",
+                    "type": "string",
+                    "example": "PAGADO"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-10-18"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "metodo_pago": {
+                    "description": "Como se pago: efectivo, qr, transferencia, tarjeta o debito_automatico. Nulo si el movimiento no lo indico.",
+                    "type": "string",
+                    "example": "qr"
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 150
+                },
+                "naturaleza": {
+                    "type": "string",
+                    "example": "INGRESO"
+                },
+                "origen": {
+                    "description": "VENTA, COMPRA, GASTO_FIJO, GASTO_VARIABLE u OTRO_INGRESO",
+                    "type": "string",
+                    "example": "VENTA"
+                },
+                "saldo": {
+                    "description": "Saldo acumulado del rango filtrado hasta este movimiento (solo cuentan los PAGADO)",
+                    "type": "number",
+                    "example": 1250.5
+                },
+                "ts": {
+                    "description": "Momento del movimiento; en los gastos y egresos solo importa el dia (llega a las 00:00).",
+                    "type": "string",
+                    "example": "2026-10-18T15:30:00-04:00"
+                }
+            }
+        },
+        "models.FlujoTotales": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "description": "Balance = ingresos - egresos",
+                    "type": "number",
+                    "example": 1800
+                },
+                "egresos": {
+                    "description": "Egresos pagados (fijos, variables y compras PAGADO)",
+                    "type": "number",
+                    "example": 3200
+                },
+                "ingresos": {
+                    "description": "Ingresos cobrados (ventas y otros ingresos PAGADO)",
+                    "type": "number",
+                    "example": 5000
+                },
+                "movimientos": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "por_cobrar": {
+                    "description": "Ingresos pendientes de cobro",
+                    "type": "number",
+                    "example": 300
+                },
+                "por_pagar": {
+                    "description": "Egresos pendientes de pago",
+                    "type": "number",
+                    "example": 800
+                }
+            }
+        },
+        "models.GastoFijo": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "atrasados": {
+                    "description": "Atrasados cuenta los egresos pendientes cuya fecha ya paso; se calcula en el servicio.",
+                    "type": "integer",
+                    "example": 0
+                },
+                "categoria_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "categoria_nombre": {
+                    "type": "string",
+                    "example": "Alquiler"
+                },
+                "dia_cobro": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "fecha_fin": {
+                    "type": "string"
+                },
+                "fecha_inicio": {
+                    "type": "string",
+                    "example": "2026-01-01"
+                },
+                "frecuencia": {
+                    "description": "Frecuencia: DIARIA, SEMANAL, QUINCENAL, MENSUAL, BIMESTRAL, TRIMESTRAL, SEMESTRAL o ANUAL.",
+                    "type": "string",
+                    "example": "MENSUAL"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_id": {
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string"
+                },
+                "metodo_pago": {
+                    "type": "string",
+                    "example": "transferencia"
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 6500
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Alquiler Paseo Aranjuez"
+                },
+                "notas": {
+                    "type": "string"
+                },
+                "pagado_hasta": {
+                    "description": "PagadoHasta es la fecha de cobro del ultimo egreso ya pagado (puede ser futura si se pago por adelantado).",
+                    "type": "string",
+                    "example": "2026-11-05"
+                },
+                "proveedor": {
+                    "type": "string"
+                },
+                "proximo_cobro": {
+                    "description": "ProximoCobro es el siguiente cobro aun sin pagar a partir de hoy (o de PagadoHasta); se calcula en el servicio.",
+                    "type": "string",
+                    "example": "2026-12-05"
+                }
+            }
+        },
+        "models.GastoFijoPendiente": {
+            "type": "object",
+            "properties": {
+                "adelantado": {
+                    "description": "true si el cobro aun no vence (solo se devuelve con adelantar\u003e0)",
+                    "type": "boolean",
+                    "example": false
+                },
+                "categoria": {
+                    "type": "string",
+                    "example": "Alquiler"
+                },
+                "fecha_cobro": {
+                    "type": "string",
+                    "example": "2026-09-05"
+                },
+                "gasto_fijo_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 6500
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Alquiler Paseo Aranjuez"
+                },
+                "periodo": {
+                    "type": "string",
+                    "example": "2026-09-01"
+                }
+            }
+        },
+        "models.GastoFijoProximo": {
+            "type": "object",
+            "properties": {
+                "dias_restantes": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "fecha_cobro": {
+                    "type": "string",
+                    "example": "2026-11-05"
+                },
+                "gasto_fijo_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string"
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 6500
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Alquiler Paseo Aranjuez"
+                }
+            }
+        },
+        "models.InventarioItem": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "bajo_stock": {
+                    "description": "BajoStock es true cuando StockActual \u003c= StockMinimo (RN-05).",
+                    "type": "boolean",
+                    "example": false
+                },
+                "categoria_id": {
+                    "type": "integer"
+                },
+                "categoria_nombre": {
+                    "type": "string"
+                },
+                "codigo": {
+                    "type": "string",
+                    "example": "INV-000001"
+                },
+                "costo_referencia": {
+                    "type": "number",
+                    "example": 0.04
+                },
+                "descripcion": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "imagen_url": {
+                    "description": "ImagenURL se calcula en el servicio a partir de ImagenKey.",
+                    "type": "string"
+                },
+                "local_id": {
+                    "description": "LocalID/LocalNombre solo se llenan en las alertas: el stock se evalua por local.",
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string"
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Gel conductor"
+                },
+                "precio_venta": {
+                    "description": "PrecioVenta es el precio al que se cobra el insumo; ausente si no tiene precio definido.",
+                    "type": "number",
+                    "example": 25
+                },
+                "stock_actual": {
+                    "description": "StockActual es el stock del local consultado, o la suma de todos los locales.",
+                    "type": "number",
+                    "example": 350
+                },
+                "stock_minimo": {
+                    "type": "number",
+                    "example": 500
+                },
+                "stock_por_local": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.StockLocal"
+                    }
+                },
+                "unidad_medida": {
+                    "type": "string",
+                    "example": "ML"
+                }
+            }
+        },
+        "models.JornadaAtencion": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer",
+                    "example": 55
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Ana Perez"
+                },
+                "estado_operativo": {
+                    "type": "string",
+                    "example": "PROGRAMADA"
+                },
+                "estado_reserva": {
+                    "type": "string",
+                    "example": "AGENDADO"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-11-09"
+                },
+                "hora_desde": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "hora_hasta": {
+                    "type": "string",
+                    "example": "10:00"
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "insumos_registrados": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "insumos_resumen": {
+                    "type": "string",
+                    "example": "Gel, Guantes"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "motivo_cancelacion_tipo": {
+                    "type": "string"
+                },
+                "puede_atender": {
+                    "description": "Acciones calculadas en backend para no duplicar reglas en el frontend.",
+                    "type": "boolean"
+                },
+                "puede_editar_atencion": {
+                    "type": "boolean"
+                },
+                "puede_ver_atencion": {
+                    "type": "boolean"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                }
+            }
+        },
+        "models.JornadaResponse": {
+            "type": "object",
+            "properties": {
+                "fecha": {
+                    "description": "Fecha consultada; por defecto la fecha actual de la zona horaria configurada.",
+                    "type": "string",
+                    "example": "2026-11-09"
+                },
+                "hoy": {
+                    "description": "Fecha actual de la zona horaria configurada, usada por el boton \"Hoy\".",
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "items": {
+                    "description": "Reservas del dia con su estado operativo derivado.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.JornadaAtencion"
+                    }
+                },
+                "paginacion": {
+                    "description": "Metadatos de cursor presentes cuando se consulta limit o cursor.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pagination.Metadata"
+                        }
+                    ]
+                },
+                "resumen": {
+                    "description": "Se conserva por compatibilidad; la interfaz operativa usa\n/jornada/resumen para evitar que la lista y sus filtros lo condicionen.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.JornadaResumen"
+                        }
+                    ]
+                },
+                "total_registros": {
+                    "description": "Total de filas de la lista filtrada, solo con include_total=true.",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.JornadaResumen": {
+            "type": "object",
+            "properties": {
+                "atendidas": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "canceladas": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "deducciones_pendientes": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "no_asistieron": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "pendientes_cierre": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "programadas": {
+                    "type": "integer",
+                    "example": 4
                 }
             }
         },
@@ -9651,6 +22092,137 @@ const docTemplate = `{
                 }
             }
         },
+        "models.MovimientoFinanciero": {
+            "type": "object",
+            "properties": {
+                "categoria_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "categoria_nombre": {
+                    "type": "string",
+                    "example": "Alquiler"
+                },
+                "clase": {
+                    "type": "string",
+                    "example": "VARIABLE"
+                },
+                "codigo": {
+                    "type": "string",
+                    "example": "MOV-000001"
+                },
+                "compra_id": {
+                    "type": "integer"
+                },
+                "descripcion": {
+                    "type": "string"
+                },
+                "estado": {
+                    "type": "string",
+                    "example": "PAGADO"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-10-18"
+                },
+                "gasto_fijo_id": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_id": {
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string"
+                },
+                "metodo_pago": {
+                    "type": "string",
+                    "example": "efectivo"
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 480
+                },
+                "motivo_anulacion": {
+                    "type": "string"
+                },
+                "naturaleza": {
+                    "type": "string",
+                    "example": "EGRESO"
+                },
+                "nombre_usuario": {
+                    "type": "string"
+                },
+                "periodo": {
+                    "type": "string",
+                    "example": "2026-10-01"
+                },
+                "planilla_id": {
+                    "type": "integer"
+                },
+                "proveedor": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.MovimientoInventario": {
+            "type": "object",
+            "properties": {
+                "cantidad": {
+                    "type": "number",
+                    "example": 100
+                },
+                "compra_id": {
+                    "type": "integer"
+                },
+                "costo_unitario": {
+                    "type": "number"
+                },
+                "creado_en": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "item_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "item_nombre": {
+                    "type": "string",
+                    "example": "Gel conductor"
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                },
+                "motivo": {
+                    "type": "string"
+                },
+                "reserva_id": {
+                    "type": "integer"
+                },
+                "stock_resultante": {
+                    "type": "number",
+                    "example": 450
+                },
+                "tipo": {
+                    "type": "string",
+                    "example": "ENTRADA_COMPRA"
+                },
+                "usuario_nombre": {
+                    "type": "string"
+                }
+            }
+        },
         "models.PagoCompletoPG": {
             "type": "object",
             "properties": {
@@ -9696,13 +22268,18 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.DetallePagoPG"
                     }
                 },
+                "es_abono": {
+                    "description": "Si es un abono a cuenta de un cliente (sin detalle de servicios) y no una venta de mostrador.",
+                    "type": "boolean",
+                    "example": false
+                },
                 "estado": {
                     "description": "Estado informativo del pago.",
                     "type": "string",
                     "example": "PENDIENTE"
                 },
                 "fecha_creacion": {
-                    "description": "Fecha de creacion del pago.",
+                    "description": "Fecha del hecho: cuando ocurrio el cobro. Puede ser anterior a registrado_en si se registro despues.",
                     "type": "string",
                     "example": "2026-06-03T10:00:00Z"
                 },
@@ -9745,6 +22322,16 @@ const docTemplate = `{
                     "description": "Primer producto del detalle, para mostrar un resumen sin cargar todas las lineas.",
                     "type": "string",
                     "example": "Limpieza facial"
+                },
+                "registrado_en": {
+                    "description": "Momento real en que se registro el pago en el sistema; lo pone el servidor y no se edita.",
+                    "type": "string",
+                    "example": "2026-06-04T21:30:00Z"
+                },
+                "reserva_id": {
+                    "description": "Referencia opcional conservada por compatibilidad; no determina el estado del pago ni de la reserva.",
+                    "type": "integer",
+                    "example": 44
                 },
                 "subtotal": {
                     "description": "Subtotal del pago antes del descuento.",
@@ -9811,13 +22398,18 @@ const docTemplate = `{
                     "type": "number",
                     "example": 50
                 },
+                "es_abono": {
+                    "description": "Si es un abono a cuenta de un cliente (sin detalle de servicios) y no una venta de mostrador.",
+                    "type": "boolean",
+                    "example": false
+                },
                 "estado": {
                     "description": "Estado informativo del pago.",
                     "type": "string",
                     "example": "PENDIENTE"
                 },
                 "fecha_creacion": {
-                    "description": "Fecha de creacion del pago.",
+                    "description": "Fecha del hecho: cuando ocurrio el cobro. Puede ser anterior a registrado_en si se registro despues.",
                     "type": "string",
                     "example": "2026-06-03T10:00:00Z"
                 },
@@ -9860,6 +22452,16 @@ const docTemplate = `{
                     "description": "Primer producto del detalle, para mostrar un resumen sin cargar todas las lineas.",
                     "type": "string",
                     "example": "Limpieza facial"
+                },
+                "registrado_en": {
+                    "description": "Momento real en que se registro el pago en el sistema; lo pone el servidor y no se edita.",
+                    "type": "string",
+                    "example": "2026-06-04T21:30:00Z"
+                },
+                "reserva_id": {
+                    "description": "Referencia opcional conservada por compatibilidad; no determina el estado del pago ni de la reserva.",
+                    "type": "integer",
+                    "example": 44
                 },
                 "subtotal": {
                     "description": "Subtotal del pago antes del descuento.",
@@ -9940,6 +22542,10 @@ const docTemplate = `{
                 },
                 "nombre": {
                     "type": "string"
+                },
+                "visible_publico": {
+                    "description": "VisiblePublico controla si aparece en la pagina principal; el paquete sigue activo en administracion.",
+                    "type": "boolean"
                 }
             }
         },
@@ -9960,6 +22566,96 @@ const docTemplate = `{
                 },
                 "servicio_texto": {
                     "type": "string"
+                }
+            }
+        },
+        "models.PersonalAtenciones": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "description": "Atenciones del periodo",
+                    "type": "integer",
+                    "example": 38
+                },
+                "atenciones_anterior": {
+                    "description": "Atenciones del periodo anterior",
+                    "type": "integer",
+                    "example": 31
+                },
+                "cargo": {
+                    "description": "Cargo del empleado",
+                    "type": "string",
+                    "example": "Masajista"
+                },
+                "clientes_distintos": {
+                    "description": "Clientes distintos atendidos",
+                    "type": "integer",
+                    "example": 27
+                },
+                "dias_trabajados": {
+                    "description": "Dias en los que atendio",
+                    "type": "integer",
+                    "example": 20
+                },
+                "duracion_promedio_min": {
+                    "description": "Duracion media en minutos de sus atenciones con horario",
+                    "type": "number",
+                    "example": 60
+                },
+                "empleado_id": {
+                    "description": "Empleado de RRHH; null si se escribio un nombre que no esta en Empleados",
+                    "type": "integer",
+                    "example": 4
+                },
+                "locales": {
+                    "description": "Locales donde atendio en el periodo, separados por coma",
+                    "type": "string",
+                    "example": "SAN MARTIN, PASEO ARANJUEZ"
+                },
+                "minutos_atendidos": {
+                    "description": "Minutos atendidos (solo atenciones con horario)",
+                    "type": "integer",
+                    "example": 2280
+                },
+                "nombre": {
+                    "description": "Nombre de quien atendio",
+                    "type": "string",
+                    "example": "Maria Rojas"
+                },
+                "participacion_pct": {
+                    "description": "Porcentaje de las atenciones del bloque",
+                    "type": "number",
+                    "example": 30.6
+                },
+                "posicion": {
+                    "description": "Puesto en el ranking (1 = quien mas atendio)",
+                    "type": "integer",
+                    "example": 1
+                },
+                "promedio_por_dia": {
+                    "description": "Atenciones por dia trabajado",
+                    "type": "number",
+                    "example": 1.9
+                },
+                "servicio_top": {
+                    "description": "Servicio que mas realizo",
+                    "type": "string",
+                    "example": "Masaje reductor"
+                },
+                "servicio_top_cantidad": {
+                    "description": "Veces que realizo ese servicio",
+                    "type": "integer",
+                    "example": 14
+                },
+                "ultima_atencion": {
+                    "description": "Fecha de su ultima atencion del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "variacion_pct": {
+                    "description": "Cambio contra el periodo anterior en %; null si antes no atendio",
+                    "type": "number",
+                    "example": 22.6
                 }
             }
         },
@@ -10330,6 +23026,610 @@ const docTemplate = `{
                 }
             }
         },
+        "models.Planilla": {
+            "type": "object",
+            "properties": {
+                "adelantos": {
+                    "type": "number",
+                    "example": 200
+                },
+                "aporte_laboral": {
+                    "type": "number",
+                    "example": 387.7
+                },
+                "aporte_patronal": {
+                    "type": "number",
+                    "example": 509.65
+                },
+                "bonos": {
+                    "type": "number",
+                    "example": 150
+                },
+                "bonos_detalle": {
+                    "description": "BonosDetalle son las lineas de bono que suman el campo bonos; se cargan aparte en el repositorio.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlanillaBono"
+                    }
+                },
+                "cargo": {
+                    "type": "string"
+                },
+                "costo_empresa": {
+                    "type": "number",
+                    "example": 3559.65
+                },
+                "descuento_faltas": {
+                    "type": "number",
+                    "example": 100
+                },
+                "dias_falta": {
+                    "type": "number",
+                    "example": 1
+                },
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Maria Rojas"
+                },
+                "estado": {
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "fecha_pago": {
+                    "type": "string",
+                    "example": "2026-10-05"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_id": {
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string"
+                },
+                "motivo_anulacion": {
+                    "type": "string"
+                },
+                "movimiento_codigo": {
+                    "type": "string",
+                    "example": "MOV-000012"
+                },
+                "neto_pagar": {
+                    "type": "number",
+                    "example": 2462.3
+                },
+                "notas": {
+                    "type": "string"
+                },
+                "otros_descuentos": {
+                    "type": "number",
+                    "example": 0
+                },
+                "periodo": {
+                    "type": "string",
+                    "example": "2026-10-01"
+                },
+                "sueldo_base": {
+                    "type": "number",
+                    "example": 3000
+                },
+                "tipo": {
+                    "type": "string",
+                    "example": "SUELDO"
+                },
+                "total_ganado": {
+                    "type": "number",
+                    "example": 3050
+                }
+            }
+        },
+        "models.PlanillaBono": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "monto": {
+                    "type": "number",
+                    "example": 150
+                },
+                "nota": {
+                    "type": "string",
+                    "example": "Meta de octubre"
+                },
+                "tipo_bono_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "tipo_nombre": {
+                    "type": "string",
+                    "example": "Producción"
+                }
+            }
+        },
+        "models.PlanillaPendiente": {
+            "type": "object",
+            "properties": {
+                "empleado_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Maria Rojas"
+                },
+                "fecha_pago": {
+                    "type": "string",
+                    "example": "2026-09-05"
+                },
+                "periodo": {
+                    "type": "string",
+                    "example": "2026-09"
+                },
+                "sueldo_base": {
+                    "type": "number",
+                    "example": 3000
+                }
+            }
+        },
+        "models.PlanillaResumen": {
+            "type": "object",
+            "properties": {
+                "adelantos": {
+                    "type": "number",
+                    "example": 200
+                },
+                "aporte_laboral": {
+                    "type": "number",
+                    "example": 1906.5
+                },
+                "aporte_patronal": {
+                    "type": "number",
+                    "example": 2506.5
+                },
+                "costo_empresa": {
+                    "type": "number",
+                    "example": 17506.5
+                },
+                "descuentos": {
+                    "type": "number",
+                    "example": 100
+                },
+                "empleados": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "neto_pagar": {
+                    "type": "number",
+                    "example": 12793.5
+                },
+                "pagado": {
+                    "type": "number",
+                    "example": 5000
+                },
+                "pendiente": {
+                    "type": "number",
+                    "example": 12506.5
+                },
+                "periodo": {
+                    "type": "string",
+                    "example": "2026-10"
+                },
+                "total_ganado": {
+                    "type": "number",
+                    "example": 15000
+                }
+            }
+        },
+        "models.PuntoSerieFinanciera": {
+            "type": "object",
+            "properties": {
+                "egresos": {
+                    "type": "number",
+                    "example": 42500
+                },
+                "ingresos": {
+                    "type": "number",
+                    "example": 86057
+                },
+                "periodo": {
+                    "type": "string",
+                    "example": "2026-10"
+                },
+                "utilidad": {
+                    "type": "number",
+                    "example": 43557
+                }
+            }
+        },
+        "models.RegistradorAtenciones": {
+            "type": "object",
+            "properties": {
+                "participacion_pct": {
+                    "description": "Porcentaje de las atenciones del bloque",
+                    "type": "number",
+                    "example": 41.9
+                },
+                "registros": {
+                    "description": "Atenciones que registro",
+                    "type": "integer",
+                    "example": 52
+                },
+                "usuario": {
+                    "description": "Usuario que registro la atencion en el sistema",
+                    "type": "string",
+                    "example": "recepcion.sm"
+                }
+            }
+        },
+        "models.ReporteAtencionesBloque": {
+            "type": "object",
+            "properties": {
+                "local_id": {
+                    "description": "Local del bloque; null en el bloque general y en atenciones sin local",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local; \"General\" en el bloque general",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "ranking": {
+                    "description": "Personal ordenado del que mas atendio al que menos",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PersonalAtenciones"
+                    }
+                },
+                "registradores": {
+                    "description": "Usuarios que registraron las atenciones en el sistema",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RegistradorAtenciones"
+                    }
+                },
+                "resumen": {
+                    "description": "Totales del bloque",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ResumenAtencionesRRHH"
+                        }
+                    ]
+                },
+                "serie": {
+                    "description": "Atenciones por dia; solo trae los dias con atenciones",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AtencionesDia"
+                    }
+                }
+            }
+        },
+        "models.ReporteAtencionesRRHH": {
+            "type": "object",
+            "properties": {
+                "desde": {
+                    "description": "Primer dia del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-01"
+                },
+                "desde_anterior": {
+                    "description": "Primer dia del periodo anterior con el que se compara",
+                    "type": "string",
+                    "example": "2026-10-01"
+                },
+                "general": {
+                    "description": "Todos los locales juntos",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ReporteAtencionesBloque"
+                        }
+                    ]
+                },
+                "hasta": {
+                    "description": "Ultimo dia del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-30"
+                },
+                "hasta_anterior": {
+                    "description": "Ultimo dia del periodo anterior con el que se compara",
+                    "type": "string",
+                    "example": "2026-10-31"
+                },
+                "locales": {
+                    "description": "Un bloque por local con atenciones en el periodo, del que mas atendio al que menos",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReporteAtencionesBloque"
+                    }
+                },
+                "periodo": {
+                    "description": "Periodo pedido: semanal, quincenal o mensual",
+                    "type": "string",
+                    "example": "mensual"
+                }
+            }
+        },
+        "models.ReporteClientes": {
+            "type": "object",
+            "properties": {
+                "desde": {
+                    "description": "Primer dia del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-01"
+                },
+                "desde_anterior": {
+                    "description": "Primer dia del periodo anterior con el que se compara",
+                    "type": "string",
+                    "example": "2026-10-01"
+                },
+                "general": {
+                    "description": "Todos los locales juntos",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ReporteClientesBloque"
+                        }
+                    ]
+                },
+                "hasta": {
+                    "description": "Ultimo dia del periodo (YYYY-MM-DD)",
+                    "type": "string",
+                    "example": "2026-11-30"
+                },
+                "hasta_anterior": {
+                    "description": "Ultimo dia del periodo anterior con el que se compara",
+                    "type": "string",
+                    "example": "2026-10-31"
+                },
+                "locales": {
+                    "description": "Un bloque por local con movimiento de clientes en el periodo o con deudas, del que mas ingreso al que menos",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReporteClientesBloque"
+                    }
+                },
+                "periodo": {
+                    "description": "Periodo pedido: semanal, quincenal o mensual",
+                    "type": "string",
+                    "example": "mensual"
+                },
+                "racha_maxima": {
+                    "description": "Tope de la racha: cuantos periodos hacia atras se revisan para medir la fidelidad",
+                    "type": "integer",
+                    "example": 12
+                }
+            }
+        },
+        "models.ReporteClientesBloque": {
+            "type": "object",
+            "properties": {
+                "deudores": {
+                    "description": "Los 10 clientes que mas deben hoy (no depende del periodo); el total esta en resumen.deudores",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteDeuda"
+                    }
+                },
+                "local_id": {
+                    "description": "Local del bloque; null en el bloque general",
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "description": "Nombre del local; \"General\" en el bloque general",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "resumen": {
+                    "description": "Totales del bloque",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ResumenClientes"
+                        }
+                    ]
+                },
+                "serie": {
+                    "description": "Actividad por dia; solo trae los dias con movimiento",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClientesDia"
+                    }
+                },
+                "top_canceladas": {
+                    "description": "Los 10 clientes con mas reservas canceladas en el periodo",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteReporte"
+                    }
+                },
+                "top_citas": {
+                    "description": "Los 10 clientes con mas citas completadas en el periodo",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteReporte"
+                    }
+                },
+                "top_fieles": {
+                    "description": "Los 10 clientes con mas periodos seguidos viniendo (minimo 2)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteReporte"
+                    }
+                },
+                "top_ingresos": {
+                    "description": "Los 10 clientes que mas dinero generaron en el periodo",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClienteReporte"
+                    }
+                }
+            }
+        },
+        "models.ReporteFinanciero": {
+            "type": "object",
+            "properties": {
+                "detalle_por_local": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DetalleLocalFinanciero"
+                    }
+                },
+                "egresos_por_categoria": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EgresoPorCategoria"
+                    }
+                },
+                "filtros": {
+                    "$ref": "#/definitions/models.ReporteFinancieroFiltros"
+                },
+                "gastos_generales": {
+                    "type": "number",
+                    "example": 9000
+                },
+                "inventario": {
+                    "$ref": "#/definitions/models.ReporteInventarioResumen"
+                },
+                "resumen": {
+                    "$ref": "#/definitions/models.ReporteFinancieroResumen"
+                },
+                "serie": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PuntoSerieFinanciera"
+                    }
+                }
+            }
+        },
+        "models.ReporteFinancieroFiltros": {
+            "type": "object",
+            "properties": {
+                "fecha_desde": {
+                    "type": "string",
+                    "example": "2026-10-01"
+                },
+                "fecha_hasta": {
+                    "type": "string",
+                    "example": "2026-10-31"
+                },
+                "local": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                }
+            }
+        },
+        "models.ReporteFinancieroResumen": {
+            "type": "object",
+            "properties": {
+                "egresos_fijos": {
+                    "type": "number",
+                    "example": 30000
+                },
+                "egresos_pendientes": {
+                    "type": "number",
+                    "example": 4000
+                },
+                "egresos_total": {
+                    "type": "number",
+                    "example": 42500
+                },
+                "egresos_variables": {
+                    "type": "number",
+                    "example": 12500
+                },
+                "ingresos_otros": {
+                    "type": "number",
+                    "example": 1200
+                },
+                "ingresos_total": {
+                    "type": "number",
+                    "example": 86057
+                },
+                "ingresos_ventas": {
+                    "type": "number",
+                    "example": 84857
+                },
+                "margen_pct": {
+                    "type": "number",
+                    "example": 50.6
+                },
+                "utilidad_neta": {
+                    "type": "number",
+                    "example": 43557
+                }
+            }
+        },
+        "models.ReporteInventarioResumen": {
+            "type": "object",
+            "properties": {
+                "consumo_servicios": {
+                    "description": "Costo de los insumos que salieron en el periodo por servicios y por ventas de caja, netos de reversiones.",
+                    "type": "number",
+                    "example": 2100
+                },
+                "items_bajo_stock": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "valor_stock": {
+                    "type": "number",
+                    "example": 5400
+                }
+            }
+        },
+        "models.ReposicionInsumo": {
+            "type": "object",
+            "properties": {
+                "comprometido": {
+                    "description": "Comprometido es la suma de insumos de las reservas AGENDADAS desde hoy.",
+                    "type": "number",
+                    "example": 90
+                },
+                "faltante": {
+                    "description": "Faltante = Comprometido - Stock (cuanto comprar para cubrir todas las reservas).",
+                    "type": "number",
+                    "example": 60
+                },
+                "item_id": {
+                    "type": "integer"
+                },
+                "item_nombre": {
+                    "type": "string",
+                    "example": "Gel conductor"
+                },
+                "local_id": {
+                    "type": "integer"
+                },
+                "local_nombre": {
+                    "type": "string"
+                },
+                "proxima": {
+                    "description": "Proxima es la fecha de la primera reserva que lo consume (YYYY-MM-DD).",
+                    "type": "string",
+                    "example": "2026-10-19"
+                },
+                "reservas": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "stock": {
+                    "type": "number",
+                    "example": 30
+                },
+                "unidad": {
+                    "type": "string",
+                    "example": "ML"
+                }
+            }
+        },
         "models.ReservaItem": {
             "type": "object",
             "properties": {
@@ -10416,6 +23716,50 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ReservaPorVincularPG": {
+            "type": "object",
+            "properties": {
+                "cliente": {
+                    "type": "string",
+                    "example": "Lucia Paredes"
+                },
+                "estado": {
+                    "type": "string",
+                    "example": "PENDIENTE"
+                },
+                "fecha": {
+                    "type": "string"
+                },
+                "hora_desde": {
+                    "type": "string",
+                    "example": "10:00:00"
+                },
+                "hora_hasta": {
+                    "type": "string",
+                    "example": "11:00:00"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 41
+                },
+                "local": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "numero_telefono": {
+                    "type": "string",
+                    "example": "+59171235566"
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion laser"
+                },
+                "telefono_e164": {
+                    "type": "string",
+                    "example": "+59171235566"
+                }
+            }
+        },
         "models.ReservaSlot": {
             "type": "object",
             "properties": {
@@ -10434,6 +23778,291 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ResultadoVinculo": {
+            "type": "object",
+            "properties": {
+                "telefono_actualizado": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "vinculadas": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "models.ResumenAtencionesRRHH": {
+            "type": "object",
+            "properties": {
+                "atenciones": {
+                    "description": "Atenciones del periodo",
+                    "type": "integer",
+                    "example": 124
+                },
+                "atenciones_anterior": {
+                    "description": "Atenciones del periodo anterior",
+                    "type": "integer",
+                    "example": 110
+                },
+                "clientes_distintos": {
+                    "description": "Clientes distintos atendidos",
+                    "type": "integer",
+                    "example": 80
+                },
+                "dias_con_atencion": {
+                    "description": "Dias con al menos una atencion",
+                    "type": "integer",
+                    "example": 24
+                },
+                "duracion_promedio_min": {
+                    "description": "Duracion media en minutos de las atenciones con horario",
+                    "type": "number",
+                    "example": 60
+                },
+                "minutos_atendidos": {
+                    "description": "Minutos atendidos, sumando solo las atenciones con hora de inicio y fin",
+                    "type": "integer",
+                    "example": 7440
+                },
+                "personal": {
+                    "description": "Personas distintas que atendieron",
+                    "type": "integer",
+                    "example": 6
+                },
+                "promedio_diario": {
+                    "description": "Atenciones por dia trabajado",
+                    "type": "number",
+                    "example": 5.2
+                },
+                "promedio_por_persona": {
+                    "description": "Atenciones por persona",
+                    "type": "number",
+                    "example": 20.7
+                },
+                "sin_horario": {
+                    "description": "Atenciones registradas sin hora de inicio o fin",
+                    "type": "integer",
+                    "example": 3
+                },
+                "variacion_pct": {
+                    "description": "Cambio contra el periodo anterior en %; null si el anterior no tuvo atenciones",
+                    "type": "number",
+                    "example": 12.7
+                }
+            }
+        },
+        "models.ResumenClientes": {
+            "type": "object",
+            "properties": {
+                "canceladas": {
+                    "description": "Reservas canceladas de clientes registrados",
+                    "type": "integer",
+                    "example": 17
+                },
+                "citas": {
+                    "description": "Citas completadas de clientes registrados",
+                    "type": "integer",
+                    "example": 212
+                },
+                "citas_anterior": {
+                    "description": "Citas completadas de clientes registrados en el periodo anterior",
+                    "type": "integer",
+                    "example": 190
+                },
+                "citas_sin_cliente": {
+                    "description": "Citas completadas cuya reserva no esta vinculada a un cliente (no entran en ningun ranking)",
+                    "type": "integer",
+                    "example": 14
+                },
+                "clientes_activos": {
+                    "description": "Clientes que pagaron o completaron una cita en el periodo",
+                    "type": "integer",
+                    "example": 84
+                },
+                "clientes_activos_anterior": {
+                    "description": "Clientes activos del periodo anterior",
+                    "type": "integer",
+                    "example": 76
+                },
+                "clientes_compartidos": {
+                    "description": "Clientes activos en mas de un local en el periodo; solo se calcula en el bloque general",
+                    "type": "integer",
+                    "example": 5
+                },
+                "clientes_nuevos": {
+                    "description": "Clientes activos cuya primera actividad en el negocio cae en este periodo",
+                    "type": "integer",
+                    "example": 19
+                },
+                "clientes_que_pagaron": {
+                    "description": "Clientes que pagaron algo en el periodo",
+                    "type": "integer",
+                    "example": 70
+                },
+                "clientes_que_volvieron": {
+                    "description": "Clientes activos del periodo anterior que volvieron en este",
+                    "type": "integer",
+                    "example": 48
+                },
+                "clientes_recurrentes": {
+                    "description": "Clientes activos que ya habian venido antes del periodo",
+                    "type": "integer",
+                    "example": 65
+                },
+                "deudores": {
+                    "description": "Clientes con saldo pendiente hoy",
+                    "type": "integer",
+                    "example": 11
+                },
+                "inasistencias": {
+                    "description": "De las canceladas, cuantas fueron por inasistencia",
+                    "type": "integer",
+                    "example": 6
+                },
+                "ingresos": {
+                    "description": "Dinero pagado por clientes registrados en el periodo",
+                    "type": "number",
+                    "example": 18450
+                },
+                "ingresos_anterior": {
+                    "description": "Dinero pagado por clientes registrados en el periodo anterior",
+                    "type": "number",
+                    "example": 16200
+                },
+                "ingresos_sin_cliente": {
+                    "description": "Ventas del periodo sin cliente asignado (no entran en ningun ranking)",
+                    "type": "number",
+                    "example": 2300
+                },
+                "ingresos_sin_cliente_pct": {
+                    "description": "Porcentaje de las ventas del periodo sin cliente asignado",
+                    "type": "number",
+                    "example": 11.1
+                },
+                "por_cobrar": {
+                    "description": "Saldo pendiente hoy de todos los clientes del bloque",
+                    "type": "number",
+                    "example": 3120
+                },
+                "tasa_retorno_pct": {
+                    "description": "Porcentaje de los clientes del periodo anterior que volvio; null si el anterior no tuvo clientes",
+                    "type": "number",
+                    "example": 63.2
+                },
+                "ticket_promedio_cliente": {
+                    "description": "Ingresos entre clientes que pagaron",
+                    "type": "number",
+                    "example": 263.57
+                },
+                "ticket_promedio_cliente_anterior": {
+                    "description": "Ticket promedio por cliente del periodo anterior",
+                    "type": "number",
+                    "example": 241.79
+                },
+                "variacion_clientes_pct": {
+                    "description": "Cambio de clientes activos contra el periodo anterior en %; null si el anterior no tuvo",
+                    "type": "number",
+                    "example": 10.5
+                },
+                "variacion_ingresos_pct": {
+                    "description": "Cambio de ingresos contra el periodo anterior en %; null si el anterior fue 0",
+                    "type": "number",
+                    "example": 13.9
+                }
+            }
+        },
+        "models.SeguimientoItem": {
+            "type": "object",
+            "properties": {
+                "atencion_id": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "cliente": {
+                    "type": "string",
+                    "example": "Maria Lopez"
+                },
+                "detalle_insumos_pendientes": {
+                    "type": "string",
+                    "example": "Gel: 1 ML"
+                },
+                "empleado_nombre": {
+                    "type": "string",
+                    "example": "Daniela Perez"
+                },
+                "fecha": {
+                    "type": "string",
+                    "example": "2026-11-10"
+                },
+                "hora_fin": {
+                    "type": "string",
+                    "example": "09:50"
+                },
+                "hora_inicio": {
+                    "type": "string",
+                    "example": "09:00"
+                },
+                "insumos_pendientes": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "motivo": {
+                    "type": "string",
+                    "example": "INASISTENCIA"
+                },
+                "puede_atender": {
+                    "type": "boolean"
+                },
+                "puede_editar_atencion": {
+                    "type": "boolean"
+                },
+                "reserva_id": {
+                    "type": "integer",
+                    "example": 21
+                },
+                "servicio": {
+                    "type": "string",
+                    "example": "Depilacion Laser"
+                },
+                "tipo": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TipoSeguimiento"
+                        }
+                    ],
+                    "example": "DEDUCCION_PENDIENTE"
+                }
+            }
+        },
+        "models.SeguimientoResumen": {
+            "type": "object",
+            "properties": {
+                "cancelaciones": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "deducciones_pendientes": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "inasistencias": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "pendientes_cierre": {
+                    "type": "integer",
+                    "example": 4
+                }
+            }
+        },
         "models.Semana": {
             "type": "object",
             "properties": {
@@ -10446,6 +24075,32 @@ const docTemplate = `{
                 "titulo": {
                     "type": "string",
                     "example": "Semana 22"
+                }
+            }
+        },
+        "models.ServicioInsumo": {
+            "type": "object",
+            "properties": {
+                "cantidad_por_sesion": {
+                    "type": "number",
+                    "example": 30
+                },
+                "disponible": {
+                    "description": "Disponible es el stock actual del item en el local de la reserva.",
+                    "type": "number",
+                    "example": 100
+                },
+                "item_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "item_nombre": {
+                    "type": "string",
+                    "example": "Gel conductor"
+                },
+                "unidad_medida": {
+                    "type": "string",
+                    "example": "ML"
                 }
             }
         },
@@ -10504,6 +24159,44 @@ const docTemplate = `{
                 }
             }
         },
+        "models.StockLocal": {
+            "type": "object",
+            "properties": {
+                "cantidad": {
+                    "type": "number",
+                    "example": 120.5
+                },
+                "local_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "local_nombre": {
+                    "type": "string",
+                    "example": "PASEO ARANJUEZ"
+                }
+            }
+        },
+        "models.TipoBono": {
+            "type": "object",
+            "properties": {
+                "activo": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "descripcion": {
+                    "type": "string",
+                    "example": "Bono por metas del mes"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "nombre": {
+                    "type": "string",
+                    "example": "Producción"
+                }
+            }
+        },
         "models.TipoEspacioLocal": {
             "type": "object",
             "properties": {
@@ -10516,6 +24209,21 @@ const docTemplate = `{
                     "example": "M"
                 }
             }
+        },
+        "models.TipoSeguimiento": {
+            "type": "string",
+            "enum": [
+                "DEDUCCION_PENDIENTE",
+                "INASISTENCIA",
+                "CANCELACION",
+                "PENDIENTE_CIERRE"
+            ],
+            "x-enum-varnames": [
+                "SeguimientoDeduccionPendiente",
+                "SeguimientoInasistencia",
+                "SeguimientoCancelacion",
+                "SeguimientoPendienteCierre"
+            ]
         },
         "models.UsuarioResumenPG": {
             "type": "object",
@@ -10579,6 +24287,19 @@ const docTemplate = `{
                 "total_registros": {
                     "type": "integer",
                     "example": 2500
+                }
+            }
+        },
+        "pgsql.CobroResultado": {
+            "type": "object",
+            "properties": {
+                "codigo_pago": {
+                    "description": "CodigoPago del dinero nuevo que entro; vacio si no entro dinero.",
+                    "type": "string",
+                    "example": "PAGO-000123"
+                },
+                "plan": {
+                    "$ref": "#/definitions/cuenta.PlanCobro"
                 }
             }
         },
@@ -10766,9 +24487,19 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2026-05-23T16:04:05Z"
                 },
+                "alerta_inventario": {
+                    "description": "AlertaInventario avisa que faltaba stock de insumos al agendar (solo informativo).",
+                    "type": "boolean",
+                    "example": false
+                },
                 "cliente": {
                     "type": "string",
                     "example": "Maria Lopez"
+                },
+                "cliente_id": {
+                    "description": "ClienteID es el cliente registrado dueño de la reserva; ausente si esta por vincular.",
+                    "type": "integer",
+                    "example": 12
                 },
                 "costo_variable": {
                     "description": "Modalidad del servicio guardada en la reserva; ausente en historicos desconocidos.",
@@ -10842,6 +24573,87 @@ const docTemplate = `{
                 "tipo": {
                     "type": "string",
                     "example": "M"
+                }
+            }
+        },
+        "services.VentaDetalleLinea": {
+            "type": "object",
+            "properties": {
+                "cajero": {
+                    "description": "Cajero que registro el cobro; vacio si no se guardo.",
+                    "type": "string",
+                    "example": "Ana Perez"
+                },
+                "cantidad": {
+                    "description": "Cantidad vendida del servicio.",
+                    "type": "integer",
+                    "example": 2
+                },
+                "cliente_nit": {
+                    "description": "NIT o CI del cliente.",
+                    "type": "string",
+                    "example": "7654321"
+                },
+                "cliente_nombre": {
+                    "description": "Nombre del cliente.",
+                    "type": "string",
+                    "example": "Maria Rojas"
+                },
+                "codigo_pago": {
+                    "description": "Codigo del pago al que pertenece la linea.",
+                    "type": "string",
+                    "example": "PAGO-000012"
+                },
+                "descuento_prorrateado": {
+                    "description": "Parte del descuento del pago que corresponde a esta linea (proporcional a su subtotal).",
+                    "type": "number",
+                    "example": 15
+                },
+                "fecha": {
+                    "description": "Fecha y hora del pago.",
+                    "type": "string",
+                    "example": "2026-10-14T15:30:00-04:00"
+                },
+                "local": {
+                    "description": "Local donde se vendio.",
+                    "type": "string",
+                    "example": "SAN MARTIN"
+                },
+                "precio_unitario": {
+                    "description": "Precio unitario del servicio.",
+                    "type": "number",
+                    "example": 150
+                },
+                "servicio": {
+                    "description": "Servicio cobrado.",
+                    "type": "string",
+                    "example": "Limpieza facial"
+                },
+                "subtotal": {
+                    "description": "Subtotal de la linea antes de descuentos.",
+                    "type": "number",
+                    "example": 300
+                },
+                "tipo_linea": {
+                    "description": "Que se vendio: SERVICIO (del catalogo), INSUMO, PAQUETE u OTRO (linea libre).",
+                    "type": "string",
+                    "enum": [
+                        "SERVICIO",
+                        "INSUMO",
+                        "PAQUETE",
+                        "OTRO"
+                    ],
+                    "example": "SERVICIO"
+                },
+                "tipo_pago": {
+                    "description": "Tipo de pago: qr, efectivo o sin_tipo.",
+                    "type": "string",
+                    "example": "efectivo"
+                },
+                "total_pago": {
+                    "description": "Total final del pago completo (se repite en cada linea del mismo pago).",
+                    "type": "number",
+                    "example": 285
                 }
             }
         },

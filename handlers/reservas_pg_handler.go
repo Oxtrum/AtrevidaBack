@@ -12,6 +12,7 @@ import (
 	"atrevida-agenda-api/models"
 	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -122,6 +123,8 @@ type crearReservaPGRequest struct {
 	Tipo string `json:"tipo" example:"M"`
 	// Nombre del cliente
 	Cliente string `json:"cliente" binding:"required" example:"Maria Lopez"`
+	// Cliente registrado dueño de la reserva. Requerido en el panel interno (con token); el formulario publico lo ignora y la reserva se enlaza sola solo si el telefono coincide exacto con un unico cliente, si no queda por vincular.
+	ClienteID *int `json:"cliente_id,omitempty" example:"12"`
 	// Numero de telefono del cliente
 	NumeroTelefono string `json:"numero_telefono" binding:"required" example:"+59170011223"`
 	// Forma internacional E.164 opcional; no reemplaza el campo legacy.
@@ -188,10 +191,12 @@ func respondTurnstileError(c *gin.Context, err error) {
 // @Produce json
 // @Description costo_variable se deriva del catalogo y se conserva como dato historico; no se acepta desde el cliente. En servicios variables, precio es opcional y representa un importe acordado, no el costo de referencia.
 // @Param payload body crearReservaPGRequest true "Datos de la reserva"
+// @Description Inventario: si la peticion trae token Bearer valido (panel interno) y el servicio tiene insumos sin stock suficiente en el local, la reserva se guarda igual y la respuesta incluye alerta_inventario y advertencias_inventario; con la politica inventario.politica_sin_stock=BLOQUEAR responde 409 con el texto stock insuficiente. El formulario publico (sin token) nunca recibe advertencias ni se bloquea.
 // @Success 201 {object} utils.APIResponse{data=reservaCreatedResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante (en el panel interno tambien cliente_id), estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion"
+// @Failure 404 {object} utils.APIResponse "El cliente_id enviado por el panel no existe"
 // @Description Reserva repetida: si la peticion trae token Bearer valido y el telefono ya tiene una reserva vigente (no rechazada) en la misma fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas (las ya existentes) sin crear nada. El panel debe pedir confirmacion y reenviar con confirmar_duplicado=true. El formulario publico (sin token) no recibe este aviso.
-// @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles, el horario no esta libre, o el cliente ya tiene reserva ese dia (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)"
+// @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles, el horario no esta libre, stock insuficiente de insumos con politica BLOQUEAR, o el cliente ya tiene reserva ese dia (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)"
 // @Description Turnstile: sin token Bearer valido (formulario publico) el body debe traer cf-turnstile-response, que el backend valida con Cloudflare (siteverify, accion reservation_create y hostname permitido). Con token Bearer valido no se exige.
 // @Failure 403 {object} utils.APIResponse "Turnstile verification failed: Cloudflare no valida el token del formulario publico"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
@@ -220,9 +225,10 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		}
 	}
 
+	// El POST es publico: con token valido se aplican la politica de inventario y se devuelven avisos (RN-13).
+	autenticado := h.optionalAuth(c)
 	// Sin token de usuario es el formulario publico: exige el captcha validado aqui (y no en el proxy del front,
 	// porque un token de Turnstile solo sirve una vez y asi tampoco se salta llamando al backend directo).
-	autenticado := h.tokenBearerValido(c)
 	if !autenticado {
 		if err := h.Turnstile.Verify(c.Request.Context(), req.TurnstileToken, c.ClientIP()); err != nil {
 			respondTurnstileError(c, err)
@@ -230,15 +236,17 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 		}
 	}
 
-	id, err := h.ReservasPG.CrearReserva(services.CrearReservaPGInput{
+	resultado, err := h.ReservasPG.CrearReservaConAvisos(services.CrearReservaPGInput{
 		Autenticado: autenticado,
-		Local:     strings.TrimSpace(req.Local),
-		Fecha:     strings.TrimSpace(req.Fecha),
-		HoraDesde: strings.TrimSpace(req.HoraDesde),
-		HoraHasta: strings.TrimSpace(req.HoraHasta),
-		Tipo:      tipoNorm,
-		Cliente:   strings.TrimSpace(req.Cliente),
-		Telefono:  telefono, TelefonoE164: req.TelefonoE164,
+		Actor:       consumoActor(c),
+		Local:       strings.TrimSpace(req.Local),
+		Fecha:       strings.TrimSpace(req.Fecha),
+		HoraDesde:   strings.TrimSpace(req.HoraDesde),
+		HoraHasta:   strings.TrimSpace(req.HoraHasta),
+		Tipo:        tipoNorm,
+		Cliente:     strings.TrimSpace(req.Cliente),
+		ClienteID:   req.ClienteID,
+		Telefono:    telefono, TelefonoE164: req.TelefonoE164,
 		Estado:             estadoFinal,
 		ServicioID:         req.ServicioID,
 		Servicio:           strings.TrimSpace(req.Servicio),
@@ -258,9 +266,12 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 	if err != nil {
 		status := http.StatusInternalServerError
 		errLower := strings.ToLower(err.Error())
-		if errors.Is(err, repository.ErrCapacidadNoDisponible) {
+		if errors.Is(err, repository.ErrCapacidadNoDisponible) || strings.Contains(errLower, "stock insuficiente") {
 			status = http.StatusConflict
-		} else if strings.Contains(errLower, "horario fuera de atenci") ||
+		} else if strings.Contains(errLower, "cliente no encontrado") {
+			status = http.StatusNotFound
+		} else if strings.Contains(errLower, "cliente_id") ||
+			strings.Contains(errLower, "horario fuera de atenci") ||
 			strings.Contains(errLower, "telefono_e164") ||
 			strings.Contains(errLower, "hora_desde") ||
 			strings.Contains(errLower, "hora_hasta") ||
@@ -277,21 +288,11 @@ func (h *Container) PostReservaPG(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusCreated, reservaCreatedResponse{
-		ID:      id,
-		Mensaje: "Reserva creada correctamente",
+		ID:                     resultado.ID,
+		Mensaje:                "Reserva creada correctamente",
+		AlertaInventario:       autenticado && resultado.AlertaInventario,
+		AdvertenciasInventario: resultado.AdvertenciasInventario,
 	})
-}
-
-// tokenBearerValido indica si la peticion trae un token Bearer valido (panel interno) sin abortar
-// cuando falta: el POST de reservas es publico y solo el panel recibe el aviso de reserva repetida.
-func (h *Container) tokenBearerValido(c *gin.Context) bool {
-	const prefix = "Bearer "
-	header := strings.TrimSpace(c.GetHeader("Authorization"))
-	if !strings.HasPrefix(header, prefix) {
-		return false
-	}
-	_, err := h.Auth.ValidarToken(strings.TrimSpace(strings.TrimPrefix(header, prefix)))
-	return err == nil
 }
 
 func respondReservaDuplicada(c *gin.Context, e *services.ReservaDuplicadaError) {
@@ -315,10 +316,12 @@ func respondReservaDuplicada(c *gin.Context, e *services.ReservaDuplicadaError) 
 type actualizarEstadoReservaPGRequest struct {
 	// ID de la reserva
 	Id int `json:"id" binding:"required" example:"44"`
-	// Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO
+	// Nuevo estado: PENDIENTE, AGENDADO, RECHAZADO o CANCELADO
 	Estado string `json:"estado" binding:"required" example:"AGENDADO"`
 	// Motivo del cambio de estado
-	Causa string `json:"causa" example:"Cliente confirmo por WhatsApp"`
+	Causa                    string `json:"causa" example:"Cliente confirmo por WhatsApp"`
+	MotivoCancelacionTipo    string `json:"motivo_cancelacion_tipo" example:"INASISTENCIA"`
+	MotivoCancelacionDetalle string `json:"motivo_cancelacion_detalle" example:"No respondio los intentos de contacto"`
 	// Servicio confirmado (opcional, se actualiza si se envia)
 	ServicioConfirmado *string `json:"servicio_confirmado" example:"Depilacion Laser Piernas"`
 	// Precio actualizado (opcional)
@@ -378,16 +381,16 @@ type reservaResumenResponse struct {
 	ReservasAgendadasDia int `json:"reservas_agendadas_dia" example:"15"`
 	// Cantidad de servicios completados en el dia consultado
 	ServiciosCompletadosDia int `json:"servicios_completados_dia" example:"10"`
-	// Ingresos de pagos activos y PAGADOS en el dia consultado
-	IngresosHoy float64 `json:"ingresos_hoy" example:"1250.5"`
+	// Ingresos de pagos activos y PAGADOS en el dia consultado. Solo lo recibe admin_sys; para el resto no viene.
+	IngresosHoy *float64 `json:"ingresos_hoy,omitempty" example:"1250.5"`
 	// Cantidad de pagos activos y PAGADOS en el dia consultado
 	CancelacionesHoy int `json:"cancelaciones_hoy" example:"6"`
-	// Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada
-	IngresosSemana float64 `json:"ingresos_semana" example:"8450.75"`
+	// Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada. Solo lo recibe admin_sys; para el resto no viene.
+	IngresosSemana *float64 `json:"ingresos_semana,omitempty" example:"8450.75"`
 	// Resumen por dia de la semana desde el lunes hasta la fecha consultada
 	Semana reservaResumenSemanaResponse `json:"semana"`
-	// Desglose de ingresos por dia desde el lunes hasta la fecha consultada
-	Ingresos reservaResumenIngresosSemanaResponse `json:"ingresos"`
+	// Desglose de ingresos por dia desde el lunes hasta la fecha consultada. Solo lo recibe admin_sys; para el resto no viene.
+	Ingresos *reservaResumenIngresosSemanaResponse `json:"ingresos,omitempty"`
 }
 
 func normalizarTelefono(raw string) (string, error) {
@@ -418,7 +421,7 @@ func normalizarTelefono(raw string) (string, error) {
 
 // GetReservasResumenPG godoc
 // @Summary Obtener resumen numerico de reservas
-// @Description Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).
+// @Description Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Los campos de ingresos (ingresos_hoy, ingresos_semana, ingresos) solo se devuelven a admin_sys; para cualquier otro rol no vienen. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).
 // @Tags Reservas BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -467,15 +470,24 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, reservaResumenResponse{
+	// El dinero del negocio solo lo ve admin_sys, tambien quien tiene un local asignado.
+	utils.Respond(c, http.StatusOK, buildReservaResumenResponse(fecha, *resumen, tieneRol(c, "admin_sys")))
+}
+
+// buildReservaResumenResponse arma el resumen del dia; los ingresos solo van si verIngresos.
+func buildReservaResumenResponse(fecha time.Time, resumen services.ResumenReservas, verIngresos bool) reservaResumenResponse {
+	resp := reservaResumenResponse{
 		ReservasAgendadasDia:    resumen.ReservasAgendadasDia,
 		ServiciosCompletadosDia: resumen.ServiciosCompletadosDia,
-		IngresosHoy:             resumen.IngresosDia,
 		CancelacionesHoy:        resumen.CancelacionesDia,
-		IngresosSemana:          resumen.IngresosSemana,
 		Semana:                  buildReservaResumenSemanaResponse(fecha, resumen.Semana),
-		Ingresos:                buildReservaResumenIngresosSemanaResponse(fecha, resumen.Ingresos),
-	})
+	}
+	if verIngresos {
+		ingresosHoy, ingresosSemana := resumen.IngresosDia, resumen.IngresosSemana
+		desglose := buildReservaResumenIngresosSemanaResponse(fecha, resumen.Ingresos)
+		resp.IngresosHoy, resp.IngresosSemana, resp.Ingresos = &ingresosHoy, &ingresosSemana, &desglose
+	}
+	return resp
 }
 
 func queryLocalNombre(c *gin.Context) string {
@@ -575,6 +587,7 @@ func float64Ptr(v float64) *float64 {
 // @Param fecha query string false "Fecha exacta YYYY-MM-DD" example(2026-05-23)
 // @Param fecha_desde query string false "Fecha inicio rango YYYY-MM-DD" example(2026-05-19)
 // @Param fecha_hasta query string false "Fecha fin rango YYYY-MM-DD" example(2026-05-24)
+// @Param cliente_id query int false "Solo las reservas de este cliente registrado (ficha del cliente)" example(12)
 // @Param cliente query string false "Nombre del cliente" example(Maria Lopez)
 // @Param numero_telefono query string false "Numero de telefono; acepta 70011223, 59170011223 o +591 700-11223" example(+59170011223)
 // @Param servicio_solicitado query string false "Busqueda parcial por servicio solicitado" example(depilacion)
@@ -587,11 +600,13 @@ func float64Ptr(v float64) *float64 {
 // @Param vigente_hora query string false "Hora local HH:MM desde la que una reserva sigue vigente; requiere vigente_fecha" example(15:30)
 // @Param vigencia_solo_pendientes query bool false "Aplica la vigencia solo a reservas PENDIENTE" example(false)
 // @Param orden query string false "Orden estable del listado" Enums(cronologico) example(cronologico)
+// @Param ordenar_por query string false "Campo por el que ordenar; manda sobre orden=cronologico" Enums(fecha,hora_desde,cliente,tipo,servicio,estado,local) example(cliente)
+// @Param sentido query string false "Sentido del orden; solo con ordenar_por, por defecto asc" Enums(asc,desc) example(asc)
 // @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
-// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron"
 // @Param include_total query bool false "Incluye el total de paginas" example(false)
 // @Success 200 {object} utils.APIResponse{data=reservaSimpleListResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: tipo invalido, estado invalido"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: tipo invalido, estado invalido, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [get]
 func (h *Container) GetReservasSimplePG(c *gin.Context) {
@@ -636,6 +651,16 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		return
 	}
 
+	var clienteID *int
+	if raw := strings.TrimSpace(c.Query("cliente_id")); raw != "" {
+		id, err := strconv.Atoi(raw)
+		if err != nil || id < 1 {
+			utils.RespondError(c, http.StatusBadRequest, "cliente_id debe ser un entero positivo")
+			return
+		}
+		clienteID = &id
+	}
+
 	filtro := services.FiltroReservasSimple{
 		Context:            c.Request.Context(),
 		Local:              strings.TrimSpace(c.Query("local")),
@@ -643,6 +668,7 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		FechaDesde:         strings.TrimSpace(c.Query("fecha_desde")),
 		FechaHasta:         strings.TrimSpace(c.Query("fecha_hasta")),
 		Cliente:            strings.TrimSpace(c.Query("cliente")),
+		ClienteID:          clienteID,
 		NumeroTelefono:     strings.TrimSpace(c.Query("numero_telefono")),
 		ServicioSolicitado: strings.TrimSpace(c.Query("servicio_solicitado")),
 		ServicioConfirmado: strings.TrimSpace(c.Query("servicio_confirmado")),
@@ -681,22 +707,39 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 	}
 	filters := map[string]string{
 		"local": filtro.Local, "fecha": filtro.Fecha, "fecha_desde": filtro.FechaDesde, "fecha_hasta": filtro.FechaHasta,
-		"cliente": filtro.Cliente, "numero_telefono": filtro.NumeroTelefono, "servicio_solicitado": filtro.ServicioSolicitado,
+		"cliente": filtro.Cliente, "cliente_id": c.Query("cliente_id"), "numero_telefono": filtro.NumeroTelefono, "servicio_solicitado": filtro.ServicioSolicitado,
 		"servicio_confirmado": filtro.ServicioConfirmado, "busqueda": filtro.Busqueda,
 		"estado": filtro.Estado, "excluir_estado": filtro.ExcluirEstado, "tipo": filtro.Tipo,
 		"vigente_fecha": filtro.VigenteFecha, "vigente_hora": filtro.VigenteHora,
 		"vigencia_solo_pendientes": strconv.FormatBool(filtro.VigenciaPendientes), "orden": filtro.Orden,
 	}
-	var after reservationCursor
-	if !decodePaginationCursor(c, page, "reservas", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.Date.IsZero() || after.Time == "")) {
-		if !c.Writer.Written() {
-			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
-		}
+	sort, ok := parseSort(c, pgsqlrepo.ReservasOrdenables)
+	if !ok {
 		return
 	}
-	filtro.PageLimit = page.QueryLimit()
-	filtro.CursorSet = page.Cursor != ""
-	filtro.CursorLocal, filtro.CursorFecha, filtro.CursorHora, filtro.CursorID = after.Local, after.Date, after.Time, after.ID
+	var after reservationCursor
+	var afterOffset pagination.OffsetPosition
+	if sort.Active() {
+		// El orden pedido manda sobre orden=cronologico y pagina por desplazamiento. Sus claves solo se suman
+		// a los filtros del cursor cuando hay orden, para no invalidar los cursores del orden por defecto.
+		filters["ordenar_por"], filters["sentido"] = sort.Key, sort.Direction()
+		filtro.OrdenarPor, filtro.OrdenDesc = sort.Key, sort.Desc
+		if afterOffset, ok = decodeOffsetCursor(c, page, "reservas", filters); !ok {
+			return
+		}
+		filtro.Offset = afterOffset.Offset
+		filtro.PageLimit = page.QueryLimit()
+	} else {
+		if !decodePaginationCursor(c, page, "reservas", filters, &after) || (page.Cursor != "" && (after.ID < 1 || after.Date.IsZero() || after.Time == "")) {
+			if !c.Writer.Written() {
+				utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+			}
+			return
+		}
+		filtro.PageLimit = page.QueryLimit()
+		filtro.CursorSet = page.Cursor != ""
+		filtro.CursorLocal, filtro.CursorFecha, filtro.CursorHora, filtro.CursorID = after.Local, after.Date, after.Time, after.ID
+	}
 
 	resultado, err := h.ReservasPG.GetReservasSimple(filtro)
 	if err != nil {
@@ -704,6 +747,9 @@ func (h *Container) GetReservasSimplePG(c *gin.Context) {
 		return
 	}
 	resultado, metadata, err := pagination.Build(resultado, page, "reservas", filters, func(item services.ReservaSimple) any {
+		if sort.Active() {
+			return pagination.OffsetPosition{Offset: afterOffset.Offset + page.Limit}
+		}
 		date, _ := time.Parse("2006-01-02", item.Fecha)
 		return reservationCursor{Local: item.Local, Date: date, Time: item.HoraDesde, ID: item.ID}
 	})
@@ -824,12 +870,13 @@ type actualizarReservaPGRequest struct {
 // @Security BearerAuth
 // @Description limpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.
 // @Param payload body actualizarReservaPGRequest true "Datos para actualizar la reserva"
-// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Description Recalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias. Si nuevo_estado es AGENDADO, inventario.descontar_en_estado=AGENDADO e inventario.permitir_stock_negativo=false, responde 409 con el texto stock insuficiente cuando el stock real del local no alcanza.
+// @Success 200 {object} utils.APIResponse{data=reservaAvisosResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar, fecha pasada u horario fuera de atencion"
 // @Failure 401 {object} utils.APIResponse "Token ausente o invalido"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
 // @Description Reserva repetida: si nueva_fecha cambia el dia y el telefono ya tiene otra reserva vigente (no rechazada, de cualquier local) en esa fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas sin modificar nada. Reenviar con confirmar_duplicado=true para mover igual.
-// @Failure 409 {object} utils.APIResponse "Reserva completada, sin espacios disponibles en el horario destino o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)"
+// @Failure 409 {object} utils.APIResponse "Reserva completada, sin espacios disponibles en el horario destino, stock insuficiente de insumos al pasar a AGENDADO con descuento al agendar, o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [patch]
 func (h *Container) PatchReservaPG(c *gin.Context) {
@@ -875,7 +922,8 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		return
 	}
 
-	err := h.ReservasPG.ActualizarReserva(services.ActualizarReservaPGInput{
+	avisos, err := h.ReservasPG.ActualizarReservaConAvisos(services.ActualizarReservaPGInput{
+		Actor:               consumoActor(c),
 		Id:                  id,
 		Local:               req.Local,
 		NuevaFecha:          req.NuevaFecha,
@@ -903,7 +951,8 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		if errors.Is(err, repository.ErrCapacidadNoDisponible) || errors.Is(err, repository.ErrEstadoReservaModificado) {
+		if errors.Is(err, repository.ErrCapacidadNoDisponible) || errors.Is(err, repository.ErrEstadoReservaModificado) ||
+			strings.Contains(strings.ToLower(err.Error()), "stock insuficiente") {
 			utils.RespondError(c, http.StatusConflict, err.Error())
 			return
 		}
@@ -935,23 +984,28 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "Reserva actualizada correctamente"})
+	utils.Respond(c, http.StatusOK, reservaAvisosResponse{
+		Mensaje:                "Reserva actualizada correctamente",
+		AlertaInventario:       avisos.AlertaInventario,
+		AdvertenciasInventario: avisos.AdvertenciasInventario,
+	})
 }
 
 // PatchReservaEstadoPG godoc
 // @Summary Actualizar estado de reserva
-// @Description Cambia el estado de una reserva. id: ID de la reserva (requerido). estado: PENDIENTE, AGENDADO, RECHAZADO o COMPLETADO (requerido). causa: motivo del cambio, requerido cuando el estado es RECHAZADO. servicio_confirmado: servicio final (opcional). precio: precio actualizado (opcional). tipo: M=mesa o B=bicicleta (opcional). Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→COMPLETADO/RECHAZADO, RECHAZADO→PENDIENTE. COMPLETADO no admite cambios.
+// @Description Cambia el estado de una reserva. COMPLETADO solo se puede establecer al registrar una atención. RECHAZADO se reserva para solicitudes PENDIENTE; CANCELADO exige motivo_cancelacion_tipo y solo aplica a reservas AGENDADO. Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→CANCELADO, RECHAZADO→PENDIENTE.
 // @Tags Reservas BD
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Description Confirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.
 // @Param payload body actualizarEstadoReservaPGRequest true "Nuevo estado de la reserva"
-// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Description Inventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.
+// @Success 200 {object} utils.APIResponse{data=reservaAvisosResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: estado invalido, transicion no permitida, campo requerido faltante"
 // @Failure 401 {object} utils.APIResponse "Token ausente o invalido"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
-// @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles para confirmar la reserva"
+// @Failure 409 {object} utils.APIResponse "Conflicto: una reserva solo se completa mediante el registro de una atención, no hay espacios disponibles o el stock es insuficiente"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas/estado [patch]
 func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
@@ -965,17 +1019,26 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 		utils.RespondError(c, http.StatusBadRequest, "id no valido")
 		return
 	}
+	if strings.EqualFold(strings.TrimSpace(req.Estado), "COMPLETADO") {
+		log.Printf("[reservas] event=transicion_completado_bloqueada reserva_id=%d", req.Id)
+		utils.RespondError(c, http.StatusConflict, "una reserva solo se completa al registrar una atencion")
+		return
+	}
 
-	err := h.ReservasPG.ActualizarEstadoReserva(services.ActualizarEstadoReservaInput{
-		Id:                 req.Id,
-		Estado:             req.Estado,
-		Causa:              req.Causa,
-		ServicioConfirmado: req.ServicioConfirmado,
-		Precio:             req.Precio,
-		Tipo:               req.Tipo,
+	avisos, err := h.ReservasPG.ActualizarEstadoReservaConAvisos(services.ActualizarEstadoReservaInput{
+		Actor:                    consumoActor(c),
+		Id:                       req.Id,
+		Estado:                   req.Estado,
+		Causa:                    req.Causa,
+		MotivoCancelacionTipo:    req.MotivoCancelacionTipo,
+		MotivoCancelacionDetalle: req.MotivoCancelacionDetalle,
+		ServicioConfirmado:       req.ServicioConfirmado,
+		Precio:                   req.Precio,
+		Tipo:                     req.Tipo,
 	})
 	if err != nil {
-		if errors.Is(err, repository.ErrCapacidadNoDisponible) || errors.Is(err, repository.ErrEstadoReservaModificado) {
+		if errors.Is(err, repository.ErrCapacidadNoDisponible) || errors.Is(err, repository.ErrEstadoReservaModificado) ||
+			strings.Contains(strings.ToLower(err.Error()), "stock insuficiente") {
 			utils.RespondError(c, http.StatusConflict, err.Error())
 			return
 		}
@@ -987,7 +1050,11 @@ func (h *Container) PatchReservaEstadoPG(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "Estado de reserva actualizado correctamente"})
+	utils.Respond(c, http.StatusOK, reservaAvisosResponse{
+		Mensaje:                "Estado de reserva actualizado correctamente",
+		AlertaInventario:       avisos.AlertaInventario,
+		AdvertenciasInventario: avisos.AdvertenciasInventario,
+	})
 }
 
 // PatchReservaNotificadoPG godoc
@@ -1137,7 +1204,7 @@ func (h *Container) PatchNotificacionReservaLeidaPG(c *gin.Context) {
 
 // DeleteReservaPG godoc
 // @Summary Eliminar reserva
-// @Description Eliminacion logica de una reserva (activo=false). id: ID de la reserva (requerido, path).
+// @Description Eliminacion logica de una reserva (activo=false). id: ID de la reserva (requerido, path). Si la reserva ya habia descontado insumos, se devuelve el stock con movimientos REVERSION_SERVICIO en la misma transaccion.
 // @Tags Reservas BD
 // @Produce json
 // @Param id path int true "ID de la reserva" example(44)
@@ -1153,7 +1220,7 @@ func (h *Container) DeleteReservaPG(c *gin.Context) {
 		return
 	}
 
-	err = h.ReservasPG.DeleteReserva(id)
+	err = h.ReservasPG.EliminarReserva(id, consumoActor(c))
 	if err != nil {
 		status := http.StatusInternalServerError
 		if strings.Contains(strings.ToLower(err.Error()), "no encontrada") ||

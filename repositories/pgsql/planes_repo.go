@@ -1,12 +1,15 @@
 package pgsql
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 )
 
@@ -14,25 +17,65 @@ var _ repository.PlanesRepository = (*PlanesRepo)(nil)
 
 type PlanesRepo struct {
 	db *sqlx.DB
+	// ConsumoSesion descuenta los insumos del servicio de una sesion marcada como
+	// realizada sin reserva ligada (RN-18). Opcional: si es nil no se toca el inventario.
+	ConsumoSesion func(tx *sqlx.Tx, servicioID, localID, planMovimientoID int) error
 }
 
 func NewPlanesRepo(db *sqlx.DB) *PlanesRepo {
 	return &PlanesRepo{db: db}
 }
 
-func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, error) {
+// planEstadoCobranzaSQL da el estado de cobranza de un plan (alias p). Un paquete vendido con cargos (cuenta del
+// cliente) se cobra por esos cargos: PAGADO si lo cobrado cubre lo cargado, PARCIAL si hay algo cobrado y PENDIENTE si
+// nada. Un plan sin cargos conserva el estado guardado (las cuotas y el cobro antiguos).
+const planEstadoCobranzaSQL = `CASE
+	WHEN EXISTS (SELECT 1 FROM cargos_cliente cp WHERE cp.plan_id = p.id AND cp.anulado = FALSE) THEN
+		CASE
+			WHEN COALESCE((SELECT SUM(a.monto) FROM pago_aplicaciones a JOIN cargos_cliente cp ON cp.id = a.cargo_id
+				WHERE cp.plan_id = p.id AND cp.anulado = FALSE AND a.anulado = FALSE), 0)
+				>= (SELECT SUM(cp.monto) FROM cargos_cliente cp WHERE cp.plan_id = p.id AND cp.anulado = FALSE) THEN 'PAGADO'
+			WHEN COALESCE((SELECT SUM(a.monto) FROM pago_aplicaciones a JOIN cargos_cliente cp ON cp.id = a.cargo_id
+				WHERE cp.plan_id = p.id AND cp.anulado = FALSE AND a.anulado = FALSE), 0) > 0 THEN 'PARCIAL'
+			ELSE 'PENDIENTE'
+		END
+	ELSE p.estado_cobranza
+END`
+
+// PlanesOrdenables lista las columnas por las que se puede ordenar el listado de planes (ordenar_por).
+// La clave es el nombre del campo en la respuesta; el texto ignora mayusculas y acentos.
+var PlanesOrdenables = pagination.Columns{
+	"codigo":             "p.codigo",
+	"cliente":            textoOrden("p.cliente"),
+	"combo_nombre_texto": textoOrden("p.combo_nombre_texto"),
+	"local_nombre_texto": textoOrden("p.local_nombre_texto"),
+	"precio_total":       "p.precio_total",
+	"estado":             "p.estado",
+	"estado_cobranza":    planEstadoCobranzaSQL,
+	"creado_en":          "p.creado_en",
+}
+
+// buildPlanesQuery arma el listado. Sin orden pedido pagina por valor (con la prioridad de estado si se
+// pidio); con orden pedido, que manda sobre la prioridad, pagina por desplazamiento.
+func buildPlanesQuery(f repository.FiltroPlanes) (string, []interface{}) {
 	conditions, args := planConditions(f)
 	idx := len(args) + 1
-	if f.CursorSet {
+	ordenado := f.OrdenarPor != ""
+	if f.CursorSet && !ordenado {
 		condition, cursorArgs, nextIndex := planCursorCondition(f, idx)
 		conditions = append(conditions, condition)
 		args = append(args, cursorArgs...)
 		idx = nextIndex
 	}
-	limitClause := ""
+	pageClause := ""
 	if f.PageLimit > 0 {
-		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
+		pageClause = fmt.Sprintf(" LIMIT $%d", idx)
 		args = append(args, f.PageLimit)
+		idx++
+		if ordenado && f.Offset > 0 {
+			pageClause += fmt.Sprintf(" OFFSET $%d", idx)
+			args = append(args, f.Offset)
+		}
 	}
 
 	query := fmt.Sprintf(`
@@ -43,13 +86,27 @@ func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, err
 			p.cliente_id, p.cliente_nombre_texto, p.local_nombre_texto,
 			p.combo_id_origen, p.combo_nombre_texto,
 			p.fecha_inicio, p.fecha_fin,
-			p.estado, p.estado_cobranza, p.tipo_pago,
+			p.estado, (`+planEstadoCobranzaSQL+`) AS estado_cobranza, p.tipo_pago,
 			p.subtotal, p.descuento, p.precio_total, p.moneda,
 			p.creado_por, p.actualizado_por, p.actualizado_en
 		FROM planes p
 		WHERE %s
 		ORDER BY %s%s
-	`, strings.Join(conditions, " AND "), planOrderClause(f), limitClause)
+	`, strings.Join(conditions, " AND "), planOrderClause(f), pageClause)
+	return query, args
+}
+
+// EstadoCobranza devuelve el estado de cobranza vigente de un paquete (ver planEstadoCobranzaSQL).
+func (r *PlanesRepo) EstadoCobranza(planID int) (string, error) {
+	var estado string
+	if err := r.db.Get(&estado, `SELECT (`+planEstadoCobranzaSQL+`) FROM planes p WHERE p.id = $1`, planID); err != nil {
+		return "", fmt.Errorf("%w: plan con id %d", repository.ErrPlanNoEncontrado, planID)
+	}
+	return estado, nil
+}
+
+func (r *PlanesRepo) ListPlanes(f repository.FiltroPlanes) ([]models.PlanPG, error) {
+	query, args := buildPlanesQuery(f)
 
 	var planes []models.PlanPG
 	if err := r.db.SelectContext(queryContext(f.Context), &planes, query, args...); err != nil {
@@ -84,6 +141,9 @@ func planStateRankSQL() string {
 }
 
 func planOrderClause(f repository.FiltroPlanes) string {
+	if f.OrdenarPor != "" {
+		return pagination.Sort{Key: f.OrdenarPor, Desc: f.OrdenDesc}.OrderBy(PlanesOrdenables, "p.creado_en DESC, p.id DESC", "p.id")
+	}
 	if f.OrdenPrioridadEstado {
 		return planStateRankSQL() + ", p.creado_en DESC, p.id DESC"
 	}
@@ -129,7 +189,7 @@ func planConditions(f repository.FiltroPlanes) ([]string, []interface{}) {
 		add("p.estado = $%d", f.Estado)
 	}
 	if f.EstadoCobranza != "" {
-		add("p.estado_cobranza = $%d", f.EstadoCobranza)
+		add("("+planEstadoCobranzaSQL+") = $%d", f.EstadoCobranza)
 	}
 	if f.FechaDesde != nil {
 		add("p.creado_en >= $%d", *f.FechaDesde)
@@ -150,7 +210,7 @@ func (r *PlanesRepo) GetPlanByID(id int) (*models.PlanCompletoPG, error) {
 			p.cliente_id, p.cliente_nombre_texto, p.local_nombre_texto,
 			p.combo_id_origen, p.combo_nombre_texto,
 			p.fecha_inicio, p.fecha_fin,
-			p.estado, p.estado_cobranza, p.tipo_pago,
+			p.estado, (`+planEstadoCobranzaSQL+`) AS estado_cobranza, p.tipo_pago,
 			p.subtotal, p.descuento, p.precio_total, p.moneda,
 			p.creado_por, p.actualizado_por, p.actualizado_en
 		FROM planes p
@@ -431,6 +491,25 @@ func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, erro
 		return 0, nil
 	}
 
+	if realizado && r.ConsumoSesion != nil {
+		if err := r.consumirInsumosSesionTx(tx, planID, numero); err != nil {
+			return 0, err
+		}
+	}
+
+	if err := sincronizarEstadoPlanTx(tx, planID); err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+// sincronizarEstadoPlanTx alinea el estado del plan con el avance de sus sesiones: todas realizadas
+// pasa ACTIVO -> COMPLETADO; si deja de estarlo, COMPLETADO -> ACTIVO.
+func sincronizarEstadoPlanTx(tx *sqlx.Tx, planID int) error {
 	// Avance de sesiones + estado actual para decidir la sincronización.
 	var info struct {
 		Estado string `db:"estado"`
@@ -446,7 +525,7 @@ func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, erro
 		WHERE p.id = $1
 		GROUP BY p.estado
 	`, planID); err != nil {
-		return 0, fmt.Errorf("error al recalcular avance del plan: %w", err)
+		return fmt.Errorf("error al recalcular avance del plan: %w", err)
 	}
 
 	nuevoEstado := ""
@@ -459,14 +538,93 @@ func (r *PlanesRepo) MarcarSesion(planID, numero int, realizado bool) (int, erro
 		if _, err := tx.Exec(`
 			UPDATE planes SET estado = $1, actualizado_en = NOW() WHERE id = $2
 		`, nuevoEstado, planID); err != nil {
-			return 0, fmt.Errorf("error al sincronizar estado del plan: %w", err)
+			return fmt.Errorf("error al sincronizar estado del plan: %w", err)
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		return 0, err
+	return nil
+}
+
+// MarcarSesionPorReservaTx marca como realizada la siguiente sesion pendiente del plan cuando se
+// completa una reserva imputada a ese plan, y deja el rastro en plan_movimientos con la reserva.
+// Como el movimiento lleva reserva_id, marcar la sesion no vuelve a descontar insumos: ya los
+// descuenta la reserva. Prefiere la sesion que incluye el servicio de la reserva. Idempotente.
+func MarcarSesionPorReservaTx(tx *sqlx.Tx, reservaID int) error {
+	var res struct {
+		PlanID     sql.NullInt64  `db:"plan_id"`
+		Confirmado sql.NullString `db:"servicio_confirmado"`
+		Nombre     sql.NullString `db:"servicio_nombre"`
+		Solicitado sql.NullString `db:"servicio_solicitado"`
 	}
-	return int(n), nil
+	if err := tx.Get(&res, `SELECT plan_id, servicio_confirmado, servicio_nombre, servicio_solicitado FROM reservas WHERE id = $1`, reservaID); err != nil {
+		return fmt.Errorf("error al leer la reserva del plan: %w", err)
+	}
+	if !res.PlanID.Valid {
+		return nil
+	}
+	var ya int
+	if err := tx.Get(&ya, `SELECT COUNT(*) FROM plan_movimientos WHERE reserva_id = $1 AND tipo = 'CONSUMO'`, reservaID); err != nil {
+		return fmt.Errorf("error al verificar la sesion de la reserva: %w", err)
+	}
+	if ya > 0 {
+		return nil
+	}
+	norm := func(v sql.NullString) string { return strings.ToLower(strings.TrimSpace(v.String)) }
+	var numero int
+	err := tx.Get(&numero, `
+		SELECT ps.sesion_numero FROM plan_servicios ps
+		WHERE ps.plan_id = $1 AND NOT ps.realizado
+		ORDER BY (LOWER(BTRIM(ps.nombre_texto)) IN ($2, $3, $4)) DESC, ps.sesion_numero
+		LIMIT 1`, res.PlanID.Int64, norm(res.Confirmado), norm(res.Nombre), norm(res.Solicitado))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil // el plan no tiene sesiones pendientes
+	}
+	if err != nil {
+		return fmt.Errorf("error al buscar la sesion del plan: %w", err)
+	}
+	if _, err := tx.Exec(`
+		UPDATE plan_servicios SET realizado = TRUE, fecha_realizado = NOW()
+		WHERE plan_id = $1 AND sesion_numero = $2`, res.PlanID.Int64, numero); err != nil {
+		return fmt.Errorf("error al marcar la sesion del plan: %w", err)
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO plan_movimientos (plan_servicio_id, reserva_id, tipo, cantidad, motivo)
+		SELECT id, $3, 'CONSUMO', 1, 'Reserva completada'
+		FROM plan_servicios WHERE plan_id = $1 AND sesion_numero = $2
+		ON CONFLICT (plan_servicio_id, reserva_id) DO NOTHING`, res.PlanID.Int64, numero, reservaID); err != nil {
+		return fmt.Errorf("error al registrar el consumo de la sesion: %w", err)
+	}
+	return sincronizarEstadoPlanTx(tx, int(res.PlanID.Int64))
+}
+
+// LiberarSesionPorReservaTx deshace MarcarSesionPorReservaTx al eliminar la reserva: la sesion
+// vuelve a quedar pendiente y el movimiento pasa a LIBERACION. Idempotente.
+func LiberarSesionPorReservaTx(tx *sqlx.Tx, reservaID int) error {
+	var planes []int
+	if err := tx.Select(&planes, `
+		UPDATE plan_servicios ps SET realizado = FALSE, fecha_realizado = NULL
+		FROM plan_movimientos pm
+		WHERE pm.plan_servicio_id = ps.id AND pm.reserva_id = $1 AND pm.tipo = 'CONSUMO'
+		RETURNING ps.plan_id`, reservaID); err != nil {
+		return fmt.Errorf("error al liberar la sesion del plan: %w", err)
+	}
+	if len(planes) == 0 {
+		return nil
+	}
+	if _, err := tx.Exec(`UPDATE plan_movimientos SET tipo = 'LIBERACION', motivo = 'Reserva eliminada' WHERE reserva_id = $1 AND tipo = 'CONSUMO'`, reservaID); err != nil {
+		return fmt.Errorf("error al registrar la liberacion de la sesion: %w", err)
+	}
+	vistos := map[int]bool{}
+	for _, planID := range planes {
+		if vistos[planID] {
+			continue
+		}
+		vistos[planID] = true
+		if err := sincronizarEstadoPlanTx(tx, planID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // CobrarPlan adjunta un pago existente a un plan RESERVADO, marca la cobranza
@@ -558,4 +716,46 @@ func (r *PlanesRepo) cargarAplicaciones(planID int) ([]models.PlanPagoAplicacion
 		aplicaciones = []models.PlanPagoAplicacionPG{}
 	}
 	return aplicaciones, nil
+}
+
+// consumirInsumosSesionTx descuenta insumos de una sesion marcada a mano. Si la sesion ya
+// esta ligada a una reserva, el descuento lo hace la reserva al completarse (evita doble descuento).
+func (r *PlanesRepo) consumirInsumosSesionTx(tx *sqlx.Tx, planID, numero int) error {
+	var ses struct {
+		ID         int           `db:"id"`
+		ServicioID sql.NullInt64 `db:"servicio_id_origen"`
+		LocalID    sql.NullInt64 `db:"local_id"`
+	}
+	if err := tx.Get(&ses, `
+		SELECT ps.id, ps.servicio_id_origen, p.local_id
+		FROM plan_servicios ps JOIN planes p ON p.id = ps.plan_id
+		WHERE ps.plan_id = $1 AND ps.sesion_numero = $2`, planID, numero); err != nil {
+		return fmt.Errorf("error al leer sesion del plan: %w", err)
+	}
+	if !ses.ServicioID.Valid || !ses.LocalID.Valid {
+		return nil // sin servicio de catalogo o sin local: sin insumos que descontar
+	}
+
+	var conReserva int
+	if err := tx.Get(&conReserva,
+		`SELECT COUNT(*) FROM plan_movimientos WHERE plan_servicio_id = $1 AND reserva_id IS NOT NULL`, ses.ID); err != nil {
+		return fmt.Errorf("error al verificar reservas de la sesion: %w", err)
+	}
+	if conReserva > 0 {
+		return nil
+	}
+
+	var movID int
+	err := tx.Get(&movID, `
+		SELECT id FROM plan_movimientos
+		WHERE plan_servicio_id = $1 AND tipo = 'CONSUMO' AND reserva_id IS NULL ORDER BY id LIMIT 1`, ses.ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = tx.QueryRowx(`
+			INSERT INTO plan_movimientos (plan_servicio_id, tipo, cantidad, motivo)
+			VALUES ($1, 'CONSUMO', 1, 'Sesion marcada como realizada') RETURNING id`, ses.ID).Scan(&movID)
+	}
+	if err != nil {
+		return fmt.Errorf("error al registrar consumo de la sesion: %w", err)
+	}
+	return r.ConsumoSesion(tx, int(ses.ServicioID.Int64), int(ses.LocalID.Int64), movID)
 }

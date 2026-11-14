@@ -39,7 +39,7 @@ func (r *PaquetesRepo) ListPaquetes(f repository.FiltroPaquetes) ([]models.Paque
 	query := fmt.Sprintf(`
 		SELECT DISTINCT p.id, p.nombre, p.descripcion, p.categoria_id,
 			c.nombre AS categoria,
-			p.imagen_path, p.moneda, p.activo
+			p.imagen_path, p.moneda, p.activo, p.visible_publico
 		FROM paquetes p
 		LEFT JOIN categorias c ON c.id = p.categoria_id
 		LEFT JOIN paquete_local pl ON pl.paquete_id = p.id
@@ -88,7 +88,7 @@ func (r *PaquetesRepo) GetPaqueteByID(id int, incluirInactivo bool) (*models.Paq
 	err := r.db.Get(&paquete, fmt.Sprintf(`
 		SELECT p.id, p.nombre, p.descripcion, p.categoria_id,
 			c.nombre AS categoria,
-			p.imagen_path, p.moneda, p.activo
+			p.imagen_path, p.moneda, p.activo, p.visible_publico
 		FROM paquetes p
 		LEFT JOIN categorias c ON c.id = p.categoria_id
 		WHERE %s
@@ -224,6 +224,21 @@ func (r *PaquetesRepo) EliminarPaquete(id int) error {
 	return tx.Commit()
 }
 
+func (r *PaquetesRepo) SetPaqueteVisibilidad(id int, visible bool) error {
+	result, err := r.db.Exec(`UPDATE paquetes SET visible_publico = $1, actualizado_en = NOW() WHERE id = $2 AND activo = TRUE`, visible, id)
+	if err != nil {
+		return fmt.Errorf("error al cambiar visibilidad de paquete: %w", err)
+	}
+	n, err := affectedRows(result, "cambiar visibilidad de paquete")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("%w: paquete con id %d", repository.ErrPaqueteNoEncontrado, id)
+	}
+	return nil
+}
+
 func (r *PaquetesRepo) SetPaqueteImagen(id int, path *string) error {
 	result, err := r.db.Exec(`UPDATE paquetes SET imagen_path = $1, actualizado_en = NOW() WHERE id = $2`, path, id)
 	if err != nil {
@@ -331,6 +346,9 @@ func paqueteConditions(f repository.FiltroPaquetes) ([]string, []interface{}) {
 	}
 	if f.Activo != nil {
 		add("p.activo = $%d", *f.Activo)
+	}
+	if f.SoloVisiblesPublico {
+		conditions = append(conditions, "p.visible_publico = TRUE")
 	}
 	if f.Nombre != "" {
 		add("p.nombre ILIKE '%%' || $%d || '%%'", f.Nombre)

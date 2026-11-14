@@ -1,0 +1,1106 @@
+package services
+
+// Pruebas de integracion del modulo de trastienda contra una BD PostgreSQL real.
+//
+// Se omiten salvo que se defina TRASTIENDA_TEST_DB (nombre de una BD DESCARTABLE, p. ej.
+// atrevida_migtest, con todas las migraciones aplicadas). Usan las variables DB_HOST, DB_PORT, DB_USER,
+// DB_PASSWORD y DB_SSLMODE para conectar. Nunca apuntar a atrevida_db: las pruebas insertan datos.
+//
+//	TRASTIENDA_TEST_DB=atrevida_migtest go test ./services -run Trastienda -v
+
+import (
+	"fmt"
+	"os"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"atrevida-agenda-api/config"
+	"atrevida-agenda-api/db"
+	repository "atrevida-agenda-api/repositories"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
+
+	"github.com/jmoiron/sqlx"
+)
+
+type trastiendaEnv struct {
+	t          *testing.T
+	db         *sqlx.DB
+	cfgSvc     *ConfiguracionService
+	inv        *InventarioService
+	consumo    *InventarioConsumo
+	fin        *FinanzasService
+	gastos     *GastosFijosService
+	reporte    *ReporteFinancieroService
+	reservas   *ReservasPGService
+	atenciones *AtencionesService
+	invRepo    *pgsqlrepo.InventarioRepo
+	finRepo    *pgsqlrepo.FinanzasRepo
+	localID    int
+	localName  string
+	sufijo     string
+	categoriaE int
+}
+
+func setupTrastienda(t *testing.T) *trastiendaEnv {
+	t.Helper()
+	name := os.Getenv("TRASTIENDA_TEST_DB")
+	if name == "" {
+		t.Skip("TRASTIENDA_TEST_DB no definido: se omiten las pruebas de integracion de trastienda")
+	}
+	if name == "atrevida_db" {
+		t.Fatal("no uses atrevida_db: estas pruebas insertan datos")
+	}
+	conn, err := db.Connect(&config.Config{DB: config.DBConfig{
+		Host: os.Getenv("DB_HOST"), Port: os.Getenv("DB_PORT"), User: os.Getenv("DB_USER"),
+		Password: os.Getenv("DB_PASSWORD"), Name: name, SSLMode: getenvDef("DB_SSLMODE", "disable"),
+		MaxOpenConns: 20, MaxIdleConns: 5,
+	}})
+	if err != nil {
+		t.Fatalf("no se pudo conectar a %s: %v", name, err)
+	}
+	t.Cleanup(func() { conn.Close() })
+
+	invRepo := pgsqlrepo.NewInventarioRepo(conn)
+	finRepo := pgsqlrepo.NewFinanzasRepo(conn)
+	cfgSvc := NewConfiguracionService(pgsqlrepo.NewConfiguracionRepo(conn))
+	finSvc := NewFinanzasService(finRepo, cfgSvc)
+	gastos := NewGastosFijosService(finRepo, cfgSvc, finSvc)
+	env := &trastiendaEnv{
+		t: t, db: conn, cfgSvc: cfgSvc, invRepo: invRepo, finRepo: finRepo,
+		inv:     NewInventarioService(invRepo, cfgSvc),
+		consumo: NewInventarioConsumo(invRepo, cfgSvc),
+		fin:     finSvc, gastos: gastos,
+		reporte:    NewReporteFinancieroService(finRepo, invRepo, gastos, cfgSvc),
+		reservas:   NewReservasPGService(pgsqlrepo.NewReservasRepo(conn), pgsqlrepo.NewServiciosRepo(conn)),
+		atenciones: NewAtencionesService(pgsqlrepo.NewAtencionesRepo(conn), cfgSvc),
+		sufijo:     fmt.Sprintf("%d", time.Now().UnixNano()),
+	}
+	env.reservas.SetInventarioConsumo(env.consumo)
+	env.reservas.SetConfiguracion(cfgSvc)
+	env.reservas.SetPlanes(pgsqlrepo.NewPlanesRepo(conn))
+
+	// Local propio de la prueba: aisla stock, reservas y gastos de otras ejecuciones.
+	env.localName = "LOCAL-T" + env.sufijo
+	mustExec(t, conn, `INSERT INTO locales (nombre) VALUES ($1)`, env.localName)
+	if err := conn.Get(&env.localID, `SELECT id FROM locales WHERE nombre = $1`, env.localName); err != nil {
+		t.Fatal(err)
+	}
+	// Agendar valida la capacidad real del local: sin ambientes no cabe ninguna reserva.
+	mustExec(t, conn, `INSERT INTO tipos_espacio_locales (tipo_espacio, cantidad_espacios, local_id) VALUES ('M', 5, $1), ('B', 5, $1)`, env.localID)
+	if err := conn.Get(&env.categoriaE, `SELECT id FROM categorias_financieras WHERE naturaleza = 'EGRESO' ORDER BY id LIMIT 1`); err != nil {
+		t.Fatal(err)
+	}
+	// Config por defecto para cada prueba.
+	if _, err := cfgSvc.Update(map[string]interface{}{
+		CfgPoliticaSinStock: "ADVERTIR", CfgDescontarEnEstado: "COMPLETADO", CfgPermitirStockNegativo: true,
+		CfgConsiderarComprometido: true, CfgEstadoGastoFijoGen: "PENDIENTE",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return env
+}
+
+func getenvDef(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return def
+}
+
+func mustExec(t *testing.T, conn *sqlx.DB, q string, args ...interface{}) {
+	t.Helper()
+	if _, err := conn.Exec(q, args...); err != nil {
+		t.Fatalf("%s: %v", strings.Fields(q)[0], err)
+	}
+}
+
+// nuevoItem crea un item activo con stock inicial en el local de la prueba.
+func (e *trastiendaEnv) nuevoItem(nombre string, stock float64) int {
+	e.t.Helper()
+	item, err := e.inv.CrearItem(pgsqlrepo.ItemInput{Nombre: nombre + e.sufijo, UnidadMedida: "ML", StockMinimo: 5})
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	if stock > 0 {
+		if _, err := e.inv.Ajustar(AjusteInput{
+			ItemID: item.ID, LocalID: e.localID, Tipo: repository.MovAjustePositivo, Cantidad: stock, Motivo: "carga inicial",
+		}); err != nil {
+			e.t.Fatal(err)
+		}
+	}
+	return item.ID
+}
+
+// nuevoServicio crea un servicio con los insumos dados (item -> cantidad por sesion).
+func (e *trastiendaEnv) nuevoServicio(nombre string, insumos map[int]float64) string {
+	e.t.Helper()
+	full := nombre + e.sufijo
+	var id int
+	if err := e.db.Get(&id, `INSERT INTO servicios (nombre, sesiones) VALUES ($1, 1) RETURNING id`, full); err != nil {
+		e.t.Fatal(err)
+	}
+	list := make([]struct {
+		item int
+		qty  float64
+	}, 0)
+	for item, qty := range insumos {
+		list = append(list, struct {
+			item int
+			qty  float64
+		}{item, qty})
+	}
+	for _, in := range list {
+		mustExec(e.t, e.db, `INSERT INTO servicio_insumos (servicio_id, item_id, cantidad_por_sesion) VALUES ($1,$2,$3)`, id, in.item, in.qty)
+	}
+	return full
+}
+
+// nuevaReserva inserta una reserva activa del local de la prueba para el servicio dado.
+func (e *trastiendaEnv) nuevaReserva(servicio, estado string, diasDesdeHoy int) int {
+	e.t.Helper()
+	var id int
+	if err := e.db.Get(&id, `
+		INSERT INTO reservas (local_id, local_nombre, tipo_espacio, fecha, hora_desde, hora_hasta, cliente, estado,
+			servicio_nombre, servicio_confirmado)
+		VALUES ($1, $2, 'M', CURRENT_DATE + $3::int, '10:00', '11:00', 'Cliente Prueba', $4, $5, $5) RETURNING id`,
+		e.localID, e.localName, diasDesdeHoy, estado, servicio); err != nil {
+		e.t.Fatal(err)
+	}
+	return id
+}
+
+func (e *trastiendaEnv) stock(itemID int) float64 {
+	e.t.Helper()
+	var s float64
+	err := e.db.Get(&s, `SELECT COALESCE((SELECT cantidad FROM inventario_stock WHERE item_id = $1 AND local_id = $2), 0)`, itemID, e.localID)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return s
+}
+
+func (e *trastiendaEnv) contarMov(reservaID int, tipo string) int {
+	e.t.Helper()
+	var n int
+	if err := e.db.Get(&n, `SELECT COUNT(*) FROM inventario_movimientos WHERE reserva_id = $1 AND tipo = $2`, reservaID, tipo); err != nil {
+		e.t.Fatal(err)
+	}
+	return n
+}
+
+// atender reproduce el único flujo válido para completar una reserva: registrar
+// una atención. Las pruebas de integración no deben completar por PATCH de estado.
+func (e *trastiendaEnv) atender(reservaID int, insumos ...pgsqlrepo.AtencionInsumoInput) error {
+	e.t.Helper()
+	_, err := e.atenciones.Registrar(RegistrarAtencionInput{
+		ReservaID: reservaID, EmpleadoNombre: "QA Atención", FechaAtencion: time.Now().Format("2006-01-02"),
+		Lugar: e.localName, Insumos: insumos,
+	})
+	return err
+}
+
+// ─── Inventario ↔ reservas ────────────────────────────────────────────────────
+
+func TestTrastiendaCompletarDescuentaExactoYEsIdempotente(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel", 100)
+	srv := e.nuevoServicio("Masaje", map[int]float64{item: 30})
+	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
+
+	if err := e.atender(reserva, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 30}); err != nil {
+		t.Fatalf("completar: %v", err)
+	}
+	if got := e.stock(item); got != 70 {
+		t.Fatalf("stock tras completar = %v, quiero 70", got)
+	}
+
+	// Reintento directo del descuento (doble clic / reintento): no descuenta dos veces.
+	tx, _ := e.db.Beginx()
+	if err := pgsqlrepo.ConsumirPorReservaTx(tx, reserva, repository.ConsumoActor{}, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.stock(item); got != 70 {
+		t.Fatalf("el reintento descontó de nuevo: stock = %v", got)
+	}
+	if n := e.contarMov(reserva, repository.MovSalidaServicio); n != 1 {
+		t.Fatalf("salidas = %d, quiero 1", n)
+	}
+}
+
+func TestTrastiendaEliminarReservaCompletadaRevierteStock(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Aceite", 100)
+	srv := e.nuevoServicio("Drenaje", map[int]float64{item: 25})
+	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
+	if err := e.atender(reserva, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 25}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.reservas.EliminarReserva(reserva, repository.ConsumoActor{}); err != nil {
+		t.Fatalf("eliminar: %v", err)
+	}
+	if got := e.stock(item); got != 100 {
+		t.Fatalf("stock tras eliminar = %v, quiero 100 (restituido)", got)
+	}
+	if n := e.contarMov(reserva, repository.MovReversionServicio); n != 1 {
+		t.Fatalf("reversiones = %d, quiero 1", n)
+	}
+}
+
+func TestTrastiendaSinStockNegativoNoPermitidoNoCompleta(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Crema", 10)
+	srv := e.nuevoServicio("Facial", map[int]float64{item: 30})
+	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPoliticaSinStock: "BLOQUEAR"}); err != nil {
+		t.Fatal(err)
+	}
+
+	err := e.atender(reserva, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 30})
+	if err == nil || !strings.Contains(err.Error(), "stock insuficiente") {
+		t.Fatalf("quiero error 'stock insuficiente', obtuve %v", err)
+	}
+	var estado string
+	_ = e.db.Get(&estado, `SELECT estado FROM reservas WHERE id = $1`, reserva)
+	if estado != "AGENDADO" {
+		t.Fatalf("la transición se aplicó pese al error: estado = %s", estado)
+	}
+	if got := e.stock(item); got != 10 {
+		t.Fatalf("el stock cambió pese al error: %v", got)
+	}
+}
+
+func TestTrastiendaSinStockConfirmadoCompletaConDeduccionPendiente(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Banda", 10)
+	srv := e.nuevoServicio("Presoterapia", map[int]float64{item: 30})
+	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPoliticaSinStock: "BLOQUEAR"}); err != nil {
+		t.Fatal(err)
+	}
+	// La confirmación registra el uso real, pero nunca descuenta parcialmente ni
+	// lleva el stock a negativo.
+	_, err := e.atenciones.Registrar(RegistrarAtencionInput{
+		ReservaID: reserva, EmpleadoNombre: "QA Atención", FechaAtencion: time.Now().Format("2006-01-02"),
+		Lugar: e.localName, ConfirmarStockInsuficiente: true,
+		Insumos: []pgsqlrepo.AtencionInsumoInput{{ItemID: item, Cantidad: 30}},
+	})
+	if err != nil {
+		t.Fatalf("con confirmación debe completar dejando deducción pendiente: %v", err)
+	}
+	if got := e.stock(item); got != 10 {
+		t.Fatalf("stock = %v, quiero 10 (sin descuento parcial)", got)
+	}
+	var pendiente int
+	if err := e.db.Get(&pendiente, `SELECT COUNT(*) FROM atencion_insumos ai JOIN atenciones a ON a.id=ai.atencion_id WHERE a.reserva_id=$1 AND ai.estado_descuento='PENDIENTE_STOCK'`, reserva); err != nil {
+		t.Fatal(err)
+	}
+	if pendiente != 1 {
+		t.Fatalf("deducciones pendientes = %d, quiero 1", pendiente)
+	}
+}
+
+func TestTrastiendaDescuentosConcurrentesNoLeenElMismoStock(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel conc", 30)
+	srv := e.nuevoServicio("Conc", map[int]float64{item: 30})
+	r1 := e.nuevaReserva(srv, "AGENDADO", 1)
+	r2 := e.nuevaReserva(srv, "AGENDADO", 1)
+
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i, id := range []int{r1, r2} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tx, err := e.db.Beginx()
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			defer tx.Rollback()
+			if err := pgsqlrepo.ConsumirPorReservaTx(tx, id, repository.ConsumoActor{}, false); err != nil {
+				errs[i] = err
+				return
+			}
+			errs[i] = tx.Commit()
+		}()
+	}
+	wg.Wait()
+
+	ok := 0
+	for _, err := range errs {
+		if err == nil {
+			ok++
+		}
+	}
+	if ok != 1 {
+		t.Fatalf("exactamente 1 descuento debe aplicarse con stock para uno solo; aplicados=%d errs=%v", ok, errs)
+	}
+	if got := e.stock(item); got != 0 {
+		t.Fatalf("stock = %v, quiero 0", got)
+	}
+}
+
+func TestTrastiendaAdvertenciaConStockCeroYComprometido(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel adv", 50)
+	srv := e.nuevoServicio("Adv", map[int]float64{item: 30})
+
+	// Stock 50 alcanza para una; la primera reserva agendada no recibe aviso.
+	r1 := e.nuevaReserva(srv, "AGENDADO", 2)
+	warns, err := e.consumo.Recalcular(r1)
+	if err != nil || len(warns) != 0 {
+		t.Fatalf("r1: warns=%v err=%v, quiero sin advertencias", warns, err)
+	}
+	// Una segunda reserva compite por el mismo stock: 50 - 30 comprometido = 20 < 30 -> advertencia.
+	r2 := e.nuevaReserva(srv, "AGENDADO", 3)
+	warns, err = e.consumo.Recalcular(r2)
+	if err != nil || len(warns) != 1 || warns[0].Disponible != 20 || warns[0].Requerido != 30 {
+		t.Fatalf("r2: warns=%+v err=%v, quiero 1 advertencia (requerido 30, disponible 20)", warns, err)
+	}
+	var alerta bool
+	_ = e.db.Get(&alerta, `SELECT alerta_inventario FROM reservas WHERE id = $1`, r2)
+	if !alerta {
+		t.Fatal("alerta_inventario debe quedar en true")
+	}
+
+	// Sin considerar comprometido ya no hay advertencia.
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgConsiderarComprometido: false}); err != nil {
+		t.Fatal(err)
+	}
+	if warns, _ = e.consumo.Recalcular(r2); len(warns) != 0 {
+		t.Fatalf("sin considerar comprometido no debe advertir: %+v", warns)
+	}
+
+	// Servicio sin stock: advertencia aunque no haya otras reservas.
+	vacio := e.nuevoItem("Gel vacio", 0)
+	srv0 := e.nuevoServicio("SinStock", map[int]float64{vacio: 5})
+	r3 := e.nuevaReserva(srv0, "PENDIENTE", 4)
+	if warns, _ = e.consumo.Recalcular(r3); len(warns) != 1 {
+		t.Fatalf("stock 0 debe advertir: %+v", warns)
+	}
+}
+
+// El stock puede bajar despues de agendar (vencimiento, merma): las reservas ya agendadas deben
+// quedar marcadas, no solo las nuevas; y al reponer, volver a limpiarse.
+func TestTrastiendaAjusteDeStockRefrescaAlertasDeReservasAgendadas(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel venc", 40)
+	srv := e.nuevoServicio("Venc", map[int]float64{item: 30})
+	r1 := e.nuevaReserva(srv, "AGENDADO", 2)
+	if warns, err := e.consumo.Recalcular(r1); err != nil || len(warns) != 0 {
+		t.Fatalf("r1 con stock 40: warns=%v err=%v, quiero sin advertencias", warns, err)
+	}
+	alerta := func() bool {
+		var v bool
+		if err := e.db.Get(&v, `SELECT alerta_inventario FROM reservas WHERE id = $1`, r1); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	if alerta() {
+		t.Fatal("alerta_inventario debe empezar en false")
+	}
+
+	// Se vencen 30 ml: sin tocar la reserva, queda en falta.
+	if _, err := e.inv.Ajustar(AjusteInput{
+		ItemID: item, LocalID: e.localID, Tipo: repository.MovAjusteNegativo, Cantidad: 30, Motivo: "vencimiento",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !alerta() {
+		t.Fatal("tras bajar el stock, la reserva agendada debe quedar con alerta_inventario = true")
+	}
+
+	// Reposicion: vuelve a alcanzar.
+	if _, err := e.inv.Ajustar(AjusteInput{
+		ItemID: item, LocalID: e.localID, Tipo: repository.MovAjustePositivo, Cantidad: 50, Motivo: "reposicion",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if alerta() {
+		t.Fatal("tras reponer, la alerta debe limpiarse")
+	}
+}
+
+// Un servicio puede consumir un insumo en un local donde nunca se cargo stock: ese local debe
+// aparecer en el listado por local (stock 0) y en las alertas, para poder reponerlo.
+func TestTrastiendaInsumoSinStockEnLocalDelServicioAparece(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel sinfila", 0)
+	srv := e.nuevoServicio("SinFila", map[int]float64{item: 5})
+	mustExec(t, e.db, `INSERT INTO servicio_local (servicio_id, local_id)
+		SELECT id, $2 FROM servicios WHERE nombre = $1`, srv, e.localID)
+
+	items, err := e.inv.ListarItems(repository.FiltroItemsInventario{Q: "Gel sinfila" + e.sufijo, PorLocal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encontrado := false
+	for _, it := range items {
+		if it.LocalID != nil && *it.LocalID == e.localID {
+			encontrado = true
+			if it.StockActual != 0 {
+				t.Fatalf("stock = %v, quiero 0", it.StockActual)
+			}
+		}
+	}
+	if !encontrado {
+		t.Fatalf("el local %d debe aparecer para el item aunque no tenga fila de stock: %+v", e.localID, items)
+	}
+
+	alertas, err := e.inv.Alertas(&e.localID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	enAlerta := false
+	for _, it := range alertas.ItemsBajoStock {
+		if it.ID == item {
+			enAlerta = true
+		}
+	}
+	if !enAlerta {
+		t.Fatal("el insumo sin stock en el local del servicio debe aparecer en alertas de bajo stock")
+	}
+}
+
+// Con descuento al agendar y stock negativo no permitido, agendar sin stock debe fallar con aviso
+// (antes la reserva quedaba AGENDADA sin descontar y sin error); con stock, descuenta una sola vez.
+func TestTrastiendaAgendarSinStockBloqueaYConStockDescuenta(t *testing.T) {
+	e := setupTrastienda(t)
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgDescontarEnEstado: "AGENDADO", CfgPermitirStockNegativo: false}); err != nil {
+		t.Fatal(err)
+	}
+	item := e.nuevoItem("Gel agendar", 0)
+	srv := e.nuevoServicio("Agendar", map[int]float64{item: 30})
+	r := e.nuevaReserva(srv, "PENDIENTE", 3)
+	agendar := func() error {
+		_, err := e.reservas.ActualizarReservaConAvisos(ActualizarReservaPGInput{Id: r, Local: e.localName, NuevoEstado: "AGENDADO"})
+		return err
+	}
+
+	err := agendar()
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "stock insuficiente") {
+		t.Fatalf("sin stock debe fallar con 'stock insuficiente', err=%v", err)
+	}
+	var estado string
+	_ = e.db.Get(&estado, `SELECT estado FROM reservas WHERE id = $1`, r)
+	if estado != "PENDIENTE" {
+		t.Fatalf("la reserva no debe agendarse; estado=%s", estado)
+	}
+
+	if _, err := e.inv.Ajustar(AjusteInput{ItemID: item, LocalID: e.localID, Tipo: repository.MovAjustePositivo, Cantidad: 50, Motivo: "carga"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := agendar(); err != nil {
+		t.Fatalf("con stock debe agendar: %v", err)
+	}
+	if got := e.stock(item); got != 20 {
+		t.Fatalf("stock = %v, quiero 20 (50 - 30)", got)
+	}
+	if n := e.contarMov(r, repository.MovSalidaServicio); n != 1 {
+		t.Fatalf("salidas = %d, quiero 1", n)
+	}
+}
+
+// Completar una reserva imputada a un paquete marca la sesion del paquete como realizada (sin
+// descontar insumos dos veces) y eliminarla la devuelve a pendiente.
+func TestTrastiendaCompletarReservaDePaqueteMarcaSesion(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel paquete", 100)
+	srv := e.nuevoServicio("Paquete", map[int]float64{item: 30})
+	planID, _ := e.nuevoPlanConSesion(srv)
+	r := e.nuevaReserva(srv, "AGENDADO", 2)
+	mustExec(t, e.db, `UPDATE reservas SET plan_id = $1 WHERE id = $2`, planID, r)
+	realizada := func() bool {
+		var v bool
+		if err := e.db.Get(&v, `SELECT realizado FROM plan_servicios WHERE plan_id = $1 AND sesion_numero = 1`, planID); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+
+	if err := e.atender(r, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 30}); err != nil {
+		t.Fatal(err)
+	}
+	if !realizada() {
+		t.Fatal("la sesion del paquete debe quedar realizada al completar la reserva")
+	}
+	if got := e.stock(item); got != 70 {
+		t.Fatalf("stock = %v, quiero 70 (un solo descuento)", got)
+	}
+	var estadoPlan string
+	_ = e.db.Get(&estadoPlan, `SELECT estado FROM planes WHERE id = $1`, planID)
+	if estadoPlan != "COMPLETADO" {
+		t.Fatalf("con todas las sesiones hechas el plan debe quedar COMPLETADO, es %s", estadoPlan)
+	}
+
+	if err := e.reservas.EliminarReserva(r, repository.ConsumoActor{}); err != nil {
+		t.Fatal(err)
+	}
+	if realizada() {
+		t.Fatal("al eliminar la reserva la sesion debe volver a pendiente")
+	}
+	if got := e.stock(item); got != 100 {
+		t.Fatalf("stock = %v, quiero 100 tras revertir", got)
+	}
+}
+
+func TestTrastiendaPoliticaBloquearSoloParaAutenticados(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel blk", 0)
+	srv := e.nuevoServicio("Blk", map[int]float64{item: 5})
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPoliticaSinStock: "BLOQUEAR"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.consumo.ValidarPoliticaAlCrear(true, e.localID, []string{srv}); err == nil ||
+		!strings.Contains(err.Error(), "stock insuficiente") {
+		t.Fatalf("autenticado + BLOQUEAR debe rechazar con 'stock insuficiente': %v", err)
+	}
+	if err := e.consumo.ValidarPoliticaAlCrear(false, e.localID, []string{srv}); err != nil {
+		t.Fatalf("el formulario publico siempre registra: %v", err)
+	}
+}
+
+// ─── Compras ──────────────────────────────────────────────────────────────────
+
+func TestTrastiendaCompraAtomicaCreaUnEgresoYSumaStock(t *testing.T) {
+	e := setupTrastienda(t)
+	a := e.nuevoItem("Compra A", 0)
+	b := e.nuevoItem("Compra B", 0)
+	c := e.nuevoItem("Compra C", 0)
+
+	compra, err := e.fin.RegistrarCompra(CompraInput{
+		LocalID: e.localID, Fecha: "2026-10-18",
+		Detalle: []CompraLineaInput{{a, 10, 2.5}, {b, 4, 10}, {c, 1, 3.333}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if compra.Total != 68.33 {
+		t.Fatalf("total = %v, quiero 68.33", compra.Total)
+	}
+	if e.stock(a) != 10 || e.stock(b) != 4 || e.stock(c) != 1 {
+		t.Fatalf("stock = %v/%v/%v, quiero 10/4/1", e.stock(a), e.stock(b), e.stock(c))
+	}
+	var egresos int
+	_ = e.db.Get(&egresos, `SELECT COUNT(*) FROM movimientos_financieros WHERE compra_id = $1 AND clase = 'VARIABLE' AND monto = 68.33`, compra.ID)
+	if egresos != 1 {
+		t.Fatalf("egresos de la compra = %d, quiero 1 por el total", egresos)
+	}
+}
+
+func TestTrastiendaCompraConLineaInvalidaNoDejaNadaAMedias(t *testing.T) {
+	e := setupTrastienda(t)
+	a := e.nuevoItem("Atom A", 0)
+	inactivo := e.nuevoItem("Atom B", 0)
+	if err := e.inv.DesactivarItem(inactivo); err != nil {
+		t.Fatal(err)
+	}
+	_, err := e.fin.RegistrarCompra(CompraInput{
+		LocalID: e.localID, Fecha: "2026-10-18",
+		Detalle: []CompraLineaInput{{a, 10, 1}, {inactivo, 5, 1}},
+	})
+	if err == nil {
+		t.Fatal("debe fallar por item inactivo")
+	}
+	if e.stock(a) != 0 {
+		t.Fatalf("stock de la primera línea = %v: quedó algo a medias", e.stock(a))
+	}
+	var n int
+	_ = e.db.Get(&n, `SELECT COUNT(*) FROM compras_inventario WHERE local_id = $1`, e.localID)
+	if n != 0 {
+		t.Fatalf("quedó %d compra(s) a medias", n)
+	}
+}
+
+func TestTrastiendaAnularCompraConsumidaDa409YNoCambiaNada(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Anul", 0)
+	compra, err := e.fin.RegistrarCompra(CompraInput{LocalID: e.localID, Fecha: "2026-10-18", Detalle: []CompraLineaInput{{item, 10, 1}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Se consume parte del stock comprado.
+	if _, err := e.inv.Ajustar(AjusteInput{ItemID: item, LocalID: e.localID, Tipo: repository.MovAjusteNegativo, Cantidad: 4, Motivo: "uso"}); err != nil {
+		t.Fatal(err)
+	}
+	err = e.fin.AnularCompra(compra.ID, "error", repository.ConsumoActor{})
+	if err == nil || statusMsg(err) != "stock insuficiente" {
+		t.Fatalf("quiero 'stock insuficiente' (409), obtuve %v", err)
+	}
+	if e.stock(item) != 6 {
+		t.Fatalf("stock = %v, quiero 6 sin cambios", e.stock(item))
+	}
+	actual, _ := e.fin.ObtenerCompra(compra.ID)
+	if actual.Estado != "REGISTRADA" {
+		t.Fatalf("estado = %s, debe seguir REGISTRADA", actual.Estado)
+	}
+}
+
+func statusMsg(err error) string {
+	if strings.Contains(err.Error(), "stock insuficiente") {
+		return "stock insuficiente"
+	}
+	return err.Error()
+}
+
+func TestTrastiendaAnularCompraRevierteStockYEgreso(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Anul ok", 0)
+	compra, err := e.fin.RegistrarCompra(CompraInput{LocalID: e.localID, Fecha: "2026-10-18", Detalle: []CompraLineaInput{{item, 10, 2}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.fin.AnularCompra(compra.ID, "duplicada", repository.ConsumoActor{}); err != nil {
+		t.Fatal(err)
+	}
+	if e.stock(item) != 0 {
+		t.Fatalf("stock = %v, quiero 0", e.stock(item))
+	}
+	var estado string
+	_ = e.db.Get(&estado, `SELECT estado FROM movimientos_financieros WHERE compra_id = $1`, compra.ID)
+	if estado != "ANULADO" {
+		t.Fatalf("egreso = %s, quiero ANULADO", estado)
+	}
+}
+
+func TestTrastiendaAjusteNegativoSinMotivoOSinStock(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Ajuste", 5)
+	if _, err := e.inv.Ajustar(AjusteInput{ItemID: item, LocalID: e.localID, Tipo: repository.MovAjusteNegativo, Cantidad: 1}); err == nil ||
+		!strings.Contains(err.Error(), "motivo") {
+		t.Fatalf("ajuste sin motivo debe fallar: %v", err)
+	}
+	if _, err := e.inv.Ajustar(AjusteInput{ItemID: item, LocalID: e.localID, Tipo: repository.MovAjusteNegativo, Cantidad: 99, Motivo: "x"}); err == nil ||
+		!strings.Contains(err.Error(), "stock insuficiente") {
+		t.Fatalf("ajuste negativo mayor al stock debe fallar con stock insuficiente: %v", err)
+	}
+}
+
+// ─── Gastos fijos ─────────────────────────────────────────────────────────────
+
+func (e *trastiendaEnv) nuevoGastoFijo(dia int, inicio string, fin *string) int {
+	e.t.Helper()
+	g, err := e.gastos.Crear(GastoFijoInput{
+		Nombre: "Gasto " + e.sufijo, CategoriaID: e.categoriaE, Monto: 100, DiaCobro: dia, LocalID: &e.localID,
+		FechaInicio: inicio, FechaFin: fin,
+	})
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return g.ID
+}
+
+func (e *trastiendaEnv) periodos(gastoID int) []string {
+	e.t.Helper()
+	var out []string
+	if err := e.db.Select(&out, `SELECT fecha::text FROM movimientos_financieros WHERE gasto_fijo_id = $1 ORDER BY fecha`, gastoID); err != nil {
+		e.t.Fatal(err)
+	}
+	return out
+}
+
+func fecha(s string) time.Time {
+	d, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		panic(err)
+	}
+	return d
+}
+
+func TestTrastiendaGastoFijoDia31EnFebreroUsaUltimoDia(t *testing.T) {
+	e := setupTrastienda(t)
+	id := e.nuevoGastoFijo(31, "2027-02-01", nil)
+	if _, err := e.gastos.GenerarHasta(fecha("2027-03-15")); err != nil {
+		t.Fatal(err)
+	}
+	got := e.periodos(id)
+	// Febrero 2027 no tiene 29/30/31: se cobra el 28. Marzo cobra el 31, que aun no vencio el 15.
+	if len(got) != 1 || got[0] != "2027-02-28" {
+		t.Fatalf("fechas = %v, quiero [2027-02-28]", got)
+	}
+	// Año bisiesto: febrero 2028 -> 29.
+	id2 := e.nuevoGastoFijo(31, "2028-02-01", nil)
+	if _, err := e.gastos.GenerarHasta(fecha("2028-02-29")); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.periodos(id2); len(got) != 1 || got[0] != "2028-02-29" {
+		t.Fatalf("bisiesto: fechas = %v, quiero [2028-02-29]", got)
+	}
+}
+
+func TestTrastiendaGenerarHastaEsIdempotenteYHaceCatchUp(t *testing.T) {
+	e := setupTrastienda(t)
+	id := e.nuevoGastoFijo(5, "2029-01-01", nil)
+	hoy := fecha("2029-04-10")
+	for i := 0; i < 2; i++ {
+		if _, err := e.gastos.GenerarHasta(hoy); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := e.periodos(id)
+	want := []string{"2029-01-05", "2029-02-05", "2029-03-05", "2029-04-05"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("fechas = %v, quiero %v (4 periodos, sin duplicar tras correr dos veces)", got, want)
+	}
+}
+
+func TestTrastiendaEditarPlantillaNoCambiaEgresosGeneradosYFechaFinCorta(t *testing.T) {
+	e := setupTrastienda(t)
+	fin := "2030-02-28"
+	id := e.nuevoGastoFijo(10, "2030-01-01", &fin)
+	if _, err := e.gastos.GenerarHasta(fecha("2030-01-20")); err != nil {
+		t.Fatal(err)
+	}
+	nuevo := 999.0
+	if err := e.gastos.Actualizar(id, GastoFijoPatch{Monto: &nuevo}); err != nil {
+		t.Fatal(err)
+	}
+	var monto float64
+	_ = e.db.Get(&monto, `SELECT monto FROM movimientos_financieros WHERE gasto_fijo_id = $1`, id)
+	if monto != 100 {
+		t.Fatalf("el egreso ya generado cambió a %v; debe conservar 100", monto)
+	}
+	// Los periodos futuros usan el monto nuevo y fecha_fin corta la generacion.
+	if _, err := e.gastos.GenerarHasta(fecha("2030-06-30")); err != nil {
+		t.Fatal(err)
+	}
+	got := e.periodos(id)
+	if len(got) != 2 || got[1] != "2030-02-10" {
+		t.Fatalf("fechas = %v, quiero enero y febrero solamente (fecha_fin)", got)
+	}
+	_ = e.db.Get(&monto, `SELECT monto FROM movimientos_financieros WHERE gasto_fijo_id = $1 AND fecha = '2030-02-10'`, id)
+	if monto != 999 {
+		t.Fatalf("el periodo nuevo debe usar el monto editado: %v", monto)
+	}
+}
+
+// ─── Reporte ──────────────────────────────────────────────────────────────────
+
+func TestTrastiendaReporteUtilidadYAnuladosNoSuman(t *testing.T) {
+	e := setupTrastienda(t)
+	cat := e.categoriaE
+	dia := "2031-05-10"
+	var catIngreso int
+	_ = e.db.Get(&catIngreso, `SELECT id FROM categorias_financieras WHERE naturaleza = 'INGRESO' LIMIT 1`)
+
+	mk := func(nat, clase, estado string, monto float64, categoria int) {
+		mustExec(e.t, e.db, `
+			INSERT INTO movimientos_financieros (naturaleza, clase, categoria_id, local_id, local_nombre, fecha, monto, estado)
+			VALUES ($1, NULLIF($2,''), $3, $4, $5, $6, $7, $8)`, nat, clase, categoria, e.localID, e.localName, dia, monto, estado)
+	}
+	mk("EGRESO", "FIJO", "PAGADO", 1000, cat)
+	mk("EGRESO", "VARIABLE", "PAGADO", 500, cat)
+	mk("EGRESO", "VARIABLE", "ANULADO", 7777, cat)  // nunca suma
+	mk("EGRESO", "VARIABLE", "PENDIENTE", 300, cat) // aparte, fuera de utilidad
+	mk("INGRESO", "", "PAGADO", 200, catIngreso)
+
+	rep, err := e.reporte.Generar(dia, dia, e.localName, "mes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := rep.Resumen
+	if r.EgresosFijos != 1000 || r.EgresosVariables != 500 || r.EgresosTotal != 1500 {
+		t.Fatalf("egresos = %+v", r)
+	}
+	if r.EgresosPendientes != 300 {
+		t.Fatalf("pendientes = %v, quiero 300 aparte", r.EgresosPendientes)
+	}
+	if r.IngresosOtros != 200 || r.UtilidadNeta != r.IngresosTotal-r.EgresosTotal {
+		t.Fatalf("utilidad = %v, ingresos_total %v, egresos_total %v", r.UtilidadNeta, r.IngresosTotal, r.EgresosTotal)
+	}
+	if r.UtilidadNeta != -1300 {
+		t.Fatalf("utilidad = %v, quiero -1300 (200 - 1500)", r.UtilidadNeta)
+	}
+}
+
+func TestTrastiendaReporteVentasCoincideConPagos(t *testing.T) {
+	e := setupTrastienda(t)
+	dia := "2032-07-04"
+	mustExec(t, e.db, `
+		INSERT INTO pagos (local_id, local_nombre, cliente_nombre, subtotal, descuento, total_final, estado, tipo_pago, nombre_cajero, activo, fecha_creacion)
+		VALUES ($1,$2,'Cliente',150,0,150,'PAGADO','efectivo','test',TRUE,$3::timestamptz),
+		       ($1,$2,'Cliente',999,0,999,'PENDIENTE','efectivo','test',TRUE,$3::timestamptz)`, e.localID, e.localName, dia+" 12:00:00-04")
+	rep, err := e.reporte.Generar(dia, dia, e.localName, "dia")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Resumen.IngresosVentas != 150 {
+		t.Fatalf("ventas = %v, quiero 150 (solo PAGADO)", rep.Resumen.IngresosVentas)
+	}
+}
+
+// ─── Sesiones de plan (RN-18) ─────────────────────────────────────────────────
+
+func (e *trastiendaEnv) nuevoPlanConSesion(servicioNombre string) (planID, planServicioID int) {
+	e.t.Helper()
+	var servicioID int
+	if err := e.db.Get(&servicioID, `SELECT id FROM servicios WHERE nombre = $1`, servicioNombre); err != nil {
+		e.t.Fatal(err)
+	}
+	if err := e.db.Get(&planID, `
+		INSERT INTO planes (cliente, cliente_nombre_texto, subtotal, precio_total, local_id, estado)
+		VALUES ('Cliente Plan', 'Cliente Plan', 100, 100, $1, 'ACTIVO') RETURNING id`, e.localID); err != nil {
+		e.t.Fatal(err)
+	}
+	if err := e.db.Get(&planServicioID, `
+		INSERT INTO plan_servicios (plan_id, servicio_id_origen, nombre_texto, sesiones_contratadas, sesion_numero)
+		VALUES ($1, $2, $3, 1, 1) RETURNING id`, planID, servicioID, servicioNombre); err != nil {
+		e.t.Fatal(err)
+	}
+	return planID, planServicioID
+}
+
+func (e *trastiendaEnv) planesRepoConConsumo() *pgsqlrepo.PlanesRepo {
+	repo := pgsqlrepo.NewPlanesRepo(e.db)
+	repo.ConsumoSesion = func(tx *sqlx.Tx, servicioID, localID, planMovimientoID int) error {
+		return e.consumo.ConsumirSesionPlan(tx, servicioID, localID, planMovimientoID, repository.ConsumoActor{})
+	}
+	return repo
+}
+
+func TestTrastiendaSesionDePlanSinReservaDescuentaUnaSolaVez(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Plan gel", 100)
+	srv := e.nuevoServicio("PlanSrv", map[int]float64{item: 20})
+	planID, _ := e.nuevoPlanConSesion(srv)
+	repo := e.planesRepoConConsumo()
+
+	for i := 0; i < 2; i++ { // marcar, desmarcar y volver a marcar no debe duplicar el descuento
+		if _, err := repo.MarcarSesion(planID, 1, true); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := repo.MarcarSesion(planID, 1, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := repo.MarcarSesion(planID, 1, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.stock(item); got != 80 {
+		t.Fatalf("stock = %v, quiero 80 (un solo descuento de 20)", got)
+	}
+}
+
+func TestTrastiendaSesionDePlanConReservaLigadaNoDescuentaDoble(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Plan gel 2", 100)
+	srv := e.nuevoServicio("PlanSrv2", map[int]float64{item: 20})
+	planID, planServicioID := e.nuevoPlanConSesion(srv)
+	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
+	mustExec(t, e.db, `INSERT INTO plan_movimientos (plan_servicio_id, reserva_id, tipo, cantidad) VALUES ($1, $2, 'RESERVA', 1)`, planServicioID, reserva)
+
+	// La reserva se completa (descuenta 20) y luego se marca la sesion: no debe descontar otros 20.
+	if err := e.atender(reserva, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 20}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.planesRepoConConsumo().MarcarSesion(planID, 1, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.stock(item); got != 80 {
+		t.Fatalf("stock = %v, quiero 80 (descuento doble evitado)", got)
+	}
+}
+
+// Wifi viejo: se paga hasta junio, se desactiva y se retoma en octubre. Los meses en pausa no se cobran
+// ni quedan atrasados; solo se genera desde la nueva fecha de inicio.
+func TestTrastiendaGastoFijoReactivadoNoCobraLosMesesEnPausa(t *testing.T) {
+	e := setupTrastienda(t)
+	id := e.nuevoGastoFijo(5, "2027-01-01", nil)
+	if _, err := e.gastos.GenerarHasta(fecha("2027-06-20")); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(e.periodos(id)); got != 6 {
+		t.Fatalf("antes de pausar esperaba 6 egresos (ene-jun), hay %d", got)
+	}
+	if err := e.gastos.Desactivar(id); err != nil {
+		t.Fatal(err)
+	}
+
+	inicio, activo := "2027-10-01", true
+	if err := e.gastos.Actualizar(id, GastoFijoPatch{FechaInicio: &inicio, FechaFinSet: true, Activo: &activo}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.gastos.GenerarHasta(fecha("2027-10-20")); err != nil {
+		t.Fatal(err)
+	}
+	got := e.periodos(id)
+	if len(got) != 7 || got[6] != "2027-10-05" {
+		t.Fatalf("al retomar debe sumar solo octubre (jul-sep en pausa), quedo %v", got)
+	}
+}
+
+// Cuando avanza la sesion de un paquete es un parametro: al completar la reserva (por defecto) o al agendarla.
+// Rechazar una reserva agendada devuelve la sesion.
+func TestTrastiendaSesionDePaqueteSegunElParametro(t *testing.T) {
+	e := setupTrastienda(t)
+	// El parametro vive en la base compartida: se parte de su valor por defecto y se deja como estaba.
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgSesionPaqueteEnEstado: "COMPLETADO"}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = e.cfgSvc.Update(map[string]interface{}{CfgSesionPaqueteEnEstado: "COMPLETADO"}) })
+	item := e.nuevoItem("Gel sesion param", 100)
+	srv := e.nuevoServicio("Sesion param", map[int]float64{item: 10})
+	ses := func(planID int) bool {
+		var v bool
+		if err := e.db.Get(&v, `SELECT realizado FROM plan_servicios WHERE plan_id = $1 AND sesion_numero = 1`, planID); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	nueva := func() (int, int) {
+		planID, _ := e.nuevoPlanConSesion(srv)
+		r := e.nuevaReserva(srv, "PENDIENTE", 2)
+		mustExec(t, e.db, `UPDATE reservas SET plan_id = $1 WHERE id = $2`, planID, r)
+		return planID, r
+	}
+	agendar := func(r int) {
+		if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: r, Estado: "AGENDADO"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Por defecto la sesion avanza al completar, no al agendar.
+	planID, r := nueva()
+	agendar(r)
+	if ses(planID) {
+		t.Fatal("con el parametro por defecto agendar no debe marcar la sesion")
+	}
+	if err := e.atender(r, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 10}); err != nil {
+		t.Fatal(err)
+	}
+	if !ses(planID) {
+		t.Fatal("completar debe marcar la sesion")
+	}
+
+	// Con AGENDADO avanza al agendar, por cualquiera de las dos vias.
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgSesionPaqueteEnEstado: "AGENDADO"}); err != nil {
+		t.Fatal(err)
+	}
+	planID, r = nueva()
+	agendar(r)
+	if !ses(planID) {
+		t.Fatal("con AGENDADO, agendar debe marcar la sesion")
+	}
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: r, Estado: "CANCELADO", MotivoCancelacionTipo: "REPROGRAMACION"}); err != nil {
+		t.Fatal(err)
+	}
+	if ses(planID) {
+		t.Fatal("cancelar una reserva agendada debe devolver la sesion")
+	}
+
+	planID, r = nueva()
+	if _, err := e.reservas.ActualizarReservaConAvisos(ActualizarReservaPGInput{Id: r, Local: e.localName, NuevoEstado: "AGENDADO", NuevoServicioConfirmado: srv}); err != nil {
+		t.Fatalf("aprobar por PATCH: %v", err)
+	}
+	if !ses(planID) {
+		t.Fatal("con AGENDADO, aprobar por PATCH debe marcar la sesion")
+	}
+}
+
+func TestTrastiendaCancelarReservaAgendadaRevierteStockYAudita(t *testing.T) {
+	e := setupTrastienda(t)
+	if _, err := e.cfgSvc.Update(map[string]interface{}{
+		CfgDescontarEnEstado: "AGENDADO", CfgPermitirStockNegativo: false,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	item := e.nuevoItem("Cancelacion", 10)
+	servicio := e.nuevoServicio("Servicio cancelable", map[int]float64{item: 4})
+	reserva := e.nuevaReserva(servicio, "PENDIENTE", 1)
+	actor := repository.ConsumoActor{UsuarioNombre: "QA cancelacion"}
+
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{
+		Id: reserva, Estado: "AGENDADO", Actor: actor,
+	}); err != nil {
+		t.Fatalf("agendar: %v", err)
+	}
+	if got := e.stock(item); got != 6 {
+		t.Fatalf("stock tras agendar = %v; se esperaba 6", got)
+	}
+
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{
+		Id: reserva, Estado: "CANCELADO", MotivoCancelacionTipo: "INASISTENCIA", Actor: actor,
+	}); err != nil {
+		t.Fatalf("cancelar: %v", err)
+	}
+	if got := e.stock(item); got != 10 {
+		t.Fatalf("stock tras cancelar = %v; se esperaba 10", got)
+	}
+
+	var audit struct {
+		Estado string     `db:"estado"`
+		Motivo string     `db:"motivo_cancelacion_tipo"`
+		Fecha  *time.Time `db:"cancelado_en"`
+		Actor  *string    `db:"cancelado_por"`
+	}
+	if err := e.db.Get(&audit, `SELECT estado, motivo_cancelacion_tipo, cancelado_en, cancelado_por FROM reservas WHERE id=$1`, reserva); err != nil {
+		t.Fatal(err)
+	}
+	if audit.Estado != "CANCELADO" || audit.Motivo != "INASISTENCIA" || audit.Fecha == nil || audit.Actor == nil || *audit.Actor != "QA cancelacion" {
+		t.Fatalf("auditoria de cancelacion invalida: %+v", audit)
+	}
+	var atenciones int
+	if err := e.db.Get(&atenciones, `SELECT COUNT(*) FROM atenciones WHERE reserva_id=$1`, reserva); err != nil {
+		t.Fatal(err)
+	}
+	if atenciones != 0 {
+		t.Fatalf("una inasistencia no debe crear atencion, hay %d", atenciones)
+	}
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: reserva, Estado: "CANCELADO", MotivoCancelacionTipo: "INASISTENCIA"}); err == nil {
+		t.Fatal("una reserva cancelada no debe cancelarse por segunda vez")
+	}
+
+	reservaRechazo := e.nuevaReserva(servicio, "AGENDADO", 2)
+	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{Id: reservaRechazo, Estado: "RECHAZADO", Causa: "no corresponde"}); err == nil {
+		t.Fatal("una reserva agendada no debe pasar a RECHAZADO")
+	}
+}
+
+// El listado de items pagina por desplazamiento: cada pagina trae PageLimit filas mas una de sobra para saber si
+// hay otra, y ContarItems cuenta todo lo filtrado sin importar la pagina.
+func TestTrastiendaItemsPaginan(t *testing.T) {
+	e := setupTrastienda(t)
+	for _, n := range []string{"A", "B", "C", "D", "E"} {
+		e.nuevoItem("Paginado"+n, 0)
+	}
+	filtro := repository.FiltroItemsInventario{Q: e.sufijo}
+	filtro.PageLimit = 3 // pagina de 2 mas la fila de sobra
+
+	total, err := e.inv.ContarItems(filtro)
+	if err != nil || total != 5 {
+		t.Fatalf("total = %d, err = %v; quiero 5", total, err)
+	}
+	var nombres []string
+	for offset := 0; ; offset += 2 {
+		filtro.Offset = offset
+		items, err := e.inv.ListarItems(filtro)
+		if err != nil {
+			t.Fatal(err)
+		}
+		hayMas := len(items) > 2
+		if hayMas {
+			items = items[:2]
+		}
+		for _, it := range items {
+			nombres = append(nombres, it.Nombre)
+		}
+		if !hayMas {
+			break
+		}
+	}
+	if len(nombres) != 5 {
+		t.Fatalf("las paginas suman %d items, quiero 5: %v", len(nombres), nombres)
+	}
+	for i := 1; i < len(nombres); i++ {
+		if nombres[i-1] >= nombres[i] {
+			t.Fatalf("el orden por nombre se rompe entre paginas: %v", nombres)
+		}
+	}
+}

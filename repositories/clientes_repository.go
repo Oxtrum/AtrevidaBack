@@ -15,6 +15,11 @@ type FiltroClientes struct {
 	CursorApellido string
 	CursorNombre   string
 	CursorID       int
+	// OrdenarPor es una clave de pgsql.ClientesOrdenables. Con orden pedido la paginacion avanza por Offset
+	// y no por CursorApellido/CursorNombre/CursorID.
+	OrdenarPor string
+	OrdenDesc  bool
+	Offset     int
 }
 
 type CrearClienteInput struct {

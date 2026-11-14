@@ -1,0 +1,1 @@
+ALTER TABLE empleados DROP COLUMN IF EXISTS foto_key;

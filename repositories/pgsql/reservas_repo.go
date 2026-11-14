@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"atrevida-agenda-api/models"
+	"atrevida-agenda-api/pagination"
 	repository "atrevida-agenda-api/repositories"
 )
 
@@ -26,10 +27,25 @@ func NewReservasRepo(db *sqlx.DB) *ReservasRepo {
 }
 
 // GET
-func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.ReservaPGCompleta, error) {
+// ReservasOrdenables lista las columnas por las que se puede ordenar el listado de reservas (ordenar_por).
+// La clave es el nombre del campo en la respuesta; el servicio ordena por el texto que muestra la tabla.
+var ReservasOrdenables = pagination.Columns{
+	"fecha":      "r.fecha",
+	"hora_desde": "r.hora_desde",
+	"cliente":    textoOrden("r.cliente"),
+	"tipo":       "r.tipo_espacio",
+	"servicio":   textoOrden("COALESCE(r.servicio_confirmado, r.servicio_nombre, r.servicio_solicitado)"),
+	"estado":     "r.estado",
+	"local":      textoOrden("r.local_nombre"),
+}
+
+// buildReservasQuery arma el listado. Sin orden pedido pagina por valor (local o cronologico); con orden
+// pedido, que manda sobre el cronologico, pagina por desplazamiento.
+func buildReservasQuery(f repository.FiltroReservasPG) (string, []interface{}) {
 	conditions, args := reservaConditions(f)
 	idx := len(args) + 1
-	if f.CursorSet {
+	ordenado := f.OrdenarPor != ""
+	if f.CursorSet && !ordenado {
 		if f.OrdenCronologico {
 			conditions = append(conditions, fmt.Sprintf("(r.fecha, r.hora_desde, r.local_nombre, r.id) > ($%d, $%d, $%d, $%d)", idx, idx+1, idx+2, idx+3))
 			args = append(args, f.CursorFecha, f.CursorHora, f.CursorLocal, f.CursorID)
@@ -43,20 +59,31 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 	if f.PageLimit > 0 {
 		limitClause = fmt.Sprintf(" LIMIT $%d", idx)
 		args = append(args, f.PageLimit)
+		idx++
+		if ordenado && f.Offset > 0 {
+			limitClause += fmt.Sprintf(" OFFSET $%d", idx)
+			args = append(args, f.Offset)
+		}
 	}
 
 	query := fmt.Sprintf(`
 		SELECT
 			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
+			r.cliente, r.cliente_id, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
-			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
+			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
+			r.motivo_cancelacion_tipo, r.motivo_cancelacion_detalle, r.cancelado_en, r.cancelado_por_id, r.cancelado_por,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE %s
 		ORDER BY %s%s
 	`, strings.Join(conditions, " AND "), reservaOrderClause(f), limitClause)
+	return query, args
+}
+
+func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.ReservaPGCompleta, error) {
+	query, args := buildReservasQuery(f)
 
 	rows, err := r.db.QueryxContext(queryContext(f.Context), query, args...)
 	if err != nil {
@@ -83,6 +110,9 @@ func (r *ReservasRepo) GetReservas(f repository.FiltroReservasPG) ([]models.Rese
 }
 
 func reservaOrderClause(f repository.FiltroReservasPG) string {
+	if f.OrdenarPor != "" {
+		return pagination.Sort{Key: f.OrdenarPor, Desc: f.OrdenDesc}.OrderBy(ReservasOrdenables, "r.local_nombre, r.fecha, r.hora_desde, r.id", "r.fecha", "r.hora_desde", "r.id")
+	}
 	if f.OrdenCronologico {
 		return "r.fecha, r.hora_desde, r.local_nombre, r.id"
 	}
@@ -120,6 +150,9 @@ func reservaConditions(f repository.FiltroReservasPG) ([]string, []interface{}) 
 	}
 	if f.FechaHasta != nil {
 		add("r.fecha <= $%d", *f.FechaHasta)
+	}
+	if f.ClienteID != nil {
+		add("r.cliente_id = $%d", *f.ClienteID)
 	}
 	if f.Cliente != "" {
 		add("r.cliente ILIKE $%d", "%"+f.Cliente+"%")
@@ -206,9 +239,9 @@ func (r *ReservasRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error)
 		SELECT
 			r.id, r.local_id, r.local_nombre, r.tipo_espacio,
 			r.fecha, r.hora_desde::text, r.hora_hasta::text,
-			r.cliente, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
+			r.cliente, r.cliente_id, r.estado, r.numero_telefono, r.telefono_e164, r.plan_id, r.servicio_nombre,
 			r.servicio_solicitado, r.servicio_confirmado, r.servicio_tiempo,
-			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado,
+			r.precio, r.costo_variable, r.notas, r.activo, COALESCE(r.notificado, FALSE) AS notificado, r.alerta_inventario,
 			r.creado_en, r.actualizado_en
 		FROM reservas r
 		WHERE r.id = $1
@@ -331,15 +364,15 @@ func (r *ReservasRepo) CreateReserva(input repository.CreateReservaInput) (int, 
 			local_id, local_nombre, tipo_espacio,
 			fecha, hora_desde, hora_hasta,
 			cliente, estado, numero_telefono, telefono_e164, plan_id, servicio_nombre,
-			servicio_solicitado, servicio_confirmado, precio, notas, costo_variable
-		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+			servicio_solicitado, servicio_confirmado, precio, notas, costo_variable, cliente_id
+		) VALUES ($1,$2,$3,$4,$5::time,$6::time,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
 		RETURNING id
 	`,
 		localID, input.LocalNombre, strings.ToUpper(input.TipoEspacio),
 		input.Fecha, input.HoraDesde, input.HoraHasta,
 		input.Cliente, input.Estado, nullStr(input.NumeroTelefono), input.TelefonoE164, input.PlanID,
 		nullStr(input.ServicioNombre), nullStr(input.ServicioSolicitado),
-		input.ServicioConfirmado, input.Precio, nullStr(input.Notas), input.CostoVariable,
+		input.ServicioConfirmado, input.Precio, nullStr(input.Notas), input.CostoVariable, input.ClienteID,
 	).Scan(&reservaID)
 	if err != nil {
 		return 0, fmt.Errorf("error al insertar reserva: %w", err)
@@ -575,11 +608,28 @@ func (r *ReservasRepo) UpdateReserva(input repository.UpdateReservaInput) error 
 		return fmt.Errorf("error al actualizar reserva: %w", err)
 	}
 
+	if input.OnApplied != nil {
+		if err := input.OnApplied(tx); err != nil {
+			return err
+		}
+	}
+
 	return tx.Commit()
 }
 
 func (r *ReservasRepo) AnularReserva(id int) error {
-	res, err := r.db.Exec(
+	return r.AnularReservaConHook(id, nil)
+}
+
+// AnularReservaConHook anula la reserva y ejecuta hook (si no es nil) en la misma transaccion.
+func (r *ReservasRepo) AnularReservaConHook(id int, hook func(tx *sqlx.Tx) error) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(
 		`UPDATE reservas SET activo = FALSE, actualizado_en = NOW() WHERE id = $1 AND activo = TRUE`, id,
 	)
 	if err != nil {
@@ -592,7 +642,12 @@ func (r *ReservasRepo) AnularReserva(id int) error {
 	if n == 0 {
 		return fmt.Errorf("reserva con id %d no encontrada o inactiva", id)
 	}
-	return nil
+	if hook != nil {
+		if err := hook(tx); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (r *ReservasRepo) UpdateReservaNotificado(id int, notificado bool) error {
@@ -678,6 +733,21 @@ func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoI
 	sets := []string{"estado = $1", "actualizado_en = NOW()"}
 	args := []interface{}{input.Estado}
 	idx := 2
+	if input.MotivoCancelacionTipo != nil {
+		sets = append(sets, fmt.Sprintf("motivo_cancelacion_tipo = $%d", idx))
+		args = append(args, *input.MotivoCancelacionTipo)
+		idx++
+		sets = append(sets, fmt.Sprintf("motivo_cancelacion_detalle = $%d", idx))
+		args = append(args, input.MotivoCancelacionDetalle)
+		idx++
+		sets = append(sets, "cancelado_en = NOW()")
+		sets = append(sets, fmt.Sprintf("cancelado_por_id = $%d", idx))
+		args = append(args, input.CanceladoPorID)
+		idx++
+		sets = append(sets, fmt.Sprintf("cancelado_por = $%d", idx))
+		args = append(args, input.CanceladoPor)
+		idx++
+	}
 
 	if input.ServicioConfirmado != nil {
 		sets = append(sets, fmt.Sprintf("servicio_confirmado = $%d", idx))
@@ -715,6 +785,12 @@ func (r *ReservasRepo) UpdateReservaEstado(input repository.UpdateReservaEstadoI
 	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("reserva no encontrada")
+	}
+
+	if input.OnApplied != nil {
+		if err := input.OnApplied(tx); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()

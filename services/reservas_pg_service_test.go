@@ -7,6 +7,8 @@ import (
 
 	"atrevida-agenda-api/models"
 	repository "atrevida-agenda-api/repositories"
+
+	"github.com/jmoiron/sqlx"
 )
 
 func (r *reservasResumenRepo) GetReservasAgendadasNoNotificadas(context.Context, string, int) ([]models.ReservaNotificacionPG, error) {
@@ -69,6 +71,10 @@ func (r *reservasResumenRepo) UpdateReservasNotificado(ids []int, notificado boo
 }
 
 func (r *reservasResumenRepo) AnularReserva(id int) error {
+	return nil
+}
+
+func (r *reservasResumenRepo) AnularReservaConHook(id int, hook func(*sqlx.Tx) error) error {
 	return nil
 }
 
@@ -243,6 +249,27 @@ func TestGetReservaByIDAplicaLocalID(t *testing.T) {
 	scopeLocalID = localID
 	if _, err := service.GetReservaByID(44, &scopeLocalID); err != nil {
 		t.Fatalf("GetReservaByID() error = %v, want nil", err)
+	}
+}
+
+// La pantalla de editar necesita saber si la reserva ya tiene cliente: sin cliente_id creia que no y ofrecia vincular
+// otra vez.
+func TestGetReservaByIDDevuelveElClienteVinculado(t *testing.T) {
+	clienteID := 12
+	service := NewReservasPGService(&reservasResumenRepo{
+		reserva: &models.ReservaPGCompleta{
+			ReservaPG: models.ReservaPG{
+				ID: 44, LocalNombre: "SAN MARTIN", TipoEspacio: "M",
+				Fecha:     time.Date(2026, time.May, 23, 0, 0, 0, 0, time.UTC),
+				HoraDesde: "09:00", HoraHasta: "10:00", Cliente: "Maria Lopez", ClienteID: &clienteID,
+			},
+		},
+	}, nil)
+
+	got, err := service.GetReservaByID(44, nil)
+
+	if err != nil || got.ClienteID == nil || *got.ClienteID != clienteID {
+		t.Fatalf("ClienteID = %v, err = %v, want 12", got, err)
 	}
 }
 

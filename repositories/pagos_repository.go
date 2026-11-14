@@ -32,6 +32,11 @@ type FiltroPagos struct {
 	CursorSet                  bool
 	CursorFecha                time.Time
 	CursorID                   int
+	// OrdenarPor es una clave de pgsql.PagosOrdenables. Con orden pedido la paginacion avanza por Offset
+	// y no por CursorFecha/CursorID.
+	OrdenarPor string
+	OrdenDesc  bool
+	Offset     int
 }
 
 type CrearPagoInput struct {
@@ -46,8 +51,12 @@ type CrearPagoInput struct {
 	TipoPago      string
 	Estado        string
 	Activo        bool
-	Cajero        CajeroAuditoriaInput
-	Detalle       []CrearDetallePagoInput
+	ReservaID     *int
+	// FechaHecho es cuando ocurrio el cobro; nil usa el momento actual. Se guarda en fecha_creacion, que es la
+	// fecha de negocio que usan reportes y orden. El momento real del registro queda en registrado_en.
+	FechaHecho *time.Time
+	Cajero     CajeroAuditoriaInput
+	Detalle    []CrearDetallePagoInput
 }
 
 type CajeroAuditoriaInput struct {
@@ -128,6 +137,26 @@ type PagoResumenServicioRow struct {
 	MontoTotal  float64 `db:"monto_total"`
 }
 
+// VentaDetalleRow es una linea de venta (un servicio dentro de un pago PAGADO) con el descuento del pago
+// repartido en proporcion a su subtotal, para que las sumas por servicio, local o dia cuadren con total_final.
+type VentaDetalleRow struct {
+	CodigoPago    string    `db:"codigo_pago"`
+	Fecha         time.Time `db:"fecha"`
+	Local         string    `db:"local"`
+	ClienteNombre string    `db:"cliente_nombre"`
+	ClienteNIT    string    `db:"cliente_nit"`
+	Cajero        string    `db:"cajero"`
+	TipoPago      string    `db:"tipo_pago"`
+	Servicio      string    `db:"servicio"`
+	// TipoLinea separa lo vendido: SERVICIO, INSUMO, PAQUETE u OTRO (linea libre).
+	TipoLinea            string  `db:"tipo_linea"`
+	Cantidad             int     `db:"cantidad"`
+	PrecioUnitario       float64 `db:"precio_unitario"`
+	Subtotal             float64 `db:"subtotal"`
+	DescuentoProrrateado float64 `db:"descuento_prorrateado"`
+	TotalPago            float64 `db:"total_pago"`
+}
+
 type PagoResumenAgregado struct {
 	Totales   []PagoResumenTotalRow
 	Tipos     []PagoResumenTipoRow
@@ -152,6 +181,9 @@ type PagosRepository interface {
 	GetPagoByCodigo(codigoPago string) (*models.PagoCompletoPG, error)
 	CreatePago(input CrearPagoInput) (string, error)
 	UpdatePago(input ActualizarPagoInput) error
-	DeletePago(codigoPago string) error
+	// DeletePago anula el pago. actor queda en el kardex si hay que devolver insumos vendidos.
+	DeletePago(codigoPago string, actor ConsumoActor) error
 	GetResumenPagos(filtro FiltroResumenPagos) (PagoResumenAgregado, error)
+	// ListVentasDetalle devuelve hasta limite lineas de venta del periodo, de la mas antigua a la mas reciente.
+	ListVentasDetalle(filtro FiltroResumenPagos, limite int) ([]VentaDetalleRow, error)
 }

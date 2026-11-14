@@ -47,6 +47,7 @@ func inputReservaDia() CrearReservaPGInput {
 		HoraHasta:   "09:00",
 		Tipo:        "M",
 		Cliente:     "Diego",
+		ClienteID:   entero(5),
 		Telefono:    "70011223",
 		Autenticado: true,
 	}
@@ -58,7 +59,7 @@ func TestCrearReservaAvisaSiElClienteYaTieneReservaEseDia(t *testing.T) {
 	}}
 	svc := &ReservasPGService{repo: repo}
 
-	_, err := svc.CrearReserva(inputReservaDia())
+	_, err := svc.CrearReservaConAvisos(inputReservaDia())
 
 	var dup *ReservaDuplicadaError
 	if !errors.As(err, &dup) {
@@ -84,13 +85,13 @@ func TestCrearReservaConfirmadaOmiteElAvisoDeDuplicado(t *testing.T) {
 	in := inputReservaDia()
 	in.ConfirmarDuplicado = true
 
-	id, err := svc.CrearReserva(in)
+	res, err := svc.CrearReservaConAvisos(in)
 
 	if err != nil {
 		t.Fatalf("error = %v, want nil", err)
 	}
-	if id != 7 || repo.creadas != 1 {
-		t.Fatalf("id = %d, creadas = %d, want 7 y 1", id, repo.creadas)
+	if res.ID != 7 || repo.creadas != 1 {
+		t.Fatalf("id = %d, creadas = %d, want 7 y 1", res.ID, repo.creadas)
 	}
 }
 
@@ -100,7 +101,7 @@ func TestCrearReservaIgnoraReservasRechazadas(t *testing.T) {
 	}}
 	svc := &ReservasPGService{repo: repo}
 
-	if _, err := svc.CrearReserva(inputReservaDia()); err != nil {
+	if _, err := svc.CrearReservaConAvisos(inputReservaDia()); err != nil {
 		t.Fatalf("error = %v, want nil: una reserva rechazada no cuenta", err)
 	}
 	if repo.creadas != 1 {
@@ -116,7 +117,7 @@ func TestCrearReservaPublicaNoConsultaDuplicados(t *testing.T) {
 	in := inputReservaDia()
 	in.Autenticado = false
 
-	if _, err := svc.CrearReserva(in); err != nil {
+	if _, err := svc.CrearReservaConAvisos(in); err != nil {
 		t.Fatalf("error = %v, want nil", err)
 	}
 	if len(repo.filtros) != 0 {
@@ -220,7 +221,7 @@ func TestCrearReservaAvisaTambienSiLaOtraReservaEsDeOtroLocal(t *testing.T) {
 	repo := &reservasDuplicadasRepo{existentes: []models.ReservaPGCompleta{otra}}
 	svc := &ReservasPGService{repo: repo}
 
-	_, err := svc.CrearReserva(inputReservaDia())
+	_, err := svc.CrearReservaConAvisos(inputReservaDia())
 
 	var dup *ReservaDuplicadaError
 	if !errors.As(err, &dup) || dup.Reservas[0].Local != "PASEO ARANJUEZ" {

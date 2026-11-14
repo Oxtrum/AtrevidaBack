@@ -9,6 +9,7 @@ import (
 
 	"atrevida-agenda-api/models"
 	"atrevida-agenda-api/pagination"
+	pgsqlrepo "atrevida-agenda-api/repositories/pgsql"
 	"atrevida-agenda-api/services"
 	"atrevida-agenda-api/utils"
 
@@ -20,11 +21,16 @@ type planFiltrosResponse struct {
 	Cliente        string `json:"cliente" example:"Maria"`
 	Local          string `json:"local" example:"SAN MARTIN"`
 	LocalID        *int   `json:"local_id,omitempty" example:"1"`
+	ClienteID      *int   `json:"cliente_id,omitempty" example:"12"`
 	Estado         string `json:"estado" example:"ACTIVO"`
 	EstadoCobranza string `json:"estado_cobranza" example:"PENDIENTE"`
 	FechaDesde     string `json:"fecha_desde" example:"2026-07-01"`
 	FechaHasta     string `json:"fecha_hasta" example:"2026-07-31"`
 	Orden          string `json:"orden" example:"prioridad_estado"`
+	// Orden aplicado: campo por el que se ordeno; vacio si se uso el orden por defecto. Manda sobre orden
+	OrdenarPor string `json:"ordenar_por,omitempty" example:"precio_total"`
+	// Orden aplicado: sentido asc o desc; vacio si se uso el orden por defecto
+	Sentido string `json:"sentido,omitempty" example:"desc"`
 }
 
 type planListResponse struct {
@@ -110,16 +116,19 @@ type cobrarPlanRequest struct {
 // @Param cliente query string false "Busqueda parcial por nombre del cliente" example(Maria)
 // @Param local query string false "Busqueda parcial por nombre del local" example(SAN MARTIN)
 // @Param local_id query int false "ID exacto del local" example(1)
+// @Param cliente_id query int false "ID exacto del cliente (la ficha del cliente lo usa; el nombre no distingue homonimos)" example(12)
 // @Param estado query string false "Filtrar por estado contractual: RESERVADO, ACTIVO, COMPLETADO, VENCIDO, CANCELADO" example(ACTIVO)
 // @Param estado_cobranza query string false "Filtrar por estado de cobranza: PENDIENTE, PARCIAL, PAGADO, VENCIDO" example(PENDIENTE)
 // @Param fecha_desde query string false "Fecha de creacion desde (YYYY-MM-DD)" example(2026-07-01)
 // @Param fecha_hasta query string false "Fecha de creacion hasta (YYYY-MM-DD)" example(2026-07-31)
 // @Param orden query string false "Orden opcional; prioridad_estado ordena RESERVADO, ACTIVO, COMPLETADO, VENCIDO y CANCELADO" Enums(prioridad_estado)
+// @Param ordenar_por query string false "Campo por el que ordenar; manda sobre orden=prioridad_estado" Enums(codigo,cliente,combo_nombre_texto,local_nombre_texto,precio_total,estado,estado_cobranza,creado_en) example(precio_total)
+// @Param sentido query string false "Sentido del orden; solo con ordenar_por, por defecto asc" Enums(asc,desc) example(desc)
 // @Param limit query int false "Tamano de pagina opcional (1-100); sin limit ni cursor conserva modo legacy" example(50)
-// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor"
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor; solo vale con el mismo ordenar_por y sentido que lo generaron"
 // @Param include_total query bool false "Incluye el total de paginas" example(false)
 // @Success 200 {object} utils.APIResponse{data=planListResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: parametros invalidos"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: parametros invalidos, ordenar_por fuera de la lista, sentido distinto de asc o desc, cursor de otro orden"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/planes [get]
@@ -139,6 +148,12 @@ func (h *Container) GetPlanes(c *gin.Context) {
 	filtroLocalID := localID
 	if scope.LocalID != nil {
 		filtroLocalID = scope.LocalID
+	}
+
+	clienteID, err := optionalPositiveInt(c, "cliente_id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	var fechaDesde, fechaHasta *time.Time
@@ -173,26 +188,39 @@ func (h *Container) GetPlanes(c *gin.Context) {
 	}
 	filters := planFiltrosResponse{
 		Busqueda: strings.TrimSpace(c.Query("busqueda")),
-		Cliente:  strings.TrimSpace(c.Query("cliente")), Local: strings.TrimSpace(c.Query("local")), LocalID: filtroLocalID,
+		Cliente:  strings.TrimSpace(c.Query("cliente")), Local: strings.TrimSpace(c.Query("local")), LocalID: filtroLocalID, ClienteID: clienteID,
 		Estado: strings.TrimSpace(c.Query("estado")), EstadoCobranza: strings.TrimSpace(c.Query("estado_cobranza")),
 		FechaDesde: c.Query("fecha_desde"), FechaHasta: c.Query("fecha_hasta"),
 		Orden: orden,
 	}
-	var after planPriorityCursor
-	if orden == "" {
-		var legacyAfter timeCursor
-		if !decodePaginationCursor(c, page, "planes", filters, &legacyAfter) {
-			return
-		}
-		after = planPriorityCursor{CreatedAt: legacyAfter.CreatedAt, ID: legacyAfter.ID}
-	} else if !decodePaginationCursor(c, page, "planes", filters, &after) {
+	sort, ok := parseSort(c, pgsqlrepo.PlanesOrdenables)
+	if !ok {
 		return
 	}
-	if page.Cursor != "" && (after.ID < 1 || after.CreatedAt.IsZero() || (orden != "" && (after.StateRank < 0 || after.StateRank > 5))) {
-		if !c.Writer.Written() {
-			utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+	var after planPriorityCursor
+	var afterOffset pagination.OffsetPosition
+	if sort.Active() {
+		// El orden pedido manda sobre prioridad_estado y pagina por desplazamiento; va en los filtros del cursor.
+		filters.OrdenarPor, filters.Sentido = sort.Key, sort.Direction()
+		if afterOffset, ok = decodeOffsetCursor(c, page, "planes", filters); !ok {
+			return
 		}
-		return
+	} else {
+		if orden == "" {
+			var legacyAfter timeCursor
+			if !decodePaginationCursor(c, page, "planes", filters, &legacyAfter) {
+				return
+			}
+			after = planPriorityCursor{CreatedAt: legacyAfter.CreatedAt, ID: legacyAfter.ID}
+		} else if !decodePaginationCursor(c, page, "planes", filters, &after) {
+			return
+		}
+		if page.Cursor != "" && (after.ID < 1 || after.CreatedAt.IsZero() || (orden != "" && (after.StateRank < 0 || after.StateRank > 5))) {
+			if !c.Writer.Written() {
+				utils.RespondError(c, http.StatusBadRequest, "paginacion invalida: cursor incompleto")
+			}
+			return
+		}
 	}
 
 	serviceFilter := services.FiltroPlanes{
@@ -201,13 +229,15 @@ func (h *Container) GetPlanes(c *gin.Context) {
 		Cliente:              strings.TrimSpace(c.Query("cliente")),
 		Local:                strings.TrimSpace(c.Query("local")),
 		LocalID:              filtroLocalID,
+		ClienteID:            clienteID,
 		Estado:               strings.TrimSpace(c.Query("estado")),
 		EstadoCobranza:       strings.TrimSpace(c.Query("estado_cobranza")),
 		FechaDesde:           fechaDesde,
 		FechaHasta:           fechaHasta,
 		OrdenPrioridadEstado: orden == "prioridad_estado",
-		PageLimit:            page.QueryLimit(), CursorSet: page.Cursor != "", CursorEstadoRank: after.StateRank,
+		PageLimit:            page.QueryLimit(), CursorSet: page.Cursor != "" && !sort.Active(), CursorEstadoRank: after.StateRank,
 		CursorFecha: after.CreatedAt, CursorID: after.ID,
+		OrdenarPor: sort.Key, OrdenDesc: sort.Desc, Offset: afterOffset.Offset,
 	}
 	planes, err := h.PlanesPG.ListarPlanes(serviceFilter)
 	if err != nil {
@@ -215,6 +245,9 @@ func (h *Container) GetPlanes(c *gin.Context) {
 		return
 	}
 	planes, metadata, err := pagination.Build(planes, page, "planes", filters, func(item models.PlanPG) any {
+		if sort.Active() {
+			return pagination.OffsetPosition{Offset: afterOffset.Offset + page.Limit}
+		}
 		if orden == "prioridad_estado" {
 			return planPriorityCursor{StateRank: planStateRank(item.Estado), CreatedAt: item.CreadoEn, ID: item.ID}
 		}

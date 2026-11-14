@@ -45,3 +45,15 @@ func TestReservaOrderClauseConservaLegacyYPermiteCronologico(t *testing.T) {
 		t.Fatalf("orden cronologico = %q", cronologico)
 	}
 }
+
+func TestReservaConditionsFiltraPorClienteRegistrado(t *testing.T) {
+	id := 12
+	conditions, args := reservaConditions(repository.FiltroReservasPG{ClienteID: &id})
+
+	if where := strings.Join(conditions, " AND "); !strings.Contains(where, "r.cliente_id = $1") {
+		t.Fatalf("WHERE no filtra por cliente_id: %s", where)
+	}
+	if len(args) != 1 || args[0] != 12 {
+		t.Fatalf("args = %#v, want [12]", args)
+	}
+}
