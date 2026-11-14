@@ -1503,7 +1503,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Anula un cargo con motivo; nunca se borra. Lo que los abonos le habian aplicado se libera y vuelve a ser saldo disponible. Requiere token Bearer con rol admin_sys o gerencia.",
+                "description": "Anula un cargo con motivo; nunca se borra. Lo que los abonos le habian aplicado se libera y vuelve a ser saldo disponible. Requiere token Bearer con rol admin_sys, coordinacion o gerencia.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1641,7 +1641,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una categoria nueva. Requiere token Bearer con rol admin_sys. Body: nombre (requerido) y local_id (opcional, puede ser null). Si local_id viene informado, tambien asocia la categoria al local mediante categorias_locales en la misma transaccion. Response: id (int ID de la categoria creada).",
+                "description": "Crea una categoria nueva. Requiere token Bearer con rol admin_sys o coordinacion. Body: nombre (requerido) y local_id (opcional, puede ser null). Si local_id viene informado, tambien asocia la categoria al local mediante categorias_locales en la misma transaccion. Response: id (int ID de la categoria creada).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1725,7 +1725,7 @@ const docTemplate = `{
         },
         "/bd/categorias/locales": {
             "post": {
-                "description": "Crea una relacion en categorias_locales. Requiere token Bearer con rol admin_sys. Body: categoria_id y local_id requeridos. Si la relacion ya existe, la operacion es idempotente.",
+                "description": "Crea una relacion en categorias_locales. Requiere token Bearer con rol admin_sys o coordinacion. Body: categoria_id y local_id requeridos. Si la relacion ya existe, la operacion es idempotente.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1807,7 +1807,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Elimina una relacion de categorias_locales. Requiere token Bearer con rol admin_sys. Body: categoria_id y local_id requeridos.",
+                "description": "Elimina una relacion de categorias_locales. Requiere token Bearer con rol admin_sys o coordinacion. Body: categoria_id y local_id requeridos.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1891,7 +1891,7 @@ const docTemplate = `{
         },
         "/bd/categorias/{id}": {
             "put": {
-                "description": "Actualiza el nombre de una categoria. Requiere token Bearer con rol admin_sys.",
+                "description": "Actualiza el nombre de una categoria. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1980,7 +1980,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Elimina una categoria y sus asociaciones con locales. Requiere token Bearer con rol admin_sys. Falla si la categoria esta en uso por servicios o combos.",
+                "description": "Elimina una categoria y sus asociaciones con locales. Requiere token Bearer con rol admin_sys o coordinacion. Falla si la categoria esta en uso por servicios o combos.",
                 "produces": [
                     "application/json"
                 ],
@@ -3153,7 +3153,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea una promocion reutilizable con locales y lineas en una unica transaccion. Requiere token Bearer con rol admin_sys. tipo_precio POR_ITEMS calcula el total desde las lineas; PRECIO_PAQUETE exige precio_paquete. servicio_id es solo trazabilidad: el nombre, tiempo y costo se guardan como snapshot en el combo.",
+                "description": "Crea una promocion reutilizable con locales y lineas en una unica transaccion. Requiere token Bearer con rol admin_sys o coordinacion. tipo_precio POR_ITEMS calcula el total desde las lineas; PRECIO_PAQUETE exige precio_paquete. servicio_id es solo trazabilidad: el nombre, tiempo y costo se guardan como snapshot en el combo.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3301,7 +3301,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Realiza el borrado lógico de una promoción de catálogo: la marca inactiva, deja de aparecer en el catálogo público y conserva sus snapshots históricos. Requiere token Bearer con rol admin_sys.",
+                "description": "Realiza el borrado lógico de una promoción de catálogo: la marca inactiva, deja de aparecer en el catálogo público y conserva sus snapshots históricos. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "produces": [
                     "application/json"
                 ],
@@ -3379,7 +3379,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Actualiza metadatos financieros y comerciales del catalogo. No modifica planes adquiridos. Requiere token Bearer con rol admin_sys. Para reemplazar locales o lineas use las rutas dedicadas.",
+                "description": "Actualiza metadatos financieros y comerciales del catalogo. No modifica planes adquiridos. Requiere token Bearer con rol admin_sys o coordinacion. Para reemplazar locales o lineas use las rutas dedicadas.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3471,7 +3471,7 @@ const docTemplate = `{
         },
         "/bd/combos/{id}/imagen": {
             "put": {
-                "description": "Persiste la portada del combo tras una subida exitosa y devuelve su URL publica. Requiere token Bearer con rol admin_sys.",
+                "description": "Persiste la portada del combo tras una subida exitosa y devuelve su URL publica. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "produces": [
                     "application/json"
                 ],
@@ -3549,7 +3549,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Borra el objeto de portada en Supabase Storage y limpia el path del combo. Requiere token Bearer con rol admin_sys.",
+                "description": "Borra el objeto de portada en Supabase Storage y limpia el path del combo. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "produces": [
                     "application/json"
                 ],
@@ -3629,7 +3629,7 @@ const docTemplate = `{
         },
         "/bd/combos/{id}/imagen/upload-url": {
             "post": {
-                "description": "Devuelve una URL firmada de Supabase Storage para que el cliente suba la imagen de portada directamente, sin pasar los bytes por el backend. Requiere token Bearer con rol admin_sys. Tras subir el archivo, confirmar con PUT /bd/combos/{id}/imagen.",
+                "description": "Devuelve una URL firmada de Supabase Storage para que el cliente suba la imagen de portada directamente, sin pasar los bytes por el backend. Requiere token Bearer con rol admin_sys o coordinacion. Tras subir el archivo, confirmar con PUT /bd/combos/{id}/imagen.",
                 "produces": [
                     "application/json"
                 ],
@@ -3709,7 +3709,7 @@ const docTemplate = `{
         },
         "/bd/combos/{id}/locales": {
             "put": {
-                "description": "Reemplaza la disponibilidad de una promocion por una lista completa de locales activos. Requiere token Bearer con rol admin_sys.",
+                "description": "Reemplaza la disponibilidad de una promocion por una lista completa de locales activos. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3801,7 +3801,7 @@ const docTemplate = `{
         },
         "/bd/combos/{id}/servicios": {
             "put": {
-                "description": "Reemplaza en una transaccion las lineas activas de una promocion. Las lineas anteriores se desactivan para conservar historia de catalogo. Requiere token Bearer con rol admin_sys. Esta operacion recalcula sesiones y precio final sin afectar planes adquiridos.",
+                "description": "Reemplaza en una transaccion las lineas activas de una promocion. Las lineas anteriores se desactivan para conservar historia de catalogo. Requiere token Bearer con rol admin_sys o coordinacion. Esta operacion recalcula sesiones y precio final sin afectar planes adquiridos.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3898,7 +3898,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lista las compras. Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer con rol admin_sys o gerencia.",
+                "description": "Lista las compras. Los usuarios de gerencia quedan limitados a su local. Requiere token Bearer con rol admin_sys, coordinacion o gerencia.",
                 "produces": [
                     "application/json"
                 ],
@@ -3973,7 +3973,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Registra una compra en una sola transaccion: crea la compra y su detalle, suma el stock de cada item en el local, actualiza el costo de referencia y genera UN egreso VARIABLE (categoria Compras de inventario) por el total. Si falla cualquier linea no queda nada a medias. Gerencia solo puede comprar para su local. Requiere token Bearer con rol admin_sys o gerencia.",
+                "description": "Registra una compra en una sola transaccion: crea la compra y su detalle, suma el stock de cada item en el local, actualiza el costo de referencia y genera UN egreso VARIABLE (categoria Compras de inventario) por el total. Si falla cualquier linea no queda nada a medias. Gerencia solo puede comprar para su local. Requiere token Bearer con rol admin_sys, coordinacion o gerencia.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4062,7 +4062,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Devuelve la compra con sus lineas y el codigo del egreso asociado. Requiere token Bearer con rol admin_sys o gerencia.",
+                "description": "Devuelve la compra con sus lineas y el codigo del egreso asociado. Requiere token Bearer con rol admin_sys, coordinacion o gerencia.",
                 "produces": [
                     "application/json"
                 ],
@@ -4147,7 +4147,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Anula la compra y su egreso, y revierte las entradas de stock. Si parte de ese stock ya se consumio y no alcanza para revertir, no cambia nada y responde 409 con el detalle. Requiere token Bearer con rol admin_sys.",
+                "description": "Anula la compra y su egreso, y revierte las entradas de stock. Si parte de ese stock ya se consumio y no alcanza para revertir, no cambia nada y responde 409 con el detalle. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5962,7 +5962,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Registra un ajuste manual de stock (merma, vencimiento o conteo fisico). El motivo es obligatorio. Un ajuste negativo no puede dejar el stock bajo cero. Gerencia solo puede ajustar su local. Requiere token Bearer con rol admin_sys o gerencia.",
+                "description": "Registra un ajuste manual de stock (merma, vencimiento o conteo fisico). El motivo es obligatorio. Un ajuste negativo no puede dejar el stock bajo cero. Gerencia solo puede ajustar su local. Requiere token Bearer con rol admin_sys, coordinacion o gerencia.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6057,7 +6057,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Devuelve los items bajo su stock minimo y las reservas futuras con falta de insumos para su servicio. Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer.",
+                "description": "Devuelve los items bajo su stock minimo y las reservas futuras con falta de insumos para su servicio. Los usuarios de gerencia quedan limitados a su local. Requiere token Bearer.",
                 "produces": [
                     "application/json"
                 ],
@@ -6191,7 +6191,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Crea una categoria de inventario. El nombre es unico sin distinguir mayusculas. Requiere token Bearer con rol admin_sys.",
+                "description": "Crea una categoria de inventario. El nombre es unico sin distinguir mayusculas. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6280,7 +6280,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cambia el nombre o activa/desactiva la categoria. Requiere token Bearer con rol admin_sys.",
+                "description": "Cambia el nombre o activa/desactiva la categoria. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6791,7 +6791,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lista items con el stock del local indicado (o la suma de todos). Filtros: q (nombre o codigo), categoria_id, local_id, bajo_stock=true (stock \u003c= stock_minimo), activo. Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer.",
+                "description": "Lista items con el stock del local indicado (o la suma de todos). Filtros: q (nombre o codigo), categoria_id, local_id, bajo_stock=true (stock \u003c= stock_minimo), activo. Los usuarios de gerencia quedan limitados a su local. Requiere token Bearer.",
                 "produces": [
                     "application/json"
                 ],
@@ -6908,7 +6908,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Crea un item del catalogo (stock inicial 0: se carga con una compra o un ajuste). El codigo INV-xxxxxx se genera solo. Requiere token Bearer con rol admin_sys.",
+                "description": "Crea un item del catalogo (stock inicial 0: se carga con una compra o un ajuste). El codigo INV-xxxxxx se genera solo. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7068,7 +7068,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Desactiva el item (activo=false). Nunca se borra fisicamente: conserva su historial de movimientos. Requiere token Bearer con rol admin_sys.",
+                "description": "Desactiva el item (activo=false). Nunca se borra fisicamente: conserva su historial de movimientos. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "produces": [
                     "application/json"
                 ],
@@ -7151,7 +7151,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Edita datos del item. No edita stock: el stock solo cambia con movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id, costo_referencia y precio_venta aceptan null para limpiar. Requiere token Bearer con rol admin_sys.",
+                "description": "Edita datos del item. No edita stock: el stock solo cambia con movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id, costo_referencia y precio_venta aceptan null para limpiar. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7248,7 +7248,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Persiste la clave de la imagen del item tras una subida exitosa, borra la imagen anterior del storage y devuelve la URL. La clave debe ser la emitida por upload-url para este mismo item. Requiere token Bearer con rol admin_sys.",
+                "description": "Persiste la clave de la imagen del item tras una subida exitosa, borra la imagen anterior del storage y devuelve la URL. La clave debe ser la emitida por upload-url para este mismo item. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7343,7 +7343,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Borra el objeto del storage y limpia la clave del item. Requiere token Bearer con rol admin_sys.",
+                "description": "Borra el objeto del storage y limpia la clave del item. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "produces": [
                     "application/json"
                 ],
@@ -7428,7 +7428,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Devuelve una URL firmada para que el cliente suba la imagen (webp) directo al storage, sin pasar los bytes por el backend. La clave es nueva en cada llamada (inventario/{id}/{uuid}.webp). El PUT a upload_url debe enviar exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/inventario/items/{id}/imagen enviando imagen_key. Requiere token Bearer con rol admin_sys.",
+                "description": "Devuelve una URL firmada para que el cliente suba la imagen (webp) directo al storage, sin pasar los bytes por el backend. La clave es nueva en cada llamada (inventario/{id}/{uuid}.webp). El PUT a upload_url debe enviar exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/inventario/items/{id}/imagen enviando imagen_key. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "produces": [
                     "application/json"
                 ],
@@ -7513,7 +7513,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lista movimientos de stock (entradas, salidas por servicio, reversiones y ajustes) con el stock resultante. Filtros: item_id, local_id, tipo, fecha_desde, fecha_hasta (YYYY-MM-DD). Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer.",
+                "description": "Lista movimientos de stock (entradas, salidas por servicio, reversiones y ajustes) con el stock resultante. Filtros: item_id, local_id, tipo, fecha_desde, fecha_hasta (YYYY-MM-DD). Los usuarios de gerencia quedan limitados a su local. Requiere token Bearer.",
                 "produces": [
                     "application/json"
                 ],
@@ -8272,7 +8272,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Fija la cantidad de espacios de un local. Param: id (path). Body: espacios (array con tipo_espacio M/B y cantidad_espacios entero \u003e= 0; 0 deja el tipo sin espacios, por ejemplo por mantenimiento). Los tipos no enviados no se tocan. No cancela reservas existentes: si se reduce por debajo de lo ya reservado, solo se bloquean las reservas nuevas. Requiere rol admin_sys o gerencia. Response: mensaje string.",
+                "description": "Fija la cantidad de espacios de un local. Param: id (path). Body: espacios (array con tipo_espacio M/B y cantidad_espacios entero \u003e= 0; 0 deja el tipo sin espacios, por ejemplo por mantenimiento). Los tipos no enviados no se tocan. No cancela reservas existentes: si se reduce por debajo de lo ya reservado, solo se bloquean las reservas nuevas. Requiere rol admin_sys, coordinacion o gerencia. Response: mensaje string.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8870,7 +8870,7 @@ const docTemplate = `{
         },
         "/bd/pagos/resumen": {
             "get": {
-                "description": "Devuelve un resumen de ventas basado en pagos activos y PAGADOS dentro del periodo. Requiere token Bearer. Query: fecha_desde y fecha_hasta son requeridos en formato YYYY-MM-DD; local es opcional y filtra por nombre exacto case-insensitive. Si local no se envia, reporte.tipo_reporte es \"general\" y detalle_reportes incluye un reporte por cada local. Si local se envia, reporte.tipo_reporte es \"Local: \u003cnombre local\u003e\" y detalle_reportes viene vacio. Incluye total_periodo, subtotal, descuentos, cantidad_pagos, cantidad_servicios_vendidos, ticket_promedio, servicio_mas_comprado, servicio_mas_dinero_genera y ventas_por_tipo_pago.",
+                "description": "Devuelve un resumen de ventas basado en pagos activos y PAGADOS dentro del periodo. Requiere token Bearer con rol admin_sys (es un reporte financiero). Query: fecha_desde y fecha_hasta son requeridos en formato YYYY-MM-DD; local es opcional y filtra por nombre exacto case-insensitive. Si local no se envia, reporte.tipo_reporte es \"general\" y detalle_reportes incluye un reporte por cada local. Si local se envia, reporte.tipo_reporte es \"Local: \u003cnombre local\u003e\" y detalle_reportes viene vacio. Incluye total_periodo, subtotal, descuentos, cantidad_pagos, cantidad_servicios_vendidos, ticket_promedio, servicio_mas_comprado, servicio_mas_dinero_genera y ventas_por_tipo_pago.",
                 "produces": [
                     "application/json"
                 ],
@@ -8938,6 +8938,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -9388,7 +9394,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Crea un paquete con su catalogo base de servicios, locales y tiers (precio por cantidad de sesiones) en una unica transaccion. Requiere token Bearer con rol admin_sys. Cada tier se materializa internamente como un combo enlazado al paquete.",
+                "description": "Crea un paquete con su catalogo base de servicios, locales y tiers (precio por cantidad de sesiones) en una unica transaccion. Requiere token Bearer con rol admin_sys o coordinacion. Cada tier se materializa internamente como un combo enlazado al paquete.",
                 "consumes": [
                     "application/json"
                 ],
@@ -9530,7 +9536,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Realiza el borrado logico de un paquete de catalogo: lo marca inactivo y deja de aparecer en el catalogo publico. Requiere token Bearer con rol admin_sys.",
+                "description": "Realiza el borrado logico de un paquete de catalogo: lo marca inactivo y deja de aparecer en el catalogo publico. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "produces": [
                     "application/json"
                 ],
@@ -9608,7 +9614,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Reemplaza los datos, catalogo base de servicios, locales y tiers de un paquete en una unica transaccion. Requiere token Bearer con rol admin_sys.",
+                "description": "Reemplaza los datos, catalogo base de servicios, locales y tiers de un paquete en una unica transaccion. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],
@@ -9700,7 +9706,7 @@ const docTemplate = `{
         },
         "/bd/paquetes/{id}/imagen": {
             "put": {
-                "description": "Persiste la portada del paquete tras una subida exitosa y devuelve su URL publica. Requiere token Bearer con rol admin_sys.",
+                "description": "Persiste la portada del paquete tras una subida exitosa y devuelve su URL publica. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "produces": [
                     "application/json"
                 ],
@@ -9778,7 +9784,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Borra el objeto de portada en Supabase Storage y limpia el path del paquete. Requiere token Bearer con rol admin_sys.",
+                "description": "Borra el objeto de portada en Supabase Storage y limpia el path del paquete. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "produces": [
                     "application/json"
                 ],
@@ -9858,7 +9864,7 @@ const docTemplate = `{
         },
         "/bd/paquetes/{id}/imagen/upload-url": {
             "post": {
-                "description": "Devuelve una URL firmada de Supabase Storage para que el cliente suba la imagen de portada directamente, sin pasar los bytes por el backend. Requiere token Bearer con rol admin_sys. Tras subir el archivo, confirmar con PUT /bd/paquetes/{id}/imagen.",
+                "description": "Devuelve una URL firmada de Supabase Storage para que el cliente suba la imagen de portada directamente, sin pasar los bytes por el backend. Requiere token Bearer con rol admin_sys o coordinacion. Tras subir el archivo, confirmar con PUT /bd/paquetes/{id}/imagen.",
                 "produces": [
                     "application/json"
                 ],
@@ -9938,7 +9944,7 @@ const docTemplate = `{
         },
         "/bd/paquetes/{id}/visibilidad": {
             "patch": {
-                "description": "Cambia solo la visibilidad publica del paquete. El paquete sigue activo y disponible en administracion, planes y caja. Requiere token Bearer con rol admin_sys.",
+                "description": "Cambia solo la visibilidad publica del paquete. El paquete sigue activo y disponible en administracion, planes y caja. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],

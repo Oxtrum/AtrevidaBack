@@ -166,7 +166,7 @@ func (h *Container) GetPaqueteByID(c *gin.Context) {
 
 // CreatePaquete godoc
 // @Summary Crear paquete de catalogo
-// @Description Crea un paquete con su catalogo base de servicios, locales y tiers (precio por cantidad de sesiones) en una unica transaccion. Requiere token Bearer con rol admin_sys. Cada tier se materializa internamente como un combo enlazado al paquete.
+// @Description Crea un paquete con su catalogo base de servicios, locales y tiers (precio por cantidad de sesiones) en una unica transaccion. Requiere token Bearer con rol admin_sys o coordinacion. Cada tier se materializa internamente como un combo enlazado al paquete.
 // @Tags Paquetes BD
 // @Accept json
 // @Produce json
@@ -198,7 +198,7 @@ func (h *Container) CreatePaquete(c *gin.Context) {
 
 // PatchPaquete godoc
 // @Summary Actualizar paquete de catalogo
-// @Description Reemplaza los datos, catalogo base de servicios, locales y tiers de un paquete en una unica transaccion. Requiere token Bearer con rol admin_sys.
+// @Description Reemplaza los datos, catalogo base de servicios, locales y tiers de un paquete en una unica transaccion. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Paquetes BD
 // @Accept json
 // @Produce json
@@ -241,7 +241,7 @@ type paqueteVisibilidadRequest struct {
 
 // PatchPaqueteVisibilidad godoc
 // @Summary Mostrar u ocultar paquete en la pagina principal
-// @Description Cambia solo la visibilidad publica del paquete. El paquete sigue activo y disponible en administracion, planes y caja. Requiere token Bearer con rol admin_sys.
+// @Description Cambia solo la visibilidad publica del paquete. El paquete sigue activo y disponible en administracion, planes y caja. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Paquetes BD
 // @Accept json
 // @Produce json
@@ -275,7 +275,7 @@ func (h *Container) PatchPaqueteVisibilidad(c *gin.Context) {
 
 // DeletePaquete godoc
 // @Summary Desactivar paquete
-// @Description Realiza el borrado logico de un paquete de catalogo: lo marca inactivo y deja de aparecer en el catalogo publico. Requiere token Bearer con rol admin_sys.
+// @Description Realiza el borrado logico de un paquete de catalogo: lo marca inactivo y deja de aparecer en el catalogo publico. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Paquetes BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)

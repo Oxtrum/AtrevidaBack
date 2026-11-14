@@ -228,7 +228,7 @@ type insumoRequest struct {
 
 // GetInventarioItems godoc
 // @Summary Listar items de inventario
-// @Description Lista items con el stock del local indicado (o la suma de todos). Filtros: q (nombre o codigo), categoria_id, local_id, bajo_stock=true (stock <= stock_minimo), activo. Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer.
+// @Description Lista items con el stock del local indicado (o la suma de todos). Filtros: q (nombre o codigo), categoria_id, local_id, bajo_stock=true (stock <= stock_minimo), activo. Los usuarios de gerencia quedan limitados a su local. Requiere token Bearer.
 // @Tags Inventario
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -387,7 +387,7 @@ func (h *Container) GetInventarioItemByID(c *gin.Context) {
 
 // CreateInventarioItem godoc
 // @Summary Crear item de inventario
-// @Description Crea un item del catalogo (stock inicial 0: se carga con una compra o un ajuste). El codigo INV-xxxxxx se genera solo. Requiere token Bearer con rol admin_sys.
+// @Description Crea un item del catalogo (stock inicial 0: se carga con una compra o un ajuste). El codigo INV-xxxxxx se genera solo. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Inventario
 // @Accept json
 // @Produce json
@@ -419,7 +419,7 @@ func (h *Container) CreateInventarioItem(c *gin.Context) {
 
 // PatchInventarioItem godoc
 // @Summary Editar item de inventario
-// @Description Edita datos del item. No edita stock: el stock solo cambia con movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id, costo_referencia y precio_venta aceptan null para limpiar. Requiere token Bearer con rol admin_sys.
+// @Description Edita datos del item. No edita stock: el stock solo cambia con movimientos (compras, ajustes, servicios). Los campos descripcion, categoria_id, costo_referencia y precio_venta aceptan null para limpiar. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Inventario
 // @Accept json
 // @Produce json
@@ -461,7 +461,7 @@ func (h *Container) PatchInventarioItem(c *gin.Context) {
 
 // DeleteInventarioItem godoc
 // @Summary Desactivar item de inventario
-// @Description Desactiva el item (activo=false). Nunca se borra fisicamente: conserva su historial de movimientos. Requiere token Bearer con rol admin_sys.
+// @Description Desactiva el item (activo=false). Nunca se borra fisicamente: conserva su historial de movimientos. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Inventario
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -491,7 +491,7 @@ func (h *Container) DeleteInventarioItem(c *gin.Context) {
 
 // PostInventarioImagenUploadURL godoc
 // @Summary Emitir URL firmada para subir imagen de un item
-// @Description Devuelve una URL firmada para que el cliente suba la imagen (webp) directo al storage, sin pasar los bytes por el backend. La clave es nueva en cada llamada (inventario/{id}/{uuid}.webp). El PUT a upload_url debe enviar exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/inventario/items/{id}/imagen enviando imagen_key. Requiere token Bearer con rol admin_sys.
+// @Description Devuelve una URL firmada para que el cliente suba la imagen (webp) directo al storage, sin pasar los bytes por el backend. La clave es nueva en cada llamada (inventario/{id}/{uuid}.webp). El PUT a upload_url debe enviar exactamente los headers devueltos. Tras subir, confirmar con PUT /bd/inventario/items/{id}/imagen enviando imagen_key. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Inventario
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -522,7 +522,7 @@ func (h *Container) PostInventarioImagenUploadURL(c *gin.Context) {
 
 // PutInventarioImagen godoc
 // @Summary Confirmar imagen de item subida
-// @Description Persiste la clave de la imagen del item tras una subida exitosa, borra la imagen anterior del storage y devuelve la URL. La clave debe ser la emitida por upload-url para este mismo item. Requiere token Bearer con rol admin_sys.
+// @Description Persiste la clave de la imagen del item tras una subida exitosa, borra la imagen anterior del storage y devuelve la URL. La clave debe ser la emitida por upload-url para este mismo item. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Inventario
 // @Accept json
 // @Produce json
@@ -558,7 +558,7 @@ func (h *Container) PutInventarioImagen(c *gin.Context) {
 
 // DeleteInventarioImagen godoc
 // @Summary Quitar imagen de item
-// @Description Borra el objeto del storage y limpia la clave del item. Requiere token Bearer con rol admin_sys.
+// @Description Borra el objeto del storage y limpia la clave del item. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Inventario
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -608,7 +608,7 @@ func (h *Container) GetInventarioCategorias(c *gin.Context) {
 
 // PostInventarioCategoria godoc
 // @Summary Crear categoria de inventario
-// @Description Crea una categoria de inventario. El nombre es unico sin distinguir mayusculas. Requiere token Bearer con rol admin_sys.
+// @Description Crea una categoria de inventario. El nombre es unico sin distinguir mayusculas. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Inventario
 // @Accept json
 // @Produce json
@@ -638,7 +638,7 @@ func (h *Container) PostInventarioCategoria(c *gin.Context) {
 
 // PatchInventarioCategoria godoc
 // @Summary Editar categoria de inventario
-// @Description Cambia el nombre o activa/desactiva la categoria. Requiere token Bearer con rol admin_sys.
+// @Description Cambia el nombre o activa/desactiva la categoria. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Inventario
 // @Accept json
 // @Produce json
@@ -676,7 +676,7 @@ func (h *Container) PatchInventarioCategoria(c *gin.Context) {
 
 // GetInventarioMovimientos godoc
 // @Summary Kardex de inventario
-// @Description Lista movimientos de stock (entradas, salidas por servicio, reversiones y ajustes) con el stock resultante. Filtros: item_id, local_id, tipo, fecha_desde, fecha_hasta (YYYY-MM-DD). Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer.
+// @Description Lista movimientos de stock (entradas, salidas por servicio, reversiones y ajustes) con el stock resultante. Filtros: item_id, local_id, tipo, fecha_desde, fecha_hasta (YYYY-MM-DD). Los usuarios de gerencia quedan limitados a su local. Requiere token Bearer.
 // @Tags Inventario
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -1048,7 +1048,7 @@ func (h *Container) GetInventarioConsumosEmpleados(c *gin.Context) {
 
 // PostInventarioAjuste godoc
 // @Summary Ajustar stock
-// @Description Registra un ajuste manual de stock (merma, vencimiento o conteo fisico). El motivo es obligatorio. Un ajuste negativo no puede dejar el stock bajo cero. Gerencia solo puede ajustar su local. Requiere token Bearer con rol admin_sys o gerencia.
+// @Description Registra un ajuste manual de stock (merma, vencimiento o conteo fisico). El motivo es obligatorio. Un ajuste negativo no puede dejar el stock bajo cero. Gerencia solo puede ajustar su local. Requiere token Bearer con rol admin_sys, coordinacion o gerencia.
 // @Tags Inventario
 // @Accept json
 // @Produce json
@@ -1087,7 +1087,7 @@ func (h *Container) PostInventarioAjuste(c *gin.Context) {
 
 // GetInventarioAlertas godoc
 // @Summary Alertas de inventario
-// @Description Devuelve los items bajo su stock minimo y las reservas futuras con falta de insumos para su servicio. Los usuarios no admin_sys quedan limitados a su local. Requiere token Bearer.
+// @Description Devuelve los items bajo su stock minimo y las reservas futuras con falta de insumos para su servicio. Los usuarios de gerencia quedan limitados a su local. Requiere token Bearer.
 // @Tags Inventario
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)

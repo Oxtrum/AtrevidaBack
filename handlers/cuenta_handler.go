@@ -290,7 +290,7 @@ func (h *Container) PostCargosClienteLote(c *gin.Context) {
 
 // PostAnularCargo godoc
 // @Summary Anular cargo
-// @Description Anula un cargo con motivo; nunca se borra. Lo que los abonos le habian aplicado se libera y vuelve a ser saldo disponible. Requiere token Bearer con rol admin_sys o gerencia.
+// @Description Anula un cargo con motivo; nunca se borra. Lo que los abonos le habian aplicado se libera y vuelve a ser saldo disponible. Requiere token Bearer con rol admin_sys, coordinacion o gerencia.
 // @Tags Cuenta del cliente
 // @Accept json
 // @Produce json

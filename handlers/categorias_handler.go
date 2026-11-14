@@ -65,7 +65,7 @@ type crearCategoriaRequest struct {
 
 // CreateCategoria godoc
 // @Summary Crear categoria
-// @Description Crea una categoria nueva. Requiere token Bearer con rol admin_sys. Body: nombre (requerido) y local_id (opcional, puede ser null). Si local_id viene informado, tambien asocia la categoria al local mediante categorias_locales en la misma transaccion. Response: id (int ID de la categoria creada).
+// @Description Crea una categoria nueva. Requiere token Bearer con rol admin_sys o coordinacion. Body: nombre (requerido) y local_id (opcional, puede ser null). Si local_id viene informado, tambien asocia la categoria al local mediante categorias_locales en la misma transaccion. Response: id (int ID de la categoria creada).
 // @Tags Categorias
 // @Accept json
 // @Produce json
@@ -104,7 +104,7 @@ type actualizarCategoriaRequest struct {
 
 // UpdateCategoria godoc
 // @Summary Editar categoria
-// @Description Actualiza el nombre de una categoria. Requiere token Bearer con rol admin_sys.
+// @Description Actualiza el nombre de una categoria. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Categorias
 // @Accept json
 // @Produce json
@@ -145,7 +145,7 @@ func (h *Container) UpdateCategoria(c *gin.Context) {
 
 // DeleteCategoria godoc
 // @Summary Eliminar categoria
-// @Description Elimina una categoria y sus asociaciones con locales. Requiere token Bearer con rol admin_sys. Falla si la categoria esta en uso por servicios o combos.
+// @Description Elimina una categoria y sus asociaciones con locales. Requiere token Bearer con rol admin_sys o coordinacion. Falla si la categoria esta en uso por servicios o combos.
 // @Tags Categorias
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -209,7 +209,7 @@ func (h *Container) GetCategoriaLocales(c *gin.Context) {
 
 // CreateCategoriaLocal godoc
 // @Summary Asociar categoria con local
-// @Description Crea una relacion en categorias_locales. Requiere token Bearer con rol admin_sys. Body: categoria_id y local_id requeridos. Si la relacion ya existe, la operacion es idempotente.
+// @Description Crea una relacion en categorias_locales. Requiere token Bearer con rol admin_sys o coordinacion. Body: categoria_id y local_id requeridos. Si la relacion ya existe, la operacion es idempotente.
 // @Tags Categorias
 // @Accept json
 // @Produce json
@@ -243,7 +243,7 @@ func (h *Container) CreateCategoriaLocal(c *gin.Context) {
 
 // DeleteCategoriaLocal godoc
 // @Summary Eliminar asociacion categoria-local
-// @Description Elimina una relacion de categorias_locales. Requiere token Bearer con rol admin_sys. Body: categoria_id y local_id requeridos.
+// @Description Elimina una relacion de categorias_locales. Requiere token Bearer con rol admin_sys o coordinacion. Body: categoria_id y local_id requeridos.
 // @Tags Categorias
 // @Accept json
 // @Produce json

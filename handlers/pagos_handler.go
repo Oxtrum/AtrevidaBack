@@ -108,7 +108,7 @@ type actualizarDetallePagoRequest struct {
 
 // GetResumenPagos godoc
 // @Summary Obtener resumen de pagos
-// @Description Devuelve un resumen de ventas basado en pagos activos y PAGADOS dentro del periodo. Requiere token Bearer. Query: fecha_desde y fecha_hasta son requeridos en formato YYYY-MM-DD; local es opcional y filtra por nombre exacto case-insensitive. Si local no se envia, reporte.tipo_reporte es "general" y detalle_reportes incluye un reporte por cada local. Si local se envia, reporte.tipo_reporte es "Local: <nombre local>" y detalle_reportes viene vacio. Incluye total_periodo, subtotal, descuentos, cantidad_pagos, cantidad_servicios_vendidos, ticket_promedio, servicio_mas_comprado, servicio_mas_dinero_genera y ventas_por_tipo_pago.
+// @Description Devuelve un resumen de ventas basado en pagos activos y PAGADOS dentro del periodo. Requiere token Bearer con rol admin_sys (es un reporte financiero). Query: fecha_desde y fecha_hasta son requeridos en formato YYYY-MM-DD; local es opcional y filtra por nombre exacto case-insensitive. Si local no se envia, reporte.tipo_reporte es "general" y detalle_reportes incluye un reporte por cada local. Si local se envia, reporte.tipo_reporte es "Local: <nombre local>" y detalle_reportes viene vacio. Incluye total_periodo, subtotal, descuentos, cantidad_pagos, cantidad_servicios_vendidos, ticket_promedio, servicio_mas_comprado, servicio_mas_dinero_genera y ventas_por_tipo_pago.
 // @Tags Pagos
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -118,6 +118,7 @@ type actualizarDetallePagoRequest struct {
 // @Success 200 {object} utils.APIResponse{data=pagoResumenResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: fecha_desde requerido, fecha_hasta requerido, fecha con formato invalido o rango invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/pagos/resumen [get]
 func (h *Container) GetResumenPagos(c *gin.Context) {

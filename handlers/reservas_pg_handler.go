@@ -471,7 +471,7 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 	}
 
 	// El dinero del negocio solo lo ve admin_sys, tambien quien tiene un local asignado.
-	utils.Respond(c, http.StatusOK, buildReservaResumenResponse(fecha, *resumen, tieneRol(c, "admin_sys")))
+	utils.Respond(c, http.StatusOK, buildReservaResumenResponse(fecha, *resumen, tieneRol(c, models.RolAdminSys)))
 }
 
 // buildReservaResumenResponse arma el resumen del dia; los ingresos solo van si verIngresos.

@@ -185,7 +185,7 @@ func (h *Container) GetComboPGByID(c *gin.Context) {
 
 // CreateComboPG godoc
 // @Summary Crear combo de catalogo
-// @Description Crea una promocion reutilizable con locales y lineas en una unica transaccion. Requiere token Bearer con rol admin_sys. tipo_precio POR_ITEMS calcula el total desde las lineas; PRECIO_PAQUETE exige precio_paquete. servicio_id es solo trazabilidad: el nombre, tiempo y costo se guardan como snapshot en el combo.
+// @Description Crea una promocion reutilizable con locales y lineas en una unica transaccion. Requiere token Bearer con rol admin_sys o coordinacion. tipo_precio POR_ITEMS calcula el total desde las lineas; PRECIO_PAQUETE exige precio_paquete. servicio_id es solo trazabilidad: el nombre, tiempo y costo se guardan como snapshot en el combo.
 // @Tags Combos BD
 // @Accept json
 // @Produce json
@@ -219,7 +219,7 @@ func (h *Container) CreateComboPG(c *gin.Context) {
 
 // PatchComboPG godoc
 // @Summary Actualizar metadatos de combo
-// @Description Actualiza metadatos financieros y comerciales del catalogo. No modifica planes adquiridos. Requiere token Bearer con rol admin_sys. Para reemplazar locales o lineas use las rutas dedicadas.
+// @Description Actualiza metadatos financieros y comerciales del catalogo. No modifica planes adquiridos. Requiere token Bearer con rol admin_sys o coordinacion. Para reemplazar locales o lineas use las rutas dedicadas.
 // @Tags Combos BD
 // @Accept json
 // @Produce json
@@ -254,7 +254,7 @@ func (h *Container) PatchComboPG(c *gin.Context) {
 
 // DeleteComboPG godoc
 // @Summary Desactivar combo
-// @Description Realiza el borrado lógico de una promoción de catálogo: la marca inactiva, deja de aparecer en el catálogo público y conserva sus snapshots históricos. Requiere token Bearer con rol admin_sys.
+// @Description Realiza el borrado lógico de una promoción de catálogo: la marca inactiva, deja de aparecer en el catálogo público y conserva sus snapshots históricos. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Combos BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -281,7 +281,7 @@ func (h *Container) DeleteComboPG(c *gin.Context) {
 
 // PutComboLocalesPG godoc
 // @Summary Reemplazar locales de combo
-// @Description Reemplaza la disponibilidad de una promocion por una lista completa de locales activos. Requiere token Bearer con rol admin_sys.
+// @Description Reemplaza la disponibilidad de una promocion por una lista completa de locales activos. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Combos BD
 // @Accept json
 // @Produce json
@@ -315,7 +315,7 @@ func (h *Container) PutComboLocalesPG(c *gin.Context) {
 
 // PutComboServiciosPG godoc
 // @Summary Reemplazar servicios de combo
-// @Description Reemplaza en una transaccion las lineas activas de una promocion. Las lineas anteriores se desactivan para conservar historia de catalogo. Requiere token Bearer con rol admin_sys. Esta operacion recalcula sesiones y precio final sin afectar planes adquiridos.
+// @Description Reemplaza en una transaccion las lineas activas de una promocion. Las lineas anteriores se desactivan para conservar historia de catalogo. Requiere token Bearer con rol admin_sys o coordinacion. Esta operacion recalcula sesiones y precio final sin afectar planes adquiridos.
 // @Tags Combos BD
 // @Accept json
 // @Produce json
