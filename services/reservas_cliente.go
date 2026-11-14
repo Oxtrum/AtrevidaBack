@@ -7,19 +7,13 @@ import (
 
 // clienteDeLaReserva decide con que cliente queda enlazada una reserva nueva.
 //
-// Panel interno: el cajero elige al cliente y es obligatorio, salvo que marque explicitamente sin_registrar (un
-// cliente de una sola visita): entonces la reserva queda por vincular. Formulario publico: nada se adivina; solo se
+// Panel interno: el cajero puede elegir al cliente registrado, pero no es obligatorio (un cliente que reserva una
+// sola vez no tiene por que registrarse): sin cliente_id la reserva queda por vincular. Formulario publico: nada se adivina; solo se
 // enlaza si el telefono coincide exacto con un unico cliente, y si no la reserva queda por vincular.
 func (s *ReservasPGService) clienteDeLaReserva(input CrearReservaPGInput, telefonoE164 *string) (*int, error) {
 	if input.Autenticado {
-		if input.SinRegistrar {
-			if input.ClienteID != nil {
-				return nil, errors.New("sin_registrar no puede ir junto con cliente_id: elija un cliente o marque sin registrar")
-			}
-			return nil, nil
-		}
 		if input.ClienteID == nil || *input.ClienteID <= 0 {
-			return nil, errors.New("cliente_id es requerido: elija o cree al cliente de la reserva")
+			return nil, nil
 		}
 		if s.clientes != nil {
 			existe, err := s.clientes.Existe(*input.ClienteID)

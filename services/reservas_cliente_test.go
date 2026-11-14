@@ -44,19 +44,22 @@ func inputReservaCliente() CrearReservaPGInput {
 	return in
 }
 
-func TestCrearReservaDelPanelExigeCliente(t *testing.T) {
+// El cliente registrado no es obligatorio: un cliente que reserva una sola vez no tiene por que registrarse. Sin
+// cliente_id la reserva del panel queda por vincular, igual que las del formulario publico sin coincidencia.
+func TestCrearReservaDelPanelSinClienteQuedaPorVincular(t *testing.T) {
 	repo := &reservasClienteRepo{}
 	svc := &ReservasPGService{repo: repo, clientes: &reservaClientesFake{}}
 	in := inputReservaCliente()
 	in.ClienteID = nil
 
-	_, err := svc.CrearReservaConAvisos(in)
-
-	if err == nil || !strings.Contains(err.Error(), "cliente_id") {
-		t.Fatalf("error = %v, want que pida cliente_id", err)
+	if _, err := svc.CrearReservaConAvisos(in); err != nil {
+		t.Fatalf("error = %v, want nil", err)
 	}
-	if repo.creadas != 0 {
-		t.Fatalf("CreateReserva calls = %d, want 0", repo.creadas)
+	if repo.creadas != 1 {
+		t.Fatalf("CreateReserva calls = %d, want 1", repo.creadas)
+	}
+	if repo.ultima.ClienteID != nil {
+		t.Fatalf("ClienteID = %v, want nil (por vincular)", *repo.ultima.ClienteID)
 	}
 }
 
@@ -178,77 +181,5 @@ func TestLaMigracionDelHistoricoSoloEnlazaTelefonosExactosYUnicos(t *testing.T) 
 	}
 	if strings.Contains(texto, "LIKE") || strings.Contains(texto, "RIGHT(") {
 		t.Fatal("la migracion no puede enlazar por coincidencias aproximadas")
-	}
-}
-
-// Un cliente de una sola visita no tiene que registrarse: el panel puede indicarlo de forma explicita y la reserva
-// queda por vincular, igual que las del formulario publico sin coincidencia.
-func TestCrearReservaDelPanelSinRegistrarQuedaPorVincular(t *testing.T) {
-	repo := &reservasClienteRepo{}
-	svc := &ReservasPGService{repo: repo, clientes: &reservaClientesFake{}}
-	in := inputReservaCliente()
-	in.ClienteID = nil
-	in.SinRegistrar = true
-
-	if _, err := svc.CrearReservaConAvisos(in); err != nil {
-		t.Fatalf("error = %v, want nil", err)
-	}
-	if repo.creadas != 1 {
-		t.Fatalf("CreateReserva calls = %d, want 1", repo.creadas)
-	}
-	if repo.ultima.ClienteID != nil {
-		t.Fatalf("ClienteID = %v, want nil (por vincular)", *repo.ultima.ClienteID)
-	}
-}
-
-// Sin la marca explicita el panel sigue exigiendo al cliente: no se salta por descuido.
-func TestCrearReservaDelPanelSinMarcaSigueExigiendoCliente(t *testing.T) {
-	repo := &reservasClienteRepo{}
-	svc := &ReservasPGService{repo: repo, clientes: &reservaClientesFake{}}
-	in := inputReservaCliente()
-	in.ClienteID = nil
-	in.SinRegistrar = false
-
-	if _, err := svc.CrearReservaConAvisos(in); err == nil {
-		t.Fatal("quiero error: falta cliente_id y no se marco sin_registrar")
-	}
-	if repo.creadas != 0 {
-		t.Fatalf("CreateReserva calls = %d, want 0", repo.creadas)
-	}
-}
-
-// Elegir a un cliente y a la vez marcar sin registrar es contradictorio: se rechaza en vez de adivinar.
-func TestCrearReservaDelPanelNoAceptaClienteYSinRegistrarJuntos(t *testing.T) {
-	repo := &reservasClienteRepo{}
-	svc := &ReservasPGService{repo: repo, clientes: &reservaClientesFake{existentes: map[int]bool{5: true}}}
-	in := inputReservaCliente()
-	in.ClienteID = entero(5)
-	in.SinRegistrar = true
-
-	_, err := svc.CrearReservaConAvisos(in)
-
-	if err == nil || !strings.Contains(err.Error(), "sin_registrar") {
-		t.Fatalf("error = %v, want que rechace sin_registrar con cliente_id", err)
-	}
-	if repo.creadas != 0 {
-		t.Fatalf("CreateReserva calls = %d, want 0", repo.creadas)
-	}
-}
-
-// La marca solo vale para el panel: el formulario publico la ignora y vincula por telefono como siempre.
-func TestCrearReservaPublicaIgnoraSinRegistrar(t *testing.T) {
-	repo := &reservasClienteRepo{}
-	svc := &ReservasPGService{repo: repo, clientes: &reservaClientesFake{
-		porTelefono: map[string][]int{"+59170011223": {12}},
-	}}
-	in := inputReservaCliente()
-	in.Autenticado = false
-	in.SinRegistrar = true
-
-	if _, err := svc.CrearReservaConAvisos(in); err != nil {
-		t.Fatalf("error = %v, want nil", err)
-	}
-	if repo.ultima.ClienteID == nil || *repo.ultima.ClienteID != 12 {
-		t.Fatalf("ClienteID = %v, want 12", repo.ultima.ClienteID)
 	}
 }
