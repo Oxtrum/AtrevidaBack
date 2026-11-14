@@ -46,7 +46,9 @@ const itemsSelectBase = `
 
 // ─── Items ────────────────────────────────────────────────────────────────────
 
-func (r *InventarioRepo) ListItems(f repository.FiltroItemsInventario) ([]models.InventarioItem, error) {
+// consultaItems arma el SELECT del listado (filtros y orden, sin limite) y sus argumentos. Lo comparten el listado
+// y el conteo para que siempre hablen de las mismas filas.
+func consultaItems(f repository.FiltroItemsInventario) (string, []interface{}) {
 	args := []interface{}{}
 	localCond := ""
 	if f.LocalID != nil {
@@ -95,18 +97,38 @@ func (r *InventarioRepo) ListItems(f repository.FiltroItemsInventario) ([]models
 	} else {
 		query += " ORDER BY i.nombre, i.id"
 	}
-	limit := f.Limit
-	if limit <= 0 || limit > 500 {
-		limit = 200
+	return query, args
+}
+
+func (r *InventarioRepo) ListItems(f repository.FiltroItemsInventario) ([]models.InventarioItem, error) {
+	query, args := consultaItems(f)
+	if f.PageLimit > 0 {
+		args = append(args, f.PageLimit, f.Offset)
+		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)-1, len(args))
+	} else {
+		limit := f.Limit
+		if limit <= 0 || limit > 500 {
+			limit = 200
+		}
+		args = append(args, limit)
+		query += fmt.Sprintf(" LIMIT $%d", len(args))
 	}
-	args = append(args, limit)
-	query += fmt.Sprintf(" LIMIT $%d", len(args))
 
 	items := []models.InventarioItem{}
 	if err := r.db.Select(&items, query, args...); err != nil {
 		return nil, fmt.Errorf("error al listar items de inventario: %w", err)
 	}
 	return items, nil
+}
+
+// CountItems cuenta todas las filas del listado con esos filtros, sin importar la pagina.
+func (r *InventarioRepo) CountItems(f repository.FiltroItemsInventario) (int, error) {
+	query, args := consultaItems(f)
+	var n int
+	if err := r.db.Get(&n, "SELECT COUNT(*) FROM ("+query+") filas", args...); err != nil {
+		return 0, fmt.Errorf("error al contar items de inventario: %w", err)
+	}
+	return n, nil
 }
 
 // ItemsBajoStockPorLocal devuelve una fila por (item, local) cuyo stock en ese local esta en o

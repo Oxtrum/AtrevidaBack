@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"atrevida-agenda-api/models"
@@ -19,6 +20,35 @@ import (
 type inventarioItemsResponse struct {
 	// Items de inventario con el stock del local consultado (o la suma de todos)
 	Items []models.InventarioItem `json:"items"`
+	// Paginacion por cursor (solo si se envia cursor o un limit de 1 a 100)
+	Paginacion *pagination.Metadata `json:"paginacion,omitempty"`
+	// Total de items con los filtros (solo con paginacion e include_total=true)
+	TotalRegistros *int `json:"total_registros,omitempty"`
+}
+
+// itemsFiltrosCursor ata el cursor del listado de items a sus filtros.
+type itemsFiltrosCursor struct {
+	Q           string `json:"q,omitempty"`
+	CategoriaID *int   `json:"categoria_id,omitempty"`
+	LocalID     *int   `json:"local_id,omitempty"`
+	BajoStock   bool   `json:"bajo_stock,omitempty"`
+	Activo      *bool  `json:"activo,omitempty"`
+	PorLocal    bool   `json:"por_local,omitempty"`
+}
+
+// itemsSePaginan decide si el listado de items va por paginas: con cursor, o con un limit que cabe en una pagina
+// (1 a 100). Sin limit, o con uno mayor, devuelve todo hasta el tope (200 por defecto, 500 como maximo), que es lo
+// que usan los selectores. Un limit que no es un numero tambien pasa al paginador, que lo rechaza con 400.
+func itemsSePaginan(limit, cursor string) bool {
+	if strings.TrimSpace(cursor) != "" {
+		return true
+	}
+	limit = strings.TrimSpace(limit)
+	if limit == "" {
+		return false
+	}
+	n, err := strconv.Atoi(limit)
+	return err != nil || n <= pagination.MaxLimit
 }
 
 type inventarioItemResponse struct {
@@ -207,7 +237,9 @@ type insumoRequest struct {
 // @Param local_id query int false "Stock de este local (admin_sys)"
 // @Param bajo_stock query bool false "Solo items bajo su stock minimo"
 // @Param activo query bool false "Filtrar por activos/inactivos"
-// @Param limit query int false "Maximo de resultados (default 200, tope 500)"
+// @Param limit query int false "Sin cursor: 1 a 100 pagina; mayor a 100 o ausente devuelve todo hasta el tope (default 200, tope 500)"
+// @Param cursor query string false "Cursor opaco devuelto en paginacion.next_cursor; solo vale con los mismos filtros"
+// @Param include_total query bool false "Con paginacion, incluye total_registros y total_paginas"
 // @Success 200 {object} utils.APIResponse{data=inventarioItemsResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: parametro de consulta invalido"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
@@ -254,15 +286,59 @@ func (h *Container) GetInventarioItems(c *gin.Context) {
 		Q: c.Query("q"), CategoriaID: categoriaID, LocalID: localID, BajoStock: bajo != nil && *bajo, Activo: activo,
 		PorLocal: porLocal != nil && *porLocal,
 	}
-	if limit != nil {
-		f.Limit = *limit
+	if !itemsSePaginan(c.Query("limit"), c.Query("cursor")) {
+		if limit != nil {
+			f.Limit = *limit
+		}
+		items, err := h.Inventario.ListarItems(f)
+		if err != nil {
+			respondTrastiendaError(c, err)
+			return
+		}
+		utils.Respond(c, http.StatusOK, inventarioItemsResponse{Items: items})
+		return
 	}
+
+	page, ok := parsePagination(c)
+	if !ok {
+		return
+	}
+	includeTotal, ok := parseIncludeTotal(c)
+	if !ok {
+		return
+	}
+	filters := itemsFiltrosCursor{Q: f.Q, CategoriaID: f.CategoriaID, LocalID: f.LocalID, BajoStock: f.BajoStock, Activo: f.Activo, PorLocal: f.PorLocal}
+	after, ok := decodeOffsetCursor(c, page, "inventario_items", filters)
+	if !ok {
+		return
+	}
+	f.Offset = after.Offset
+	f.PageLimit = page.QueryLimit()
 	items, err := h.Inventario.ListarItems(f)
 	if err != nil {
 		respondTrastiendaError(c, err)
 		return
 	}
-	utils.Respond(c, http.StatusOK, inventarioItemsResponse{Items: items})
+	var total *int
+	if includeTotal {
+		n, err := h.Inventario.ContarItems(f)
+		if err != nil {
+			respondTrastiendaError(c, err)
+			return
+		}
+		total = &n
+	}
+	items, metadata, err := pagination.Build(items, page, "inventario_items", filters, func(models.InventarioItem) any {
+		return pagination.OffsetPosition{Offset: after.Offset + page.Limit}
+	})
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if total != nil {
+		pagination.AddTotal(metadata, *total)
+	}
+	utils.Respond(c, http.StatusOK, inventarioItemsResponse{Items: items, Paginacion: metadata, TotalRegistros: total})
 }
 
 // GetInventarioItemByID godoc

@@ -1062,3 +1062,45 @@ func TestTrastiendaCancelarReservaAgendadaRevierteStockYAudita(t *testing.T) {
 		t.Fatal("una reserva agendada no debe pasar a RECHAZADO")
 	}
 }
+
+// El listado de items pagina por desplazamiento: cada pagina trae PageLimit filas mas una de sobra para saber si
+// hay otra, y ContarItems cuenta todo lo filtrado sin importar la pagina.
+func TestTrastiendaItemsPaginan(t *testing.T) {
+	e := setupTrastienda(t)
+	for _, n := range []string{"A", "B", "C", "D", "E"} {
+		e.nuevoItem("Paginado"+n, 0)
+	}
+	filtro := repository.FiltroItemsInventario{Q: e.sufijo}
+	filtro.PageLimit = 3 // pagina de 2 mas la fila de sobra
+
+	total, err := e.inv.ContarItems(filtro)
+	if err != nil || total != 5 {
+		t.Fatalf("total = %d, err = %v; quiero 5", total, err)
+	}
+	var nombres []string
+	for offset := 0; ; offset += 2 {
+		filtro.Offset = offset
+		items, err := e.inv.ListarItems(filtro)
+		if err != nil {
+			t.Fatal(err)
+		}
+		hayMas := len(items) > 2
+		if hayMas {
+			items = items[:2]
+		}
+		for _, it := range items {
+			nombres = append(nombres, it.Nombre)
+		}
+		if !hayMas {
+			break
+		}
+	}
+	if len(nombres) != 5 {
+		t.Fatalf("las paginas suman %d items, quiero 5: %v", len(nombres), nombres)
+	}
+	for i := 1; i < len(nombres); i++ {
+		if nombres[i-1] >= nombres[i] {
+			t.Fatalf("el orden por nombre se rompe entre paginas: %v", nombres)
+		}
+	}
+}

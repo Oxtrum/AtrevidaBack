@@ -59,6 +59,11 @@ func (s *InventarioService) ListarItems(f repository.FiltroItemsInventario) ([]m
 	return items, nil
 }
 
+// ContarItems cuenta los items del listado con esos filtros, sin importar la pagina.
+func (s *InventarioService) ContarItems(f repository.FiltroItemsInventario) (int, error) {
+	return s.repo.CountItems(f)
+}
+
 func (s *InventarioService) ObtenerItem(id int) (*models.InventarioItem, error) {
 	item, err := s.repo.GetItem(id)
 	if err != nil {

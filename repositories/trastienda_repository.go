@@ -66,6 +66,11 @@ type FiltroItemsInventario struct {
 	BajoStock   bool
 	Activo      *bool
 	Limit       int
+	// PageLimit activa la paginacion por desplazamiento: filas que se piden (el limite de la pagina mas una de
+	// sobra para saber si hay otra). Con 0 el listado es el de siempre, con Limit.
+	PageLimit int
+	// Offset es cuantas filas ya se entregaron; solo se usa con PageLimit.
+	Offset int
 	// PorLocal (sin LocalID) devuelve una fila por item y local, sin sumar el stock entre locales.
 	PorLocal bool
 }
