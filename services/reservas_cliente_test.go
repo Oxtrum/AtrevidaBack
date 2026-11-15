@@ -44,19 +44,22 @@ func inputReservaCliente() CrearReservaPGInput {
 	return in
 }
 
-func TestCrearReservaDelPanelExigeCliente(t *testing.T) {
+// El cliente registrado no es obligatorio: un cliente que reserva una sola vez no tiene por que registrarse. Sin
+// cliente_id la reserva del panel queda por vincular, igual que las del formulario publico sin coincidencia.
+func TestCrearReservaDelPanelSinClienteQuedaPorVincular(t *testing.T) {
 	repo := &reservasClienteRepo{}
 	svc := &ReservasPGService{repo: repo, clientes: &reservaClientesFake{}}
 	in := inputReservaCliente()
 	in.ClienteID = nil
 
-	_, err := svc.CrearReservaConAvisos(in)
-
-	if err == nil || !strings.Contains(err.Error(), "cliente_id") {
-		t.Fatalf("error = %v, want que pida cliente_id", err)
+	if _, err := svc.CrearReservaConAvisos(in); err != nil {
+		t.Fatalf("error = %v, want nil", err)
 	}
-	if repo.creadas != 0 {
-		t.Fatalf("CreateReserva calls = %d, want 0", repo.creadas)
+	if repo.creadas != 1 {
+		t.Fatalf("CreateReserva calls = %d, want 1", repo.creadas)
+	}
+	if repo.ultima.ClienteID != nil {
+		t.Fatalf("ClienteID = %v, want nil (por vincular)", *repo.ultima.ClienteID)
 	}
 }
 

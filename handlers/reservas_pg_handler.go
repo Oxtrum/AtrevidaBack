@@ -123,7 +123,7 @@ type crearReservaPGRequest struct {
 	Tipo string `json:"tipo" example:"M"`
 	// Nombre del cliente
 	Cliente string `json:"cliente" binding:"required" example:"Maria Lopez"`
-	// Cliente registrado dueño de la reserva. Requerido en el panel interno (con token); el formulario publico lo ignora y la reserva se enlaza sola solo si el telefono coincide exacto con un unico cliente, si no queda por vincular.
+	// Cliente registrado dueño de la reserva. Opcional en el panel interno (con token): sin el la reserva queda por vincular. El formulario publico lo ignora y la reserva se enlaza sola solo si el telefono coincide exacto con un unico cliente, si no queda por vincular.
 	ClienteID *int `json:"cliente_id,omitempty" example:"12"`
 	// Numero de telefono del cliente
 	NumeroTelefono string `json:"numero_telefono" binding:"required" example:"+59170011223"`
@@ -193,7 +193,7 @@ func respondTurnstileError(c *gin.Context, err error) {
 // @Param payload body crearReservaPGRequest true "Datos de la reserva"
 // @Description Inventario: si la peticion trae token Bearer valido (panel interno) y el servicio tiene insumos sin stock suficiente en el local, la reserva se guarda igual y la respuesta incluye alerta_inventario y advertencias_inventario; con la politica inventario.politica_sin_stock=BLOQUEAR responde 409 con el texto stock insuficiente. El formulario publico (sin token) nunca recibe advertencias ni se bloquea.
 // @Success 201 {object} utils.APIResponse{data=reservaCreatedResponse}
-// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante (en el panel interno tambien cliente_id), estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion"
+// @Failure 400 {object} utils.APIResponse "Error de validacion: campo requerido faltante, estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion"
 // @Failure 404 {object} utils.APIResponse "El cliente_id enviado por el panel no existe"
 // @Description Reserva repetida: si la peticion trae token Bearer valido y el telefono ya tiene una reserva vigente (no rechazada) en la misma fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas (las ya existentes) sin crear nada. El panel debe pedir confirmacion y reenviar con confirmar_duplicado=true. El formulario publico (sin token) no recibe este aviso.
 // @Failure 409 {object} utils.APIResponse "Conflicto: no hay espacios disponibles, el horario no esta libre, stock insuficiente de insumos con politica BLOQUEAR, o el cliente ya tiene reserva ese dia (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)"

@@ -1101,7 +1101,7 @@ type CrearReservaPGInput struct {
 	HoraHasta string
 	Tipo      string
 	Cliente   string
-	// ClienteID lo elige el panel interno. El formulario publico no lo manda: se vincula solo por telefono exacto y unico.
+	// ClienteID lo elige el panel interno (opcional: sin el la reserva queda por vincular). El formulario publico no lo manda: se vincula solo por telefono exacto y unico.
 	ClienteID          *int
 	Telefono           string
 	TelefonoE164       *string
