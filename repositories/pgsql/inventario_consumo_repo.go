@@ -223,26 +223,190 @@ func (r *InventarioRepo) RecalcularAlerta(reservaID int, considerarComprometido 
 // reserva), asi que el flag guardado al agendar queda desactualizado. localID nil = todos los locales.
 // Devuelve las advertencias de cada reserva evaluada (por id) para no tener que recalcularlas.
 func (r *InventarioRepo) RecalcularAlertasAbiertas(localID *int, considerarComprometido bool) (map[int][]models.AdvertenciaInventario, error) {
-	ids := []int{}
-	query := `
-		SELECT id FROM reservas
-		WHERE activo = TRUE AND fecha >= CURRENT_DATE
-		  AND COALESCE(estado, 'PENDIENTE') IN ('PENDIENTE', 'AGENDADO')`
+	return r.recalcularAlertasEnLote(localID, considerarComprometido)
+}
+
+type reservaAbiertaRow struct {
+	ID                int            `db:"id"`
+	LocalID           int            `db:"local_id"`
+	Estado            string         `db:"estado"`
+	Confirmado        sql.NullString `db:"servicio_confirmado"`
+	Nombre            sql.NullString `db:"servicio_nombre"`
+	Solicitado        sql.NullString `db:"servicio_solicitado"`
+	ClaveConfirmado   sql.NullString `db:"clave_confirmado"`
+	ClaveNombre       sql.NullString `db:"clave_nombre"`
+	ClaveSolicitado   sql.NullString `db:"clave_solicitado"`
+	ClaveComprometido sql.NullString `db:"clave_comprometido"`
+	AlertaActual      sql.NullBool   `db:"alerta_inventario"`
+}
+
+type insumoLoteRow struct {
+	ServicioID int     `db:"servicio_id"`
+	ItemID     int     `db:"item_id"`
+	ItemNombre string  `db:"item_nombre"`
+	Unidad     string  `db:"unidad_medida"`
+	Cantidad   float64 `db:"cantidad_por_sesion"`
+	ItemActivo bool    `db:"item_activo"`
+}
+
+type localItem struct{ local, item int }
+
+// recalcularAlertasEnLote hace lo mismo que llamar a RecalcularAlerta por cada reserva abierta,
+// pero con un numero fijo de consultas: evaluar reserva por reserva costaba ~8 consultas por
+// reserva y con la agenda llena superaba el timeout de la Lambda.
+func (r *InventarioRepo) recalcularAlertasEnLote(localID *int, considerarComprometido bool) (map[int][]models.AdvertenciaInventario, error) {
 	args := []interface{}{}
+	condLocal := ""
 	if localID != nil {
-		query += ` AND local_id = $1`
+		condLocal = ` AND local_id = $1`
 		args = append(args, *localID)
 	}
-	if err := r.db.Select(&ids, query+` ORDER BY fecha, hora_desde`, args...); err != nil {
+
+	reservas := []reservaAbiertaRow{}
+	if err := r.db.Select(&reservas, `
+		SELECT id, COALESCE(local_id, 0) AS local_id, COALESCE(estado, 'PENDIENTE') AS estado,
+		       servicio_confirmado, servicio_nombre, servicio_solicitado,
+		       LOWER(BTRIM(servicio_confirmado)) AS clave_confirmado,
+		       LOWER(BTRIM(servicio_nombre)) AS clave_nombre,
+		       LOWER(BTRIM(servicio_solicitado)) AS clave_solicitado,
+		       LOWER(BTRIM(COALESCE(NULLIF(servicio_confirmado, ''), servicio_nombre, servicio_solicitado))) AS clave_comprometido,
+		       alerta_inventario
+		FROM reservas
+		WHERE activo = TRUE AND fecha >= CURRENT_DATE
+		  AND COALESCE(estado, 'PENDIENTE') IN ('PENDIENTE', 'AGENDADO')`+condLocal+`
+		ORDER BY fecha, hora_desde`, args...); err != nil {
 		return nil, fmt.Errorf("error al listar reservas abiertas: %w", err)
 	}
-	warnings := make(map[int][]models.AdvertenciaInventario, len(ids))
-	for _, id := range ids {
-		warns, err := r.RecalcularAlerta(id, considerarComprometido)
-		if err != nil {
-			return nil, err
+	warnings := make(map[int][]models.AdvertenciaInventario, len(reservas))
+	if len(reservas) == 0 {
+		return warnings, nil
+	}
+
+	// Servicio por nombre normalizado, con la misma prioridad que resolverServicioSQL:
+	// el primero de cada clave gana (con insumos primero, luego id menor).
+	servicios := []struct {
+		ID    int    `db:"id"`
+		Clave string `db:"clave"`
+	}{}
+	if err := r.db.Select(&servicios, `
+		SELECT s.id, LOWER(BTRIM(s.nombre)) AS clave FROM servicios s
+		WHERE s.activo = TRUE
+		ORDER BY EXISTS (SELECT 1 FROM servicio_insumos x WHERE x.servicio_id = s.id) DESC, s.id`); err != nil {
+		return nil, fmt.Errorf("error al resolver servicio: %w", err)
+	}
+	servicioPorClave := make(map[string]int, len(servicios))
+	for _, s := range servicios {
+		if _, ok := servicioPorClave[s.Clave]; !ok {
+			servicioPorClave[s.Clave] = s.ID
 		}
-		warnings[id] = warns
+	}
+
+	insumoRows := []insumoLoteRow{}
+	if err := r.db.Select(&insumoRows, `
+		SELECT si.servicio_id, si.item_id, i.nombre AS item_nombre, i.unidad_medida,
+		       si.cantidad_por_sesion, i.activo AS item_activo
+		FROM servicio_insumos si JOIN inventario_items i ON i.id = si.item_id
+		ORDER BY i.id`); err != nil {
+		return nil, fmt.Errorf("error al leer insumos del servicio: %w", err)
+	}
+	insumosPorServicio := map[int][]insumoLoteRow{}
+	for _, in := range insumoRows {
+		insumosPorServicio[in.ServicioID] = append(insumosPorServicio[in.ServicioID], in)
+	}
+
+	stockRows := []struct {
+		LocalID  int     `db:"local_id"`
+		ItemID   int     `db:"item_id"`
+		Cantidad float64 `db:"cantidad"`
+	}{}
+	if err := r.db.Select(&stockRows, `SELECT local_id, item_id, cantidad FROM inventario_stock WHERE TRUE`+condLocal, args...); err != nil {
+		return nil, fmt.Errorf("error al leer stock: %w", err)
+	}
+	stock := make(map[localItem]float64, len(stockRows))
+	for _, s := range stockRows {
+		stock[localItem{s.LocalID, s.ItemID}] = s.Cantidad
+	}
+
+	// Comprometido: lo que reservan las AGENDADAS futuras de cada local. Todas estan en `reservas`
+	// (mismo filtro), asi que se suma aqui; al evaluar cada una se le resta su propio aporte.
+	servicioComprometido := func(rv reservaAbiertaRow) (int, bool) {
+		if rv.Estado != "AGENDADO" || rv.LocalID <= 0 || !rv.ClaveComprometido.Valid {
+			return 0, false
+		}
+		id, ok := servicioPorClave[rv.ClaveComprometido.String]
+		return id, ok
+	}
+	comprometido := map[localItem]float64{}
+	if considerarComprometido {
+		for _, rv := range reservas {
+			if sid, ok := servicioComprometido(rv); ok {
+				for _, in := range insumosPorServicio[sid] {
+					comprometido[localItem{rv.LocalID, in.ItemID}] += in.Cantidad
+				}
+			}
+		}
+	}
+
+	conAlerta, sinAlerta := []string{}, []string{}
+	for _, rv := range reservas {
+		warns := []models.AdvertenciaInventario{}
+		if rv.LocalID > 0 {
+			// Mismo orden de candidatos que resolverServicioID: confirmado, nombre, solicitado.
+			servicioID, ok := 0, false
+			for _, c := range []struct{ crudo, clave sql.NullString }{
+				{rv.Confirmado, rv.ClaveConfirmado}, {rv.Nombre, rv.ClaveNombre}, {rv.Solicitado, rv.ClaveSolicitado},
+			} {
+				if strings.TrimSpace(c.crudo.String) == "" {
+					continue
+				}
+				if servicioID, ok = servicioPorClave[c.clave.String]; ok {
+					break
+				}
+			}
+			if ok {
+				propio := map[int]float64{}
+				if considerarComprometido {
+					if sid, esta := servicioComprometido(rv); esta {
+						for _, in := range insumosPorServicio[sid] {
+							propio[in.ItemID] += in.Cantidad
+						}
+					}
+				}
+				for _, in := range insumosPorServicio[servicioID] {
+					if !in.ItemActivo {
+						continue
+					}
+					clave := localItem{rv.LocalID, in.ItemID}
+					disponible := redondear3(stock[clave] - (comprometido[clave] - propio[in.ItemID]))
+					if disponible < in.Cantidad {
+						warns = append(warns, models.AdvertenciaInventario{
+							ItemID: in.ItemID, ItemNombre: in.ItemNombre, Requerido: in.Cantidad,
+							Disponible: disponible, Unidad: in.Unidad,
+						})
+					}
+				}
+			}
+		}
+		warnings[rv.ID] = warns
+		// Solo se escriben las reservas cuyo flag cambia (ids enteros: seguro interpolarlos).
+		nueva := len(warns) > 0
+		if !rv.AlertaActual.Valid || rv.AlertaActual.Bool != nueva {
+			if nueva {
+				conAlerta = append(conAlerta, fmt.Sprint(rv.ID))
+			} else {
+				sinAlerta = append(sinAlerta, fmt.Sprint(rv.ID))
+			}
+		}
+	}
+	for valor, lista := range map[bool][]string{true: conAlerta, false: sinAlerta} {
+		if len(lista) == 0 {
+			continue
+		}
+		if _, err := r.db.Exec(fmt.Sprintf(
+			`UPDATE reservas SET alerta_inventario = $1 WHERE id IN (%s) AND alerta_inventario IS DISTINCT FROM $1`,
+			strings.Join(lista, ",")), valor); err != nil {
+			return nil, fmt.Errorf("error al guardar alerta de inventario: %w", err)
+		}
 	}
 	return warnings, nil
 }
