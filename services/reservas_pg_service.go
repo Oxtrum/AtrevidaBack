@@ -1157,16 +1157,16 @@ func (s *ReservasPGService) CrearReserva(input CrearReservaPGInput) (int, error)
 
 // CrearReservaConAvisos crea la reserva y devuelve ademas las advertencias de inventario.
 func (s *ReservasPGService) CrearReservaConAvisos(input CrearReservaPGInput) (CrearReservaResultado, error) {
-	id, estadoFinal, err := s.crearReservaBase(input)
+	id, _, err := s.crearReservaBase(input)
 	if err != nil {
 		return CrearReservaResultado{ID: id}, err
 	}
 	res := CrearReservaResultado{ID: id}
 	if s.consumo != nil {
-		warns, err := s.consumo.DespuesDeCrear(id, estadoFinal, input.Actor)
+		warns, err := s.consumo.DespuesDeCrear(id)
 		if err != nil {
 			// La reserva ya esta guardada: un fallo del inventario no debe perderla.
-			log.Printf("[inventario] no se pudo evaluar/descontar la reserva %d: %v", id, err)
+			log.Printf("[inventario] no se pudo evaluar la disponibilidad de la reserva %d: %v", id, err)
 			return res, nil
 		}
 		res.AlertaInventario = len(warns) > 0
@@ -1566,11 +1566,6 @@ func (s *ReservasPGService) actualizarEstadoReservaBase(input ActualizarEstadoRe
 				return err
 			}
 		}
-		hook, err := s.consumo.HookCambioEstado(estado, input.Id, input.Actor)
-		if err != nil {
-			return err
-		}
-		onApplied = hook
 	}
 	// Una reserva imputada a un paquete consume su siguiente sesion al completarse (por defecto) o al agendarse,
 	// segun el parametro. Completar siempre lo intenta: es idempotente y cubre lo agendado antes del cambio.
@@ -1579,7 +1574,8 @@ func (s *ReservasPGService) actualizarEstadoReservaBase(input ActualizarEstadoRe
 			return pgsqlrepo.MarcarSesionPorReservaTx(tx, input.Id)
 		})
 	}
-	// Cancelar una reserva agendada devuelve las sesiones e insumos comprometidos.
+	// Cancelar una reserva devuelve la sesión de paquete y revierte solo salidas históricas
+	// que hubieran quedado asociadas a la reserva. Las reservas nuevas no descuentan stock.
 	if estado == "CANCELADO" {
 		onApplied = combinarHooksTx(onApplied, func(tx *sqlx.Tx) error {
 			if err := pgsqlrepo.LiberarSesionPorReservaTx(tx, input.Id); err != nil {
@@ -1632,7 +1628,7 @@ type ActualizarReservaPGInput struct {
 	// LimpiarPlanID desvincula la reserva de su plan (plan_id = NULL).
 	LimpiarPlanID bool
 	NuevoEstado   string
-	// Actor se registra en el kardex si confirmar la reserva descuenta insumos.
+	// Actor se registra en la auditoría de la operación (por ejemplo, una cancelación).
 	Actor repository.ConsumoActor
 	// ConfirmarDuplicado indica que el usuario ya vio que el cliente tiene otra reserva en la
 	// nueva fecha y quiere mover la reserva igual.
@@ -1648,11 +1644,6 @@ func (s *ReservasPGService) ActualizarReserva(input ActualizarReservaPGInput) er
 // servicio, local o fecha puede cambiar la disponibilidad de insumos.
 func (s *ReservasPGService) ActualizarReservaConAvisos(input ActualizarReservaPGInput) (ActualizarEstadoReservaResultado, error) {
 	var res ActualizarEstadoReservaResultado
-	if s.consumo != nil && strings.EqualFold(strings.TrimSpace(input.NuevoEstado), "AGENDADO") {
-		if err := s.consumo.ValidarDescuentoAlAgendar(input.Id); err != nil {
-			return res, err
-		}
-	}
 	if err := s.actualizarReservaBase(input); err != nil {
 		return res, err
 	}
@@ -1661,12 +1652,7 @@ func (s *ReservasPGService) ActualizarReservaConAvisos(input ActualizarReservaPG
 	}
 	var warns []models.AdvertenciaInventario
 	var err error
-	if strings.EqualFold(strings.TrimSpace(input.NuevoEstado), "AGENDADO") {
-		// Confirmar por esta via equivale a pasar a AGENDADO: puede descontar si asi se configuro.
-		warns, err = s.consumo.DespuesDeCrear(input.Id, "AGENDADO", input.Actor)
-	} else {
-		warns, err = s.consumo.Recalcular(input.Id)
-	}
+	warns, err = s.consumo.Recalcular(input.Id)
 	if err != nil {
 		log.Printf("[inventario] no se pudo recalcular la alerta de la reserva %d: %v", input.Id, err)
 		return res, nil

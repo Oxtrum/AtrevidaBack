@@ -10,13 +10,13 @@ import (
 )
 
 type configuracionResponse struct {
-	// Parametros del sistema (clave -> valor tipado): inventario.politica_sin_stock, inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda, paquetes.sesion_en_estado, cobros.dias_maximo_fecha_pasada
+	// Parametros del sistema (clave -> valor tipado): inventario.politica_sin_stock, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda, paquetes.sesion_en_estado, cobros.dias_maximo_fecha_pasada
 	Configuracion map[string]interface{} `json:"configuracion"`
 }
 
 // GetConfiguracion godoc
 // @Summary Leer parametros del sistema
-// @Description Devuelve los parametros de inventario y finanzas (politica ante falta de stock, momento del descuento, stock negativo, aviso de gastos fijos, zona horaria, moneda). Requiere token Bearer.
+// @Description Devuelve los parámetros de inventario y finanzas. La política de falta de stock y el stock comprometido evalúan disponibilidad al reservar; el consumo real se registra exclusivamente al atender. permitir_stock_negativo define si una atención confirmada puede dejar saldo negativo. Requiere token Bearer.
 // @Tags Configuracion
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -58,7 +58,7 @@ func (h *Container) GetConfiguracionPublica(c *gin.Context) {
 
 // PatchConfiguracion godoc
 // @Summary Actualizar parametros del sistema
-// @Description Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); paquetes.usar_desde CUENTA|PAGADO (desde cuando se puede usar un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.
+// @Description Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR e inventario.considerar_comprometido controlan la evaluación preventiva al reservar, sin descontar stock; inventario.permitir_stock_negativo determina si una atención confirmada puede dejar saldo negativo; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesión de un paquete); paquetes.usar_desde CUENTA|PAGADO (desde cuándo se puede usar un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.
 // @Tags Configuracion
 // @Accept json
 // @Produce json

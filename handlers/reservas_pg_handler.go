@@ -870,13 +870,13 @@ type actualizarReservaPGRequest struct {
 // @Security BearerAuth
 // @Description limpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.
 // @Param payload body actualizarReservaPGRequest true "Datos para actualizar la reserva"
-// @Description Recalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias. Si nuevo_estado es AGENDADO, inventario.descontar_en_estado=AGENDADO e inventario.permitir_stock_negativo=false, responde 409 con el texto stock insuficiente cuando el stock real del local no alcanza.
+// @Description Recalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y devuelve las advertencias. Agendar no descuenta insumos: el consumo real se registra desde Atención.
 // @Success 200 {object} utils.APIResponse{data=reservaAvisosResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido, local requerido, tipo invalido, sin cambios para actualizar, fecha pasada u horario fuera de atencion"
 // @Failure 401 {object} utils.APIResponse "Token ausente o invalido"
 // @Failure 404 {object} utils.APIResponse "Reserva no encontrada"
 // @Description Reserva repetida: si nueva_fecha cambia el dia y el telefono ya tiene otra reserva vigente (no rechazada, de cualquier local) en esa fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas sin modificar nada. Reenviar con confirmar_duplicado=true para mover igual.
-// @Failure 409 {object} utils.APIResponse "Reserva completada, sin espacios disponibles en el horario destino, stock insuficiente de insumos al pasar a AGENDADO con descuento al agendar, o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)"
+// @Failure 409 {object} utils.APIResponse "Reserva completada, sin espacios disponibles en el horario destino o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Router /bd/reservas [patch]
 func (h *Container) PatchReservaPG(c *gin.Context) {
@@ -1000,7 +1000,7 @@ func (h *Container) PatchReservaPG(c *gin.Context) {
 // @Security BearerAuth
 // @Description Confirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.
 // @Param payload body actualizarEstadoReservaPGRequest true "Nuevo estado de la reserva"
-// @Description Inventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.
+// @Description Inventario: agendar nunca descuenta los insumos tentativos del servicio. El consumo real se registra al cerrar la reserva desde Atención. Con politica BLOQUEAR, agendar sin stock responde 409.
 // @Success 200 {object} utils.APIResponse{data=reservaAvisosResponse}
 // @Failure 400 {object} utils.APIResponse "Error de validacion: estado invalido, transicion no permitida, campo requerido faltante"
 // @Failure 401 {object} utils.APIResponse "Token ausente o invalido"

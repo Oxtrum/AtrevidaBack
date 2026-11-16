@@ -13,7 +13,6 @@ import (
 // Claves de configuracion_sistema (PLAN §3.5).
 const (
 	CfgPoliticaSinStock       = "inventario.politica_sin_stock"
-	CfgDescontarEnEstado      = "inventario.descontar_en_estado"
 	CfgPermitirStockNegativo  = "inventario.permitir_stock_negativo"
 	CfgConsiderarComprometido = "inventario.considerar_comprometido"
 	CfgEstadoGastoFijoGen     = "finanzas.estado_gasto_fijo_generado"
@@ -37,7 +36,6 @@ const (
 // ConfigTrastienda es la vista tipada de los parametros para uso interno.
 type ConfigTrastienda struct {
 	PoliticaSinStock       string
-	DescontarEnEstado      string
 	PermitirStockNegativo  bool
 	ConsiderarComprometido bool
 	EstadoGastoFijoGen     string
@@ -75,7 +73,7 @@ func (c ConfigTrastienda) Hoy() time.Time {
 
 func configPorDefecto() ConfigTrastienda {
 	return ConfigTrastienda{
-		PoliticaSinStock: "ADVERTIR", DescontarEnEstado: "COMPLETADO", PermitirStockNegativo: true,
+		PoliticaSinStock: "ADVERTIR", PermitirStockNegativo: true,
 		ConsiderarComprometido: true, EstadoGastoFijoGen: "PENDIENTE", DiasAvisoGastoFijo: 3,
 		ZonaHoraria: "America/La_Paz", Moneda: "Bs",
 		DiaPagoDefecto: 1, AporteLaboralPct: 12.71, AportePatronalPct: 16.71, DiasMesFaltas: 30,
@@ -105,8 +103,6 @@ func (s *ConfiguracionService) Snapshot() (ConfigTrastienda, error) {
 		switch row.Clave {
 		case CfgPoliticaSinStock:
 			cfg.PoliticaSinStock = row.Valor
-		case CfgDescontarEnEstado:
-			cfg.DescontarEnEstado = row.Valor
 		case CfgPermitirStockNegativo:
 			cfg.PermitirStockNegativo = row.Valor == "true"
 		case CfgConsiderarComprometido:
@@ -164,7 +160,6 @@ func (s *ConfiguracionService) Get() (map[string]interface{}, error) {
 	}
 	return map[string]interface{}{
 		CfgPoliticaSinStock:       cfg.PoliticaSinStock,
-		CfgDescontarEnEstado:      cfg.DescontarEnEstado,
 		CfgPermitirStockNegativo:  cfg.PermitirStockNegativo,
 		CfgConsiderarComprometido: cfg.ConsiderarComprometido,
 		CfgEstadoGastoFijoGen:     cfg.EstadoGastoFijoGen,
@@ -221,12 +216,6 @@ func validarPatchConfiguracion(patch map[string]interface{}) (map[string]string,
 		switch clave {
 		case CfgPoliticaSinStock:
 			val, err := valorEnum(clave, v, "ADVERTIR", "BLOQUEAR")
-			if err != nil {
-				return nil, err
-			}
-			valores[clave] = val
-		case CfgDescontarEnEstado:
-			val, err := valorEnum(clave, v, "COMPLETADO", "AGENDADO")
 			if err != nil {
 				return nil, err
 			}
