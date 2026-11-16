@@ -1493,6 +1493,70 @@
                 }
             }
         },
+        "/bd/atenciones/{id}/desactivar": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Desactiva lógicamente una atención. restituir_stock revierte solo las cantidades realmente descontadas. reabrir_reserva devuelve la reserva COMPLETADA a AGENDADO y libera su sesión de paquete. Las opciones son independientes y se aplican en una sola transacción.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Atenciones"
+                ],
+                "summary": "Desactivar una atención registrada",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID de atención",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Opciones de desactivación",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.desactivarAtencionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Atención o reserva en estado incompatible",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Sin acceso al local",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Atención no encontrada",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bd/cargos/{id}/anular": {
             "post": {
                 "security": [
@@ -4247,7 +4311,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Devuelve los parametros de inventario y finanzas (politica ante falta de stock, momento del descuento, stock negativo, aviso de gastos fijos, zona horaria, moneda). Requiere token Bearer.",
+                "description": "Devuelve los parámetros de inventario y finanzas. La política de falta de stock y el stock comprometido evalúan disponibilidad al reservar; el consumo real se registra exclusivamente al atender. permitir_stock_negativo define si una atención confirmada puede dejar saldo negativo. Requiere token Bearer.",
                 "produces": [
                     "application/json"
                 ],
@@ -4304,7 +4368,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR; inventario.descontar_en_estado COMPLETADO|AGENDADO; inventario.permitir_stock_negativo y inventario.considerar_comprometido booleanos; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesion de un paquete); paquetes.usar_desde CUENTA|PAGADO (desde cuando se puede usar un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.",
+                "description": "Actualiza solo las claves enviadas. Valores: inventario.politica_sin_stock ADVERTIR|BLOQUEAR e inventario.considerar_comprometido controlan la evaluación preventiva al reservar, sin descontar stock; inventario.permitir_stock_negativo determina si una atención confirmada puede dejar saldo negativo; finanzas.estado_gasto_fijo_generado PENDIENTE|PAGADO; finanzas.dias_aviso_gasto_fijo entero 0-31; finanzas.zona_horaria zona IANA; finanzas.moneda texto de 1 a 5 caracteres; paquetes.sesion_en_estado COMPLETADO|AGENDADO (cuando avanza la sesión de un paquete); paquetes.usar_desde CUENTA|PAGADO (desde cuándo se puede usar un paquete); cobros.dias_maximo_fecha_pasada entero 0-365. Requiere token Bearer con rol admin_sys.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11372,7 +11436,7 @@
                         }
                     },
                     "400": {
-                        "description": "Error de validacion: campo requerido faltante (en el panel interno tambien cliente_id), estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion",
+                        "description": "Error de validacion: campo requerido faltante, estado invalido, servicio requiere evaluacion, formato incorrecto u horario fuera de atencion",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -11421,7 +11485,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).\nlimpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.\nRecalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y la devuelve con las advertencias. Si nuevo_estado es AGENDADO, inventario.descontar_en_estado=AGENDADO e inventario.permitir_stock_negativo=false, responde 409 con el texto stock insuficiente cuando el stock real del local no alcanza.\nReserva repetida: si nueva_fecha cambia el dia y el telefono ya tiene otra reserva vigente (no rechazada, de cualquier local) en esa fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas sin modificar nada. Reenviar con confirmar_duplicado=true para mover igual.",
+                "description": "Actualiza datos de una reserva. Solo se actualizan los campos enviados. No cambia estado (usar PATCH /bd/reservas/estado). Las reservas PENDIENTE, RECHAZADO y AGENDADO son editables; las COMPLETADO no. En una reserva AGENDADO, enviar nuevo_servicio arrastra tambien servicio_confirmado y el tipo de espacio, y cambiar fecha, hora o local marca la reserva como no notificada para reavisar al cliente. id: ID de la reserva (requerido). local: nombre del local para validar existencia (requerido). nueva_fecha: nueva fecha YYYY-MM-DD (opcional, no acepta domingos ni fechas pasadas). nueva_hora_desde: nueva hora inicio HH:MM (opcional). nueva_hora_hasta: nueva hora fin HH:MM (opcional). Horarios: lunes a viernes 08:00-20:00; sabado SAN MARTIN 08:00-15:00 y PASEO ARANJUEZ 08:00-18:00. nuevo_tipo: M=mesa o B=bicicleta (opcional). nuevo_cliente: nuevo nombre del cliente (opcional). nuevo_numero_telefono: nuevo telefono (opcional). nuevo_servicio: nombre del servicio principal (opcional). nuevo_servicio_solicitado: detalle solicitado por el cliente (opcional). nuevo_servicio_confirmado: servicio final tras evaluacion (opcional). nuevo_precio: nuevo precio (opcional). nuevas_notas: nuevas notas u observaciones (opcional). nuevo_local: local destino al que se mueve la reserva (opcional). nuevo_plan_id: plan o paquete al que se imputa la reserva (opcional). limpiar_plan_id: desvincula la reserva de su plan actual (opcional).\nlimpiar_precio=true borra el importe acordado y no puede combinarse con nuevo_precio. Cambiar a un servicio variable sin enviar importe elimina el precio anterior. Reprogramar el mismo servicio conserva su modalidad historica.\nRecalcula alerta_inventario (cambiar servicio, local o fecha puede cambiar la disponibilidad de insumos) y devuelve las advertencias. Agendar no descuenta insumos: el consumo real se registra desde Atención.\nReserva repetida: si nueva_fecha cambia el dia y el telefono ya tiene otra reserva vigente (no rechazada, de cualquier local) en esa fecha, responde 409 con data.codigo=RESERVA_DUPLICADA y data.reservas sin modificar nada. Reenviar con confirmar_duplicado=true para mover igual.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11481,7 +11545,7 @@
                         }
                     },
                     "409": {
-                        "description": "Reserva completada, sin espacios disponibles en el horario destino, stock insuficiente de insumos al pasar a AGENDADO con descuento al agendar, o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)",
+                        "description": "Reserva completada, sin espacios disponibles en el horario destino o el cliente ya tiene reserva en la nueva fecha (data.codigo=RESERVA_DUPLICADA, ver reservaDuplicadaResponse)",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -11635,7 +11699,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cambia el estado de una reserva. COMPLETADO solo se puede establecer al registrar una atención. RECHAZADO se reserva para solicitudes PENDIENTE; CANCELADO exige motivo_cancelacion_tipo y solo aplica a reservas AGENDADO. Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→CANCELADO, RECHAZADO→PENDIENTE.\nConfirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.\nInventario: al pasar al estado configurado en inventario.descontar_en_estado (por defecto COMPLETADO) se descuentan los insumos del servicio en la misma transaccion, una sola vez por (reserva, item). Si no alcanza el stock y inventario.permitir_stock_negativo=false, el cambio no se aplica y responde 409. Con politica BLOQUEAR, agendar sin stock responde 409.",
+                "description": "Cambia el estado de una reserva. COMPLETADO solo se puede establecer al registrar una atención. RECHAZADO se reserva para solicitudes PENDIENTE; CANCELADO exige motivo_cancelacion_tipo y solo aplica a reservas AGENDADO. Transiciones: PENDIENTE→AGENDADO/RECHAZADO, AGENDADO→CANCELADO, RECHAZADO→PENDIENTE.\nConfirmar un servicio fija costo_variable para reservas antiguas sin modalidad conocida. Cambiar a otro servicio variable sin precio limpia el importe anterior; un precio explicito, incluido cero, se conserva.\nInventario: agendar nunca descuenta los insumos tentativos del servicio. El consumo real se registra al cerrar la reserva desde Atención. Con politica BLOQUEAR, agendar sin stock responde 409.",
                 "consumes": [
                     "application/json"
                 ],
@@ -12078,7 +12142,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Registra la atención real y cambia una reserva AGENDADA a COMPLETADO en una sola transacción. Los insumos sin stock suficiente quedan en PENDIENTE_STOCK sin descuento parcial. Con inventario.politica_sin_stock=BLOQUEAR responde 409 salvo que el usuario confirme expresamente el faltante mediante confirmar_stock_insuficiente.",
+                "description": "Registra la atención real y cambia una reserva AGENDADA a COMPLETADO en una sola transacción. Si falta stock y se permite negativo, confirmar_stock_insuficiente confirma el descuento que dejará saldo negativo. Si no se permite negativo, el faltante queda PENDIENTE_STOCK sin descuento parcial.",
                 "consumes": [
                     "application/json"
                 ],
@@ -17046,7 +17110,7 @@
             "type": "object",
             "properties": {
                 "configuracion": {
-                    "description": "Parametros del sistema (clave -\u003e valor tipado): inventario.politica_sin_stock, inventario.descontar_en_estado, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda, paquetes.sesion_en_estado, cobros.dias_maximo_fecha_pasada",
+                    "description": "Parametros del sistema (clave -\u003e valor tipado): inventario.politica_sin_stock, inventario.permitir_stock_negativo, inventario.considerar_comprometido, finanzas.estado_gasto_fijo_generado, finanzas.dias_aviso_gasto_fijo, finanzas.zona_horaria, finanzas.moneda, paquetes.sesion_en_estado, cobros.dias_maximo_fecha_pasada",
                     "type": "object",
                     "additionalProperties": true
                 }
@@ -17747,7 +17811,7 @@
                     "example": "Maria Lopez"
                 },
                 "cliente_id": {
-                    "description": "Cliente registrado dueño de la reserva. Requerido en el panel interno (con token); el formulario publico lo ignora y la reserva se enlaza sola solo si el telefono coincide exacto con un unico cliente, si no queda por vincular.",
+                    "description": "Cliente registrado dueño de la reserva. Opcional en el panel interno (con token): sin el la reserva queda por vincular. El formulario publico lo ignora y la reserva se enlaza sola solo si el telefono coincide exacto con un unico cliente, si no queda por vincular.",
                     "type": "integer",
                     "example": 12
                 },
@@ -17950,6 +18014,17 @@
                             "$ref": "#/definitions/models.CuentaCliente"
                         }
                     ]
+                }
+            }
+        },
+        "handlers.desactivarAtencionRequest": {
+            "type": "object",
+            "properties": {
+                "reabrir_reserva": {
+                    "type": "boolean"
+                },
+                "restituir_stock": {
+                    "type": "boolean"
                 }
             }
         },
