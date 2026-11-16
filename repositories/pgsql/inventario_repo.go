@@ -71,10 +71,14 @@ func consultaItems(f repository.FiltroItemsInventario) (string, []interface{}) {
 	}
 
 	query := fmt.Sprintf(itemsSelectBase, localCond) + " WHERE " + strings.Join(conds, " AND ")
-	if f.PorLocal && f.LocalID == nil {
+	if f.PorLocal {
 		// Una fila por (item, local); nunca se suma entre locales. Aparece cada local donde el item
 		// tiene registro de stock o donde un servicio activo lo consume (aunque nunca se haya
 		// cargado stock ahi: queda en 0). Un item sin stock ni uso en ningun local aparece en todos.
+		localFiltro := ""
+		if f.LocalID != nil {
+			localFiltro = " AND l.id = $1"
+		}
 		query = `
 	SELECT i.id, i.codigo, i.nombre, i.descripcion, i.categoria_id, c.nombre AS categoria_nombre,
 	       i.unidad_medida, i.costo_referencia, i.precio_venta, i.stock_minimo,
@@ -84,7 +88,7 @@ func consultaItems(f repository.FiltroItemsInventario) (string, []interface{}) {
 	CROSS JOIN locales l
 	LEFT JOIN categorias_inventario c ON c.id = i.categoria_id
 	LEFT JOIN inventario_stock s ON s.item_id = i.id AND s.local_id = l.id
-	WHERE l.activo = TRUE AND ` + strings.Join(conds, " AND ") + `
+	WHERE l.activo = TRUE` + localFiltro + ` AND ` + strings.Join(conds, " AND ") + `
 	  AND (s.item_id IS NOT NULL OR ` + itemUsadoEnLocalSQL + `
 	       OR NOT EXISTS (SELECT 1 FROM inventario_stock x WHERE x.item_id = i.id)
 	          AND NOT EXISTS (SELECT 1 FROM servicio_insumos u WHERE u.item_id = i.id))`
@@ -92,7 +96,7 @@ func consultaItems(f repository.FiltroItemsInventario) (string, []interface{}) {
 	if f.BajoStock {
 		query = "SELECT * FROM (" + query + ") t WHERE t.stock_actual <= t.stock_minimo"
 		query += " ORDER BY t.nombre, t.local_nombre, t.id"
-	} else if f.PorLocal && f.LocalID == nil {
+	} else if f.PorLocal {
 		query += " ORDER BY i.nombre, l.nombre, i.id"
 	} else {
 		query += " ORDER BY i.nombre, i.id"
