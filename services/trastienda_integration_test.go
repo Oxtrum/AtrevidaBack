@@ -407,6 +407,42 @@ func TestTrastiendaDesactivarAtencionReabreReservaYLiberaSesion(t *testing.T) {
 	if realizada {
 		t.Fatal("la sesión del paquete debe quedar pendiente al reabrir la reserva")
 	}
+
+	// Una atención desactivada debe conservarse como historial, sin impedir
+	// registrar una nueva atención activa para la reserva reabierta.
+	nuevaAtencion, err := e.atenciones.Registrar(RegistrarAtencionInput{
+		ReservaID: reserva, EmpleadoNombre: "QA Atención reabierta", FechaAtencion: time.Now().Format("2006-01-02"),
+		Lugar: e.localName, Insumos: []pgsqlrepo.AtencionInsumoInput{{ItemID: item, Cantidad: 25}},
+	})
+	if err != nil {
+		t.Fatalf("registrar atención tras reabrir la reserva: %v", err)
+	}
+	if nuevaAtencion.ID == atencion.ID {
+		t.Fatal("la atención reabierta debe crear un nuevo registro")
+	}
+	if got := e.stock(item); got != 75 {
+		t.Fatalf("stock tras la nueva atención = %v, quiero 75", got)
+	}
+	var total, activas int
+	if err := e.db.Get(&total, `SELECT COUNT(*) FROM atenciones WHERE reserva_id=$1`, reserva); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.db.Get(&activas, `SELECT COUNT(*) FROM atenciones WHERE reserva_id=$1 AND activo=TRUE`, reserva); err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 || activas != 1 {
+		t.Fatalf("atenciones para reserva: total=%d, activas=%d; quiero 2 y 1", total, activas)
+	}
+	var salidas, reversiones int
+	if err := e.db.Get(&salidas, `SELECT COUNT(*) FROM inventario_movimientos WHERE reserva_id=$1 AND item_id=$2 AND tipo='SALIDA_SERVICIO'`, reserva, item); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.db.Get(&reversiones, `SELECT COUNT(*) FROM inventario_movimientos WHERE reserva_id=$1 AND item_id=$2 AND tipo='REVERSION_SERVICIO'`, reserva, item); err != nil {
+		t.Fatal(err)
+	}
+	if salidas != 2 || reversiones != 1 {
+		t.Fatalf("movimientos tras reabrir: salidas=%d, reversiones=%d; quiero 2 y 1", salidas, reversiones)
+	}
 }
 
 func TestTrastiendaDescuentosConcurrentesNoLeenElMismoStock(t *testing.T) {
