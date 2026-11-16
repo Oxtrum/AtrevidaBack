@@ -34,7 +34,7 @@ type registrarAtencionRequest struct {
 
 // PostAtencion godoc
 // @Summary Registrar atención y cerrar reserva
-// @Description Registra la atención real y cambia una reserva AGENDADA a COMPLETADO en una sola transacción. Los insumos sin stock suficiente quedan en PENDIENTE_STOCK sin descuento parcial. Con inventario.politica_sin_stock=BLOQUEAR responde 409 salvo que el usuario confirme expresamente el faltante mediante confirmar_stock_insuficiente.
+// @Description Registra la atención real y cambia una reserva AGENDADA a COMPLETADO en una sola transacción. Si falta stock y se permite negativo, confirmar_stock_insuficiente confirma el descuento que dejará saldo negativo. Si no se permite negativo, el faltante queda PENDIENTE_STOCK sin descuento parcial.
 // @Tags Atenciones
 // @Accept json
 // @Produce json
@@ -828,8 +828,23 @@ func (h *Container) PutAtencion(c *gin.Context) {
 
 type desactivarAtencionRequest struct {
 	RestituirStock bool `json:"restituir_stock"`
+	ReabrirReserva bool `json:"reabrir_reserva"`
 }
 
+// PostDesactivarAtencion godoc
+// @Summary Desactivar una atención registrada
+// @Description Desactiva lógicamente una atención. restituir_stock revierte solo las cantidades realmente descontadas. reabrir_reserva devuelve la reserva COMPLETADA a AGENDADO y libera su sesión de paquete. Las opciones son independientes y se aplican en una sola transacción.
+// @Tags Atenciones
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "ID de atención"
+// @Param payload body desactivarAtencionRequest true "Opciones de desactivación"
+// @Success 200 {object} utils.APIResponse
+// @Failure 400 {object} utils.APIResponse "Atención o reserva en estado incompatible"
+// @Failure 403 {object} utils.APIResponse "Sin acceso al local"
+// @Failure 404 {object} utils.APIResponse "Atención no encontrada"
+// @Router /bd/atenciones/{id}/desactivar [post]
 func (h *Container) PostDesactivarAtencion(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
@@ -846,7 +861,7 @@ func (h *Container) PostDesactivarAtencion(c *gin.Context) {
 		utils.RespondError(c, 400, err.Error())
 		return
 	}
-	if err = h.Atenciones.Desactivar(id, scope.LocalID, req.RestituirStock, consumoActor(c)); err != nil {
+	if err = h.Atenciones.Desactivar(id, scope.LocalID, req.RestituirStock, req.ReabrirReserva, consumoActor(c)); err != nil {
 		status := http.StatusBadRequest
 		if strings.Contains(strings.ToLower(err.Error()), "no encontrada") {
 			status = http.StatusNotFound
@@ -856,7 +871,7 @@ func (h *Container) PostDesactivarAtencion(c *gin.Context) {
 		utils.RespondError(c, status, err.Error())
 		return
 	}
-	utils.Respond(c, 200, gin.H{"id": id, "activo": false, "stock_restituido": req.RestituirStock})
+	utils.Respond(c, 200, gin.H{"id": id, "activo": false, "stock_restituido": req.RestituirStock, "reserva_reabierta": req.ReabrirReserva})
 }
 
 // GetAtencion godoc

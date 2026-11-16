@@ -30,6 +30,7 @@ type RegistrarAtencionInput struct {
 	Lugar                      string
 	Observaciones              *string
 	ConfirmarStockInsuficiente bool
+	PermitirStockNegativo      bool
 	Actor                      repository.ConsumoActor
 	Insumos                    []AtencionInsumoInput
 	PoliticaSinStock           string
@@ -45,6 +46,7 @@ type ActualizarAtencionInput struct {
 	Lugar                      string
 	Observaciones              *string
 	ConfirmarStockInsuficiente bool
+	PermitirStockNegativo      bool
 	Actor                      repository.ConsumoActor
 	Insumos                    []AtencionInsumoInput
 	PoliticaSinStock           string
@@ -204,6 +206,20 @@ func (r *AtencionesRepo) Registrar(in RegistrarAtencionInput) (*models.Atencion,
 		}
 		faltante := line.Cantidad - descontadoPrevio
 		if disponible < faltante {
+			if in.PermitirStockNegativo {
+				if !in.ConfirmarStockInsuficiente {
+					return nil, fmt.Errorf("%w: stock disponible %v, se requieren %v adicionales del insumo %s", repository.ErrStockInsuficiente, disponible, faltante, item.Nombre)
+				}
+				if faltante > 0 {
+					if _, err = AplicarMovimientoStock(tx, repository.MovimientoStockInput{ItemID: line.ItemID, LocalID: reserva.LocalID, Tipo: repository.MovSalidaServicio, Cantidad: faltante, ReservaID: &reservaID, AtencionID: &atencionID, UsuarioID: in.Actor.UsuarioID, UsuarioNombre: in.Actor.UsuarioNombre, PermitirNegativo: true, Motivo: fmt.Sprintf("Atencion #%d, reserva #%d", id, in.ReservaID)}); err != nil {
+						return nil, fmt.Errorf("fallo_descuento_inventario: %w", err)
+					}
+				}
+				if _, err = tx.Exec(`INSERT INTO atencion_insumos(atencion_id,item_id,item_nombre,unidad_medida,cantidad_usada,cantidad_descontada) VALUES($1,$2,$3,$4,$5,$5)`, id, line.ItemID, item.Nombre, item.Unidad, line.Cantidad); err != nil {
+					return nil, err
+				}
+				continue
+			}
 			if strings.EqualFold(strings.TrimSpace(in.PoliticaSinStock), "BLOQUEAR") && !in.ConfirmarStockInsuficiente {
 				return nil, fmt.Errorf("%w: stock disponible %v, se requieren %v adicionales del insumo %s", repository.ErrStockInsuficiente, disponible, faltante, item.Nombre)
 			}
@@ -741,7 +757,7 @@ func (r *AtencionesRepo) ContarSeguimiento(f repository.FiltroSeguimiento) (int,
 	return total, nil
 }
 
-func (r *AtencionesRepo) Desactivar(id int, localID *int, restituirStock bool, actor repository.ConsumoActor) error {
+func (r *AtencionesRepo) Desactivar(id int, localID *int, restituirStock, reabrirReserva bool, actor repository.ConsumoActor) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
@@ -777,6 +793,21 @@ func (r *AtencionesRepo) Desactivar(id int, localID *int, restituirStock bool, a
 			}); err != nil {
 				return fmt.Errorf("no se pudo restituir el stock: %w", err)
 			}
+		}
+	}
+	if reabrirReserva {
+		if err = LiberarSesionPorReservaTx(tx, atencion.ReservaID); err != nil {
+			return fmt.Errorf("no se pudo liberar la sesión del paquete: %w", err)
+		}
+		result, err := tx.Exec(`UPDATE reservas SET estado='AGENDADO', actualizado_en=NOW() WHERE id=$1 AND activo=TRUE AND estado='COMPLETADO'`, atencion.ReservaID)
+		if err != nil {
+			return fmt.Errorf("no se pudo reabrir la reserva: %w", err)
+		}
+		if n, err := result.RowsAffected(); err != nil || n != 1 {
+			if err != nil {
+				return err
+			}
+			return errors.New("la reserva no se encuentra completada para reabrirla")
 		}
 	}
 	if _, err = tx.Exec(`UPDATE atenciones SET activo=FALSE WHERE id=$1`, id); err != nil {
@@ -902,6 +933,20 @@ func (r *AtencionesRepo) Actualizar(in ActualizarAtencionInput) (*models.Atencio
 			}
 			adicional := linea.Cantidad - anterior
 			if disponible < adicional {
+				if in.PermitirStockNegativo {
+					if !in.ConfirmarStockInsuficiente {
+						return nil, fmt.Errorf("%w: stock disponible %v, se requieren %v adicionales del insumo %s", repository.ErrStockInsuficiente, disponible, adicional, item.Nombre)
+					}
+					if _, err = AplicarMovimientoStock(tx, repository.MovimientoStockInput{
+						ItemID: linea.ItemID, LocalID: atencion.LocalID, Tipo: repository.MovSalidaServicio,
+						Cantidad: adicional, ReservaID: &reservaID, AtencionID: &atencionID,
+						UsuarioID: in.Actor.UsuarioID, UsuarioNombre: in.Actor.UsuarioNombre, PermitirNegativo: true,
+						Motivo: fmt.Sprintf("Ajuste de consumo al editar atencion #%d", in.AtencionID),
+					}); err != nil {
+						return nil, err
+					}
+					descontado = linea.Cantidad
+				}
 				if strings.EqualFold(strings.TrimSpace(in.PoliticaSinStock), "BLOQUEAR") && !in.ConfirmarStockInsuficiente {
 					return nil, fmt.Errorf("%w: stock disponible %v, se requieren %v adicionales del insumo %s", repository.ErrStockInsuficiente, disponible, adicional, item.Nombre)
 				}

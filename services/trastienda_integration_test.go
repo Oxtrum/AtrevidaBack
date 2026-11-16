@@ -94,7 +94,7 @@ func setupTrastienda(t *testing.T) *trastiendaEnv {
 	}
 	// Config por defecto para cada prueba.
 	if _, err := cfgSvc.Update(map[string]interface{}{
-		CfgPoliticaSinStock: "ADVERTIR", CfgDescontarEnEstado: "COMPLETADO", CfgPermitirStockNegativo: true,
+		CfgPoliticaSinStock: "ADVERTIR", CfgPermitirStockNegativo: true,
 		CfgConsiderarComprometido: true, CfgEstadoGastoFijoGen: "PENDIENTE",
 	}); err != nil {
 		t.Fatal(err)
@@ -203,7 +203,7 @@ func (e *trastiendaEnv) atender(reservaID int, insumos ...pgsqlrepo.AtencionInsu
 
 // ─── Inventario ↔ reservas ────────────────────────────────────────────────────
 
-func TestTrastiendaCompletarDescuentaExactoYEsIdempotente(t *testing.T) {
+func TestTrastiendaAtencionDescuentaExactoYEsIdempotente(t *testing.T) {
 	e := setupTrastienda(t)
 	item := e.nuevoItem("Gel", 100)
 	srv := e.nuevoServicio("Masaje", map[int]float64{item: 30})
@@ -256,7 +256,7 @@ func TestTrastiendaSinStockNegativoNoPermitidoNoCompleta(t *testing.T) {
 	item := e.nuevoItem("Crema", 10)
 	srv := e.nuevoServicio("Facial", map[int]float64{item: 30})
 	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
-	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPoliticaSinStock: "BLOQUEAR"}); err != nil {
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPoliticaSinStock: "BLOQUEAR", CfgPermitirStockNegativo: false}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -279,7 +279,7 @@ func TestTrastiendaSinStockConfirmadoCompletaConDeduccionPendiente(t *testing.T)
 	item := e.nuevoItem("Banda", 10)
 	srv := e.nuevoServicio("Presoterapia", map[int]float64{item: 30})
 	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
-	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPoliticaSinStock: "BLOQUEAR"}); err != nil {
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPoliticaSinStock: "BLOQUEAR", CfgPermitirStockNegativo: false}); err != nil {
 		t.Fatal(err)
 	}
 	// La confirmación registra el uso real, pero nunca descuenta parcialmente ni
@@ -301,6 +301,111 @@ func TestTrastiendaSinStockConfirmadoCompletaConDeduccionPendiente(t *testing.T)
 	}
 	if pendiente != 1 {
 		t.Fatalf("deducciones pendientes = %d, quiero 1", pendiente)
+	}
+}
+
+func TestTrastiendaSinStockNegativoPermitidoDescuentaTrasConfirmacion(t *testing.T) {
+	e := setupTrastienda(t)
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPermitirStockNegativo: true}); err != nil {
+		t.Fatal(err)
+	}
+	item := e.nuevoItem("Gel negativo", 10)
+	srv := e.nuevoServicio("Consumo negativo", map[int]float64{item: 30})
+	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
+	if err := e.atender(reserva, pgsqlrepo.AtencionInsumoInput{ItemID: item, Cantidad: 30}); err == nil || !strings.Contains(err.Error(), "stock insuficiente") {
+		t.Fatalf("sin confirmación debe rechazar el saldo negativo, obtuve %v", err)
+	}
+	_, err := e.atenciones.Registrar(RegistrarAtencionInput{
+		ReservaID: reserva, EmpleadoNombre: "QA Atención", FechaAtencion: time.Now().Format("2006-01-02"),
+		Lugar: e.localName, ConfirmarStockInsuficiente: true,
+		Insumos: []pgsqlrepo.AtencionInsumoInput{{ItemID: item, Cantidad: 30}},
+	})
+	if err != nil {
+		t.Fatalf("con confirmación y negativo permitido debe completar: %v", err)
+	}
+	if got := e.stock(item); got != -20 {
+		t.Fatalf("stock = %v, quiero -20", got)
+	}
+	var pendiente int
+	if err := e.db.Get(&pendiente, `SELECT COUNT(*) FROM atencion_insumos ai JOIN atenciones a ON a.id=ai.atencion_id WHERE a.reserva_id=$1 AND ai.estado_descuento='PENDIENTE_STOCK'`, reserva); err != nil {
+		t.Fatal(err)
+	}
+	if pendiente != 0 {
+		t.Fatalf("deducciones pendientes = %d, quiero 0", pendiente)
+	}
+}
+
+func TestTrastiendaEditarPendienteConNegativoPermitidoDescuentaTrasConfirmacion(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Gel regularizable", 10)
+	srv := e.nuevoServicio("Consumo regularizable", map[int]float64{item: 30})
+	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
+	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgPoliticaSinStock: "BLOQUEAR", CfgPermitirStockNegativo: false}); err != nil {
+		t.Fatal(err)
+	}
+	atencion, err := e.atenciones.Registrar(RegistrarAtencionInput{
+		ReservaID: reserva, EmpleadoNombre: "QA Atención", FechaAtencion: time.Now().Format("2006-01-02"),
+		Lugar: e.localName, ConfirmarStockInsuficiente: true,
+		Insumos: []pgsqlrepo.AtencionInsumoInput{{ItemID: item, Cantidad: 30}},
+	})
+	if err != nil {
+		t.Fatalf("registrar pendiente: %v", err)
+	}
+	if _, err = e.cfgSvc.Update(map[string]interface{}{CfgPermitirStockNegativo: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = e.atenciones.Actualizar(ActualizarAtencionInput{
+		AtencionID: atencion.ID, EmpleadoNombre: "QA Atención", FechaAtencion: time.Now().Format("2006-01-02"),
+		Lugar: e.localName, ConfirmarStockInsuficiente: true,
+		Insumos: []pgsqlrepo.AtencionInsumoInput{{ItemID: item, Cantidad: 30}},
+	}); err != nil {
+		t.Fatalf("regularizar con negativo permitido: %v", err)
+	}
+	if got := e.stock(item); got != -20 {
+		t.Fatalf("stock = %v, quiero -20", got)
+	}
+	var pendiente int
+	if err := e.db.Get(&pendiente, `SELECT COUNT(*) FROM atencion_insumos WHERE atencion_id=$1 AND estado_descuento='PENDIENTE_STOCK'`, atencion.ID); err != nil {
+		t.Fatal(err)
+	}
+	if pendiente != 0 {
+		t.Fatalf("deducciones pendientes = %d, quiero 0", pendiente)
+	}
+}
+
+func TestTrastiendaDesactivarAtencionReabreReservaYLiberaSesion(t *testing.T) {
+	e := setupTrastienda(t)
+	item := e.nuevoItem("Aceite reabrir", 100)
+	srv := e.nuevoServicio("Atención reabrible", map[int]float64{item: 25})
+	planID, _ := e.nuevoPlanConSesion(srv)
+	reserva := e.nuevaReserva(srv, "AGENDADO", 1)
+	mustExec(t, e.db, `UPDATE reservas SET plan_id=$1 WHERE id=$2`, planID, reserva)
+	atencion, err := e.atenciones.Registrar(RegistrarAtencionInput{
+		ReservaID: reserva, EmpleadoNombre: "QA Atención", FechaAtencion: time.Now().Format("2006-01-02"),
+		Lugar: e.localName, Insumos: []pgsqlrepo.AtencionInsumoInput{{ItemID: item, Cantidad: 25}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.atenciones.Desactivar(atencion.ID, &e.localID, true, true, repository.ConsumoActor{UsuarioNombre: "QA"}); err != nil {
+		t.Fatal(err)
+	}
+	var estado string
+	if err := e.db.Get(&estado, `SELECT estado FROM reservas WHERE id=$1`, reserva); err != nil {
+		t.Fatal(err)
+	}
+	if estado != "AGENDADO" {
+		t.Fatalf("estado = %s, quiero AGENDADO", estado)
+	}
+	if got := e.stock(item); got != 100 {
+		t.Fatalf("stock = %v, quiero 100", got)
+	}
+	var realizada bool
+	if err := e.db.Get(&realizada, `SELECT realizado FROM plan_servicios WHERE plan_id=$1 AND sesion_numero=1`, planID); err != nil {
+		t.Fatal(err)
+	}
+	if realizada {
+		t.Fatal("la sesión del paquete debe quedar pendiente al reabrir la reserva")
 	}
 }
 
@@ -469,42 +574,20 @@ func TestTrastiendaInsumoSinStockEnLocalDelServicioAparece(t *testing.T) {
 	}
 }
 
-// Con descuento al agendar y stock negativo no permitido, agendar sin stock debe fallar con aviso
-// (antes la reserva quedaba AGENDADA sin descontar y sin error); con stock, descuenta una sola vez.
-func TestTrastiendaAgendarSinStockBloqueaYConStockDescuenta(t *testing.T) {
+// Agendar no consume los insumos tentativos de un servicio: el consumo real se declara en Atención.
+func TestTrastiendaAgendarNoDescuentaInsumos(t *testing.T) {
 	e := setupTrastienda(t)
-	if _, err := e.cfgSvc.Update(map[string]interface{}{CfgDescontarEnEstado: "AGENDADO", CfgPermitirStockNegativo: false}); err != nil {
-		t.Fatal(err)
-	}
 	item := e.nuevoItem("Gel agendar", 0)
 	srv := e.nuevoServicio("Agendar", map[int]float64{item: 30})
 	r := e.nuevaReserva(srv, "PENDIENTE", 3)
-	agendar := func() error {
-		_, err := e.reservas.ActualizarReservaConAvisos(ActualizarReservaPGInput{Id: r, Local: e.localName, NuevoEstado: "AGENDADO"})
-		return err
+	if _, err := e.reservas.ActualizarReservaConAvisos(ActualizarReservaPGInput{Id: r, Local: e.localName, NuevoEstado: "AGENDADO"}); err != nil {
+		t.Fatalf("agendar sin stock no debe descontar ni bloquear con ADVERTIR: %v", err)
 	}
-
-	err := agendar()
-	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "stock insuficiente") {
-		t.Fatalf("sin stock debe fallar con 'stock insuficiente', err=%v", err)
+	if got := e.stock(item); got != 0 {
+		t.Fatalf("stock = %v, quiero 0 (agendar no descuenta)", got)
 	}
-	var estado string
-	_ = e.db.Get(&estado, `SELECT estado FROM reservas WHERE id = $1`, r)
-	if estado != "PENDIENTE" {
-		t.Fatalf("la reserva no debe agendarse; estado=%s", estado)
-	}
-
-	if _, err := e.inv.Ajustar(AjusteInput{ItemID: item, LocalID: e.localID, Tipo: repository.MovAjustePositivo, Cantidad: 50, Motivo: "carga"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := agendar(); err != nil {
-		t.Fatalf("con stock debe agendar: %v", err)
-	}
-	if got := e.stock(item); got != 20 {
-		t.Fatalf("stock = %v, quiero 20 (50 - 30)", got)
-	}
-	if n := e.contarMov(r, repository.MovSalidaServicio); n != 1 {
-		t.Fatalf("salidas = %d, quiero 1", n)
+	if n := e.contarMov(r, repository.MovSalidaServicio); n != 0 {
+		t.Fatalf("salidas = %d, quiero 0", n)
 	}
 }
 
@@ -1004,13 +1087,8 @@ func TestTrastiendaSesionDePaqueteSegunElParametro(t *testing.T) {
 	}
 }
 
-func TestTrastiendaCancelarReservaAgendadaRevierteStockYAudita(t *testing.T) {
+func TestTrastiendaCancelarReservaAgendadaNoMueveStockYAudita(t *testing.T) {
 	e := setupTrastienda(t)
-	if _, err := e.cfgSvc.Update(map[string]interface{}{
-		CfgDescontarEnEstado: "AGENDADO", CfgPermitirStockNegativo: false,
-	}); err != nil {
-		t.Fatal(err)
-	}
 	item := e.nuevoItem("Cancelacion", 10)
 	servicio := e.nuevoServicio("Servicio cancelable", map[int]float64{item: 4})
 	reserva := e.nuevaReserva(servicio, "PENDIENTE", 1)
@@ -1021,8 +1099,8 @@ func TestTrastiendaCancelarReservaAgendadaRevierteStockYAudita(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("agendar: %v", err)
 	}
-	if got := e.stock(item); got != 6 {
-		t.Fatalf("stock tras agendar = %v; se esperaba 6", got)
+	if got := e.stock(item); got != 10 {
+		t.Fatalf("stock tras agendar = %v; se esperaba 10", got)
 	}
 
 	if _, err := e.reservas.ActualizarEstadoReservaConAvisos(ActualizarEstadoReservaInput{

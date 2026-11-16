@@ -28,6 +28,7 @@ type RegistrarAtencionInput struct {
 	Lugar                         string
 	Observaciones                 *string
 	ConfirmarStockInsuficiente    bool
+	PermitirStockNegativo         bool
 	Actor                         repository.ConsumoActor
 	Insumos                       []pgsqlrepo.AtencionInsumoInput
 }
@@ -41,6 +42,7 @@ type ActualizarAtencionInput struct {
 	Lugar                         string
 	Observaciones                 *string
 	ConfirmarStockInsuficiente    bool
+	PermitirStockNegativo         bool
 	Actor                         repository.ConsumoActor
 	Insumos                       []pgsqlrepo.AtencionInsumoInput
 }
@@ -78,7 +80,7 @@ func (s *AtencionesService) Registrar(in RegistrarAtencionInput) (*models.Atenci
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.Registrar(pgsqlrepo.RegistrarAtencionInput{ReservaID: in.ReservaID, LocalID: in.LocalID, EmpleadoID: in.EmpleadoID, EmpleadoNombre: in.EmpleadoNombre, FechaAtencion: fecha, HoraInicio: limpiarHora(in.HoraInicio), HoraFin: limpiarHora(in.HoraFin), Lugar: in.Lugar, Observaciones: limpiarTexto(in.Observaciones), ConfirmarStockInsuficiente: in.ConfirmarStockInsuficiente, Actor: in.Actor, Insumos: in.Insumos, PoliticaSinStock: cfg.PoliticaSinStock})
+	return s.repo.Registrar(pgsqlrepo.RegistrarAtencionInput{ReservaID: in.ReservaID, LocalID: in.LocalID, EmpleadoID: in.EmpleadoID, EmpleadoNombre: in.EmpleadoNombre, FechaAtencion: fecha, HoraInicio: limpiarHora(in.HoraInicio), HoraFin: limpiarHora(in.HoraFin), Lugar: in.Lugar, Observaciones: limpiarTexto(in.Observaciones), ConfirmarStockInsuficiente: in.ConfirmarStockInsuficiente, PermitirStockNegativo: cfg.PermitirStockNegativo, Actor: in.Actor, Insumos: in.Insumos, PoliticaSinStock: cfg.PoliticaSinStock})
 }
 
 func (s *AtencionesService) Actualizar(in ActualizarAtencionInput) (*models.Atencion, error) {
@@ -116,7 +118,7 @@ func (s *AtencionesService) Actualizar(in ActualizarAtencionInput) (*models.Aten
 		EmpleadoNombre: in.EmpleadoNombre, FechaAtencion: fecha, HoraInicio: limpiarHora(in.HoraInicio),
 		HoraFin: limpiarHora(in.HoraFin), Lugar: in.Lugar, Observaciones: limpiarTexto(in.Observaciones),
 		ConfirmarStockInsuficiente: in.ConfirmarStockInsuficiente, Actor: in.Actor, Insumos: in.Insumos,
-		PoliticaSinStock: cfg.PoliticaSinStock,
+		PoliticaSinStock: cfg.PoliticaSinStock, PermitirStockNegativo: cfg.PermitirStockNegativo,
 	})
 }
 func (s *AtencionesService) SugerenciasPersonal(q string, localID *int) ([]models.PersonalSugerido, error) {
@@ -241,11 +243,11 @@ func (s *AtencionesService) Obtener(id int) (*models.Atencion, error) {
 	}
 	return s.repo.Obtener(id)
 }
-func (s *AtencionesService) Desactivar(id int, localID *int, restituirStock bool, actor repository.ConsumoActor) error {
+func (s *AtencionesService) Desactivar(id int, localID *int, restituirStock, reabrirReserva bool, actor repository.ConsumoActor) error {
 	if id <= 0 {
 		return errors.New("id de atencion invalido")
 	}
-	return s.repo.Desactivar(id, localID, restituirStock, actor)
+	return s.repo.Desactivar(id, localID, restituirStock, reabrirReserva, actor)
 }
 func limpiarHora(v *string) *string {
 	if v == nil {
