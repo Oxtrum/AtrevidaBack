@@ -50,6 +50,9 @@ type ActualizarAtencionInput struct {
 	Actor                      repository.ConsumoActor
 	Insumos                    []AtencionInsumoInput
 	PoliticaSinStock           string
+	// EsAdmin salta la regla de "solo con deducciones pendientes": el stock se recalcula igual por diferencias
+	// (se devuelve lo quitado y se descuenta solo lo agregado), asi que editar una atencion ya cerrada no lo descuadra.
+	EsAdmin bool
 }
 
 type AtencionInsumoInput struct {
@@ -834,12 +837,14 @@ func (r *AtencionesRepo) Actualizar(in ActualizarAtencionInput) (*models.Atencio
 	if in.LocalID != nil && atencion.LocalID != *in.LocalID {
 		return nil, errors.New("no tienes acceso a ese local")
 	}
-	var pendientes int
-	if err = tx.Get(&pendientes, `SELECT COUNT(*) FROM atencion_insumos WHERE atencion_id=$1 AND estado_descuento='PENDIENTE_STOCK'`, in.AtencionID); err != nil {
-		return nil, err
-	}
-	if pendientes == 0 {
-		return nil, errors.New("solo se pueden editar atenciones con deducciones pendientes")
+	if !in.EsAdmin {
+		var pendientes int
+		if err = tx.Get(&pendientes, `SELECT COUNT(*) FROM atencion_insumos WHERE atencion_id=$1 AND estado_descuento='PENDIENTE_STOCK'`, in.AtencionID); err != nil {
+			return nil, err
+		}
+		if pendientes == 0 {
+			return nil, errors.New("solo se pueden editar atenciones con deducciones pendientes")
+		}
 	}
 	if in.EmpleadoID != nil {
 		var existe int

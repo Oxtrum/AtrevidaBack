@@ -45,6 +45,8 @@ type ActualizarAtencionInput struct {
 	PermitirStockNegativo         bool
 	Actor                         repository.ConsumoActor
 	Insumos                       []pgsqlrepo.AtencionInsumoInput
+	// EsAdmin permite editar aunque ya no queden deducciones pendientes (corregir algo que falto al registrar).
+	EsAdmin bool
 }
 
 func (s *AtencionesService) Registrar(in RegistrarAtencionInput) (*models.Atencion, error) {
@@ -119,6 +121,7 @@ func (s *AtencionesService) Actualizar(in ActualizarAtencionInput) (*models.Aten
 		HoraFin: limpiarHora(in.HoraFin), Lugar: in.Lugar, Observaciones: limpiarTexto(in.Observaciones),
 		ConfirmarStockInsuficiente: in.ConfirmarStockInsuficiente, Actor: in.Actor, Insumos: in.Insumos,
 		PoliticaSinStock: cfg.PoliticaSinStock, PermitirStockNegativo: cfg.PermitirStockNegativo,
+		EsAdmin: in.EsAdmin,
 	})
 }
 func (s *AtencionesService) SugerenciasPersonal(q string, localID *int) ([]models.PersonalSugerido, error) {

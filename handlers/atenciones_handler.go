@@ -783,7 +783,8 @@ func (h *Container) GetAtenciones(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, atencionesResponse{Atenciones: xs, Paginacion: metadata, TotalRegistros: total})
 }
 
-// PutAtencion actualiza una atencion mientras tenga insumos pendientes de deduccion.
+// PutAtencion actualiza una atencion mientras tenga insumos pendientes de deduccion. admin_sys puede editar
+// cualquier atencion activa (para completar algo que falto); el stock se ajusta por diferencias.
 func (h *Container) PutAtencion(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
@@ -809,7 +810,7 @@ func (h *Container) PutAtencion(c *gin.Context) {
 		EmpleadoNombre: req.EmpleadoNombre, FechaAtencion: req.FechaAtencion,
 		HoraInicio: req.HoraInicio, HoraFin: req.HoraFin, Lugar: req.Lugar,
 		Observaciones: req.Observaciones, ConfirmarStockInsuficiente: req.ConfirmarStockInsuficiente,
-		Actor: consumoActor(c), Insumos: ins,
+		Actor: consumoActor(c), Insumos: ins, EsAdmin: tieneRol(c, models.RolAdminSys),
 	})
 	if err != nil {
 		status := http.StatusBadRequest
