@@ -258,6 +258,26 @@ func (s *FinanzasService) EditarMovimiento(id int, p MovimientoPatch) error {
 	return s.repo.UpdateMovimiento(id, patch)
 }
 
+// EliminarMovimiento borra un movimiento manual registrado por error (egreso variable u otro ingreso), en
+// cualquier estado. Los egresos de compras, planillas y gastos fijos no se eliminan: tienen su propio flujo
+// (anular la compra, la planilla o deshacer el pago; borrar un fijo haria que el generador lo vuelva a crear).
+func (s *FinanzasService) EliminarMovimiento(id int) error {
+	actual, err := s.repo.GetMovimiento(id)
+	if err != nil {
+		return err
+	}
+	if actual.CompraID != nil {
+		return errors.New("el egreso pertenece a una compra de inventario y no puede eliminarse: anula la compra desde Inventario")
+	}
+	if actual.PlanillaID != nil {
+		return errors.New("el egreso pertenece a una planilla de sueldos y no puede eliminarse: gestionalo desde Recursos Humanos")
+	}
+	if actual.GastoFijoID != nil {
+		return errors.New("el egreso viene de un gasto fijo y no puede eliminarse: usa \"Deshacer pago\" o desactiva el gasto en Gastos fijos")
+	}
+	return s.repo.DeleteMovimiento(id)
+}
+
 // CambiarEstado marca PAGADO o ANULADO (la anulacion exige motivo, RN-23).
 func (s *FinanzasService) CambiarEstado(id int, estado string, motivo *string) error {
 	estado = strings.ToUpper(strings.TrimSpace(estado))

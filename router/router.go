@@ -239,6 +239,7 @@ func Setup(h *handlers.Container) *gin.Engine {
 		bd.POST("/finanzas/movimientos", h.AuthRequired, h.AdminSysRequired, h.PostMovimientoFinanciero)
 		bd.PATCH("/finanzas/movimientos/:id", h.AuthRequired, h.AdminSysRequired, h.PatchMovimientoFinanciero)
 		bd.PATCH("/finanzas/movimientos/:id/estado", h.AuthRequired, h.AdminSysRequired, h.PatchMovimientoFinancieroEstado)
+		bd.DELETE("/finanzas/movimientos/:id", h.AuthRequired, h.AdminSysRequired, h.DeleteMovimientoFinanciero)
 		bd.GET("/finanzas/categorias", h.AuthRequired, h.AdminSysRequired, h.GetCategoriasFinancieras)
 		bd.POST("/finanzas/categorias", h.AuthRequired, h.AdminSysRequired, h.PostCategoriaFinanciera)
 		bd.PATCH("/finanzas/categorias/:id", h.AuthRequired, h.AdminSysRequired, h.PatchCategoriaFinanciera)

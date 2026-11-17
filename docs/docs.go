@@ -5814,6 +5814,95 @@ const docTemplate = `{
             }
         },
         "/bd/finanzas/movimientos/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Borra definitivamente un movimiento manual (egreso variable u otro ingreso) registrado por error, en cualquier estado. No se puede deshacer; para conservar el historial usa anular. Los egresos de compras, planillas y gastos fijos no se eliminan (se gestionan desde su origen). Requiere token Bearer con rol admin_sys.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Finanzas"
+                ],
+                "summary": "Eliminar movimiento financiero",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "Bearer \u003ctoken\u003e",
+                        "description": "Token Bearer",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "ID del movimiento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.messageResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Error de validacion: id invalido",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token requerido, invalido o expirado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Movimiento no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "El egreso pertenece a una compra, una planilla o un gasto fijo",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
             "patch": {
                 "security": [
                     {
@@ -6972,7 +7061,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Crea un item del catalogo (stock inicial 0: se carga con una compra o un ajuste). El codigo INV-xxxxxx se genera solo. Requiere token Bearer con rol admin_sys o coordinacion.",
+                "description": "Crea un item del catalogo (stock inicial 0: se carga con una compra o un ajuste). El codigo INV-xxxxxx se genera solo. El item es unico en el catalogo (su stock se lleva por local): responde 409 si ya hay un item activo con el mismo nombre. Requiere token Bearer con rol admin_sys o coordinacion.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7035,6 +7124,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Usuario no autorizado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe un item activo con ese nombre",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -7292,6 +7387,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Item no encontrado",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Ya existe otro item activo con ese nombre (al renombrar o reactivar)",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }

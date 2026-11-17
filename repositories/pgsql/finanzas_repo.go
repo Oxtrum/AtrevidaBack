@@ -240,6 +240,25 @@ func (r *FinanzasRepo) UpdateMovimiento(id int, p MovimientoPatch) error {
 	return nil
 }
 
+// DeleteMovimiento borra fisicamente un movimiento manual (egreso variable u otro ingreso). Los que nacen de una
+// compra, una planilla o un gasto fijo no se borran aqui: el filtro los excluye aunque el service ya lo valide.
+func (r *FinanzasRepo) DeleteMovimiento(id int) error {
+	res, err := r.db.Exec(`
+		DELETE FROM movimientos_financieros
+		WHERE id = $1 AND compra_id IS NULL AND planilla_id IS NULL AND gasto_fijo_id IS NULL`, id)
+	if err != nil {
+		return fmt.Errorf("error al eliminar movimiento financiero: %w", err)
+	}
+	n, err := affectedRows(res, "eliminar movimiento financiero")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return repository.ErrMovimientoFinNoEnc
+	}
+	return nil
+}
+
 func (r *FinanzasRepo) CambiarEstadoMovimiento(id int, estado string, motivo *string) error {
 	tx, err := r.db.Beginx()
 	if err != nil {

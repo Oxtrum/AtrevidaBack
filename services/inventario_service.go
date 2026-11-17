@@ -17,6 +17,9 @@ var unidadesMedida = map[string]bool{
 	"FRASCO": true, "PAQUETE": true, "SOBRE": true, "CAJA": true,
 }
 
+// errItemDuplicado: el handler lo mapea a 409 por el texto "ya existe".
+var errItemDuplicado = errors.New("ya existe un item activo con ese nombre: el item es unico y su stock se lleva por local; usa \"Ajustar stock\" o una compra para cargarlo en otro local")
+
 type InventarioService struct {
 	repo   *pgsqlrepo.InventarioRepo
 	config *ConfiguracionService
@@ -109,6 +112,11 @@ func (s *InventarioService) CrearItem(in pgsqlrepo.ItemInput) (*models.Inventari
 	if err := validarItem(in.Nombre, in.UnidadMedida, in.CostoReferencia, in.PrecioVenta, in.StockMinimo); err != nil {
 		return nil, err
 	}
+	if dup, err := s.repo.NombreDuplicado(in.Nombre, 0); err != nil {
+		return nil, err
+	} else if dup {
+		return nil, errItemDuplicado
+	}
 	id, err := s.repo.CreateItem(in)
 	if err != nil {
 		return nil, err
@@ -143,6 +151,18 @@ func (s *InventarioService) ActualizarItem(id int, p pgsqlrepo.ItemPatch) error 
 	if p.Nombre == nil && p.UnidadMedida == nil && p.StockMinimo == nil && p.Activo == nil &&
 		!p.DescripcionSet && !p.CategoriaSet && !p.CostoReferenciaSet && !p.PrecioVentaSet {
 		return errors.New("no se enviaron campos para actualizar")
+	}
+	// Renombrar o reactivar no puede dejar dos items activos con el mismo nombre.
+	if p.Nombre != nil || (p.Activo != nil && *p.Activo) {
+		nombre := ""
+		if p.Nombre != nil {
+			nombre = *p.Nombre
+		}
+		if dup, err := s.repo.NombreDuplicado(nombre, id); err != nil {
+			return err
+		} else if dup {
+			return errItemDuplicado
+		}
 	}
 	return s.repo.UpdateItem(id, p)
 }

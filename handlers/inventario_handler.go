@@ -387,7 +387,7 @@ func (h *Container) GetInventarioItemByID(c *gin.Context) {
 
 // CreateInventarioItem godoc
 // @Summary Crear item de inventario
-// @Description Crea un item del catalogo (stock inicial 0: se carga con una compra o un ajuste). El codigo INV-xxxxxx se genera solo. Requiere token Bearer con rol admin_sys o coordinacion.
+// @Description Crea un item del catalogo (stock inicial 0: se carga con una compra o un ajuste). El codigo INV-xxxxxx se genera solo. El item es unico en el catalogo (su stock se lleva por local): responde 409 si ya hay un item activo con el mismo nombre. Requiere token Bearer con rol admin_sys o coordinacion.
 // @Tags Inventario
 // @Accept json
 // @Produce json
@@ -397,6 +397,7 @@ func (h *Container) GetInventarioItemByID(c *gin.Context) {
 // @Failure 400 {object} utils.APIResponse "Error de validacion: nombre requerido, unidad_medida invalida, costo o stock minimo negativos"
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 409 {object} utils.APIResponse "Ya existe un item activo con ese nombre"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Security BearerAuth
 // @Router /bd/inventario/items [post]
@@ -431,6 +432,7 @@ func (h *Container) CreateInventarioItem(c *gin.Context) {
 // @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
 // @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
 // @Failure 404 {object} utils.APIResponse "Item no encontrado"
+// @Failure 409 {object} utils.APIResponse "Ya existe otro item activo con ese nombre (al renombrar o reactivar)"
 // @Failure 500 {object} utils.APIResponse "Error interno del servidor"
 // @Security BearerAuth
 // @Router /bd/inventario/items/{id} [patch]

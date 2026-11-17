@@ -446,6 +446,35 @@ func (h *Container) PatchMovimientoFinancieroEstado(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "estado actualizado correctamente"})
 }
 
+// DeleteMovimientoFinanciero godoc
+// @Summary Eliminar movimiento financiero
+// @Description Borra definitivamente un movimiento manual (egreso variable u otro ingreso) registrado por error, en cualquier estado. No se puede deshacer; para conservar el historial usa anular. Los egresos de compras, planillas y gastos fijos no se eliminan (se gestionan desde su origen). Requiere token Bearer con rol admin_sys.
+// @Tags Finanzas
+// @Produce json
+// @Param Authorization header string true "Token Bearer" default(Bearer <token>)
+// @Param id path int true "ID del movimiento" example(1)
+// @Success 200 {object} utils.APIResponse{data=messageResponse}
+// @Failure 400 {object} utils.APIResponse "Error de validacion: id invalido"
+// @Failure 401 {object} utils.APIResponse "Token requerido, invalido o expirado"
+// @Failure 403 {object} utils.APIResponse "Usuario no autorizado"
+// @Failure 404 {object} utils.APIResponse "Movimiento no encontrado"
+// @Failure 409 {object} utils.APIResponse "El egreso pertenece a una compra, una planilla o un gasto fijo"
+// @Failure 500 {object} utils.APIResponse "Error interno del servidor"
+// @Security BearerAuth
+// @Router /bd/finanzas/movimientos/{id} [delete]
+func (h *Container) DeleteMovimientoFinanciero(c *gin.Context) {
+	id, err := requiredPositiveParam(c, "id")
+	if err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.Finanzas.EliminarMovimiento(id); err != nil {
+		respondTrastiendaError(c, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, messageResponse{Mensaje: "movimiento eliminado correctamente"})
+}
+
 // ─── Gastos fijos ─────────────────────────────────────────────────────────────
 
 // GetGastosFijos godoc

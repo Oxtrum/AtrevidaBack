@@ -291,6 +291,22 @@ func (r *InventarioRepo) ItemExiste(id int) (bool, error) {
 	return n > 0, nil
 }
 
+// NombreDuplicado indica si otro item ACTIVO ya usa ese nombre (sin distinguir mayusculas ni espacios
+// de los extremos). Con nombre vacio compara contra el nombre actual de exceptoID (para reactivar).
+// Un item es unico en el catalogo: su stock se separa por local en inventario_stock, no creando otro item.
+func (r *InventarioRepo) NombreDuplicado(nombre string, exceptoID int) (bool, error) {
+	var n int
+	err := r.db.Get(&n, `
+		SELECT COUNT(*) FROM inventario_items i
+		WHERE i.activo = TRUE AND i.id <> $2
+		  AND LOWER(BTRIM(i.nombre)) = LOWER(BTRIM(COALESCE(NULLIF($1, ''),
+		      (SELECT x.nombre FROM inventario_items x WHERE x.id = $2))))`, nombre, exceptoID)
+	if err != nil {
+		return false, fmt.Errorf("error al validar nombre del item: %w", err)
+	}
+	return n > 0, nil
+}
+
 // ─── Categorias ───────────────────────────────────────────────────────────────
 
 func (r *InventarioRepo) ListCategorias() ([]models.CategoriaInventario, error) {

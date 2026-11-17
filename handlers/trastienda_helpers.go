@@ -141,7 +141,8 @@ func statusTrastiendaError(err error) int {
 		return http.StatusServiceUnavailable
 	case errors.Is(err, repository.ErrStockInsuficiente), strings.Contains(msg, "stock insuficiente"),
 		strings.Contains(msg, "ya existe"), strings.Contains(msg, "ya esta anulada"),
-		strings.Contains(msg, "no puede editarse"), strings.Contains(msg, "pertenece a una compra"):
+		strings.Contains(msg, "no puede editarse"), strings.Contains(msg, "no puede eliminarse"),
+		strings.Contains(msg, "pertenece a una compra"):
 		return http.StatusConflict
 	case strings.HasPrefix(msg, "error al"), strings.Contains(msg, "sqlstate"):
 		return http.StatusInternalServerError
