@@ -2371,15 +2371,16 @@ definitions:
   handlers.insumoRequest:
     properties:
       cantidad_por_sesion:
-        description: Cantidad que consume cada sesion
+        description: Cantidad fija que consume cada sesion; null u omitido = uso variable
+          (se indica en cada atencion)
         example: 30
         type: number
+        x-nullable: true
       item_id:
         description: ID del item de inventario
         example: 1
         type: integer
     required:
-    - cantidad_por_sesion
     - item_id
     type: object
   handlers.insumosServicioResponse:
@@ -6573,8 +6574,12 @@ definitions:
   models.ServicioInsumo:
     properties:
       cantidad_por_sesion:
+        description: |-
+          CantidadPorSesion es la cantidad fija por sesion; null = uso variable (se indica en cada atencion y
+          no entra al consumo automatico, alertas ni stock comprometido de las reservas).
         example: 30
         type: number
+        x-nullable: true
       disponible:
         description: Disponible es el stock actual del item en el local de la reserva.
         example: 100

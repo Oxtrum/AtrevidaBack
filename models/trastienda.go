@@ -69,7 +69,9 @@ type ServicioInsumo struct {
 	ItemID            int     `db:"item_id" json:"item_id" example:"1"`
 	ItemNombre        string  `db:"item_nombre" json:"item_nombre,omitempty" example:"Gel conductor"`
 	UnidadMedida      string  `db:"unidad_medida" json:"unidad_medida,omitempty" example:"ML"`
-	CantidadPorSesion float64 `db:"cantidad_por_sesion" json:"cantidad_por_sesion" example:"30"`
+	// CantidadPorSesion es la cantidad fija por sesion; null = uso variable (se indica en cada atencion y
+	// no entra al consumo automatico, alertas ni stock comprometido de las reservas).
+	CantidadPorSesion *float64 `db:"cantidad_por_sesion" json:"cantidad_por_sesion" example:"30" extensions:"x-nullable"`
 	// Disponible es el stock actual del item en el local de la reserva.
 	Disponible float64 `db:"disponible" json:"disponible" example:"100"`
 }

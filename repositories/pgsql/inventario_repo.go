@@ -556,7 +556,7 @@ func (r *InventarioRepo) ReposicionPorLocal(localID *int) ([]models.ReposicionIn
 				ORDER BY EXISTS (SELECT 1 FROM servicio_insumos x WHERE x.servicio_id = s.id) DESC, s.id
 				LIMIT 1
 			) srv ON TRUE
-			JOIN servicio_insumos si ON si.servicio_id = srv.id
+			JOIN servicio_insumos si ON si.servicio_id = srv.id AND si.cantidad_por_sesion IS NOT NULL
 			WHERE r.activo = TRUE AND r.estado = 'AGENDADO' AND r.fecha >= CURRENT_DATE AND r.local_id IS NOT NULL `+localCond+`
 			GROUP BY r.local_id, si.item_id
 		)

@@ -390,8 +390,9 @@ func (s *InventarioService) ReemplazarInsumos(servicioID int, insumos []models.S
 		if in.ItemID < 1 {
 			return errors.New("item_id invalido en insumos")
 		}
-		if in.CantidadPorSesion <= 0 {
-			return errors.New("cantidad_por_sesion debe ser mayor a 0")
+		// nil = uso variable; si se indica, tiene que ser positiva.
+		if in.CantidadPorSesion != nil && *in.CantidadPorSesion <= 0 {
+			return errors.New("cantidad_por_sesion debe ser mayor a 0 (o vacia si el uso es variable)")
 		}
 		if vistos[in.ItemID] {
 			return fmt.Errorf("el item %d esta repetido en los insumos", in.ItemID)

@@ -18610,13 +18610,13 @@ const docTemplate = `{
         "handlers.insumoRequest": {
             "type": "object",
             "required": [
-                "cantidad_por_sesion",
                 "item_id"
             ],
             "properties": {
                 "cantidad_por_sesion": {
-                    "description": "Cantidad que consume cada sesion",
+                    "description": "Cantidad fija que consume cada sesion; null u omitido = uso variable (se indica en cada atencion)",
                     "type": "number",
+                    "x-nullable": true,
                     "example": 30
                 },
                 "item_id": {
@@ -24264,7 +24264,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cantidad_por_sesion": {
+                    "description": "CantidadPorSesion es la cantidad fija por sesion; null = uso variable (se indica en cada atencion y\nno entra al consumo automatico, alertas ni stock comprometido de las reservas).",
                     "type": "number",
+                    "x-nullable": true,
                     "example": 30
                 },
                 "disponible": {

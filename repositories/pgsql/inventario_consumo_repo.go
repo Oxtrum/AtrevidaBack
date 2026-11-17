@@ -40,16 +40,27 @@ func resolverServicioID(q sqlx.Queryer, nombres ...string) (int, bool, error) {
 	return 0, false, nil
 }
 
+// insumosDeServicio devuelve los insumos con cantidad FIJA del servicio: los que alimentan el consumo
+// automatico (reservas y planes) y las alertas. Los de uso variable (cantidad NULL) se quedan fuera porque
+// no hay cantidad que reservar o descontar sola; se cargan a mano en cada atencion.
 func insumosDeServicio(q sqlx.Queryer, servicioID int) ([]models.ServicioInsumo, error) {
 	insumos := []models.ServicioInsumo{}
 	err := sqlx.Select(q, &insumos, `
 		SELECT si.item_id, i.nombre AS item_nombre, i.unidad_medida, si.cantidad_por_sesion
 		FROM servicio_insumos si JOIN inventario_items i ON i.id = si.item_id
-		WHERE si.servicio_id = $1 AND i.activo = TRUE ORDER BY i.id`, servicioID)
+		WHERE si.servicio_id = $1 AND i.activo = TRUE AND si.cantidad_por_sesion IS NOT NULL ORDER BY i.id`, servicioID)
 	if err != nil {
 		return nil, fmt.Errorf("error al leer insumos del servicio: %w", err)
 	}
 	return insumos, nil
+}
+
+// cantidadFija devuelve la cantidad por sesion de un insumo de insumosDeServicio (siempre no nula ahi).
+func cantidadFija(in models.ServicioInsumo) float64 {
+	if in.CantidadPorSesion == nil {
+		return 0
+	}
+	return *in.CantidadPorSesion
 }
 
 // ReservaInventarioInfo son los datos de la reserva que el inventario necesita.
@@ -99,7 +110,7 @@ func comprometidoPorReservas(q sqlx.Queryer, localID, excluirReservaID int) (map
 			ORDER BY EXISTS (SELECT 1 FROM servicio_insumos x WHERE x.servicio_id = s.id) DESC, s.id
 			LIMIT 1
 		) srv ON TRUE
-		JOIN servicio_insumos si ON si.servicio_id = srv.id
+		JOIN servicio_insumos si ON si.servicio_id = srv.id AND si.cantidad_por_sesion IS NOT NULL
 		WHERE r.local_id = $1 AND r.activo = TRUE AND r.estado = 'AGENDADO'
 		  AND r.fecha >= CURRENT_DATE AND r.id <> $2
 		GROUP BY si.item_id`, localID, excluirReservaID)
@@ -178,9 +189,9 @@ func evaluarDisponibilidad(
 	}
 	for _, in := range insumos {
 		disponible := redondear3(stock[in.ItemID] - comprometido[in.ItemID])
-		if disponible < in.CantidadPorSesion {
+		if disponible < cantidadFija(in) {
 			warnings = append(warnings, models.AdvertenciaInventario{
-				ItemID: in.ItemID, ItemNombre: in.ItemNombre, Requerido: in.CantidadPorSesion,
+				ItemID: in.ItemID, ItemNombre: in.ItemNombre, Requerido: cantidadFija(in),
 				Disponible: disponible, Unidad: in.UnidadMedida,
 			})
 		}
@@ -305,7 +316,7 @@ func (r *InventarioRepo) recalcularAlertasEnLote(localID *int, considerarComprom
 	if err := r.db.Select(&insumoRows, `
 		SELECT si.servicio_id, si.item_id, i.nombre AS item_nombre, i.unidad_medida,
 		       si.cantidad_por_sesion, i.activo AS item_activo
-		FROM servicio_insumos si JOIN inventario_items i ON i.id = si.item_id
+		FROM servicio_insumos si JOIN inventario_items i ON i.id = si.item_id AND si.cantidad_por_sesion IS NOT NULL
 		ORDER BY i.id`); err != nil {
 		return nil, fmt.Errorf("error al leer insumos del servicio: %w", err)
 	}
@@ -467,7 +478,7 @@ func ConsumirPorReservaTx(tx *sqlx.Tx, reservaID int, actor repository.ConsumoAc
 		rid := reservaID
 		if _, err := AplicarMovimientoStock(tx, repository.MovimientoStockInput{
 			ItemID: in.ItemID, LocalID: info.LocalID, Tipo: repository.MovSalidaServicio,
-			Cantidad: in.CantidadPorSesion, ReservaID: &rid, UsuarioID: actor.UsuarioID,
+			Cantidad: cantidadFija(in), ReservaID: &rid, UsuarioID: actor.UsuarioID,
 			UsuarioNombre: actor.UsuarioNombre, PermitirNegativo: permitirNegativo,
 			Motivo: fmt.Sprintf("Reserva #%d", reservaID),
 		}); err != nil {
@@ -529,7 +540,7 @@ func ConsumirPorPlanMovimientoTx(
 		pid := planMovimientoID
 		if _, err := AplicarMovimientoStock(tx, repository.MovimientoStockInput{
 			ItemID: in.ItemID, LocalID: localID, Tipo: repository.MovSalidaServicio,
-			Cantidad: in.CantidadPorSesion, PlanMovimientoID: &pid, UsuarioID: actor.UsuarioID,
+			Cantidad: cantidadFija(in), PlanMovimientoID: &pid, UsuarioID: actor.UsuarioID,
 			UsuarioNombre: actor.UsuarioNombre, PermitirNegativo: permitirNegativo,
 			Motivo: fmt.Sprintf("Sesion de plan (movimiento #%d)", planMovimientoID),
 		}); err != nil {

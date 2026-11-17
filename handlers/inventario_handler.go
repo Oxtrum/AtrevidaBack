@@ -220,8 +220,8 @@ type reemplazarInsumosRequest struct {
 type insumoRequest struct {
 	// ID del item de inventario
 	ItemID int `json:"item_id" binding:"required" example:"1"`
-	// Cantidad que consume cada sesion
-	CantidadPorSesion float64 `json:"cantidad_por_sesion" binding:"required" example:"30"`
+	// Cantidad fija que consume cada sesion; null u omitido = uso variable (se indica en cada atencion)
+	CantidadPorSesion *float64 `json:"cantidad_por_sesion" example:"30" extensions:"x-nullable"`
 }
 
 // ─── Items ────────────────────────────────────────────────────────────────────
