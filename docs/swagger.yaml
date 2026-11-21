@@ -3285,7 +3285,12 @@ definitions:
   handlers.reservaResumenResponse:
     properties:
       cancelaciones_hoy:
-        description: Cantidad de pagos activos y PAGADOS en el dia consultado
+        description: 'Obsoleto: es la misma cifra que cobros_hoy (pagos del dia),
+          no reservas canceladas. Usar cobros_hoy o reservas_canceladas_dia.'
+        example: 6
+        type: integer
+      cobros_hoy:
+        description: Cantidad de pagos activos y PAGADOS (cobros) en el dia consultado
         example: 6
         type: integer
       ingresos:
@@ -3304,15 +3309,26 @@ definitions:
         example: 8450.75
         type: number
       reservas_agendadas_dia:
-        description: Cantidad de reservas agendadas para el dia consultado
+        description: Reservas del dia consultado que siguen por atender (estado AGENDADO);
+          baja a medida que se completan
         example: 15
+        type: integer
+      reservas_canceladas_dia:
+        description: Reservas con fecha del dia consultado que fueron canceladas (estado
+          CANCELADO)
+        example: 3
+        type: integer
+      reservas_dia:
+        description: 'Reservas del dia consultado que se atienden: por atender (AGENDADO)
+          + ya atendidas (COMPLETADO)'
+        example: 25
         type: integer
       semana:
         allOf:
         - $ref: '#/definitions/handlers.reservaResumenSemanaResponse'
         description: Resumen por dia de la semana desde el lunes hasta la fecha consultada
       servicios_completados_dia:
-        description: Cantidad de servicios completados en el dia consultado
+        description: Reservas del dia consultado ya atendidas (estado COMPLETADO)
         example: 10
         type: integer
     type: object
@@ -3340,7 +3356,9 @@ definitions:
         example: 3
         type: integer
       total_reservas:
-        description: Total de reservas en la semana (lunes a la fecha consultada)
+        description: Total de reservas en la semana (lunes a la fecha consultada),
+          por atender (AGENDADO) y ya atendidas (COMPLETADO); no cuenta canceladas,
+          rechazadas ni pendientes de confirmar
         example: 45
         type: integer
       viernes:
@@ -15451,8 +15469,13 @@ paths:
         registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro
         de local y rango lunes-fecha. Los campos de ingresos (ingresos_hoy, ingresos_semana,
         ingresos) solo se devuelven a admin_sys; para cualquier otro rol no vienen.
-        Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy
-        (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse
+        Las reservas del dia y de la semana cuentan las que se atienden: por atender
+        (AGENDADO) y ya atendidas (COMPLETADO); una reserva completada sigue contando
+        en su dia. Response: reservas_dia (int, AGENDADO + COMPLETADO del dia), reservas_agendadas_dia
+        (int, por atender), servicios_completados_dia (int, ya atendidas), reservas_canceladas_dia
+        (int, reservas CANCELADO con fecha del dia), ingresos_hoy (number), cobros_hoy
+        (int, pagos PAGADOS del dia), cancelaciones_hoy (int, obsoleto: misma cifra
+        que cobros_hoy), ingresos_semana (number), semana (reservaResumenSemanaResponse
         con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo),
         ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number,
         lunes..sabado number opcionales segun el dia efectivo).'

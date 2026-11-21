@@ -343,7 +343,7 @@ type marcarNotificacionesReservasLeidasRequest struct {
 }
 
 type reservaResumenSemanaResponse struct {
-	// Total de reservas en la semana (lunes a la fecha consultada)
+	// Total de reservas en la semana (lunes a la fecha consultada), por atender (AGENDADO) y ya atendidas (COMPLETADO); no cuenta canceladas, rechazadas ni pendientes de confirmar
 	TotalReservas int `json:"total_reservas" example:"45"`
 	// Reservas del dia lunes (incluido si la fecha es lunes o posterior)
 	Lunes *int `json:"lunes,omitempty" example:"8"`
@@ -377,13 +377,19 @@ type reservaResumenIngresosSemanaResponse struct {
 }
 
 type reservaResumenResponse struct {
-	// Cantidad de reservas agendadas para el dia consultado
+	// Reservas del dia consultado que se atienden: por atender (AGENDADO) + ya atendidas (COMPLETADO)
+	ReservasDia int `json:"reservas_dia" example:"25"`
+	// Reservas del dia consultado que siguen por atender (estado AGENDADO); baja a medida que se completan
 	ReservasAgendadasDia int `json:"reservas_agendadas_dia" example:"15"`
-	// Cantidad de servicios completados en el dia consultado
+	// Reservas del dia consultado ya atendidas (estado COMPLETADO)
 	ServiciosCompletadosDia int `json:"servicios_completados_dia" example:"10"`
+	// Reservas con fecha del dia consultado que fueron canceladas (estado CANCELADO)
+	ReservasCanceladasDia int `json:"reservas_canceladas_dia" example:"3"`
 	// Ingresos de pagos activos y PAGADOS en el dia consultado. Solo lo recibe admin_sys; para el resto no viene.
 	IngresosHoy *float64 `json:"ingresos_hoy,omitempty" example:"1250.5"`
-	// Cantidad de pagos activos y PAGADOS en el dia consultado
+	// Cantidad de pagos activos y PAGADOS (cobros) en el dia consultado
+	CobrosHoy int `json:"cobros_hoy" example:"6"`
+	// Obsoleto: es la misma cifra que cobros_hoy (pagos del dia), no reservas canceladas. Usar cobros_hoy o reservas_canceladas_dia.
 	CancelacionesHoy int `json:"cancelaciones_hoy" example:"6"`
 	// Ingresos de pagos activos y PAGADOS desde el lunes hasta la fecha consultada. Solo lo recibe admin_sys; para el resto no viene.
 	IngresosSemana *float64 `json:"ingresos_semana,omitempty" example:"8450.75"`
@@ -421,7 +427,7 @@ func normalizarTelefono(raw string) (string, error) {
 
 // GetReservasResumenPG godoc
 // @Summary Obtener resumen numerico de reservas
-// @Description Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Los campos de ingresos (ingresos_hoy, ingresos_semana, ingresos) solo se devuelven a admin_sys; para cualquier otro rol no vienen. Response: reservas_agendadas_dia (int), servicios_completados_dia (int), ingresos_hoy (number), cancelaciones_hoy (int), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).
+// @Description Devuelve resumen de reservas del dia y pagos del periodo. Requiere token Bearer. Los usuarios con local asignado solo consultan su local desde el token; si el token no tiene local, puede filtrar por el query local o consultar todos si no lo envia. Param: fecha YYYY-MM-DD (requerido, query). Si fecha es domingo, los indicadores diarios se devuelven en cero porque no hay atencion; el resumen semanal se calcula de lunes a sabado anterior. Los pagos consideran registros activos con estado PAGADO en la tabla pagos, usando el mismo filtro de local y rango lunes-fecha. Los campos de ingresos (ingresos_hoy, ingresos_semana, ingresos) solo se devuelven a admin_sys; para cualquier otro rol no vienen. Las reservas del dia y de la semana cuentan las que se atienden: por atender (AGENDADO) y ya atendidas (COMPLETADO); una reserva completada sigue contando en su dia. Response: reservas_dia (int, AGENDADO + COMPLETADO del dia), reservas_agendadas_dia (int, por atender), servicios_completados_dia (int, ya atendidas), reservas_canceladas_dia (int, reservas CANCELADO con fecha del dia), ingresos_hoy (number), cobros_hoy (int, pagos PAGADOS del dia), cancelaciones_hoy (int, obsoleto: misma cifra que cobros_hoy), ingresos_semana (number), semana (reservaResumenSemanaResponse con: total_reservas int, lunes..sabado int opcionales segun el dia efectivo), ingresos (reservaResumenIngresosSemanaResponse con: total_ingresos number, lunes..sabado number opcionales segun el dia efectivo).
 // @Tags Reservas BD
 // @Produce json
 // @Param Authorization header string true "Token Bearer" default(Bearer <token>)
@@ -477,9 +483,12 @@ func (h *Container) GetReservasResumenPG(c *gin.Context) {
 // buildReservaResumenResponse arma el resumen del dia; los ingresos solo van si verIngresos.
 func buildReservaResumenResponse(fecha time.Time, resumen services.ResumenReservas, verIngresos bool) reservaResumenResponse {
 	resp := reservaResumenResponse{
+		ReservasDia:             resumen.ReservasDia,
 		ReservasAgendadasDia:    resumen.ReservasAgendadasDia,
 		ServiciosCompletadosDia: resumen.ServiciosCompletadosDia,
-		CancelacionesHoy:        resumen.CancelacionesDia,
+		ReservasCanceladasDia:   resumen.ReservasCanceladasDia,
+		CobrosHoy:               resumen.CobrosDia,
+		CancelacionesHoy:        resumen.CobrosDia,
 		Semana:                  buildReservaResumenSemanaResponse(fecha, resumen.Semana),
 	}
 	if verIngresos {

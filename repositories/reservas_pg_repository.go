@@ -161,7 +161,7 @@ type ResumenPagosReservas struct {
 	IngresosJueves    float64 `db:"ingresos_jueves"`
 	IngresosViernes   float64 `db:"ingresos_viernes"`
 	IngresosSabado    float64 `db:"ingresos_sabado"`
-	CancelacionesDia  int     `db:"cancelaciones_dia"`
+	CobrosDia         int     `db:"cobros_dia"`
 }
 
 type ReservasPGRepository interface {

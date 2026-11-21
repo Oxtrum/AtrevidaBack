@@ -604,13 +604,18 @@ type ResumenIngresosSemana struct {
 }
 
 type ResumenReservas struct {
+	// ReservasDia son las reservas del dia que se atienden: AGENDADO (por atender) + COMPLETADO (ya atendidas).
+	ReservasDia             int
 	ReservasAgendadasDia    int
 	ServiciosCompletadosDia int
-	IngresosDia             float64
-	IngresosSemana          float64
-	CancelacionesDia        int
-	Semana                  ResumenReservasSemana
-	Ingresos                ResumenIngresosSemana
+	// ReservasCanceladasDia son las reservas con fecha del dia en estado CANCELADO.
+	ReservasCanceladasDia int
+	IngresosDia           float64
+	IngresosSemana        float64
+	// CobrosDia es la cantidad de pagos PAGADOS del dia (antes se exponia como cancelaciones_hoy).
+	CobrosDia int
+	Semana    ResumenReservasSemana
+	Ingresos  ResumenIngresosSemana
 }
 
 type FiltroReservasSimple struct {
@@ -1027,7 +1032,7 @@ func (s *ReservasPGService) getResumenReservas(ctx context.Context, fecha time.T
 	resumen := &ResumenReservas{}
 	if !esDomingo {
 		resumen.IngresosDia = resumenPagos.IngresosDia
-		resumen.CancelacionesDia = resumenPagos.CancelacionesDia
+		resumen.CobrosDia = resumenPagos.CobrosDia
 	}
 	resumen.IngresosSemana = resumenPagos.IngresosSemana
 	resumen.Ingresos = ResumenIngresosSemana{
@@ -1047,12 +1052,16 @@ func (s *ReservasPGService) getResumenReservas(ctx context.Context, fecha time.T
 			resumen.ReservasAgendadasDia++
 		case strings.EqualFold(estado, "COMPLETADO"):
 			resumen.ServiciosCompletadosDia++
+		case strings.EqualFold(estado, "CANCELADO"):
+			resumen.ReservasCanceladasDia++
 		}
 	}
+	resumen.ReservasDia = resumen.ReservasAgendadasDia + resumen.ServiciosCompletadosDia
 
+	// Una reserva atendida sigue contando en su dia: al pasar de AGENDADO a COMPLETADO no desaparece de la semana.
 	for _, rv := range reservasSemana {
 		estado := strings.TrimSpace(stringValue(rv.Estado))
-		if !strings.EqualFold(estado, "AGENDADO") {
+		if !strings.EqualFold(estado, "AGENDADO") && !strings.EqualFold(estado, "COMPLETADO") {
 			continue
 		}
 

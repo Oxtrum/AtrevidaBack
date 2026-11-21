@@ -50,3 +50,13 @@ func TestResumenReservasOcultaIngresosAQuienNoEsAdministrador(t *testing.T) {
 		t.Fatalf("los conteos operativos se perdieron: %+v", resp)
 	}
 }
+
+// cobros_hoy son pagos y reservas_canceladas_dia son reservas: no se mezclan. cancelaciones_hoy queda como alias de cobros.
+func TestResumenReservasSeparaCobrosDeCanceladas(t *testing.T) {
+	r := resumenConIngresos()
+	r.ReservasDia, r.ReservasCanceladasDia, r.CobrosDia = 7, 2, 28
+	resp := buildReservaResumenResponse(time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC), r, false)
+	if resp.ReservasDia != 7 || resp.ReservasCanceladasDia != 2 || resp.CobrosHoy != 28 || resp.CancelacionesHoy != 28 {
+		t.Fatalf("resumen = %+v; quiero reservas_dia 7, canceladas 2, cobros 28 y cancelaciones_hoy 28", resp)
+	}
+}

@@ -312,7 +312,7 @@ func (r *ReservasRepo) GetResumenPagosReservas(f repository.FiltroResumenPagosRe
 			COALESCE(SUM(p.total_final) FILTER (WHERE EXTRACT(ISODOW FROM p.fecha_creacion::date) = 4), 0) AS ingresos_jueves,
 			COALESCE(SUM(p.total_final) FILTER (WHERE EXTRACT(ISODOW FROM p.fecha_creacion::date) = 5), 0) AS ingresos_viernes,
 			COALESCE(SUM(p.total_final) FILTER (WHERE EXTRACT(ISODOW FROM p.fecha_creacion::date) = 6), 0) AS ingresos_sabado,
-			COUNT(*) FILTER (WHERE p.fecha_creacion::date = $3::date) AS cancelaciones_dia
+			COUNT(*) FILTER (WHERE p.fecha_creacion::date = $3::date) AS cobros_dia
 		FROM pagos p
 		WHERE %s
 	`, strings.Join(conditions, " AND "))

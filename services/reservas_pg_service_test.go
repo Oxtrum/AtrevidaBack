@@ -21,13 +21,71 @@ type reservasResumenRepo struct {
 	pagosResumen repository.ResumenPagosReservas
 	reserva      *models.ReservaPGCompleta
 	localID      int
+	// reservasDia responde la consulta de un solo dia (Fecha); reservasSemana, la del rango.
+	reservasDia    []models.ReservaPGCompleta
+	reservasSemana []models.ReservaPGCompleta
 }
 
 func (r *reservasResumenRepo) CountReservas(repository.FiltroReservasPG) (int, error) { return 0, nil }
 
 func (r *reservasResumenRepo) GetReservas(f repository.FiltroReservasPG) ([]models.ReservaPGCompleta, error) {
 	r.calls = append(r.calls, f)
-	return nil, nil
+	if f.Fecha != nil {
+		return r.reservasDia, nil
+	}
+	return r.reservasSemana, nil
+}
+
+func reservaResumen(fecha time.Time, estado string) models.ReservaPGCompleta {
+	rv := models.ReservaPGCompleta{}
+	rv.Fecha = fecha
+	rv.Estado = &estado
+	return rv
+}
+
+// Una reserva atendida (COMPLETADO) sigue contando en el dia y en la semana; las canceladas van aparte.
+func TestGetResumenReservasCuentaAtendidasYCanceladas(t *testing.T) {
+	lunes := time.Date(2026, time.November, 16, 0, 0, 0, 0, time.UTC)
+	viernes := time.Date(2026, time.November, 20, 0, 0, 0, 0, time.UTC)
+	repo := &reservasResumenRepo{
+		reservasDia: []models.ReservaPGCompleta{
+			reservaResumen(viernes, "AGENDADO"),
+			reservaResumen(viernes, "COMPLETADO"),
+			reservaResumen(viernes, "COMPLETADO"),
+			reservaResumen(viernes, "CANCELADO"),
+			reservaResumen(viernes, "PENDIENTE"),
+			reservaResumen(viernes, "RECHAZADO"),
+		},
+		reservasSemana: []models.ReservaPGCompleta{
+			reservaResumen(lunes, "COMPLETADO"),
+			reservaResumen(lunes, "COMPLETADO"),
+			reservaResumen(lunes, "CANCELADO"),
+			reservaResumen(viernes, "AGENDADO"),
+			reservaResumen(viernes, "COMPLETADO"),
+			reservaResumen(viernes, "COMPLETADO"),
+			reservaResumen(viernes, "PENDIENTE"),
+		},
+		pagosResumen: repository.ResumenPagosReservas{CobrosDia: 28},
+	}
+	service := NewReservasPGService(repo, nil)
+
+	resumen, err := service.GetResumenReservas(viernes, "", nil)
+	if err != nil {
+		t.Fatalf("GetResumenReservas() error = %v", err)
+	}
+	if resumen.ReservasDia != 3 || resumen.ReservasAgendadasDia != 1 || resumen.ServiciosCompletadosDia != 2 {
+		t.Errorf("dia = total %d, por atender %d, atendidas %d; quiero 3, 1, 2",
+			resumen.ReservasDia, resumen.ReservasAgendadasDia, resumen.ServiciosCompletadosDia)
+	}
+	if resumen.ReservasCanceladasDia != 1 {
+		t.Errorf("ReservasCanceladasDia = %d, quiero 1", resumen.ReservasCanceladasDia)
+	}
+	if resumen.CobrosDia != 28 {
+		t.Errorf("CobrosDia = %d, quiero 28", resumen.CobrosDia)
+	}
+	if resumen.Semana.Lunes != 2 || resumen.Semana.Viernes != 3 || resumen.Semana.TotalReservas != 5 {
+		t.Errorf("semana = %+v; quiero lunes 2, viernes 3, total 5", resumen.Semana)
+	}
 }
 
 func (r *reservasResumenRepo) GetReservaByID(id int) (*models.ReservaPGCompleta, error) {
@@ -80,10 +138,10 @@ func (r *reservasResumenRepo) AnularReservaConHook(id int, hook func(*sqlx.Tx) e
 
 func TestGetResumenReservasDomingoOmiteDiaYConservaSemanaHastaSabado(t *testing.T) {
 	repo := &reservasResumenRepo{pagosResumen: repository.ResumenPagosReservas{
-		IngresosDia:      3500,
-		IngresosSemana:   12000,
-		CancelacionesDia: 6,
-		IngresosSabado:   2000,
+		IngresosDia:    3500,
+		IngresosSemana: 12000,
+		CobrosDia:      6,
+		IngresosSabado: 2000,
 	}}
 	service := NewReservasPGService(repo, nil)
 	fechaDomingo := time.Date(2026, time.May, 24, 0, 0, 0, 0, time.UTC)
@@ -104,7 +162,7 @@ func TestGetResumenReservasDomingoOmiteDiaYConservaSemanaHastaSabado(t *testing.
 	assertDateValue(t, repo.paymentCalls[0].Fecha, "2026-05-23", "fecha de pagos")
 	assertDateValue(t, repo.paymentCalls[0].FechaDesde, "2026-05-18", "inicio pagos")
 	assertDateValue(t, repo.paymentCalls[0].FechaHasta, "2026-05-23", "fin pagos")
-	if resumen.ReservasAgendadasDia != 0 || resumen.ServiciosCompletadosDia != 0 || resumen.IngresosDia != 0 || resumen.CancelacionesDia != 0 {
+	if resumen.ReservasAgendadasDia != 0 || resumen.ServiciosCompletadosDia != 0 || resumen.IngresosDia != 0 || resumen.CobrosDia != 0 {
 		t.Fatalf("resumen diario en domingo = %+v, want all values in zero", resumen)
 	}
 	if resumen.IngresosSemana != 12000 || resumen.Ingresos.Sabado != 2000 {
@@ -193,7 +251,7 @@ func TestGetResumenReservasIncluyeResumenPagos(t *testing.T) {
 			IngresosMiercoles: 1300,
 			IngresosJueves:    1500,
 			IngresosViernes:   3450.75,
-			CancelacionesDia:  6,
+			CobrosDia:         6,
 		},
 	}
 	service := NewReservasPGService(repo, nil)
@@ -210,8 +268,8 @@ func TestGetResumenReservasIncluyeResumenPagos(t *testing.T) {
 	if resumen.IngresosSemana != 8450.75 {
 		t.Fatalf("IngresosSemana = %v, want 8450.75", resumen.IngresosSemana)
 	}
-	if resumen.CancelacionesDia != 6 {
-		t.Fatalf("CancelacionesDia = %d, want 6", resumen.CancelacionesDia)
+	if resumen.CobrosDia != 6 {
+		t.Fatalf("CobrosDia = %d, want 6", resumen.CobrosDia)
 	}
 	if resumen.Ingresos.TotalIngresos != 8450.75 {
 		t.Fatalf("Ingresos.TotalIngresos = %v, want 8450.75", resumen.Ingresos.TotalIngresos)
